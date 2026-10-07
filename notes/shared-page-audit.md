@@ -516,8 +516,8 @@ makes it a fact about the mapping instead of about the code.
 `_start` "so nothing that happens to that page afterwards can widen the namespace." That is this
 audit's lens, stated in the tree, and it is the model the file page should follow.
 
-**The socket contract's decode.** Opcode and socket id from the request word, the id refused above
-`MAX_SOCKETS` before it indexes anything; every payload length refused above `DATA_MAX`; receives
+**The socket contract's decode.** A socket is found by its badge (§255 (each socket is its own
+capability)); every payload length refused above `DATA_MAX`; receives
 staged through a `[0u8; DATA_MAX]` stack buffer and then copied into the page. No slice is ever
 formed over the shared mapping, in the server, in `std::net`'s PAL, or in `network_time_client`, so a concurrent
 writer can change the bytes that go out and can corrupt nothing. The PAL's half is generated from

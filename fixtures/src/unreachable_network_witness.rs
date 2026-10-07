@@ -72,8 +72,8 @@
 #![allow(missing_docs)]
 #![no_main]
 
-use socket_protocol::{OPERATION_OPEN_TCP, req};
-use user_mode_runtime::{call, exit, is_granted, send, survey};
+use socket_protocol::{OPERATION_CLOSE, OPERATION_OPEN_TCP};
+use user_mode_runtime::{call, call_receiving, exit, is_granted, send, survey};
 
 /// The output slot: the sink contract.
 const OUT: u64 = 0;
@@ -102,7 +102,15 @@ pub extern "C" fn _start(_a0: u64, _a1: u64, _a2: u64) -> ! {
     // is non-negative. So the sign alone says whether something answered, and anything answering
     // is the failure this program exists to catch.
     let no_slot = abi::Error::NoSuchSlot as i64;
-    let (r0, _) = call(grant_plan::NETWORK_SLOT, req(OPERATION_OPEN_TCP, 0), 0);
+    // The census is taken first and printed last: it reports the slots this program was endowed
+    // with, and a stack that answers the network probe files the socket it opened in our table
+    // (§255 (each socket is its own capability)), which is the probe's doing and not the spawner's.
+    let mut line = [0u8; 96];
+    let n = census(&mut line);
+    let (r0, _, socket) = call_receiving(grant_plan::NETWORK_SLOT, OPERATION_OPEN_TCP, 0);
+    if let Some(socket) = socket {
+        let _ = call(socket, OPERATION_CLOSE, 0);
+    }
     say(match r0 as i64 {
         r if r == no_slot => b"network: refused (no capability at slot 10)\n",
         r if r < 0 => {
@@ -141,8 +149,14 @@ pub extern "C" fn _start(_a0: u64, _a1: u64, _a2: u64) -> ! {
         _ => b"reboot: REACHED. a program that declared no reboot was handed the reboot object\n",
     });
 
-    // The census, every slot below the reserved fault slot (which `START` read and cleared).
-    let mut line = [0u8; 96];
+    say(&line[..n]);
+    send(OUT, byte_sink_protocol::eof(), 0, 0);
+    exit();
+}
+
+/// The census, every slot below the reserved fault slot (which `START` read and cleared), as the
+/// `slots held:` line with its newline; returns its length.
+fn census(line: &mut [u8; 96]) -> usize {
     let head = b"slots held:";
     line[..head.len()].copy_from_slice(head);
     let mut n = head.len();
@@ -159,9 +173,7 @@ pub extern "C" fn _start(_a0: u64, _a1: u64, _a2: u64) -> ! {
         }
     }
     line[n] = b'\n';
-    say(&line[..n + 1]);
-    send(OUT, byte_sink_protocol::eof(), 0, 0);
-    exit();
+    n + 1
 }
 
 /// Write `line` to the output, a packed chunk at a time.

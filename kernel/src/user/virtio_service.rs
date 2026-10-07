@@ -269,7 +269,7 @@ fn wire_net_server(
     }
 
     let tid = crate::sched::spawn(move || {
-        run(
+        run_with_own_space(
             image,
             Spawn {
                 arg0: 0, // net_stack is its own binary; no role selector
@@ -283,9 +283,13 @@ fn wire_net_server(
                     rendezvous_cap(stack, Rights::READ),   // slot 4: serve clients' requests
                     notification_cap(wake, Rights::ALL),   // slot 5: bound; arm it, poll it
                     timer_cap(retransmit, Rights::WRITE),  // slot 6: smoltcp's next deadline
+                    // slot 7: what each socket is minted from (§255 (each socket is its own
+                    // capability)); slot 8, its own address space, `run_with_own_space` adds.
+                    rendezvous_cap(stack, Rights::WRITE.union(Rights::GRANT)),
                 ],
                 maps: &maps,
             },
+            socket_protocol::stack_slots::OWN_SPACE,
         )
     })
     .expect("could not spawn the net server");

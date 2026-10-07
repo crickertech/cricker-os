@@ -126,8 +126,14 @@ Open security findings that bear on it, each a proposal and none yet built:
   Bus Master Enable is already set on functions the kernel never owns, so DMA can outlive the
   confinement. Severity not recorded; an architect's call.
 - [Every client of a network stack shares its socket numbers](../roadmap/649-every-client-of-a-network-stack-shares-its-socket-numbers.md):
-  one holder of the network capability can read and close another's sockets. Severity not
-  recorded; the fix changes a wire format.
+  one holder of the network capability can read and close another's sockets. Milestone 800 (a
+  non-Anthropic model attacks the confinement claim)'s fourth pass booted it on a shipped path on
+  all three ISAs, and calef ruled on 2026-10-07 (UTC) that it restarts criterion (c)'s count. The
+  fix, 2026-10-07: each socket is its own capability (§255 (each socket is its own capability)),
+  a contract change with a new `REPLY_CAPABILITY` method on the Reply object. Two default-suite
+  tests in `system_tests/src/user/net_confinement_tests.rs`, each with a replayable falsification,
+  check it on every ISA. This changes no verdict: criterion (c) needs a fresh clean
+  non-Anthropic pass.
 - [The sibling RECEIVE_CAP paths get a receiver-first test](../roadmap/714-the-sibling-receive-cap-paths-get-a-receiver-first-test.md):
   two paths now correct by reading, unmeasured. Severity not recorded. Dated 2026-10-03, afterwards:
   a receiver-first test for each is in PR #1576, with a replayable falsification that turns it red

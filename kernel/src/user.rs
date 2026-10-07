@@ -1646,15 +1646,23 @@ pub struct DeviceRun {
 
 /// Load the initrd program and become it, handed the world described by `spawn`. Never returns.
 pub fn run(image: &[u8], spawn: Spawn) -> ! {
-    run_with(image, spawn, None)
+    run_with(image, spawn, None, None)
 }
 
 /// [`run`], with one [`DeviceRun`] mapped as well. Never returns. **Name provisional.**
 pub fn run_with_device_run(image: &[u8], spawn: Spawn, device: DeviceRun) -> ! {
-    run_with(image, spawn, Some(device))
+    run_with(image, spawn, Some(device), None)
 }
 
-fn run_with(image: &[u8], spawn: Spawn, device: Option<DeviceRun>) -> ! {
+/// [`run`], and the process also holds its own address space, `WRITE`, at `slot` (§255 (each
+/// socket is its own capability)): the network stack's spawn, so it can `UNMAP` a closed socket's
+/// page. `supervision_protocol::CHILDS_OWN_SPACE` is the progenitor's twin. Never
+/// returns. Name provisional.
+pub fn run_with_own_space(image: &[u8], spawn: Spawn, slot: u64) -> ! {
+    run_with(image, spawn, None, Some(slot))
+}
+
+fn run_with(image: &[u8], spawn: Spawn, device: Option<DeviceRun>, own_space: Option<u64>) -> ! {
     // What this process is about to have mapped into it beyond its own image: the `Spawn` windows
     // and a device run. See [`load`] for why the number is taken here rather than asked of
     // each caller.
@@ -1698,13 +1706,20 @@ fn run_with(image: &[u8], spawn: Spawn, device: Option<DeviceRun>) -> ! {
         }
     }
 
-    crate::sched::adopt_address_space(space);
+    let name = crate::sched::adopt_address_space(space);
 
     // HAND IT ITS WORLD. Granted in order, so slot 0 is `grants[0]`, and reading the caller's
     // `Spawn` literal tells you the entire authority of the process. There is no path it can
     // say, no uid it can be. A capability system's "environment" is not a variable, it is this.
-    for &cap in spawn.grants {
-        crate::sched::grant(cap).expect("no free capability slot");
+    for &granted in spawn.grants {
+        crate::sched::grant(granted).expect("no free capability slot");
+    }
+    if let Some(slot) = own_space {
+        crate::sched::grant_at(
+            slot,
+            crate::cap::address_space_cap(name, crate::cap::Rights::WRITE),
+        )
+        .expect("the own-space slot was already occupied");
     }
 
     enter_at(entry, spawn.arg0, spawn.arg1, spawn.arg2)
@@ -1964,8 +1979,8 @@ fn x86_build_child(
     .map_err(|_| "could not map the child's stack")?;
 
     let tid = crate::sched::create_thread_control_block(region).ok_or("no tcb")?;
-    if let Some(cap) = slot0 {
-        let slot = crate::sched::thread_control_block_insert_cap(tid, cap, None)
+    if let Some(first) = slot0 {
+        let slot = crate::sched::thread_control_block_insert_cap(tid, first, None)
             .map_err(|_| "no room for the child's slot 0")?;
         if slot != 0 {
             return Err("the child's capability did not land in slot 0, which its code assumes");
@@ -2741,8 +2756,8 @@ pub fn boot_progenitor(archive: &'static [u8]) -> Result<crate::thread::ThreadId
         .expect("insert the screen terminal's output page");
         assert_eq!(s11, 11);
     }
-    let insert = |cap, slot: u64, what: &str| {
-        let s = crate::sched::thread_control_block_insert_cap(tid, cap, Some(slot))
+    let insert = |granted, slot: u64, what: &str| {
+        let s = crate::sched::thread_control_block_insert_cap(tid, granted, Some(slot))
             .unwrap_or_else(|_| panic!("insert {what}"));
         assert_eq!(s, slot, "{what} landed in the wrong slot");
     };

@@ -35,7 +35,7 @@
 
 use abi::rights;
 use name_resolution_protocol::fixture::{
-    CASES, CLIENT_SID, ECHO_FAILED, ECHO_NO_ADDRESS, ECHO_OK, ECHO_SKIPPED, WITH_NETWORK,
+    CASES, ECHO_FAILED, ECHO_NO_ADDRESS, ECHO_OK, ECHO_SKIPPED, WITH_NETWORK,
 };
 use name_resolution_protocol::{
     OFF_ADDRESSES, OFF_NAME, OPERATION_ATTACH_PAGE_FRAME, OPERATION_RESOLVE, Outcome, endowment,
@@ -43,14 +43,14 @@ use name_resolution_protocol::{
 };
 use socket_protocol as socket;
 use user_mode_runtime::mapped_window::{MappedWindow, PAGE};
-use user_mode_runtime::{call, exit, map_page_frame, retype_page_frame, send, send_cap};
+use user_mode_runtime::{
+    call, call_receiving, cap_delete, exit, map_page_frame, retype_page_frame, send, send_cap,
+};
 
 const REPORT: u64 = 0;
 const RESOLVER: u64 = 1;
 const MEMORY_REGION: u64 = 2;
 const STACK: u64 = 3;
-
-const SID: u64 = CLIENT_SID;
 
 const RESOLVER_VA: u64 = address_space_map::pair_page(0x0000_0000_00A0_0000);
 const SOCKET_VA: u64 = address_space_map::pair_page(0x0000_0000_00A1_0000);
@@ -110,44 +110,45 @@ fn attach(slot: u64, va: u64, w0: u64) -> bool {
 
 /// Connect to `address` on the runners' echo peer port, send, and see the bytes come back.
 fn echo_at(address: [u8; 4]) -> u64 {
-    const MSG: &[u8] = b"nife-by-name";
-    if !attach(
-        STACK,
-        SOCKET_VA,
-        socket::req(socket::OPERATION_ATTACH_PAGE_FRAME, SID),
-    ) {
+    // A socket of our own (§255 (each socket is its own capability)): the resolver shares this
+    // stack, and before milestone 649 (every client of a network stack shares its socket numbers)
+    // the two had to agree by convention on which socket number each used.
+    let (socket::REP_OK, _, Some(socket)) = call_receiving(STACK, socket::OPERATION_OPEN_TCP, 0)
+    else {
         return ECHO_FAILED;
-    }
-    if call(STACK, socket::req(socket::OPERATION_OPEN_TCP, SID), 0).0 != socket::REP_OK {
+    };
+    let verdict = echo_on(socket, address);
+    let _ = call(socket, socket::OPERATION_CLOSE, 0);
+    cap_delete(socket);
+    verdict
+}
+
+fn echo_on(socket: u64, address: [u8; 4]) -> u64 {
+    const MSG: &[u8] = b"nife-by-name";
+    if !attach(socket, SOCKET_VA, socket::OPERATION_ATTACH_PAGE_FRAME) {
         return ECHO_FAILED;
     }
     for (i, &b) in address.iter().enumerate() {
         SOCKET_PAGE.w8(socket::OFF_DST_IP + i as u64, b);
     }
     SOCKET_PAGE.w16(socket::OFF_DST_PORT, socket::fixture::ECHO_PEER_PORT);
-    let mut verdict = ECHO_FAILED;
-    if call(STACK, socket::req(socket::OPERATION_CONNECT, SID), 0).0 == socket::CONNECT_ESTABLISHED
-    {
-        for (i, &b) in MSG.iter().enumerate() {
-            SOCKET_PAGE.w8(socket::OFF_PAYLOAD + i as u64, b);
-        }
-        if call(
-            STACK,
-            socket::req(socket::OPERATION_SEND, SID),
-            MSG.len() as u64,
-        )
-        .0 == MSG.len() as u64
-            && call(STACK, socket::req(socket::OPERATION_RECEIVE, SID), 0).0 == MSG.len() as u64
-            && MSG
-                .iter()
-                .enumerate()
-                .all(|(i, &b)| SOCKET_PAGE.r8(socket::OFF_PAYLOAD + i as u64) == b)
-        {
-            verdict = ECHO_OK;
-        }
+    if call(socket, socket::OPERATION_CONNECT, 0).0 != socket::CONNECT_ESTABLISHED {
+        return ECHO_FAILED;
     }
-    let _ = call(STACK, socket::req(socket::OPERATION_CLOSE, SID), 0);
-    verdict
+    for (i, &b) in MSG.iter().enumerate() {
+        SOCKET_PAGE.w8(socket::OFF_PAYLOAD + i as u64, b);
+    }
+    if call(socket, socket::OPERATION_SEND, MSG.len() as u64).0 == MSG.len() as u64
+        && call(socket, socket::OPERATION_RECEIVE, 0).0 == MSG.len() as u64
+        && MSG
+            .iter()
+            .enumerate()
+            .all(|(i, &b)| SOCKET_PAGE.r8(socket::OFF_PAYLOAD + i as u64) == b)
+    {
+        ECHO_OK
+    } else {
+        ECHO_FAILED
+    }
 }
 
 user_mode_runtime::panic_handler!();

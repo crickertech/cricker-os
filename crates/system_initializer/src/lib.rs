@@ -4253,6 +4253,21 @@ fn build_net_stack(ut: u64, program: &elf::Elf, g: &BootEndowment) -> (u64, u64)
                 (budget, abi::rights::WRITE),
                 (stack, abi::rights::READ),
             ],
+            // §255 (each socket is its own capability): slot 7, our endpoint again with `WRITE |
+            // GRANT`, which each socket's capability is minted from; slot 8, its own address
+            // space, so `CLOSE` can take a socket's page back. `socket_protocol::stack_slots`.
+            placed: &[
+                (
+                    socket_protocol::stack_slots::MINT,
+                    stack,
+                    abi::rights::WRITE | abi::rights::GRANT,
+                ),
+                (
+                    socket_protocol::stack_slots::OWN_SPACE,
+                    supervision_protocol::CHILDS_OWN_SPACE,
+                    abi::rights::WRITE,
+                ),
+            ],
             maps: &[(NET_DMA_VA, g.virtio_net_dma, abi::address_space::MAP_RW)],
             stack_pages: NET_STACK_STACK_PAGES,
             ..ChildEndowment::new(Retention::Nothing)
@@ -5985,12 +6000,6 @@ fn edit(
 /// the window is empty again for the next fetch.
 const FETCH_SOCKET_VA: u64 = address_space_map::pair_page(0x0f50_0000);
 
-/// **The socket number the progenitor fetches on**: the last one, because every program at the
-/// prompt that dials out uses 0 (`network_echo_client`). The contract's socket numbers are shared by
-/// every client of one stack (milestone 590 (the booted system starts its network stack)'s BUGS),
-/// so this is a convention, not a partition; notes/packages.md's BUGS says what that leaves open.
-const FETCH_SID: u64 = socket_protocol::MAX_SOCKETS as u64 - 1;
-
 /// This machine's architecture as a package stem spells it.
 const ARCHITECTURE: &str = if cfg!(target_arch = "aarch64") {
     "aarch64"
@@ -6010,9 +6019,11 @@ const ARCHITECTURE: &str = if cfg!(target_arch = "aarch64") {
 /// 1. **The catalogue first.** A name the image vouches for no package by is refused before a
 ///    connection is opened, so a person cannot make this process fetch anything the image would
 ///    not install, and the answer to a typo costs no network.
-/// 2. **One page shared with the stack**, retyped from a region of its own and handed over with
-///    `OPERATION_ATTACH_PAGE_FRAME` on [`FETCH_SID`]. The region is destroyed when the request ends, which
-///    revokes the page out of the stack too: nothing about a fetch outlives it.
+/// 2. **A socket of its own, and one page shared with the stack.** The socket is a capability the
+///    stack hands back on `OPEN_TCP` (§255 (each socket is its own capability)), so no other client
+///    of the stack can reach it. The page is retyped from a region of its own and handed to that
+///    socket with `OPERATION_ATTACH_PAGE_FRAME`. The region is destroyed when the request ends,
+///    which revokes the page out of the stack too: nothing about a fetch outlives it.
 /// 3. **`GET /<stem>.nifepkg`** from the package source (`socket_protocol::fixture`), read through
 ///    `http_response`, which holds only the head and refuses what it cannot read exactly. The body
 ///    lands in pages split once the declared length is known and found to fit
@@ -6051,23 +6062,31 @@ fn fetch(
     // SAFETY: `invoke` is the syscall; the page is ours and fresh, the window is clear (see
     // FETCH_SOCKET_VA), and the page tables come from our own budget.
     let mapped = unsafe { invoke(page, abi::page_frame::MAP, FETCH_SOCKET_VA, 1, a.own_ut) } == 0;
+    let socket = match user_mode_runtime::call_receiving(stack, OPERATION_OPEN_TCP, 0) {
+        (REP_OK, _, Some(socket)) => Some(socket),
+        _ => None,
+    };
     let attached = mapped
-        && user_mode_runtime::send_cap(
-            stack,
-            page,
-            abi::rights::READ | abi::rights::WRITE,
-            req(OPERATION_ATTACH_PAGE_FRAME, FETCH_SID),
-        ) >= 0;
+        && socket.is_some_and(|socket| {
+            user_mode_runtime::send_cap(
+                socket,
+                page,
+                abi::rights::READ | abi::rights::WRITE,
+                OPERATION_ATTACH_PAGE_FRAME,
+            ) >= 0
+        });
     // The mapping and the stack's copy outlive this capability, and the slot is what is scarce.
     cap_delete(page);
+    let Some(socket) = socket else {
+        return Err(S::FetchFailed);
+    };
     if !attached {
+        let _ = call(socket, OPERATION_CLOSE, 0);
+        cap_delete(socket);
         return Err(S::FetchFailed);
     }
     let window = |off: u64| (FETCH_SOCKET_VA + off) as *mut u8;
 
-    if call(stack, req(OPERATION_OPEN_TCP, FETCH_SID), 0).0 != REP_OK {
-        return Err(S::FetchFailed);
-    }
     let got = (|| {
         // SAFETY: (and for every access through `window` below) the page is mapped read/write at
         // FETCH_SOCKET_VA for the whole of this request, and the stack writes it only while this
@@ -6080,7 +6099,7 @@ fn fetch(
                 2,
             );
         }
-        if call(stack, req(OPERATION_CONNECT, FETCH_SID), 0).0 != CONNECT_ESTABLISHED {
+        if call(socket, OPERATION_CONNECT, 0).0 != CONNECT_ESTABLISHED {
             return Err(S::FetchFailed);
         }
         let mut path = [0u8; 1 + package_archive::STEM_LEN + 8];
@@ -6095,13 +6114,14 @@ fn fetch(
             .ok_or(S::FetchFailed)?;
         // SAFETY: as above; `n` is at most 160, well inside the payload area.
         unsafe { core::ptr::copy_nonoverlapping(request.as_ptr(), window(OFF_PAYLOAD), n) };
-        if call(stack, req(OPERATION_SEND, FETCH_SID), n as u64).0 != n as u64 {
+        if call(socket, OPERATION_SEND, n as u64).0 != n as u64 {
             return Err(S::FetchFailed);
         }
-        receive_body(a, stack, staging)
+        receive_body(a, socket, staging)
     })();
     // Closed before the answer is judged, so a failed fetch still gives the socket back.
-    let _ = call(stack, req(OPERATION_CLOSE, FETCH_SID), 0);
+    let _ = call(socket, OPERATION_CLOSE, 0);
+    cap_delete(socket);
     got.map(|()| stem)
 }
 
@@ -6110,7 +6130,7 @@ fn fetch(
 /// it. `Ok` only for a complete `200` whose body is non-empty and fits an image.
 fn receive_body(
     a: &Activating,
-    stack: u64,
+    socket: u64,
     staging: &mut Option<(u64, u64)>,
 ) -> Result<(), spawnproto::ActivationStatus> {
     use socket_protocol::*;
@@ -6119,7 +6139,7 @@ fn receive_body(
     let mut response = http_response::Response::new();
     let mut filled = 0u64;
     while !response.is_complete() {
-        let (n, _) = call(stack, req(OPERATION_RECEIVE, FETCH_SID), 0);
+        let (n, _) = call(socket, OPERATION_RECEIVE, 0);
         if n == 0 || n > DATA_MAX as u64 {
             // The peer went away, or the stack failed, before the body was whole.
             return Err(S::FetchFailed);

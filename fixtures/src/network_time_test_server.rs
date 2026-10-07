@@ -31,8 +31,10 @@
 //! kernel supplies the claimed time** because this process holds no clock capability of its own,
 //! which keeps every test's expectation an exact number rather than a window.
 //!
-//! Three slots and no more: the report endpoint, `READ` on the socket endpoint, and an untyped
-//! budget to map the client's frame. It holds no entropy capability and no propose endpoint, so a
+//! Four slots and no more: the report endpoint, `READ` on the socket endpoint, an untyped budget
+//! to map the client's frame, and the socket endpoint again with `WRITE | GRANT`, which the socket
+//! it hands the client on `OPEN` is minted from, as `net_stack` mints one (§255 (each socket is
+//! its own capability)). It holds no entropy capability and no propose endpoint, so a
 //! reader can see from the endowment alone that it cannot reach the clock.
 //!
 //! It reports **once**, after the first request it sees, and that `send` blocks until the test
@@ -69,7 +71,9 @@ use network_time_protocol::{Packet, Short, Timestamp, leap, mode};
 #[allow(dead_code)]
 use socket_protocol::*;
 use user_mode_runtime::mapped_window::{MappedWindow, PAGE};
-use user_mode_runtime::{Delivered, cap_delete, map_page_frame, receive_request, reply, send};
+use user_mode_runtime::{
+    Delivered, badge, cap_delete, map_page_frame, receive_request, reply, reply_capability, send,
+};
 
 // =================================================================================================
 // The slots, and the one word this program reports.
@@ -85,6 +89,10 @@ const REPORT: u64 = 0;
 const STACK: u64 = 1;
 /// Slot 2: an untyped budget, to map the client's shared frame and pay for the page tables.
 const MEMORY_REGION: u64 = 2;
+/// Slot 3: the socket contract's endpoint again, `WRITE | GRANT`, which an opened socket's
+/// capability is minted from. This server answers every socket alike, so the badge is only there
+/// because the contract says a socket is a badged capability.
+const MINT: u64 = 3;
 
 /// This server saw its first request. `w1` is the request's transmit field (the nonce), `w2` is
 /// `(dst_port << 32) | (version << 8) | mode`.
@@ -135,22 +143,31 @@ fn server(variant: u64, claimed_nanos: u64) -> ! {
         let (w0, w1) = (req.w0, req.w1);
         // net_stack's own split (milestone 706 (a `CALL` server can tell a Reply from a
         // delegation)): ATTACH takes a delegation, every other operation a Reply.
-        let cap = match req.delivered {
+        let to = match req.delivered {
             // A SEND_CAP: the client's shared frame, which we map for ourselves and then drop the
             // capability for, because the mapping outlives it. No reply; nobody is waiting.
-            Delivered::Delegation(frame) if req_operation(w0) == OPERATION_ATTACH_PAGE_FRAME => {
+            Delivered::Delegation(frame) if w0 == OPERATION_ATTACH_PAGE_FRAME => {
                 map_page_frame(frame, PAGE_FRAME_VA, true, MEMORY_REGION);
                 cap_delete(frame);
                 continue;
             }
             other => other.into_reply(),
         };
-        let Some(cap) = cap else {
+        let Some(to) = to else {
             continue;
         };
-        match req_operation(w0) {
+        match w0 {
             OPERATION_OPEN_UDP | OPERATION_OPEN_TCP => {
-                reply(cap, REP_OK, 0);
+                // The opened socket's capability, as `net_stack` hands one over.
+                let socket = badge(MINT, SOCKET_BADGE | 1);
+                if socket < 0 {
+                    reply(to, REP_ERR, 0);
+                    continue;
+                }
+                if let Err((to, _)) = reply_capability(to, REP_OK, 0, socket as u64) {
+                    reply(to, REP_ERR, 0);
+                }
+                cap_delete(socket as u64);
             }
             OPERATION_SENDTO => {
                 // The length the client declared, which is how the real server learns it too.
@@ -161,7 +178,7 @@ fn server(variant: u64, claimed_nanos: u64) -> ! {
                 );
                 let request = Packet::parse(&wire[..n]).unwrap_or_default();
                 pending_len = build_reply(&request, variant, claimed_nanos, &mut pending);
-                reply(cap, REP_OK, 0);
+                reply(to, REP_OK, 0);
                 if !reported {
                     reported = true;
                     let dst_port = r16le(PAGE_FRAME_VA + OFF_DST_PORT) as u64;
@@ -176,13 +193,13 @@ fn server(variant: u64, claimed_nanos: u64) -> ! {
             OPERATION_RECEIVE => {
                 write_payload(&pending[..pending_len]);
                 w16le(PAGE_FRAME_VA + OFF_LEN, pending_len as u16);
-                reply(cap, pending_len as u64, 0);
+                reply(to, pending_len as u64, 0);
             }
             OPERATION_CLOSE => {
-                reply(cap, REP_OK, 0);
+                reply(to, REP_OK, 0);
             }
             _ => {
-                reply(cap, REP_ERR, 0);
+                reply(to, REP_ERR, 0);
             }
         }
     }

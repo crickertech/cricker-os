@@ -30,9 +30,6 @@ use crate::user::holding::Holding;
 const GRANTED: u32 = 0x384;
 const UNGRANTED: u32 = 0x385;
 
-/// The resolver's socket on the stack. The client uses `fixture::CLIENT_SID`.
-const RESOLVER_SID: u64 = 0;
-
 /// Budget pages: each program mints at most two pages and pays for their page tables, and the
 /// resolver maps up to `GRANTS_MAX` client pages besides.
 const BUDGET_PAGES: u64 = 16;
@@ -123,7 +120,9 @@ fn start_resolver(stack: RendezvousId, entropy: RendezvousId, held: &mut Holding
                     domain_name_system::PORT,
                     endowment::TRANSPORT_TCP,
                 ),
-                arg2: RESOLVER_SID,
+                // Unused since the resolver's sockets became capabilities (§255 (each socket is its
+                // own capability)).
+                arg2: 0,
                 grants: &[
                     rendezvous_cap(service, Rights::READ), // slot 0: grants and requests
                     rendezvous_cap(stack, Rights::WRITE),  // slot 1: the network

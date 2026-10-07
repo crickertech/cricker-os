@@ -20,8 +20,9 @@
 //! the net PAL in `sys/net` binds them, DECISIONS §25):
 //!
 //! - **slot 2**: the `Stack` endpoint with WRITE. `std::net` speaks the net_stack socket contract
-//!   (`netproto`) over it: `CALL`s carry a socket id and control words, `SEND_CAP` delegates a
-//!   per-socket shared frame. A program not given the network leaves this slot empty, and every
+//!   (`netproto`) over it: an open is a `CALL` here that the stack answers with the socket's own
+//!   capability (§255 (each socket is its own capability)), and every later `CALL`, and the
+//!   `SEND_CAP` that delegates the socket's shared frame, is made on that capability. A program not given the network leaves this slot empty, and every
 //!   `TcpStream`/`UdpSocket` operation returns `Unsupported` rather than blocking.
 //! - **slot 3**: an untyped budget the net PAL mints and maps each socket's shared frame from.
 //!
@@ -174,6 +175,22 @@ pub fn call(slot: u64, w0: u64, w1: u64) -> (u64, u64) {
     // SAFETY: CALL returns the two reply words in the first two registers.
     let w = unsafe { trap6(abi::SYS_INVOKE, [slot, abi::rendezvous::CALL, w0, w1, 0, 0]) };
     (w[0], w[1])
+}
+
+/// [`call`], also returning the capability the server's reply carried, if it carried one (§255
+/// (each socket is its own capability)): the net PAL's socket opens. A twin of
+/// `user_mode_runtime::call_receiving`. `NO_CAP` goes in as the unused third argument, so a refused
+/// `CALL`, which writes no `x2`, reads as no capability rather than as slot 0.
+pub fn call_receiving(slot: u64, w0: u64, w1: u64) -> (u64, u64, Option<u64>) {
+    let none = abi::rendezvous::NO_CAP;
+    // SAFETY: CALL returns the two reply words and the delivered slot in the first three registers.
+    let w = unsafe { trap6(abi::SYS_INVOKE, [slot, abi::rendezvous::CALL, w0, w1, none, 0]) };
+    (w[0], w[1], (w[2] != none).then_some(w[2]))
+}
+
+/// Drop the capability in `slot` (`SYS_CAP_DELETE`). A twin of `user_mode_runtime::cap_delete`.
+pub fn cap_delete(slot: u64) {
+    let _ = unsafe { trap6(abi::SYS_CAP_DELETE, [slot, 0, 0, 0, 0, 0]) };
 }
 
 /// Give up the CPU (`SYS_YIELD`); the timed sleep loop is built on this.

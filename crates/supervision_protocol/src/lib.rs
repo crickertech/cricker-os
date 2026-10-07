@@ -367,6 +367,9 @@ pub struct ChildEndowment<'a> {
     ///
     /// It cannot collide with [`fault`](ChildEndowment::fault): that one lands in the last slot of the
     /// capability table, and a manifest's diagnostics slot is one the program reads at startup, far below it.
+    ///
+    /// `our_slot` may be [`CHILDS_OWN_SPACE`], which places the child's own address space rather
+    /// than a capability of ours; see that constant.
     pub placed: &'a [(u64, u64, u64)],
     /// Pages of ours to map into the child, `(child_va, our_slot, mode)`.
     pub maps: &'a [(u64, u64, u64)],
@@ -385,6 +388,22 @@ pub struct ChildEndowment<'a> {
     /// `..ChildEndowment::new(Retention::Nothing)` states it rather than inheriting it.
     pub retention: Retention,
 }
+
+/// **`our_slot` in a [`ChildEndowment::placed`] entry that means "the child's own address space"**
+/// (§255 (each socket is its own capability); name provisional). For a server that maps pages its
+/// clients hand it and must `UNMAP` one before the next client's page takes its place: the network
+/// stack, which is the only caller today. The rights must be exactly `WRITE`, which lets the child
+/// `MAP_INTO` and `UNMAP` its own space (`PageFrame::MAP` already let it half do that); anything else
+/// refuses the spawn, so no child is ever handed `GRANT` on its own memory. It is inserted before
+/// `CONFIGURE`, while the builder still holds the space, and goes on naming the space while the
+/// child runs (§249 (a running address space stays nameable)).
+///
+/// **A sentinel rather than a field, and that is an exception.** A typed `Option<u64>` field was the
+/// first version, and it cost the progenitor 352 bytes of stack: debug `boot` keeps about twenty-two
+/// `ChildEndowment`s in its frame, each 16 bytes larger, and that pushed the install path below
+/// `kernel/src/progenitor_stack.rs`'s floor. No capability slot is `u64::MAX`, so the value cannot
+/// name one of ours by accident.
+pub const CHILDS_OWN_SPACE: u64 = u64::MAX;
 
 impl<'a> ChildEndowment<'a> {
     /// An endowment of nothing: no capabilities, no mappings, no supervision, and the default
@@ -680,7 +699,7 @@ fn lay_out_child(
     }
 
     let tcb = retype_obj_from(build_ut, abi::objtype::THREAD_CONTROL_BLOCK)?;
-    if endow_child(tcb, endow).is_err() {
+    if endow_child(tcb, endow, aspace).is_err() {
         cap_delete(tcb);
         return Err(());
     }
@@ -688,8 +707,9 @@ fn lay_out_child(
 }
 
 /// Insert the endowment's capabilities into the embryo `tcb`: [`ChildEndowment::caps`] first-free,
-/// then the placed ones, then the fault endpoint in its reserved slot.
-fn endow_child(tcb: u64, endow: &ChildEndowment) -> Result<(), ()> {
+/// then the placed ones (one of which may be the child's own address space, [`CHILDS_OWN_SPACE`]),
+/// then the fault endpoint in its reserved slot.
+fn endow_child(tcb: u64, endow: &ChildEndowment, aspace: u64) -> Result<(), ()> {
     for &(our_slot, rights) in endow.caps {
         // SAFETY: as above: the kernel validates the capability and the method.
         if unsafe {
@@ -706,6 +726,14 @@ fn endow_child(tcb: u64, endow: &ChildEndowment) -> Result<(), ()> {
         }
     }
     for &(child_slot, our_slot, rights) in endow.placed {
+        let source = if our_slot == CHILDS_OWN_SPACE {
+            if rights != abi::rights::WRITE {
+                return Err(());
+            }
+            aspace
+        } else {
+            our_slot
+        };
         // `target = n` lands the capability in slot `n - 1`; 0 would mean "first free", which is the
         // behaviour this call exists to avoid.
         // SAFETY: as above: the kernel validates the capability and the method.
@@ -713,7 +741,7 @@ fn endow_child(tcb: u64, endow: &ChildEndowment) -> Result<(), ()> {
             invoke(
                 tcb,
                 abi::thread_control_block::CAP_INSERT,
-                our_slot,
+                source,
                 rights,
                 child_slot + 1,
             )
