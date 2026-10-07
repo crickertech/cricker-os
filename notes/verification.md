@@ -716,41 +716,38 @@ was considered and declined on these numbers. Not in `script/bootstrap`, because
 does not need it; same self-install pattern as `script/coverage`. A new proof crate goes in that
 script's list, and a new harness in an existing crate is picked up with no change.
 
-### Sharding, and the floor that no number of runners moves (milestone 119, 2026-08-14)
+### Sharding, and where the floor moved (milestone 119 (the long pole is one prover), re-measured 2026-10-07)
 
-The paragraph above says the wall clock cannot drop below the longest single harness. That was
-reasoning; here is the measurement, read from the `==> kani:` timestamps of a real CI run at
-`VERIFY_JOBS=2` rather than from a local run.
+On 2026-08-14 `glob` was half of a 30.3-minute job, so two shards reached 15.1 minutes and a third
+bought nothing. By 2026-10-06 the shards took about 20 and 27 minutes, on x86_64 runners since
+milestone 587 (most CI jobs do not need an arm64 host). Medians of 40 green runs, 37424472664 to
+37562060742:
 
-| crate | wall clock | share of the job |
+| crate | then (the table) | now (40-run median) |
 |---|---|---|
-| `glob` | 15.0 min | **49.7%** |
-| `calendar` | 10.0 min | 33.0% |
-| `dma_validator` | 2.9 min | 9.6% |
-| `gpt` | 1.1 min | 3.5% |
-| the other 15 crates | 1.4 min together | 4.2% |
+| `glob` | 15.0 min | 11.8 min |
+| `machine_discovery` | 3.0 min | 11.5 min |
+| `calendar` | 10.0 min | 5.2 min |
+| `subtree_scope` | 2.0 min | 4.4 min |
+| `usb` | 0.5 min | 2.8 min |
+| the other 30 | 9.2 min | 11.4 min |
+| serial | 39.7 min | 47.1 min |
 
-Two crates are 83% of the suite, which is the fact that decides everything else. `script/verify
---shard k/n` packs the crates by measured seconds (greedy longest-processing-time, from the cost
-table in the script), and CI runs two shards concurrently:
+`glob` got faster; the growth is `machine_discovery`, `subtree_scope` and `usb`. Packed:
 
-| arrangement | wall clock |
-|---|---|
-| serial, as it ran until now | 30.3 min |
-| **two shards** | **15.1 min** |
-| three or four shards | 15.0 min |
-| per-harness sharding, unbounded runners | 10.8 min |
+| prove shards | proving | job |
+|---|---|---|
+| two, old table (what ran) | 26.6 min | about 27 |
+| two, refreshed | 23.6 min | about 24 |
+| **three (ruled, #1802)** | **15.7 min** | **about 16.5** |
+| four | 11.8 min (`glob` alone) | about 12.5 |
 
-Three and four shards buy nothing, because `glob` is atomic at crate granularity: the extra
-runners idle while `glob` decides the answer alone. That is why CI runs two and not the four the
-milestone first proposed.
-
-The 10.8-minute row is the real floor and it is one harness:
-`glob::the_dot_rule_only_touches_names_that_start_with_a_dot` takes 646 seconds by itself, with
-`no_magic_means_the_pattern_is_its_own_only_match` at 530 and
-`calendar::the_calendar_algorithms_are_mutual_inverses` at 462. Going below 10.8 minutes is not a CI
-question at all: it is an unwind bound in `glob`, and it should be approached as "is this harness
-proving more than it needs to" rather than as "can we buy more machines".
+Rebalancing alone does not reach 20 minutes; a third prove shard does, for about one more
+runner-minute per run, and calef ruled for it on 2026-10-07. The re-falsify shards, planned at 20
+minutes of replay, ran a median 22.5 job-minutes at their slowest; he ruled their target down to
+17 the same day.
+`helpers/verify_times.py` keeps the table current and
+[notes/project-metrics.md](project-metrics.md) charts it.
 
 The dangerous failure mode is a crate that lands in no shard, because an unproved crate is
 invisible: the suite goes green *faster* and nothing says a harness stopped running. The packer

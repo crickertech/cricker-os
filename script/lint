@@ -3310,6 +3310,10 @@ python3 helpers/packages.py --selftest
 # aggregation, the share, the report's threshold and the CSV upsert, against fixtures with no
 # network. The fetch itself runs only in the metrics and trunk-health workflows.
 python3 helpers/merge_queue_share.py --selftest >/dev/null
+# The verify shard timings (lane/verify-shard-refresh, 2026-10-07 UTC): script/verify's packer and
+# its partition assertion, the per-run drift warning's threshold, the log reader, the weekly
+# refresh's drift rule and table rewrite, against fixtures and the live table, with no network.
+python3 helpers/verify_times.py --selftest >/dev/null
 python3 helpers/packages.py --check
 
 # The region claim protocol has ONE decision path (milestone 136).

@@ -1,0 +1,116 @@
+name: verify shard refresh
+
+# Observed failing: 2026-10-07, by script: `helpers/verify_times.py refresh --dry-run` was run
+#   against script/verify as it stood at c70832af7 (the 2026-08-14 seconds plus dev-Mac guesses),
+#   reading the 20 newest green verify runs live, and reported "shard 2/2 is planned at 19.8 min
+#   and its crates' medians sum to 26.9" and "repacking by the medians shortens the slowest shard
+#   from 26.9 to 23.2 min", which is the drift this workflow opens a pull request for. The same
+#   command against the refreshed table said "no change". A real scheduled run cannot be staged
+#   before this file is on main, because the App's secrets are scoped to main.
+
+# **Keep script/verify's shard seconds equal to what CI measures** (lane/verify-shard-refresh,
+# approved by calef 2026-10-07 UTC). The `prove` shards are balanced by a seconds-per-crate table in
+# script/verify. It was read once on 2026-08-14 and drifted until one shard took 27 minutes against
+# a plan of 19.8, and a stale row costs balance rather than correctness, so nothing went red. This
+# is the rung above a comment saying "re-measure sometimes": every Monday it reads the last 20 green
+# runs' per-crate seconds out of their logs, and rewrites the table when a planned shard is more
+# than 15% off its median or when repacking would save a minute. helpers/verify_times.py holds the
+# rule and its reasons; each shard also warns on its own run when it lands more than 30% off.
+# Since 2026-10-07 it also rewrites the re-falsify replay times the same way (calef, on #1802).
+#
+# The same propose, verify, accept split `metrics.yml` uses: this opens a pull request and never
+# pushes to `main`, and the pull request runs the full verify like any change to script/verify,
+# which is the test that the new packing still partitions the table.
+
+on:
+  schedule:
+    # 05:00 UTC Mondays, an hour before the metrics run, so the two pull requests do not race for
+    # the same reviewer's attention.
+    - cron: "0 5 * * 1"
+  workflow_dispatch:
+
+concurrency:
+  group: verify-shard-refresh
+  cancel-in-progress: true
+
+permissions:
+  contents: write
+  pull-requests: write
+  # The run and job listings and the job logs the refresh reads.
+  actions: read
+
+jobs:
+  refresh:
+    name: refresh the prove shard seconds
+    # The App's secrets live in the `automation` environment, whose deployment branches are `main`
+    # only (see trunk-health.yml's comment for why).
+    environment: automation
+    runs-on: ubuntu-24.04
+    # Twenty runs is about 20 job listings and 40 log downloads; minutes, not tens of them.
+    timeout-minutes: 20
+    steps:
+      # A pull request opened with the workflow's own GITHUB_TOKEN does not trigger CI, so it
+      # could never merge; the App's token does (metrics.yml and toolchain-bump.yml argue this).
+      - uses: actions/create-github-app-token@v3
+        id: app-token
+        with:
+          app-id: ${{ secrets.AUTOMATION_APP_ID }}
+          private-key: ${{ secrets.AUTOMATION_APP_KEY }}
+
+      - uses: actions/checkout@v7
+        with:
+          token: ${{ steps.app-token.outputs.token }}
+
+      - name: Read the last 20 green runs and rewrite the table if it drifted
+        id: refresh
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -e
+          python3 helpers/verify_times.py refresh > "$RUNNER_TEMP/refresh.txt"
+          cat "$RUNNER_TEMP/refresh.txt"
+
+      - name: Open or update the pull request
+        env:
+          GH_TOKEN: ${{ steps.app-token.outputs.token }}
+        run: |
+          set -e
+          if git diff --quiet -- script/verify notes/project-metrics/falsification-times.tsv; then
+            echo "The prove table and the replay times match CI; no pull request."
+            exit 0
+          fi
+          branch="metrics/verify-shards"
+          git config user.name  "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git checkout -b "$branch"
+          git add script/verify notes/project-metrics/falsification-times.tsv
+          git commit -m "verify: refresh the prove and re-falsify shard seconds from CI
+
+          Rewritten by the scheduled verify-shard-refresh workflow from the median per-crate
+          and per-record seconds of the last 20 green verify runs. A shard planned more than 15% off its median,
+          or a repacking that saves a minute, is what triggers it; the table never changes which
+          harnesses run, only which runner runs them.
+
+          $(cat "$RUNNER_TEMP/refresh.txt")"
+          git push --force origin "$branch"
+          body="**Lane:** $branch, opened by a scheduled workflow; calef's account is the author GitHub shows.
+
+          Rewrites the seconds of the crate table in \`script/verify\` and of the re-falsify
+          records in \`notes/project-metrics/falsification-times.tsv\`, with their
+          \`# Seconds refreshed:\` lines, from the medians of the last 20 green verify runs'
+          logs (\`helpers/verify_times.py refresh\`). Why it fired:
+
+          $(cat "$RUNNER_TEMP/refresh.txt")
+
+          The proofs this pull request runs are the test: the packer asserts that the new shards
+          partition the table, so a wrong number can slow a shard and cannot drop a crate."
+          existing="$(gh pr list --head "$branch" --state open --json number --jq '.[].number')"
+          if [ -z "$existing" ]; then
+            gh pr create --head "$branch" --base main --title "verify: refresh the shard seconds from CI" --body "$body"
+          else
+            gh pr edit "$existing" --body "$body"
+            echo "Updated PR #$existing in place."
+          fi
+          # Armed here, as metrics.yml arms its own (milestone 727 (a queue eviction goes to a
+          # maintainer session)): the merge drain arms nothing.
+          gh pr merge "$branch" --auto --merge || echo "::warning::could not arm the verify shard refresh pull request"

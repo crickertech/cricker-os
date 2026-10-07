@@ -300,58 +300,59 @@ set -- -j "${VERIFY_JOBS:-4}" --output-format=terse "$@"
 # The crates carrying proof harnesses, with what each one COSTS. Grow this list as verification
 # spreads inward from the capability core toward IPC and the MMU invariants.
 #
-# The seconds are a measurement, not an estimate: taken 2026-08-14 from a real CI run of this job
-# (VERIFY_JOBS=2 on ubuntu-24.04-arm), and they exist so `--shard` can balance by time rather than by
-# crate count. Milestone 119 asked for that explicitly, because the distribution is extreme: **two
-# crates are 83% of the job**, and a four-way split by crate count would put three shards on coffee
-# breaks while one did everything.
+# The seconds are a measurement, not an estimate: the median wall clock of each crate across CI
+# runs of this job (VERIFY_JOBS=2 on ubuntu-24.04, compile included), and they exist so `--shard`
+# can balance by time rather than by crate count. Milestone 119 (the merge queue is the
+# bottleneck, and the long pole is one prover) asked for that explicitly, because the distribution
+# is extreme: **two crates are half the job**, and a split by crate count would put one shard on a
+# coffee break while the other did everything.
 #
-#     glob           15.0 min   49.7%
-#     calendar       10.0 min   33.0%
-#     dma_validator   2.9 min    9.6%
-#     gpt             1.1 min    3.5%
-#     the other 15    1.4 min    4.2%
+# Seconds refreshed: 2026-10-07 (UTC), the median of 40 CI runs, 37424472664 to 37562060742, by helpers/verify_times.py refresh
 #
-# The rows keep the names the run measured: `gpt` is `globally_unique_identifier_partition_table`
-# since 2026-09-18 (DECISIONS §154), and the shard table below uses the current name.
+#                         the table until now     2026-10-07 (x86_64, 40-run median)
+#     glob                       15.0 min                11.8 min
+#     machine_discovery           3.0 min                11.5 min
+#     calendar                   10.0 min                 5.2 min
+#     subtree_scope               2.0 min                 4.4 min
+#     usb                         0.5 min                 2.8 min
+#     the other 30                9.2 min                11.4 min
+#     serial total               39.7 min                47.1 min
 #
 # **They drift, and a stale number costs balance rather than correctness**: a shard that is slower
 # than its sibling still proves exactly the same harnesses, so this table can never make the proofs
-# wrong. Re-measure by reading the `==> kani:` timestamps out of a CI log, which is what produced
-# these, rather than by running the suite locally for half an hour.
+# wrong. The first set, read once on 2026-08-14 and topped up with dev-Mac guesses for five later
+# crates, planned 19.8 minutes for a shard that took 27 by 2026-10-06 (`machine_discovery` grew
+# fourfold, and milestone 587 moved the shards from arm64 to x86_64), and nothing said so. So the
+# line above is written by a machine and three things keep it honest without anyone remembering:
+# each crate prints `==> kani-seconds:` below, each CI shard compares itself against its plan and
+# warns past 30% (`helpers/verify_times.py shard-check`), and
+# `.github/workflows/verify-shard-refresh.yml` rewrites these seconds weekly from the last 20 runs
+# when a shard is off its plan by more than 15%. Do not hand-edit a number; run
+# `python3 helpers/verify_times.py refresh`. A new crate's row is the one exception: give it a
+# dev-machine guess, and the first refresh after it lands replaces it.
 #
 # **A MISSING ROW is the one way this table can make the proofs wrong**, and it happened. `multicast_dns_protocol`
 # landed with milestone 55 carrying three harnesses and was not added here, so nothing proved them and
 # nothing said so: the suite went green faster, which is exactly the invisible failure the sharding
 # comment below warns about, arriving through the crate list instead of through the packer. Found on
 # 2026-08-16 by milestone 125, whose `harness-crates` count is derived from the tree and so could not
-# agree with a list that was one crate short. Its 21 seconds are measured on the dev Mac rather than
-# from a CI log, which is the wrong machine for this column and is why the row is a slight
-# underestimate. The crate and its row were retired on 2026-09-15 (milestone 298, notes/mdns.md);
-# this paragraph is kept as the account of the failure.
+# agree with a list that was one crate short. The crate and its row were retired on 2026-09-15
+# (milestone 298 (retire the multicast DNS responder), notes/mdns.md); this paragraph is kept as the account of the failure.
 #
 # **It happened a second time, and the fix is a gate rather than another paragraph** (milestone 193,
 # 2026-08-30). `jh7110_entropy` had carried three harnesses since the board work and appeared nowhere in
 # this file; the three pass, and now they run. Nothing in the tree could have found either it or
-# `multicast_dns_protocol`, because the packer's partition assertion below checks that the shards cover this
+# `multicast_dns_protocol`, because the packer's partition assertion checks that the shards cover this
 # TABLE and never that this table covers the TREE. `script/lint`'s "every crate with proof harnesses
 # is in the verify table" check is that missing comparison, and it costs a second instead of 42
-# minutes. Its 6 seconds are a dev-Mac number and the wrong machine for this column; replace it from
-# the first CI log that carries it.
+# minutes.
 #
-# `e1000e`'s 2 seconds (milestone 494 (a driver for the network card a PC actually has), 2026-10-04) are the same kind of dev-Mac number, for three
-# harnesses; replace it from a CI log the same way.
+# `universally_unique_identifier`'s 6 seconds (lane/uuid-crate, 2026-10-06) are a guess priced from
+# the two harnesses it took from `globally_unique_identifier_partition_table`; the first refresh
+# after it lands replaces it.
 #
-# `universally_unique_identifier`'s 6 seconds (lane/uuid-crate, 2026-10-06) are the two harnesses that
-# moved out of `globally_unique_identifier_partition_table`, priced at their old rows in
-# notes/globally-unique-identifier-partition-table.md; replace it from the first CI log.
-#
-# `designware_mobile_storage`'s 4 seconds (milestone 53 (the board's own peripherals: network and storage on real silicon),
-# 2026-10-06) are the same kind of dev-Mac number, for four harnesses.
-#
-# `kernel`'s 5 seconds are the same kind of number and carry one extra caveat: what the solver spends
-# is milliseconds, and the row is almost entirely the crate's own compile. It will grow with the
-# harnesses rather than with the kernel.
+# `kernel`'s seconds carry one extra caveat: what the solver spends is milliseconds, and the row is
+# almost entirely the crate's own compile. It will grow with the harnesses rather than with the kernel.
 #
 # **And `kernel` is the one row whose MEANING depends on the machine** (milestone 304). It is proved
 # twice, on two hosts, because `crate::arch` dispatches on the host's `target_arch` under Kani: an
@@ -367,98 +368,63 @@ set -- -j "${VERIFY_JOBS:-4}" --output-format=terse "$@"
 # changed. `script/lint`'s `sh -n` check (added the same day) catches a regression here; this comment
 # is why a future editor should not just delete that check to add one back.
 CRATES="$(cat <<'TABLE'
-capability	8	the capability model
-paging	9	the address arithmetic, and the page set for an IOMMU domain
+capability	11	the capability model
+paging	5	the address arithmetic, and the page set for an IOMMU domain
 memory_regions	1	the untyped-region accounting, no double-free
-elf	40	the loader's front half, and the note walk, panic-free on hostile input
-page_frames	4	the physical frame allocator
-device_tree_blob	3	the device-tree parser's leaf readers
-inter_process_communication	4	the rendezvous state machine
-generational_table	4	the generational thread table
-intrusive_fifo	9	the scheduler's queue structure
-address_space_identifier	4	the TLB tag allocator
+elf	70	the loader's front half, and the note walk, panic-free on hostile input
+page_frames	3	the physical frame allocator
+device_tree_blob	4	the device-tree parser's leaf readers
+inter_process_communication	11	the rendezvous state machine
+generational_table	10	the generational thread table
+intrusive_fifo	8	the scheduler's queue structure
+address_space_identifier	2	the TLB tag allocator
 nifefs	2	the initrd parser the kernel runs on boot input
-manifest_note	100	a manifest note has one encoding, and decoding hostile bytes never panics
-package_archive	4	a package file is refused or read entirely inside itself, on bytes the solver chose
-pci	6	config-space decode on hostile-device input
-non_volatile_memory_express	2	the queue rings never index out, and the doorbell/PRP arithmetic is total
+manifest_note	120	a manifest note has one encoding, and decoding hostile bytes never panics
+package_archive	6	a package file is refused or read entirely inside itself, on bytes the solver chose
+pci	27	config-space decode on hostile-device input
+non_volatile_memory_express	6	the queue rings never index out, and the doorbell/PRP arithmetic is total
 e1000e	2	no descriptor word a device writes makes the NIC driver read outside a buffer
-designware_ethernet	2	no receive descriptor word the JH7110 Ethernet controller writes makes the driver read outside a buffer
-usb	32	a USB configuration walk is total on hostile device bytes, and a boot report diff is bounded
-extensible_host_controller_interface	13	the xHCI driver is never mapped its MSI-X page, and the ring cycle arithmetic stays in bounds
-direct_memory_access_validator	175	the DMA-confinement validator, no descriptor escapes the grant
-network_time_protocol	17	the 1900-epoch era pivot, and no hostile packet moves the clock
-domain_name_system	34	the name decoder ends on every pointer loop, and a TCP reply never writes past its buffer
-globally_unique_identifier_partition_table	64	the partition table's CRC-32, its round trips, and partitions that overlap
+designware_ethernet	1	no receive descriptor word the JH7110 Ethernet controller writes makes the driver read outside a buffer
+usb	170	a USB configuration walk is total on hostile device bytes, and a boot report diff is bounded
+extensible_host_controller_interface	24	the xHCI driver is never mapped its MSI-X page, and the ring cycle arithmetic stays in bounds
+direct_memory_access_validator	148	the DMA-confinement validator, no descriptor escapes the grant
+network_time_protocol	22	the 1900-epoch era pivot, and no hostile packet moves the clock
+domain_name_system	47	the name decoder ends on every pointer loop, and a TCP reply never writes past its buffer
+globally_unique_identifier_partition_table	66	the partition table's CRC-32, its round trips, and partitions that overlap
 universally_unique_identifier	6	the UUID text form round trips, and the version-4 stamp touches only the six bits it reserves
-calendar	600	the civil-date arithmetic, and the parser on hostile text
-glob	902	matching is total, and a hostile pattern cannot be made to blow up
-filesystem_protocol	1	a directory capability's child never exceeds its parent, at any depth
-subtree_scope	120	a subtree grant reaches only its own root and what it minted, never goes up, never follows a link, never crosses a mount
-credential_protocol	4	no request word reads outside the page; nothing but MATCH authenticates
-component_plan	10	no wiring grants a right its declaration did not ask for
-timetable	5	the scheduler's fire arithmetic: strictly forward, minimal, and a stall costs one fire
-jh7110_entropy	6	the board TRNG's status decode, and that a lockup bit is never overridden
-designware_mobile_storage	5	the SD write test never lands in a partition, no served block leaves its window, the FIFO is never overrun, no admitted block wraps its address
-kernel	5	the run arithmetic in the kernel's own syscall dispatch, and the SMMU entries that say which frames a device may reach
-components	3	the EL0 components: a bounded append that a configuration page this system did not write feeds
-machine_discovery	180	the firmware tables and boot handoffs: ACPI, PVH, the screen token, the RISC-V ISA string
+calendar	314	the civil-date arithmetic, and the parser on hostile text
+glob	708	matching is total, and a hostile pattern cannot be made to blow up
+filesystem_protocol	2	a directory capability's child never exceeds its parent, at any depth
+subtree_scope	266	a subtree grant reaches only its own root and what it minted, never goes up, never follows a link, never crosses a mount
+credential_protocol	2	no request word reads outside the page; nothing but MATCH authenticates
+component_plan	14	no wiring grants a right its declaration did not ask for
+timetable	41	the scheduler's fire arithmetic: strictly forward, minimal, and a stall costs one fire
+jh7110_entropy	5	the board TRNG's status decode, and that a lockup bit is never overridden
+designware_mobile_storage	4	the SD write test never lands in a partition, no served block leaves its window, the FIFO is never overrun, no admitted block wraps its address
+kernel	7	the run arithmetic in the kernel's own syscall dispatch, and the SMMU entries that say which frames a device may reach
+components	8	the EL0 components: a bounded append that a configuration page this system did not write feeds
+machine_discovery	690	the firmware tables and boot handoffs: ACPI, PVH, the screen token, the RISC-V ISA string
 TABLE
 )"
 
 # --shard k/n: prove this shard's crates only.
 #
-# **The floor is one harness, and it is measured.** Packing these by time, two shards reach 15.1
-# minutes and three or four reach 15.0, because `glob` is atomic at 15.0 and cannot be split at crate
-# granularity. Below that needs per-harness sharding, whose own floor is
-# `glob::the_dot_rule_only_touches_names_that_start_with_a_dot` at **10.8 minutes on its own**. The
-# ladder is 30.3 serial, 15.1 at two shards, 10.8 at unbounded per-harness sharding, and nothing
-# below that without making that one harness cheaper, which is an unwind bound in `glob` rather than
-# a CI question.
+# **The floor is one crate, and it is measured.** Packed by the 2026-10-07 medians, two shards reach
+# 23.6 minutes of proving, three reach 15.7 and four 11.8, where `glob` (11.8) and
+# `machine_discovery` (11.5) are each atomic at crate granularity. Below that needs per-harness
+# sharding, whose own floor is the largest single harness: about 9.8 minutes in `glob` and 9.3 in
+# `machine_discovery` (the median largest `Verification Time` in each crate across the same 40
+# runs). The 2026-08-14 version of this paragraph said two shards was where this stopped because a
+# third bought nothing; that was true when `glob` alone was half the job, and stopped being true when
+# `machine_discovery` grew to match it. calef ruled on #1802 (2026-10-07 UTC): "Add a third prove
+# shard." So CI runs three, for about 0.8 more runner-minutes a run (one more setup; the proving is
+# the same 47 minutes split three ways). notes/verification.md has the numbers.
 #
-# Two shards is where this stops: 2.0x of the available 2.8x for a fraction of the machinery, and a
-# third or fourth runner buys **nothing at all**. See notes/verification.md.
+# The packer, and the assertion that its shards partition this table, live in
+# helpers/verify_times.py so that this run, the weekly refresh and the drift warning all plan with
+# one function.
 if [ -n "$shard" ]; then
-    crates="$(printf '%s\n' "$CRATES" | SHARD="$shard" python3 -c '
-import os, sys
-spec = os.environ["SHARD"]
-try:
-    k, n = (int(x) for x in spec.split("/", 1))
-except ValueError:
-    sys.exit("script/verify: --shard wants k/n (for example 1/2), got %r" % spec)
-rows = []
-for line in sys.stdin:
-    if line.strip():
-        name, secs, _desc = line.rstrip("\n").split("\t", 2)
-        rows.append((int(secs), name))
-if not 1 <= k <= n:
-    sys.exit("script/verify: shard %d/%d is out of range" % (k, n))
-if n > len(rows):
-    sys.exit("script/verify: %d shards for %d crates leaves empty ones" % (n, len(rows)))
-# Greedy longest-processing-time, the standard makespan heuristic. Sorting first is the whole trick:
-# a round-robin over the table order puts glob and calendar in the same bin and doubles the shard.
-rows.sort(reverse=True)
-bins = [[] for _ in range(n)]
-load = [0] * n
-for secs, name in rows:
-    i = load.index(min(load))
-    bins[i].append(name)
-    load[i] += secs
-
-# **The shards must partition the table exactly**, and this asserts it on every invocation rather
-# than in a gate somebody has to run. A crate dropped from every shard is not proved at all, and
-# that failure is INVISIBLE: the suite goes green faster and nothing says a harness stopped
-# running. A crate in two shards only wastes a runner. So the dangerous direction is checked here,
-# where it cannot drift away from the code that does the packing.
-placed = [name for b in bins for name in b]
-if sorted(placed) != sorted(name for _, name in rows) or len(placed) != len(set(placed)):
-    sys.exit("script/verify: sharding did not partition the crate table; refusing to prove a "
-             "subset and report it as the suite")
-
-sys.stderr.write("shard %d/%d: %d crates, ~%.1f min of a %.1f-minute serial total\n"
-                 % (k, n, len(bins[k - 1]), load[k - 1] / 60, sum(load) / 60))
-print(" ".join(bins[k - 1]))
-')"
+    crates="$(printf '%s\n' "$CRATES" | python3 helpers/verify_times.py shard "$shard")"
 elif [ -n "$only" ]; then
     if ! printf '%s\n' "$CRATES" | cut -f1 | grep -qx "$only"; then
         echo "script/verify: --only $only is not a row in the crate table; refusing to prove" \
@@ -519,8 +485,21 @@ for c in $crates; do
         *)      extra="" ;;
     esac
     echo "==> kani: $c ($desc)"
+    started="$(date +%s)"
     # Unquoted on purpose: `extra` is either empty or two flags, and quoting it would hand cargo one
     # argument that is the empty string.
     # shellcheck disable=SC2086
     kani -p "$c" $extra "$@"
+    # One line per crate, the measurement the table above is refreshed from
+    # (helpers/verify_times.py reads it out of CI logs). Wall clock, compile included.
+    secs=$(( $(date +%s) - started ))
+    echo "==> kani-seconds: $c $secs"
+    proved=$(( ${proved:-0} + secs ))
 done
+
+# A shard that ran far from what the table planned says so on the run (a warning, never a
+# failure: helpers/verify_times.py's SHARD_WARN_PCT says why).
+if [ -n "$shard" ]; then
+    printf '%s\n' "$CRATES" | python3 helpers/verify_times.py shard-check "$shard" "${proved:-0}" \
+        || echo "warning: helpers/verify_times.py shard-check did not run; the proofs above stand"
+fi

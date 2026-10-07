@@ -2038,8 +2038,15 @@ def affected_packages(base, hs):
 # over the target; then its records are dealt into chunks that each fit. `glob` (6 records, about
 # 1,050 s) and `machine_discovery` (16, about 1,060 s) were the cases that set this, each near 17.5
 # minutes against the 20.
+#
+# **17 minutes, not 20** (calef, 2026-10-07 UTC, on #1802: "Yes"). The weights were not the problem:
+# across 72 shard logs the records summed to 1.02 times their plan. The target was. LPT fills every
+# shard to the target, a job adds about 0.7 minutes of setup, and the slowest of three shards ran a
+# median 1.11 times its plan, so 19.8 planned became the 22.5-minute slowest shard verify waited on.
+# At 17 a full-scope change plans four shards at 16.8 minutes at most, about 19.4 as the slowest job.
+# helpers/verify_times.py refreshes TIMES from those CI logs weekly, beside the sweep's own writes.
 TIMES = "notes/project-metrics/falsification-times.tsv"
-SHARD_TARGET = 20 * 60
+SHARD_TARGET = 17 * 60
 SHARD_MAX = 8
 
 
@@ -2150,10 +2157,14 @@ def record_times(logs):
     path = os.path.join(root, TIMES)
     os.makedirs(os.path.dirname(path), exist_ok=True)
     with open(path, "w") as f:
+        # The same header helpers/verify_times.py keeps, the other writer of this file: it rewrites
+        # records from the medians of verify's re-falsify shard logs, and the stamp says which wrote last.
         f.write("# Seconds each falsification record took to replay, build included, from the weekly\n"
                 "# sweep's transcript (`script/falsifications --record-times`). Read by `--plan-since`\n"
                 "# and `--shard` to balance verify.yml's re-falsify shards; a stale number only\n"
-                "# unbalances them. Generated: do not edit by hand.\n")
+                "# unbalances them. Generated: do not edit by hand.\n"
+                "# Seconds refreshed: %s (UTC), from the weekly sweep, by script/falsifications "
+                "--record-times\n" % time.strftime("%Y-%m-%d", time.gmtime()))
         for k in sorted(times):
             f.write("%s\t%.1f\n" % (k, times[k]))
     print("%d record time(s) read; %s holds %d" % (found, TIMES, len(times)))
@@ -2250,6 +2261,25 @@ elif mode == "--affected-since":
             sys.exit("--shard %d/%d: this diff packs into %d shard(s)" % (k, n, len(shards)))
         todo = shards[k - 1]
         print("shard %d/%d: %d record(s), estimated %.0f s" % (k, n, len(todo), loads[k - 1]))
+        began = time.monotonic()
+        rc = sweep(todo, None, empty_is_clean=True)
+        # The prove shards' drift warning, applied to this shard's plan (lane/verify-shard-refresh):
+        # a warning past helpers/verify_times.py's SHARD_WARN_PCT, never a failure, because a wrong
+        # weight only unbalances the shards.
+        took = time.monotonic() - began
+        try:
+            sys.path.insert(0, os.path.join(root, "helpers"))
+            import verify_times
+            pct = verify_times.shard_verdict(loads[k - 1], took)
+        except Exception as e:  # the replay's verdict stands whatever the warning does
+            print("warning: the re-falsify drift check did not run: %s" % e)
+            pct = None
+        if pct is not None:
+            print("%sre-falsify shard %d/%d took %.1f min against the %.1f planned (%+.0f%%, warns past "
+                  "%.0f%%); helpers/verify_times.py refresh rewrites %s"
+                  % ("::warning::" if os.environ.get("GITHUB_ACTIONS") else "warning: ", k, n,
+                     took / 60, loads[k - 1] / 60, pct, verify_times.SHARD_WARN_PCT, TIMES))
+        sys.exit(rc)
     sys.exit(sweep(todo, None, empty_is_clean=True))
 elif mode == "--plan-since":
     # verify.yml's scope job reads the last line, a JSON list of shard indices for the matrix.

@@ -176,6 +176,7 @@ import csv
 import math
 import pathlib
 import re
+import statistics
 import subprocess
 import sys
 import tempfile
@@ -227,6 +228,11 @@ LEDGER_PATH = DATA_DIR / 'ledger.md'
 # `helpers/merge_queue_share.py update` writes from GitHub's merge-queue events. Read from the working
 # tree like `effort.csv`, and for its reason: a committed record of a fact git cannot reproduce.
 QUEUE_PATH = DATA_DIR / 'merge-queue-daily.csv'
+# How long verify's shards take (lane/verify-shard-refresh, 2026-10-07 UTC, calef: "It seems like we
+# need a graph on our metrics page too."): one row per sampled CI run, written by
+# `helpers/verify_times.py update` from GitHub's job records. Read from the working tree for the
+# queue file's reason: a committed record of a fact git cannot reproduce.
+VERIFY_RUNS_PATH = DATA_DIR / 'verify-runs.csv'
 # The week notes (milestone 623, provisional): hand-appended rows, pruned by this script when a
 # week ages out of the chart window, rendered as bullets under the chart a row names. Like the two
 # above rather than like the measure files: it is a record of an explanation, not a series
@@ -390,6 +396,12 @@ MEASURES = [
     # The merge queue's weekly entries and ejections, summed from `merge-queue-daily.csv` (milestone
     # 724). A week with no daily rows is left empty, never zero: the record starts on 2026-09-14.
     ('merge-queue', ['queue_entries', 'queue_ejected', 'queue_ejection_pct']),
+    # Verify's wall clock, as weekly medians over the runs `verify-runs.csv` sampled. Empty before
+    # 2026-08-14, when the proofs first ran as shards. File and column names provisional
+    # (lane/verify-shard-refresh's).
+    ('verify-shards', ['verify_runs_sampled', 'verify_slowest_minutes',
+                       'verify_prove_fastest_minutes', 'verify_prove_slowest_minutes',
+                       'verify_refalsify_slowest_minutes']),
     # The model-attribution columns (file name `models.csv`; Name: ratified 2026-09-24 (calef, in session, when asked to ratify the two metrics files the split produced; nothing refused)). Commits
     # and lines are one measure and one file rather than two, because a single pass over the same
     # git log produces both and a week that has one always has the other. The two charts it feeds
@@ -1001,6 +1013,37 @@ def queue_by_week():
         held['entries'] += int(row['entries'] or 0)
         held['ejected'] += int(row['ejected'] or 0)
     return weeks
+
+
+def verify_by_week():
+    """{ISO week: {column: value}} from `verify-runs.csv`, or {} without the file.
+
+    Each figure is the median over the week's sampled runs of a per-run number: the slowest shard
+    of any kind (the run's wall clock as far as proving goes), the fastest and slowest `prove`
+    shard, and the slowest re-falsify shard. A median of per-run maxima, not the maximum of
+    per-shard medians, so the line on the chart is a run somebody waited for."""
+    if not VERIFY_RUNS_PATH.exists():
+        return {}
+    held = {}
+    for row in csv.DictReader(VERIFY_RUNS_PATH.read_text().splitlines()):
+        prove = [float(x) for x in row['prove_minutes'].split(';') if x]
+        refalsify = [float(x) for x in row['refalsify_minutes'].split(';') if x]
+        if not prove:
+            continue
+        week = held.setdefault(week_of_date(row['created'][:10]),
+                               {'slowest': [], 'fast': [], 'slow': [], 'refalsify': []})
+        week['slowest'].append(float(row['slowest_minutes']))
+        week['fast'].append(min(prove))
+        week['slow'].append(max(prove))
+        if refalsify:
+            week['refalsify'].append(max(refalsify))
+    med = lambda v: '%.1f' % statistics.median(v) if v else ''
+    return {w: {'verify_runs_sampled': len(h['slowest']),
+                'verify_slowest_minutes': med(h['slowest']),
+                'verify_prove_fastest_minutes': med(h['fast']),
+                'verify_prove_slowest_minutes': med(h['slow']),
+                'verify_refalsify_slowest_minutes': med(h['refalsify'])}
+            for w, h in held.items()}
 
 
 def effort_by_week():
@@ -1859,7 +1902,8 @@ def week_label(week):
     return week
 
 
-def svg_chart(title, subtitle, weeks, series, path, ceiling=None, absent=None, trend=None):
+def svg_chart(title, subtitle, weeks, series, path, ceiling=None, absent=None, trend=None,
+              grouped=False):
     """One stacked bar per week, one colour per series, a legend on the right.
 
     `series` is [(label, [value per week], hue)]. `hue` is None for the charts that take a palette
@@ -1881,13 +1925,19 @@ def svg_chart(title, subtitle, weeks, series, path, ceiling=None, absent=None, t
     `trailing_mean`. It is drawn in the page's text colour rather than a palette slot, because the
     palette is for series and this is arithmetic over one of them; a full window is a solid line and
     a short one is dashed, each with its own legend entry, so the two are never read as the same.
+    A point whose value is None is a week with nothing to draw, and the line breaks there.
+
+    `grouped` draws each week's series side by side instead of stacked, for series that are
+    alternatives rather than parts (the verify chart's shards). The axis is then scaled to the
+    tallest bar, and each line point carries its value in place of a bar total.
     """
     line_word = 'ceiling'
     if isinstance(ceiling, tuple):
         ceiling, line_word = ceiling
-    totals = [sum(s[1][i] for s in series) for i in range(len(weeks))]
+    combine = max if grouped else sum
+    totals = [combine(s[1][i] for s in series) for i in range(len(weeks))]
     top = max(totals + ([ceiling] if ceiling else []) + [1]
-              + ([v for v, _full in trend[2]] if trend else []))
+              + ([v for v, _full in trend[2] if v is not None] if trend else []))
     # An axis a person reads: gridlines at 1, 2, 2.5 or 5 times a power of ten, and whichever of
     # four, five or six intervals wastes the least height. Four alone rounds 231 up to 400.
     axis_top, ticks = None, 4
@@ -1970,6 +2020,18 @@ def svg_chart(title, subtitle, weeks, series, path, ceiling=None, absent=None, t
             if not value:
                 continue
             height = plot_h * value / axis_top
+            if grouped:
+                # Side by side: each series its own narrower bar, each rounded, none stacked.
+                sub = bar_w / len(series)
+                gx = x + sub * j
+                gy = y_of(value)
+                tip = '<title>%s, %s: %s</title>' % (esc(week_label(week)), esc(label), _number(value))
+                r = min(3.0, height / 2, (sub - 1) / 2)
+                d = ('M%.1f,%.1f V%.1f Q%.1f,%.1f %.1f,%.1f H%.1f Q%.1f,%.1f %.1f,%.1f V%.1f Z'
+                     % (gx, gy + height, gy + r, gx, gy, gx + r, gy, gx + sub - 1 - r,
+                        gx + sub - 1, gy, gx + sub - 1, gy + r, gy + height))
+                out.append('<path class="seg %s" d="%s">%s</path>' % (_fill(j), d, tip))
+                continue
             y = y_of(base + value)
             # Every segment is stroked in the surface colour, which leaves a 2px gap between
             # neighbours so a stack reads as parts even where two fills are close in lightness.
@@ -1988,7 +2050,7 @@ def svg_chart(title, subtitle, weeks, series, path, ceiling=None, absent=None, t
             base += value
         out.append('<text class="mut" x="%.1f" y="%d" font-size="10" text-anchor="middle">%s</text>'
                    % (x + bar_w / 2, PAD_T + plot_h + 18, esc(week_label(week))))
-        if totals[i]:
+        if totals[i] and not grouped:
             out.append('<text class="fg val" x="%.1f" y="%.1f" font-size="10" '
                        'text-anchor="middle">%s</text>'
                        % (x + bar_w / 2, y_of(totals[i]) - 5, _number(totals[i])))
@@ -2005,16 +2067,24 @@ def svg_chart(title, subtitle, weeks, series, path, ceiling=None, absent=None, t
 
     if trend:
         label, short, points = trend
-        centre = [PAD_L + slot * i + slot / 2 for i in range(len(weeks))]
+        center = [PAD_L + slot * i + slot / 2 for i in range(len(weeks))]
         for i in range(1, len(points)):
+            if points[i - 1][0] is None or points[i][0] is None:
+                continue
             dash = '' if points[i][1] else ' stroke-dasharray="4 3"'
             out.append('<line class="tr" x1="%.1f" y1="%.1f" x2="%.1f" y2="%.1f" '
-                       'stroke-width="2"%s/>' % (centre[i - 1], y_of(points[i - 1][0]),
-                                                 centre[i], y_of(points[i][0]), dash))
+                       'stroke-width="2"%s/>' % (center[i - 1], y_of(points[i - 1][0]),
+                                                 center[i], y_of(points[i][0]), dash))
         for i, (value, full) in enumerate(points):
+            if value is None:
+                continue
             out.append('<circle class="trd" cx="%.1f" cy="%.1f" r="3"><title>%s, %s: %.1f'
-                       '</title></circle>' % (centre[i], y_of(value), esc(week_label(weeks[i])),
+                       '</title></circle>' % (center[i], y_of(value), esc(week_label(weeks[i])),
                                              esc(label if full else short), value))
+            if grouped:
+                out.append('<text class="fg val" x="%.1f" y="%.1f" font-size="10" '
+                           'text-anchor="middle">%s</text>' % (center[i], y_of(value) - 7,
+                                                               _number(value)))
 
     legend_x = CHART_W - PAD_R + 22
     y = PAD_T + 6
@@ -2257,6 +2327,14 @@ CHARTS = [
      'ejected over entered, summed across the week from GitHub\u2019s merge-queue events; the line '
      'is where trunk-health starts to say so',
      [('ejected share', 'queue_ejection_pct')], 1.0, (20, 'reported above'), 'queue_ejection_pct'),
+    # Grouped rather than stacked (GROUPED below): three shards side by side are three runners at
+    # once, and stacking them would draw a sum nobody waits for. The line is LINES' column.
+    ('verify-shards.svg', 'How long verify takes, in minutes',
+     'weekly medians over sampled green runs; the line is each run\u2019s slowest shard of any kind',
+     [('fastest prove shard', 'verify_prove_fastest_minutes'),
+      ('slowest prove shard', 'verify_prove_slowest_minutes'),
+      ('slowest re-falsify shard', 'verify_refalsify_slowest_minutes')], 1.0, (20, 'target'),
+     'verify_slowest_minutes'),
     ('models-commits.svg', 'Commits each week, by the model that signed them',
      'from the Co-Authored-By trailer, and for GLM commits from commit-models.csv; '
      'attributed + unattributed + merge is every commit that week',
@@ -2535,7 +2613,13 @@ def fill_derived(rows, rev):
     effort = effort_by_week()
     cash = cash_by_week(date.today())
     queue = queue_by_week()
+    verify = verify_by_week()
     for week, row in rows.items():
+        # Empty for a week no run was sampled in, never zero, for the queue's reason below.
+        for column in ('verify_runs_sampled', 'verify_slowest_minutes',
+                       'verify_prove_fastest_minutes', 'verify_prove_slowest_minutes',
+                       'verify_refalsify_slowest_minutes'):
+            row[column] = verify.get(week, {}).get(column, '')
         row['milestones_built_this_week'] = built.get(week, 0)
         row['merged_pull_requests'] = merged.get(week, 0)
         # Empty for a week the daily record does not cover, for the cost columns' reason: a zero
@@ -2603,6 +2687,11 @@ def github_anchor(heading):
 # velocity chart and then the pull-request chart, one helper for both, because a flow that swings
 # from 8 to 49 to 13 in three weeks cannot be read for direction by eye. It is drawn and never stored, like the fatal-risks chart's unclassified band:
 # it is arithmetic over a column already in the CSV, and a stored copy could disagree with it.
+# Charts whose series stand side by side rather than stacked, and charts that carry a column as a
+# solid line over the bars: (legend label, column). Both are the verify chart's alone so far.
+GROUPED = {'verify-shards.svg'}
+LINES = {'verify-shards.svg': ('slowest shard per run', 'verify_slowest_minutes')}
+
 TRENDS = {'velocity.svg': ('milestones_built_this_week', 10),
           'interface-stability.svg': ('interface_breaking', 4),
           'pull-requests.svg': ('merged_pull_requests', 10)}
@@ -2648,7 +2737,12 @@ def draw_charts(rows, only=None):
             trend = ('trailing %d-week mean' % span,
                      'trailing mean, fewer than %d weeks' % span,
                      trailing_mean(rows, weeks, field, span))
-        svg_chart(title, subtitle, weeks, series, DATA_DIR / name, ceiling, absent, trend)
+        if name in LINES:
+            label, field = LINES[name]
+            trend = (label, label, [(float(rows[w][field]) if rows[w].get(field) not in ('', None)
+                                     else None, True) for w in weeks])
+        svg_chart(title, subtitle, weeks, series, DATA_DIR / name, ceiling, absent, trend,
+                  grouped=name in GROUPED)
 
 
 # ---------------------------------------------------------------------------------------------
@@ -2775,7 +2869,39 @@ def selftest():
         recorded = commit_models(record)
         absent = commit_models(pathlib.Path(tmp) / 'no-such-file.csv')
 
+    # The verify chart (lane/verify-shard-refresh): weekly medians of per-run figures, a run with
+    # no replay shard leaving that column to the others, and bars drawn side by side, not summed.
+    global VERIFY_RUNS_PATH
+    held_path = VERIFY_RUNS_PATH
+    with tempfile.TemporaryDirectory() as tmp:
+        VERIFY_RUNS_PATH = pathlib.Path(tmp) / 'verify-runs.csv'
+        VERIFY_RUNS_PATH.write_text(
+            'run,created,event,prove_minutes,refalsify_minutes,slowest_minutes\n'
+            '1,2026-10-05T01:00:00Z,push,20.0;27.0,25.0;22.0,27.0\n'
+            '2,2026-10-06T01:00:00Z,push,21.0;30.0,,30.0\n'
+            '3,2026-10-06T02:00:00Z,push,14.0;26.0,28.0,28.0\n')
+        verify_weeks = verify_by_week()
+        VERIFY_RUNS_PATH = pathlib.Path(tmp) / 'absent.csv'
+        verify_absent = verify_by_week()
+        VERIFY_RUNS_PATH = held_path
+        grouped_svg = pathlib.Path(tmp) / 'grouped.svg'
+        svg_chart('t', 's', ['2026W40', '2026W41'],
+                  [('fast', [10.0, 12.0], None), ('slow', [20.0, 22.0], None)], grouped_svg,
+                  (20, 'target'), None, ('slowest', 'slowest', [(None, True), (25.0, True)]),
+                  grouped=True)
+        grouped_text = grouped_svg.read_text()
+
     cases = [
+        ('verify: a week is the median of its runs\u2019 own figures',
+         verify_weeks.get('2026W41'),
+         {'verify_runs_sampled': 3, 'verify_slowest_minutes': '28.0',
+          'verify_prove_fastest_minutes': '20.0', 'verify_prove_slowest_minutes': '27.0',
+          'verify_refalsify_slowest_minutes': '26.5'}),
+        ('verify: no record is no weeks, not zeros', verify_absent, {}),
+        ('verify: grouped bars are never summed into a total',
+         ('>30<' in grouped_text, '>34<' in grouped_text), (False, False)),
+        ('verify: the line carries its value and breaks at a missing week',
+         (grouped_text.count('<circle'), '>25<' in grouped_text), (1, True)),
         ('a recorded sha with no trailer takes the recorded model',
          signed_by('a' * 40, [], recorded), ['GLM 5.3']),
         ('a trailer wins over the record', signed_by('a' * 40, ['Claude Opus 5'], recorded),
