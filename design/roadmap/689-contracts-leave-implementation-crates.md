@@ -22,8 +22,8 @@ check, so only the two driver rows are still exceptions. The finding is unchange
 
 | the kernel uses | from | what it is |
 |---|---|---|
-| `ps::Row`, `ps::collect`, `ps::MAX_ROWS` | `procps` | the survey record the kernel writes and `ps` reads |
-| `pmap::Row`, `pmap::Listing` | `procps` | the mapping listing, the same shape |
+| `ps::Row`, `ps::collect`, `ps::MAX_ROWS` | `process-tools` | the survey record the kernel writes and `ps` reads |
+| `pmap::Row`, `pmap::Listing` | `process-tools` | the mapping listing, the same shape |
 | `non_volatile_memory_express::Handoff` and its constants | `drivers` | what the kernel hands the NVMe driver |
 | `jh7110_entropy::discover`, `regs` | `drivers` | how the TRNG is found in the device tree |
 

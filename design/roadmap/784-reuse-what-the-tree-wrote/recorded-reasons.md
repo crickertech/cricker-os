@@ -25,7 +25,7 @@ landed wording.
 - `file_allocation_table`: Reuse: write, for now. Writes only our own ESP; `system_installer` is `no_std`,
   and `fatfs` has no `no_std`
   release without `core_io`. Revisit if `fatfs` 0.4 releases or the installer moves to std.
-- `swish`, `grant_plan`, `system_initializer`, the `*_protocol` crates, `system_log`, the `procps`
-  tools: Reuse: write. The ABI or a capability (rule 3); nothing upstream reads nife's ABI.
+- `swish`, `grant_plan`, `system_initializer`, the `*_protocol` crates, `system_log`, the
+  `process-tools` programs: Reuse: write. The ABI or a capability (rule 3); nothing upstream reads nife's ABI.
 - `redoxfs_server`, `tools/redoxfs_host`: Reuse: adapted. The adapter around vendored RedoxFS (§34).
 - `coremark`: Reuse: taken. A port of the upstream benchmark.

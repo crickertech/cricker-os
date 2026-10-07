@@ -258,6 +258,7 @@ P5 and P1 were blocked on the first ruling; both now build against the floor as 
 - The chooser on the ESP (`uefi_loader/src/chooser.rs`) sits outside both slots, so a bad chooser
   update has no rollback. Milestone 525's record should say whether that is intended.
 
+
 ## BUGS
 
 - The sizes are a six-day-old riscv64 build. P8's lane should measure a fresh one per architecture.

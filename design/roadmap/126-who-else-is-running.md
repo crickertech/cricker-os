@@ -3,7 +3,7 @@ status: BUILT
 raised: 2026-08-14
 built: 2026-09-26
 ---
-# 126. The `procps` package: who else is running, and who is allowed to ask
+# 126. The `procps` package, now `process-tools`: who else is running, and who is allowed to ask
 
 Minted 2026-08-14 by calef, from a design conversation about what ambient
 authority utilities become on this system. Scoped to the whole package by calef the same day, for
@@ -14,6 +14,8 @@ which is packages rather than programs we like. Re-swept and condensed 2026-09-2
 2026-09-26"). `free`, `vmstat` and `slabtop` built the same day by `milestone/126-free`. The
 three rows that could not be built without a ruling left the milestone that day: `pmap` from the
 prompt (pull request #1365), `pidwait`'s wait primitive, and `w`.
+
+Renamed `process-tools` by calef on 2026-10-06 (UTC); this account keeps `procps`.
 
 A program does one and only one thing (calef, 2026-09-26: *"One thing I like about unix is that a
 program does one and only one thing."*). It decided `pidwait`, and it is the test for every row this

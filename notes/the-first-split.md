@@ -1,7 +1,7 @@
 # The first split: what is ready, what goes first, and what basalt must be
 
 Measurements for the proposal
-[milestone 756 (`procps`, `coreutils` and `util-linux` are the first code to leave this repository)](../design/roadmap/756-procps-coreutils-and-util-linux-leave-first.md), promoted from the proposal `which-repository-split-goes-first`,
+[milestone 756 (`process-tools`, `core-tools` and `disk-tools` are the first code to leave this repository)](../design/roadmap/756-process-tools-core-tools-and-disk-tools-leave-first.md), promoted from the proposal `which-repository-split-goes-first`,
 on calef's prompt of 2026-10-04 (UTC): *"I do think we should soon be breaking things out of the mono
 repo and into their own repos. I also think the basalt repo is sitting there waiting to package up
 those repos for its distribution."* The direction is ruled (§151 (the goal of the repository split is
@@ -21,7 +21,9 @@ calef ruled both questions on 2026-10-04 (UTC), on pull request #1609. §247 (th
 basalt holding nife, and `procps` moves first) records them. basalt v0 is the first step, with the
 go-ahead for a lane's first write to `nifeos/basalt`; that is milestone 755 (basalt v0 pins nife and
 runs its gate). The first code cut is `procps` + `coreutils` + `util-linux`, only once all six
-conditions in milestone 756 hold. The repository name and home, the citation identity and the SDK's
+conditions in milestone 756 hold. calef renamed the three `process-tools`, `core-tools` and
+`disk-tools` on 2026-10-06 (UTC), with `uuid` moving from the third to the second; the cut's
+contents are unchanged. The repository name and home, the citation identity and the SDK's
 place in milestone 691's order stay open.
 
 ## 1. Are §151's preconditions met?
@@ -114,12 +116,15 @@ What the table says, read rather than summarized:
   `manifest_note`. Its interfaces are the least settled ones: `filesystem_protocol` 10 breaking
   changes in four weeks, the partition table 27, `entropy_protocol` 3. Every QEMU runner starts it,
   which is the 254 path references.
-- **Programs in `components` cannot move at all yet.** `rmle`, `mdr`, `demos`, `coreutils`,
-  `util-linux`, `entropy`, `installer`, and the programs of `procps`, `login`, `init`, `terminal`
+- **Programs in `components` cannot move at all yet.** `rmle`, `mdr`, `demos`, `core-tools`,
+  `disk-tools`, `entropy`, `installer`, and the programs of `process-tools`, `login`, `init`, `terminal`
   and seven more are `[[bin]]` targets of one crate. The `rmle` + `mdr` + `demos` row has no crate of its own at all.
 
 ### What these numbers do not say
 
+- The `procps` + `coreutils` + `util-linux` row, and "`procps` and friends" below it, keep the
+  package names measured on 2026-10-04. They are `process-tools`, `core-tools` and `disk-tools`
+  since 2026-10-06, holding the same 15 programs.
 - The dependents column counts Cargo links. A program named by a gate (`swish-check`'s `ps`
   line, a QEMU runner starting `redoxfs_server`) is a dependency the split must also carry, and
   the path-reference column only half catches it.

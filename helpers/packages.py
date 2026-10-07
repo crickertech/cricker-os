@@ -30,9 +30,9 @@ An unknown key is refused, so a misspelt one cannot read as an absent one.
 
 1. `packages/<name>.package.toml`, one per package: what releases, updates and is trusted together.
 
-       name = "procps"              required; equals the file's stem
+       name = "process-tools"       required; equals the file's stem
        kind = "base"                required, no default: base, optional, sdk or test
-       home = { repo = "procps", status = "provisional" }
+       home = { repo = "process-tools", status = "provisional" }
                                     required, no default; or { repo, status = "ratified", date },
                                     or { status = "undecided", reason = "..." }
        crates = ["ps"]              member crates; each claims its directory
