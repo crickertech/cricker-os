@@ -341,10 +341,9 @@ argument is untouched by userspace `std`. btrfs was bundled into a one-line dism
 should not have been, which is the more useful half of this correction: a shared bullet let one
 crate's disqualifier stand in for another's.
 
-What this does not do. It does not recommend btrfs or reopen the primary-filesystem question. It
-removes a false reason and names the true questions; the amendment below answers the first.
+## Amendment (2026-10-07): btrfs does not replace RedoxFS
 
-## Amendment (2026-10-07): question 1, measured
-
-Rust btrfs readers build here; none writes as a filesystem; three writable FAT crates work. Table,
-caveats and forks: [notes/filesystem-crates-2026-10-07.md](../../notes/filesystem-crates-2026-10-07.md).
+Measured: btrfs and ZFS readers build here; no Rust writer of either exists. calef ruled (#1803):
+Linux's btrfs is roughly 150,000 lines of C, and RedoxFS already has copy-on-write under a
+checksum Merkle tree. Re-probe in three months. Data, and LKL as an alternative:
+[notes/filesystem-crates-2026-10-07.md](../../notes/filesystem-crates-2026-10-07.md).
