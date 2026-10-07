@@ -26,8 +26,8 @@ them. Nobody connected the two records for a fortnight, and `script/lint` report
 out loud on every run without anybody acting on it: *"`kernel/falsifications/user.c_seam_tests...`
 falsifies something that is not a Kani harness; nothing sweeps it."*
 
-That is worth stating plainly because it is not a gap in anybody's knowledge. Both facts were
-written down, in-tree, in files that cite each other. What was missing was the one edit that makes a
+This was not a gap in anybody's knowledge. Both facts were in-tree, in files that cite each
+other. What was missing was the one edit that makes a
 tool read both.
 
 ## What was built
@@ -53,9 +53,6 @@ Ten kernel tests now carry a record and nine are `replayable`, up from one that 
 replay. `notes/confinement-claims.md`'s rows 21 to 26 are the six the risk-7 entry named; they are
 nine tests between them, because two of those rows cite more than one. Eight of the nine carry a
 patch. The ninth is row 26 and it is `unfalsified` for a reason given below.
-
-One bug was fixed rather than recorded, because it was a confinement test that could not fail.
-See the first finding below.
 
 ## What the sweep found, which is the part worth reading
 
@@ -103,8 +100,7 @@ and `assert_report`'s first direction catches that one call earlier. No patch tr
 crossing fire, and none can. The quotable sentence is documentation; the bitmap equalities are the
 mechanism.
 
-Here the hazard costs nothing, and saying so is what keeps it from being overstated:
-`assert_report`'s messages name the offending or missing bit, so a reader learns as much as the
+Here the hazard costs nothing: `assert_report`'s messages name the offending or missing bit, so a reader learns as much as the
 crossing would have told them. §31's instance cost the reader a 234-second watchdog timeout. Same
 shape, benign outcome, and the thing to carry is the rule rather than the alarm: in a test that
 states its property twice, the readable statement is usually the unreachable one. Two instances,
@@ -129,14 +125,14 @@ for and everything blocks. The assertion that states the claim is reachable only
 *does* refuse.
 
 So the row is `unfalsified`, on purpose. The easier defect, changing which error the refusal
-returns, does fire the assertion and leaves the claim entirely intact, which is evidence of nothing
-and would put a false claim in the record whose job is saying what is known. Row 17's disposition,
+returns, does fire the assertion but leaves the claim intact. That is evidence of nothing, and
+would put a false claim in the record. Row 17's disposition,
 one rung over.
 
 Proposed milestone (provisional, the integrator mints the number): give the usurper a bounded
 wait, so an escape is reported rather than waited out. It is the same move milestone 202 (every confinement test is a ritual until somebody breaks the confinement) made for
-§31 when its break surfaced as a 234-second timeout, and it needs a non-blocking or timed receive,
-which is the syscall surface and therefore calef's. Until it exists, row 26 has a test and no
+§31 when its break surfaced as a 234-second timeout. It needs a non-blocking or timed receive (see
+Follow-on). Until it exists, row 26 has a test and no
 evidence that the test can fail.
 
 ### A red for the wrong reason, caught and swapped rather than recorded
@@ -150,8 +146,7 @@ the progenitor gets to the part where it drops anything. Right answer, useless d
 
 The recorded patch is the fixture edit instead (`root_supervisor` keeps the untyped it is supposed to
 give away), which fails at `authority_tests.rs:165` on the test's own sentence. The refused patch
-is in the record with its measurement, because "we tried the better-looking defect and it failed
-for the wrong reason" is the kind of thing that gets rediscovered otherwise.
+is in the record with its measurement, so the better-looking defect is not rediscovered.
 
 ### A defect is not always expressible on every ISA, and row 21 is where that bites
 
@@ -181,13 +176,12 @@ capability. It is recorded on row 21 and in `script/falsifications`' `BUGS`.
 | `script/falsifications --sweep`, 48 records (39 Kani + 9 kernel), warm | 2 min 55 s |
 | The same 48, on a tree where each patch forced a rebuild | about 22 min |
 
-The spread between those last two rows is the number worth carrying, and it is not about the
-mechanism. A kernel falsification is cheap when the tree it reverts to is already built, and
+The spread between the last two rows is the number to carry, and it is not the mechanism. A kernel falsification is cheap when the tree it reverts to is already built, and
 expensive when the patch touches a crate the kernel and the user programs both depend on, because
 then each apply and each revert costs the archive, the standard-library exerciser and five disk
 images. Milestone 210 measured QEMU start to `running N tests` at 0.50 s and a warm filtered run at
 8.6 s; the riscv64 row above is that number confirmed independently. So the boot was never the
-cost and is still not.
+cost.
 
 Two consequences are recorded in `script/falsifications`' `BUGS`. `--affected-since`, the per-PR
 half, deliberately covers only the Kani records, because its whole argument is that a falsification
