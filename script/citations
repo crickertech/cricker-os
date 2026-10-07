@@ -770,8 +770,20 @@ if mode == "--ratchet":
     # 2026-10-05): dropping `**` from a line changes no citation on it, and §213 rule 3's sweep
     # touches hundreds of lines whose citations are older than the sweep. Both sides are compared
     # with `**` removed, so the sweep does not owe a gloss to every sentence it unbolds.
+    #
+    # **A line whose only edit is a record file's zero padding is not added prose either** (calef,
+    # 2026-10-07 UTC: numbered files in design/decisions/ and design/roadmap/ carry four digits).
+    # `46-foo.md` and `0046-foo.md` name the same record, and a relative link such as `(46-foo.md)`
+    # has no `/` for the path-pair rule above to see, while most absolute ones occur once and miss
+    # its recurrence threshold. Both sides are compared with the leading zeros of a `<n>-<slug>.md`
+    # token dropped, which changes no citation.
+    unpad = re.compile(r"(?<![0-9A-Za-z_])0+(\d+-[a-z0-9][a-z0-9-]*\.md)")
+
+    def plain(line):
+        return unpad.sub(r"\1", line.replace("**", ""))
+
     removed = collections.Counter(
-        line[1:].strip().replace("**", "") for line in diff.split("\n")
+        plain(line[1:].strip()) for line in diff.split("\n")
         if line.startswith("-") and not line.startswith("---") and line[1:].strip())
     path_pairs = collections.Counter()
     for path in sorted(added):
@@ -805,7 +817,7 @@ if mode == "--ratchet":
         kept = set()
         for n in sorted(added[path]):
             text = now[n - 1].strip() if n <= len(now) else ""
-            text = unsweep(text).replace("**", "")
+            text = plain(unsweep(text))
             if text and removed[text] > 0:
                 removed[text] -= 1
             else:

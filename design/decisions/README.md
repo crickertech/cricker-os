@@ -10,9 +10,16 @@ chose, what we rejected, and why. Revisit these deliberately, not accidentally.
 **The table under `## The decisions` is generated.** Run `script/decisions --write-index` after
 adding a decision; the prose around it is written by hand and is not touched.
 
-One decision, one file, named `NN-slug.md`. The number is the identity: `§14` is
-`0014-project-direction.md` and nothing else, and the 2,000-odd `§N` citations spread across the
-kernel, the crates, the notes and the roadmap resolve here.
+One decision, one file, named `NNNN-slug.md`. The number is the identity: `§14` (the project's
+direction) is `0014-project-direction.md` and nothing else, and the 2,000-odd `§N` citations spread
+across the kernel, the crates, the notes and the roadmap resolve here.
+
+The number in the file name is zero-padded to exactly four digits (calef, 2026-10-07 UTC), so a
+directory listing sorts in numeric order; before that ruling `100-` sorted between `10-` and `11-`.
+Four, not three, so nothing is renamed again at 1000, the same width he ruled the same day for
+`design/roadmap/`. Only the path is padded: a citation stays `§14`, and the H1 stays `# 14. <title>`.
+`script/lint` fails a numbered file here whose number is not four digits, so a decision opened on a
+branch cut before the rename has to be renamed before it lands.
 
 This was one 5,320-line file until milestone 114 (split `DECISIONS.md`, and give a decision a status). Splitting it does the same three things the
 roadmap split (milestone 76) did one directory over:

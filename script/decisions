@@ -330,7 +330,7 @@ for fname in sorted(os.listdir(d)):
     m = FNAME.fullmatch(fname)
     if not m:
         problems.append(f"{fname}: not the index and not a decision file "
-                        f"(expected <number>-<slug>.md); nothing else lives here")
+                        f"(expected <NNNN>-<slug>.md); nothing else lives here")
         continue
     num = int(m.group(1))
     if num in ids:

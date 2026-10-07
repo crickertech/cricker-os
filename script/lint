@@ -993,6 +993,41 @@ RUSTDOCFLAGS="$DOCFLAGS" cargo doc --no-deps --quiet --manifest-path redoxfs_ser
 echo "==> decisions"
 "$(dirname "$0")/decisions" --check
 
+# A numbered record's file name carries exactly four digits (calef, 2026-10-07 UTC), so a directory
+# listing sorts in numeric order: before it, `100-the-terminal-font.md` sat between `10-` and `11-`.
+# Four rather than three so nothing is renamed again at 1000. Only the path is padded; a `§N` or
+# `milestone N` citation stays as it is in prose, and so does each file's H1.
+#
+# This is rung two, and the case it exists for is a branch cut before the rename that adds
+# `255-foo.md`: it merges clean, because no other file has that name, and the listing is unsorted
+# again. script/decisions accepts either width on purpose, so the width is judged once, here.
+# One check for every directory the ruling covers: design/roadmap/ joins the list rather than
+# getting a near-copy of this block.
+echo "==> numbered record files carry four digits"
+python3 - <<'PY'
+import os, re, sys
+
+DIRS = ['design/decisions']
+NUMBERED = re.compile(r'(\d+)[a-z]?-')
+bad = []
+for d in DIRS:
+    for name in sorted(os.listdir(d)):
+        m = NUMBERED.match(name)
+        if m and len(m.group(1)) != 4:
+            bad.append(f'{d}/{name}')
+if bad:
+    print('lint: numbered record files whose number is not exactly four digits:', file=sys.stderr)
+    for b in bad:
+        n = NUMBERED.match(os.path.basename(b)).group(1)
+        print(f'  {b} (rename it to {os.path.dirname(b)}/{int(n):04d}'
+              f'{os.path.basename(b)[len(n):]}, and its links with it)', file=sys.stderr)
+    print('calef ruled on 2026-10-07 (UTC) that these numbers are zero-padded to four digits so the',
+          file=sys.stderr)
+    print('directory sorts. See design/decisions/README.md.', file=sys.stderr)
+    sys.exit(1)
+print(f'numbered records: every file in {", ".join(DIRS)} carries a four-digit number')
+PY
+
 # A dependency stays reachable by an upgrade (§81).
 #
 # Dependabot's `groups`, `schedule` and `open-pull-requests-limit` all reduce update noise and leave

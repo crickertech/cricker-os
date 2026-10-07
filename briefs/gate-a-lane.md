@@ -50,7 +50,7 @@ them), on the same line or wrapping onto one continuation line, never introduced
 dash and never left for a later sentence to explain. It has to be grounded: built substantially
 from words in the target record's own first line (its H1) or body, not a paraphrase from memory. If
 you are not sure what a number's own first line says, look at
-`design/decisions/<N>-*.md` or `design/roadmap/<N>-*.md` and quote it, rather than guessing at what
+`design/decisions/<NNNN>-*.md` (four digits, zero-padded) or `design/roadmap/<N>-*.md` and quote it, rather than guessing at what
 the citation is probably about.
 
 When the ratchet fails, fix the prose, never the gate. A failing citation means the sentence
