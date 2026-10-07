@@ -158,3 +158,6 @@ the rest, `system_log`'s reader windows first.
 - The file service and `name_resolver` read a request's window from its badge (§230, §252), so a
   client names no window either.
 - `net_stack` was the one that did not, and this section is its fix.
+
+The rule itself has its own section since PR #1798's merge: §256 (a server that keeps windows for
+many clients scopes each by the caller's badge), which also holds the rest of the audit.
