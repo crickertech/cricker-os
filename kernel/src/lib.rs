@@ -141,6 +141,10 @@ mod designware_mobile_storage;
 mod soak;
 // The progenitor's stack high-water gauge and its headroom floor (name provisional).
 mod progenitor_stack;
+// The reboot object's method (milestone 805 (`reboot` at the prompt), DECISIONS §251 (restarting
+// the machine is a kernel object the progenitor hands out)), and the JH7110 reset preparation it
+// shares with the rebooting soak.
+mod reboot;
 mod stack;
 mod sync;
 mod syscall;

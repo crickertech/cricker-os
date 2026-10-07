@@ -174,6 +174,19 @@ pub enum Object {
     /// `PageFrame` is the widest variant either way).
     #[cfg(target_arch = "x86_64")]
     PortRange(u16, u16),
+
+    /// **The authority to restart the machine** (milestone 805 (`reboot` at the prompt), DECISIONS
+    /// §251 (restarting the machine is a kernel object the progenitor hands out)). No payload: the
+    /// kernel stores nothing in it and it names no device, because PSCI, SBI SRST and a PC's reset
+    /// register are all "the machine" and none of them is a page or a port a holder could be given
+    /// instead.
+    ///
+    /// The kernel mints exactly one, at boot, into the progenitor's table, and nothing else mints
+    /// one: no retype makes it, so it has no `abi::objtype` number. Its one method is
+    /// `abi::reboot::REBOOT`; see kernel/src/reboot.rs.
+    ///
+    /// Name: provisional, milestone 805's lane, 2026-10-06 (UTC).
+    Reboot,
 }
 
 pub type Cap = capability::Cap<Object>;
@@ -408,7 +421,15 @@ pub type CapabilityTable = capability::CapabilityTable<Object, CAPABILITY_TABLE_
 /// primitive)). So every boot sits one higher: measured on `swish-check`'s aarch64 leg, the no-gpu
 /// boot reads 25 (was 24), the gpu-no-keyboard boot 29 (was 28), and the keyboard boot 32 (was 31).
 /// It is a slot spent on purpose rather than taken quietly; the headroom is thirty-two.
-pub const CAPABILITY_TABLE_PEAK_MEASURED: usize = 32;
+///
+/// **Thirty-three** (2026-10-06, UTC, milestone 805 (`reboot` at the prompt)). The kernel grants
+/// the progenitor the reboot object at slot 31 on every boot, and the spawn service keeps it for
+/// the one program that declares it, so every boot sits one higher again. Measured on
+/// `swish-check`'s aarch64 leg: the no-gpu boot reads 26 (was 25), the gpu-no-keyboard boot 30
+/// (was 29), and the keyboard boot 33 (was 32). Spent on purpose, as the slot above was: §251
+/// (restarting the machine is a kernel object the progenitor hands out) puts the object in the
+/// progenitor. The headroom is thirty-one.
+pub const CAPABILITY_TABLE_PEAK_MEASURED: usize = 33;
 
 // The headroom milestone 230 left is what this pair means, so the two cannot silently invert.
 const _: () = assert!(CAPABILITY_TABLE_PEAK_MEASURED < CAPABILITY_TABLE_SLOTS);
@@ -708,6 +729,17 @@ pub fn thread_control_block_cap(tid: crate::thread::ThreadId, rights: Rights) ->
 pub fn notification_cap(id: crate::sched::NotificationId, rights: Rights) -> Cap {
     Cap {
         object: Object::Notification(id),
+        rights,
+    }
+}
+
+/// **The one reboot capability** (milestone 805), for the boot that grants it to the progenitor.
+///
+/// Name: ratified 2026-10-06 (calef, #1783: "I don't think we should abbreviate capability as
+/// cap."), from `reboot_cap`.
+pub fn reboot_capability(rights: Rights) -> Cap {
+    Cap {
+        object: Object::Reboot,
         rights,
     }
 }

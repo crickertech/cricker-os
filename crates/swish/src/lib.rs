@@ -983,6 +983,7 @@ pub fn write_help(out: &mut dyn FnMut(&[u8])) {
     out(b"  date                    print the wall-clock time\n");
     out(b"  printenv                print the inert configuration page (TZ, LANG, TERM)\n");
     out(b"  uuid                    a version-4 UUID, from the entropy service it is granted\n");
+    out(b"  reboot                  sync the filesystem and restart the machine\n");
     out(b"  wc                      count lines, words and bytes on its INPUT\n");
     out(b"  mdr <page>              render markdown from its INPUT (apropos names the pages)\n");
     out(b"  <prog> <name>           grant a process one file, and only that file\n");
@@ -1907,6 +1908,17 @@ fn write_preview_rows(
     if m.share {
         out(b"    cap 12 region    share    ENUMERATE. this shell's job budget: how much is spent\n");
         out(b"                              and on what. it cannot spend, split or destroy it\n");
+    }
+    // **The reboot object** (milestone 805 (`reboot` at the prompt), DECISIONS §251 (restarting the
+    // machine is a kernel object the progenitor hands out)): the row exit criterion 3 asks `caps
+    // reboot` to print. It names the authority and the sync it does first, because the
+    // second is what makes the first safe and neither shows anywhere else before the machine stops.
+    if m.reboot {
+        out(b"    cap 13 reboot    WRITE. restart the machine (the kernel asks the firmware).\n");
+    }
+    if m.sync {
+        out(b"    cap 14 endpoint  sync   WRITE. the file server answers SYNC on it and refuses\n");
+        out(b"                              everything else: it flushes the device, and reaches no file\n");
     }
     // **Where its output goes**, which is the demonstration milestone 50 owed: the destination is a
     // capability rather than an integer with a convention attached, so `caps` can name it. On Unix
@@ -3073,6 +3085,27 @@ mod tests {
             !shown(|o| write_preview(&endowment(Prog::Wc), &Holdings::default(), None, o))
                 .contains("entropy")
         );
+    }
+
+    /// **`caps reboot` names the authority, and nothing else's preview does** (milestone 805, exit
+    /// criterion 3): the reset is the one grant whose effect leaves no machine to inspect afterwards,
+    /// so the preview is the only place a person meets it.
+    #[test]
+    fn the_reboot_preview_names_the_reboot_object_and_nothing_else_has_it() {
+        let s = shown(|o| write_preview(&endowment(Prog::Reboot), &Holdings::default(), None, o));
+        assert!(
+            s.contains("cap 13 reboot    WRITE. restart the machine"),
+            "{s}"
+        );
+        assert!(s.contains("cap 14 endpoint  sync   WRITE"), "{s}");
+        for p in Prog::ALL.iter().filter(|p| **p != Prog::Reboot) {
+            let s = shown(|o| write_preview(&endowment(*p), &Holdings::default(), None, o));
+            assert!(
+                !s.contains("cap 13") && !s.contains("cap 14"),
+                "{}: {s}",
+                p.name()
+            );
+        }
     }
 
     /// **A program that answers in a register gets a sentence here, or the answer is lost**

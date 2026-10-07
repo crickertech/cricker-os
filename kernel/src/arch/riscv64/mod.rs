@@ -35,7 +35,6 @@ pub use context::{Context, switch_to};
 #[cfg(feature = "fastpath_pad")]
 pub use fastpath_pad::fastpath_pad_body;
 /// The arch contract for a kernel-initiated cold reboot (milestone 249 (the boot lottery is sampled by a person walking to the board)). See [`semihosting::reboot`].
-#[cfg(feature = "reboot_soak_test")]
 pub use semihosting::reboot;
 
 // The S-mode entry (_start), the .bss zeroing, and the stack handoff to `kernel_main`.

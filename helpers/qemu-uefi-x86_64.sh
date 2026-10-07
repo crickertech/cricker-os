@@ -154,6 +154,16 @@ CPU="${NIFE_CPU:-max}"
 MEM="${NIFE_MEM:-2048}"
 TIMEOUT="${NIFE_UEFI_TIMEOUT:-90}"
 
+# `-no-reboot` turns a triple fault into an exit rather than a silent loop back through OVMF, the
+# same reason helpers/qemu-runner-x86_64.sh gives. `NIFE_ALLOW_REBOOT=1` drops it for the run whose
+# proof is a reset: `swish-check`'s first boot (milestone 805 (`reboot` at the prompt)), which ends by
+# typing `reboot` and waits for OVMF and a second prompt. That run is bounded and reads every line,
+# so a triple-fault loop costs it a timeout rather than a blank terminal.
+NO_REBOOT="-no-reboot"
+if [ -n "$NIFE_ALLOW_REBOOT" ]; then
+    NO_REBOOT=""
+fi
+
 # THE DEVICES ARE THE PVH RUNNER'S, AND SINCE MILESTONE 195 THAT IS THE POINT. The tour needs none
 # of them, but the kernel SUITE runs here now (`cargo xtask uefi-test`), and a suite that skipped
 # every device test would be reporting on the firmware and nothing else. What each buys that the PVH
@@ -300,7 +310,7 @@ exec helpers/qemu-bounded.sh "$TIMEOUT" qemu-system-x86_64 \
     -m "$MEM" \
     -display none \
     -serial stdio \
-    -no-reboot \
+    $NO_REBOOT \
     -device isa-debug-exit,iobase=0xf4,iosize=0x04 \
     -device intel-iommu \
     $MON \

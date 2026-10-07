@@ -29,7 +29,7 @@
 
 use filesystem_protocol::{blk, fs, operation, reply_err, xattr};
 use redoxfs::Disk;
-use syscall::error::{EINVAL, Error, Result};
+use syscall::error::{EINVAL, EPERM, Error, Result};
 
 use crate::Server;
 
@@ -44,7 +44,7 @@ pub trait ServeEdges {
     fn note_write(&mut self) {}
 
     /// Make the device durable, and return the block server's answer untouched: a count of
-    /// completed flushes, or a negative errno passed through unmapped (`fs::SYNC` documents why).
+    /// completed synces, or a negative errno passed through unmapped (`fs::SYNC` documents why).
     fn sync(&mut self) -> i64;
 }
 
@@ -68,6 +68,18 @@ impl<D: Disk> Server<D> {
         edges: &mut impl ServeEdges,
     ) -> (i64, u64) {
         let code = operation(w0);
+        // **A sync-only badge may `SYNC` and nothing else** (milestone 805 (`reboot` at the
+        // prompt), `fs::BIND_SYNC`). Decided here, before a handle is read, so no verb's own
+        // rules are consulted for it: the badge names no directory, and the sync is of the whole
+        // device, which needs no handle. The binder held `dir::WRITE`, `SYNC`'s right for any
+        // other client. `EPERM` for everything else, the answer a missing non-naming right gets.
+        if self.is_sync_only(badge) {
+            return if code == fs::SYNC {
+                (edges.sync(), 0)
+            } else {
+                (reply_err(EPERM), 0)
+            };
+        }
         // **A bound badge's handles go through `subtree_scope`** (milestone 606 (a directory walk
         // costs what it does on Linux), ruling D). Its `ROOT` is its grant's directory, and any
         // other handle must be one it minted; an unbound badge passes through as it always has.
@@ -75,7 +87,7 @@ impl<D: Disk> Server<D> {
         // Closing `ROOT` is refused for a bound badge, as a caretaker refuses it: the grant's root
         // is not the client's to close.
         let raw = fs::req_handle(w0);
-        let admitted = if code == fs::BIND || code == fs::UNBIND {
+        let admitted = if code == fs::BIND || code == fs::UNBIND || code == fs::BIND_SYNC {
             Ok(raw as u32)
         } else if code == fs::CLOSE && raw == fs::ROOT && self.scoped(badge) {
             Err(Error::new(EINVAL))
@@ -253,6 +265,7 @@ impl<D: Disk> Server<D> {
             // Ruling D's two control verbs; `fs::BIND` has the rules, `subtree_scope` enforces them.
             fs::BIND => self.bind(badge, handle, offset).map(|()| 0),
             fs::UNBIND => self.unbind(badge, offset).map(|()| 0),
+            fs::BIND_SYNC => self.bind_sync_only(badge, offset).map(|()| 0),
             _ => Err(Error::new(EINVAL)),
         };
 

@@ -100,6 +100,8 @@
 //!         // manager)): empty on a boot with a virtio-net NIC, or with no NIC it may drive.
 //!         net_stack_ep: 29,
 //!         net_stack_report: 30,
+//!         // The reboot object (milestone 805, DECISIONS §251): granted on every boot.
+//!         reboot: 31,
 //!         // Empty here. On aarch64 this holds the kernel's report endpoint and a test SGI, because
 //!         // that boot path is shared with milestone 19d's test roles; the progenitor deletes them with the
 //!         // device authority once the drivers exist, rather than keeping delegable authority for
@@ -641,6 +643,15 @@ pub struct BootEndowment {
     ///
     /// Name: provisional, milestone 198's lane, 2026-10-05 (UTC).
     pub net_stack_report: u64,
+    /// **The reboot object** (milestone 805 (`reboot` at the prompt), DECISIONS §251 (restarting
+    /// the machine is a kernel object the progenitor hands out)), `WRITE | GRANT`: the one capability
+    /// on the machine that may restart it, granted on every boot. [`boot`] never invokes it. The
+    /// spawn service keeps it and places `WRITE` in a child whose manifest declares
+    /// [`grant_plan::Manifest::reboot`], which syncs for itself through its sync-only
+    /// capability. The shell holds none.
+    ///
+    /// Name: provisional, milestone 805's lane, 2026-10-06 (UTC).
+    pub reboot: u64,
     /// **Capabilities the kernel granted that the interactive system never uses**, deleted with the
     /// device authority once the drivers exist.
     ///
@@ -2774,6 +2785,8 @@ pub fn boot(
             // **The stack's client endpoint, if this boot built one** (milestone 590
             // (provisional)), `entropy`'s shape one service over.
             network: network.map(|(stack, _)| stack),
+            // **The reboot object** (milestone 805), kept for the one program that declares it.
+            reboot: is_granted(g.reboot).then_some(g.reboot),
             catalogue,
             run_unvouched,
             // **The boot line discipline's endpoint, for a `graphical_terminal` session's UART arm** (milestone
@@ -2901,6 +2914,12 @@ struct Channels {
     /// so. The shell holds none, for `entropy`'s reason: nothing it does as a builtin reaches the
     /// network.
     network: Option<u64>,
+    /// **The reboot object** (milestone 805, DECISIONS §251), endowed `WRITE` to a child whose
+    /// manifest declares [`grant_plan::Manifest::reboot`], and to nothing else. `None` only on a
+    /// kernel that did not grant it, and then a declaring child holds an empty
+    /// [`grant_plan::REBOOT_SLOT`] and says so. The shell holds none: restarting the machine is not
+    /// something a builtin does.
+    reboot: Option<u64>,
     /// **The image's package catalogue**, measured (milestone 198 rung 3a's installer): one
     /// `<stem> <digest>` line per package the image vouches for (`package_archive::CATALOGUE`).
     /// Empty when the archive carried none or the table refused it, and then every
@@ -2979,6 +2998,7 @@ fn spawn_service(
         fs,
         entropy,
         network,
+        reboot,
         catalogue,
         run_unvouched,
         boot_terminal,
@@ -3298,6 +3318,13 @@ fn spawn_service(
         // what this prompt's job budget was spent on. Neither is something a line designates.
         let wants_machine = manifest.is_some_and(|m| m.machine);
         let wants_share = manifest.is_some_and(|m| m.share);
+        // And the reboot object (milestone 805, DECISIONS §251), which nothing on a line can name
+        // either. `grant_plan::image_can_carry` keeps it off every image, so only the built-in
+        // `reboot` gets here with it.
+        let wants_reboot = manifest.is_some_and(|m| m.reboot);
+        // And a sync-only capability to the file server (milestone 805), which `reboot` declares
+        // beside the object so it can sync for itself. Made below, per job, from a window.
+        let wants_sync = manifest.is_some_and(|m| m.sync);
 
         if interruptible {
             // Build the whole child from the shell's job untyped, mapping the shared job frame; no
@@ -3382,7 +3409,9 @@ fn spawn_service(
             // the reaped message carries it back. A pool whose every window is held waits for the
             // reaps that are due, then refuses.
             let label = spawn.label();
-            let window = if wiring.dir && fs.is_some() {
+            // A sync-only grant takes a window too (milestone 805): its badge is bound sync-only
+            // rather than to a directory, and it is held until the reap like any other.
+            let window = if (wiring.dir || wants_sync) && fs.is_some() {
                 spawn.until_reaped(|s| s.windows.take(label))
             } else {
                 None
@@ -3421,6 +3450,20 @@ fn spawn_service(
             // to act on something and holds nothing, which is the one outcome this model must never
             // trade away.
             let dir_failed = wiring.dir && narrowed.is_none();
+            // **The sync-only capability** (milestone 805, `fs::BIND_SYNC`): the window's badge
+            // bound so the file server answers `SYNC` on it and refuses everything else, and the
+            // endpoint badged with it. No page: a sync carries no bytes. Only a server that
+            // enforces bindings itself can make one, and a job that declared it on a boot with a
+            // writable filesystem and got none is refused, `dir_failed`'s rule: `reboot` must not
+            // start unable to sync. With no filesystem there is nothing to sync, and the slot is
+            // left empty.
+            let sync_ep = match (wants_sync && fs_scoped, fs, window) {
+                (true, Some(f), Some(w)) => {
+                    bind_sync_only(f, &mut spawn.windows, w, own_ut, &mut fs_mapped)
+                }
+                _ => None,
+            };
+            let sync_failed = wants_sync && fs.is_some() && sync_ep.is_none();
 
             // **Slot 0 is the output**, and milestone 50 is the whole of what changed here: it is
             // the shared result endpoint unless the shell delegated a sink, in which case the sink
@@ -3523,7 +3566,7 @@ fn spawn_service(
             // collect a corpse, and only the viewer's own source code said it did not. A domain names
             // its members and does not act on them (calef, 2026-08-17); `capability::Rights::ENUMERATE`
             // is what makes that a property of the grant. notes/process-view.md carries the argument.
-            let mut placed_buf = [(0u64, 0u64, 0u64); 6];
+            let mut placed_buf = [(0u64, 0u64, 0u64); 8];
             let mut placed_n = 0usize;
             if let (Some(ep), Some(slot)) = (diagnostics.or(default_diag), diag_slot) {
                 placed_buf[placed_n] = (slot, ep, abi::rights::WRITE);
@@ -3570,6 +3613,18 @@ fn spawn_service(
             }
             if wants_share {
                 placed_buf[placed_n] = (grant_plan::SHARE_SLOT, jobs_ut, abi::rights::ENUMERATE);
+                placed_n += 1;
+            }
+            // **The seventh named slot** (milestone 805, DECISIONS §251): the reboot object,
+            // `WRITE` alone, so the child can invoke it and cannot hand it on. `GRANT` stays here.
+            if let (true, Some(r)) = (wants_reboot, reboot) {
+                placed_buf[placed_n] = (grant_plan::REBOOT_SLOT, r, abi::rights::WRITE);
+                placed_n += 1;
+            }
+            // **The eighth** (milestone 805): the sync-only endpoint, `WRITE` alone, the right to
+            // `CALL` the file server. Ours is deleted once the child holds its copy.
+            if let Some(f) = sync_ep {
+                placed_buf[placed_n] = (grant_plan::SYNC_SLOT, f, abi::rights::WRITE);
                 placed_n += 1;
             }
             let placed: &[(u64, u64, u64)] = &placed_buf[..placed_n];
@@ -3655,7 +3710,7 @@ fn spawn_service(
             };
             let fault = screen.or(labeled);
             let built = match (
-                elf.filter(|_| !dir_failed && !args_failed && fault.is_some()),
+                elf.filter(|_| !dir_failed && !sync_failed && !args_failed && fault.is_some()),
                 region,
             ) {
                 (Some(e), Some(r)) if std_layout => std_parts.as_ref().and_then(|l| {
@@ -3752,8 +3807,8 @@ fn spawn_service(
             // The narrowed endpoint was only ever the means of wiring: the child holds its own copy
             // and the caretaker holds the other end. Dropped whether or not the build worked, so a
             // failed spawn does not cost this capability table a slot for the rest of the boot.
-            if let Some(dir_ep) = narrowed {
-                cap_delete(dir_ep);
+            for endpoint in [narrowed, sync_ep].into_iter().flatten() {
+                cap_delete(endpoint);
             }
             // The window's page and badged endpoint were only the means too: the caretaker and the
             // job each hold their own mapping and copy (milestone 599).
@@ -5299,6 +5354,29 @@ fn bound_channel(
         return None;
     };
     Some(Fs { ep, page })
+}
+
+/// **A sync-only endpoint for one job** (milestone 805 (`reboot` at the prompt),
+/// `fs::BIND_SYNC`): window `w`'s badge, unbound from whatever it last held, bound sync-only, and
+/// the endpoint badged with it in a fresh slot the caller deletes once the job holds its copy. The
+/// window is marked bound, so the next job to take it unbinds it first, as for a directory grant.
+///
+/// Name: ratified 2026-10-06 (calef, #1783: "Approve sync for the file-server
+/// request and its capability, and flush for the device cache only.").
+fn bind_sync_only(
+    fs: Fs,
+    windows: &mut Windows,
+    w: u64,
+    own_ut: u64,
+    mapped: &mut bool,
+) -> Option<u64> {
+    let files = FsCalls::map(Some(fs), own_ut, mapped)?;
+    files.unbind(windows, w);
+    if call(fs.ep, fs_operation::req(fs_operation::BIND_SYNC, 0, 0), w).0 != 0 {
+        return None;
+    }
+    windows.set_bound(w, true);
+    window_endpoint(fs.ep, w)
 }
 
 /// **A channel of its own for one job behind a directory grant**: window `w`'s page and the

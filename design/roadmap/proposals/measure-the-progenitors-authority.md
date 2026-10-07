@@ -12,7 +12,7 @@ needs_person: no
 calef asked for this on 2026-10-06 (UTC): "Record a separate proposal to measure the progenitor's
 authority." He was ruling on #1783, milestone 805 (`reboot` at the prompt). That build had the
 progenitor flush the filesystem on `reboot`'s behalf and keep one more capability for the life of
-the boot, 33 of 64 slots. He sent it back so that `reboot` holds a flush-only capability of its
+the boot, 33 of 64 slots. He sent it back so that `reboot` holds a sync-only capability of its
 own, and gave the reason: "My concern is progenitor is turning into a god process."
 
 The pattern behind the worry is an easy path. A program needs something sensitive, and the
@@ -121,7 +121,7 @@ No capability is removed and no action moves in this milestone. Remediation is d
 with the inventory in hand, per measure first. Some candidate remediations, as examples only:
 
 - A narrower capability minted by the service that owns the object, as #1783's rework did with a
-  flush-only filesystem capability.
+  sync-only filesystem capability.
 - A separate small server that holds one authority, so the progenitor hands out a client view and
   forgets the original.
 - Releasing an item after its last use, where the inventory shows a lifetime capability with one

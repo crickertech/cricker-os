@@ -18,8 +18,9 @@
 //!    route and the one most likely to be emulated by a platform that has nothing else.
 //!
 //! Each gets a tenth of a second to take effect before the next is tried. If all three come back,
-//! [`reboot`] returns and the caller says so; nothing here halts, because the soak that called it
-//! is still running and is still worth watching.
+//! [`reboot`] returns and the caller says so; nothing here halts, because the caller (the rebooting
+//! soak, or since milestone 805 the reboot object's method) still has a running machine to report
+//! on.
 //!
 //! # BUGS
 //!
@@ -32,12 +33,15 @@
 //!   whose FADT does not offer that route, and no runner here starts one. xenon's first bench
 //!   reboot is where attempt 1 meets real firmware; the fallbacks stay unproven until a machine
 //!   without the FADT route turns up.
-//! - **Proven under QEMU `q35` only.** Whether xenon's `0xCF9` full reset brings the OptiPlex all
+//! - **Proven under QEMU `q35` only.** Whether xenon's `0xCF9` full reset brings the machine all
 //!   the way back through its firmware to a netboot is the bench's first question; a reset the
 //!   firmware does not survive is not a reboot. See milestone 249's block.
 //! - **Nothing here quiesces devices first.** A reset through `0xCF9` resets the platform, so a DMA
-//!   engine mid-transfer is cut off with everything else; that is the point of a cold reset, and it
-//!   is also why this is only called from a soak, never from a machine holding a filesystem open.
+//!   engine mid-transfer is cut off with everything else; that is the point of a cold reset. Since
+//!   milestone 805 (`reboot` at the prompt) this is also called on a machine holding a filesystem
+//!   open, through the reboot object (kernel/src/reboot.rs). What makes that safe is not here:
+//!   `reboot` syncs the writable filesystem before it invokes the object, so the block servers are
+//!   idle by the time this runs, and nothing else on the machine writes to persistent storage.
 
 use core::sync::atomic::{AtomicU8, AtomicU64, Ordering};
 
@@ -104,7 +108,7 @@ fn wait_ms(millis: u64) {
 /// prefixed with `marker`, printed before the attempt. See the module header for the order and why.
 ///
 /// Name: provisional (milestone 249): calef names public items.
-pub fn reboot(marker: &str) {
+pub fn reboot(marker: &str) -> abi::Error {
     let address = FADT_RESET_ADDRESS.load(Ordering::Relaxed);
     let value = FADT_RESET_VALUE.load(Ordering::Relaxed);
     match (address, FADT_RESET_SPACE.load(Ordering::Relaxed)) {
@@ -178,4 +182,6 @@ pub fn reboot(marker: &str) {
     wait_ms(100);
 
     println!("{marker} all three reset routes returned: this machine did not reset");
+    // Every route was tried (the fallbacks are never skipped), so this is never "no mechanism".
+    abi::Error::ResetDidNotHappen
 }

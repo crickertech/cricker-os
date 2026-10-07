@@ -519,7 +519,6 @@ pub fn read_acpi(hint: u64) -> Acpi {
             b"IVRS" => found.ivrs = IvrsUnits::parse(body),
             b"FACP" => {
                 found.reset = parse_fadt_reset(body);
-                #[cfg(feature = "reboot_soak_test")]
                 super::reset::record(found.reset);
             }
             _ => {}

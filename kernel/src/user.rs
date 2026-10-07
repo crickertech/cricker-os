@@ -23,7 +23,7 @@
 //! `0x0000_...`. **The hardware picks the table register from bits 63:48 of the address**, so:
 //!
 //! - The kernel is mapped in every address space, for free. Nobody had to copy anything.
-//! - A syscall **does not switch page tables**. There is nothing to flush and nothing to remap.
+//! - A syscall **does not switch page tables**. There is nothing to sync and nothing to remap.
 //! - Installing a process is one `msr ttbr0_el1`.
 //!
 //! None of that was written for milestone 7. It fell out of a higher-half decision made three
@@ -1974,9 +1974,13 @@ fn x86_build_child(
     if let Some(ep) = fault_ep {
         // The spawn-slot convention: a supervision endpoint goes in the reserved fault slot, and
         // the kernel consumes it at START so the child cannot forge fault messages on it.
-        let cap = crate::cap::rendezvous_cap(ep, crate::cap::Rights::READ);
-        crate::sched::thread_control_block_insert_cap(tid, cap, Some(abi::fault::FAULT_EP_SLOT))
-            .map_err(|_| "no room for the fault endpoint")?;
+        let capability = crate::cap::rendezvous_cap(ep, crate::cap::Rights::READ);
+        crate::sched::thread_control_block_insert_cap(
+            tid,
+            capability,
+            Some(abi::fault::FAULT_EP_SLOT),
+        )
+        .map_err(|_| "no room for the fault endpoint")?;
     }
     crate::sched::configure_thread_control_block(
         tid,
@@ -2256,7 +2260,8 @@ pub fn riscv_uart_driver_demo(
 /// at 13-15 (milestone 590 (the booted system starts its network stack)) when each is present.
 /// That fills sixteen of the table's
 /// thirty-two slots at spawn (the GPU and keyboard grants at 17-22 and the machine statistics page
-/// at 23 came later, and the progenitor's own address space at 28, §249, later still), which is why the progenitor spends the net trio before anything else.
+/// at 23 came later, the progenitor's own address space at 28, §249, later still, and the reboot
+/// object at 31, milestone 805, last), which is why the progenitor spends the net trio before anything else.
 /// `components/src/progenitor.rs`'s single `GRANTS` table reads exactly this. Until milestone 166
 /// aarch64's boot carried two extra capabilities at slots 1 and 3 (a report endpoint and a test
 /// interrupt) that the interactive system never used, only because its loader was shared with
@@ -2631,6 +2636,22 @@ pub fn boot_progenitor(archive: &'static [u8]) -> Result<crate::thread::ThreadId
     )
     .expect("insert the progenitor's own address space");
     assert_eq!(s28, 28);
+    // **The reboot object** (slot 31, milestone 805 (`reboot` at the prompt), DECISIONS §251
+    // (restarting the machine is a kernel object the progenitor hands out)): the one capability
+    // that may restart the machine, minted here and nowhere else. `WRITE | GRANT`: the progenitor
+    // never invokes it, but it places `WRITE` in the one child whose manifest declares `reboot`,
+    // and delegation only narrows, so the right it hands on has to be one it holds (a `GRANT`-only
+    // grant here made every `reboot` spawn fail, found by the first run that typed `reboot`).
+    // The method itself checks no right, as §251 says. Granted on every boot so its slot
+    // never moves, past `net_stack_report`'s conditional slot 30 for the reason every group above
+    // gives. Field name `reboot`, provisional.
+    let s31 = crate::sched::thread_control_block_insert_cap(
+        tid,
+        crate::cap::reboot_capability(Rights::WRITE.union(Rights::GRANT)),
+        Some(31),
+    )
+    .expect("insert the reboot object");
+    assert_eq!(s31, 31);
     // **The kernel's ring, its cursor page and its notification** (slots 24 to 26, milestone 342
     // (the kernel and the `console` server drive one UART from two address spaces), calef's
     // ruling F): the ring read-only so the log service can copy kernel lines out and never write
@@ -2640,7 +2661,7 @@ pub fn boot_progenitor(archive: &'static [u8]) -> Result<crate::thread::ThreadId
     // could not allocate them, which keeps the kernel's old behaviour: every line direct.
     crate::kernel_log::publish();
     if let Some((ring, cursor, notification)) = crate::kernel_log::grants() {
-        for (cap, slot, what) in [
+        for (capability, slot, what) in [
             (
                 crate::cap::page_frame_run_cap(
                     ring,
@@ -2668,7 +2689,7 @@ pub fn boot_progenitor(archive: &'static [u8]) -> Result<crate::thread::ThreadId
                 "the kernel ring's notification",
             ),
         ] {
-            let s = crate::sched::thread_control_block_insert_cap(tid, cap, Some(slot))
+            let s = crate::sched::thread_control_block_insert_cap(tid, capability, Some(slot))
                 .unwrap_or_else(|_| panic!("insert {what}"));
             assert_eq!(s, slot, "{what} landed in the wrong slot");
         }

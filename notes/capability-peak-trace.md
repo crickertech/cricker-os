@@ -13,7 +13,8 @@ peak would actually save.
 space stays nameable) has the kernel grant the progenitor its own address space at slot 28 on every
 boot, held for life so the loader can give up each scratch page (milestone 95 (an unmap primitive)).
 The trace below was taken before that slot existed and is not rerun; add one held-for-life row to
-each boot's table to read it against today.
+each boot's table to read it against today. **And one more since 2026-10-06 (UTC): 33, 30 and 26**,
+the reboot object at slot 31 (milestone 805 (`reboot` at the prompt)), so add two.
 
 ## How it was measured
 

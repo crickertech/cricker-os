@@ -61,7 +61,6 @@ pub mod mmu;
 // ran. Its own header has the table of all three architectures' two counters.
 pub mod pmu;
 pub mod port;
-#[cfg(feature = "reboot_soak_test")]
 pub mod reset;
 pub mod rtc;
 // The Intel TCO watchdog (milestone 593 (a wedged kernel resets itself), provisional number). Only
@@ -86,7 +85,6 @@ pub use context::{Context, switch_to};
 // because `console.rs` picks it by `target_arch` and must not reach into `arch::x86_64::` directly.
 pub use port::PortIo;
 /// The arch contract for a kernel-initiated cold reboot (milestone 249 (the boot lottery is sampled by a person walking to the board)). See [`reset::reboot`].
-#[cfg(feature = "reboot_soak_test")]
 pub use reset::reboot;
 
 // The 32-bit entry (_start), the long-mode transition, the .bss zeroing, and the stack handoff to

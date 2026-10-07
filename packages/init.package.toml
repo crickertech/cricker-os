@@ -17,6 +17,7 @@ programs = [
     "broker",
     "swapper",
     "system_log",
+    "reboot",
 ]
 depends = ["timetable"]
 

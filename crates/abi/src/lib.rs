@@ -618,6 +618,52 @@ pub mod objtype {
     pub const TIMER: u64 = 5;
 }
 
+/// Methods on the **reboot object** (milestone 805 (`reboot` at the prompt), DECISIONS §251
+/// (restarting the machine is a kernel object the progenitor hands out)).
+///
+/// The kernel mints exactly one at boot and grants it to the progenitor, which endows it only to a
+/// program whose manifest declares `reboot`. Nothing retypes one, so it has no [`objtype`] number.
+/// Holding it is the whole authority: no rights bit is asked for.
+///
+/// *(Provisional, with its method number: the object, the module and `REBOOT` are calef's to name.)*
+pub mod reboot {
+    /// `invoke(cap, REBOOT, _, _, _)`. **On success it does not return**: the kernel asks the
+    /// firmware for a cold reset (PSCI `SYSTEM_RESET` on aarch64, SBI SRST type 1 on riscv64, and on
+    /// `x86_64` the FADT reset register, then port `0xCF9`, then the 8042). When every route was
+    /// refused it returns the reason, one of the four `Reset…` values of [`crate::Error`], and the
+    /// firmware's raw code is on the kernel console just before (calef's ruling of 2026-10-06 UTC
+    /// on §251's amendment, item 3).
+    ///
+    /// **It syncs nothing.** A caller with a writable filesystem sends
+    /// `filesystem_protocol::fs::SYNC` and waits for the reply first, or loses what the device had
+    /// not flushed. A firmware that accepts the call and hangs looks the same as a slow reset from
+    /// inside the machine.
+    pub const REBOOT: u64 = 0;
+
+    /// **Why the machine did not restart, from PSCI** (milestone 805 (`reboot` at the prompt)):
+    /// `SYSTEM_RESET`'s return (ARM DEN 0022) as the error `REBOOT` answers. `NOT_SUPPORTED` (-1) is
+    /// [`super::Error::ResetNotSupported`], `DENIED` (-3) is [`super::Error::ResetDenied`], and any
+    /// other code means the reset was asked for and the machine is still running. The raw code is
+    /// on the kernel console. *(Name provisional.)*
+    pub const fn from_psci(code: i64) -> super::Error {
+        match code {
+            -1 => super::Error::ResetNotSupported,
+            -3 => super::Error::ResetDenied,
+            _ => super::Error::ResetDidNotHappen,
+        }
+    }
+
+    /// **The same, from SBI SRST** `system_reset`'s `sbiret.error`: `SBI_ERR_NOT_SUPPORTED` (-2) and
+    /// `SBI_ERR_DENIED` (-4). *(Name provisional.)*
+    pub const fn from_sbi(code: i64) -> super::Error {
+        match code {
+            -2 => super::Error::ResetNotSupported,
+            -4 => super::Error::ResetDenied,
+            _ => super::Error::ResetDidNotHappen,
+        }
+    }
+}
+
 /// Methods on a `Notification` capability (milestone 151, DECISIONS §101): **a doorbell, not a
 /// meeting.** Created by [`memory_region::RETYPE_OBJ`] with [`objtype::NOTIFICATION`].
 ///
@@ -1356,6 +1402,19 @@ pub enum Error {
     /// holds, in its own capability table, so learning that its object died reveals nothing it was not
     /// already entitled to know.
     Gone = -11,
+
+    /// **`Reboot::REBOOT`: no route exists to ask for a reset** (milestone 805,
+    /// no route exists, an aarch64 device tree with no usable `/psci`). The four `Reset…` values are the reboot object's only
+    /// answers, because a reset that works never returns. The four names: ratified 2026-10-06
+    /// (calef, #1783, "Yes" to one name per concept under §113 (kernel object plain names)).
+    NoResetMechanism = -12,
+    /// **`Reboot::REBOOT`: the firmware does not offer a reset** (PSCI or SBI `NOT_SUPPORTED`).
+    ResetNotSupported = -13,
+    /// **`Reboot::REBOOT`: the firmware refused this caller** (PSCI or SBI `DENIED`).
+    ResetDenied = -14,
+    /// **`Reboot::REBOOT`: the reset was asked for and the machine is still running**
+    /// (every `x86_64` route tried, or any other PSCI or SBI code).
+    ResetDidNotHappen = -15,
 }
 
 impl Error {
@@ -1374,6 +1433,10 @@ impl Error {
             -9 => Error::StillAlive,
             -10 => Error::NotSupervised,
             -11 => Error::Gone,
+            -12 => Error::NoResetMechanism,
+            -13 => Error::ResetNotSupported,
+            -14 => Error::ResetDenied,
+            -15 => Error::ResetDidNotHappen,
             _ => return None,
         })
     }
@@ -1382,6 +1445,33 @@ impl Error {
 #[cfg(test)]
 mod tests {
     use super::Error;
+
+    /// **A firmware's refusal reaches the caller as the reason it is** (milestone 805, calef's
+    /// ruling on §251's amendment item 3). No QEMU machine this tree boots can be made to refuse a
+    /// reset (`virt` always has PSCI and SRST, and `q35` resets or exits), so the mapping is pinned
+    /// here: each firmware code to its error, and each error back through the decode a caller
+    /// uses.
+    #[test]
+    fn a_reset_refusal_maps_to_its_reason_and_survives_the_wire() {
+        use crate::reboot::{from_psci, from_sbi};
+        assert_eq!(from_psci(-1), Error::ResetNotSupported);
+        assert_eq!(from_psci(-3), Error::ResetDenied);
+        assert_eq!(from_psci(-2), Error::ResetDidNotHappen);
+        assert_eq!(from_psci(0), Error::ResetDidNotHappen);
+        assert_eq!(from_sbi(-2), Error::ResetNotSupported);
+        assert_eq!(from_sbi(-4), Error::ResetDenied);
+        assert_eq!(from_sbi(-1), Error::ResetDidNotHappen);
+        let all = [
+            Error::NoResetMechanism,
+            Error::ResetNotSupported,
+            Error::ResetDenied,
+            Error::ResetDidNotHappen,
+        ];
+        for (i, e) in all.iter().enumerate() {
+            assert_eq!(Error::from_ret(*e as i64), Some(*e), "{e:?}");
+            assert!(!all[i + 1..].contains(e), "{e:?} is listed twice");
+        }
+    }
 
     /// `usage::is_known` is the kernel's answer to "is this a record I serve": exactly the seven
     /// numbered `SIZE..=CHILDREN`, and nothing past the last.
@@ -1422,6 +1512,10 @@ mod tests {
             Error::StillAlive,
             Error::NotSupervised,
             Error::Gone,
+            Error::NoResetMechanism,
+            Error::ResetNotSupported,
+            Error::ResetDenied,
+            Error::ResetDidNotHappen,
         ];
         for &e in ALL {
             assert_eq!(Error::from_ret(e as i64), Some(e));
@@ -1435,7 +1529,7 @@ mod tests {
     fn non_errors_decode_to_none() {
         assert_eq!(Error::from_ret(0), None);
         assert_eq!(Error::from_ret(1), None);
-        assert_eq!(Error::from_ret(-12), None);
+        assert_eq!(Error::from_ret(-16), None);
         assert_eq!(Error::from_ret(i64::MIN), None);
     }
 
