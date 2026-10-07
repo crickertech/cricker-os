@@ -994,6 +994,11 @@ mod trace {
     /// line, a site is its argument moves and a call. The ring is a diagnostic nobody branches on,
     /// so the call's few instructions buy back several hundred bytes of every core's L1i.
     #[inline(never)]
+    // In the pinned hot section: milestone 796 (pin the hot trap path's placement).
+    #[cfg_attr(
+        target_os = "none",
+        unsafe(link_section = ".text.hot.sched.trace.record")
+    )]
     pub fn record(kind: Event, tid: u64, aux: u8) {
         let ring = &RINGS[crate::cpu::id()];
         let seq = ring.seq.fetch_add(1, Ordering::Relaxed);
@@ -2276,6 +2281,8 @@ fn install_port_grant(grant: Option<(u16, u16)>) {
 /// May be called from normal context (a voluntary `yield_now`) or from the tail of the timer
 /// IRQ handler (a preemption). The two paths are identical from here down, which is a large
 /// part of why this is only forty lines.
+// In the pinned hot section: milestone 796 (pin the hot trap path's placement).
+#[cfg_attr(target_os = "none", unsafe(link_section = ".text.hot.sched.schedule"))]
 pub fn schedule() {
     // **Not from an interrupt stack** (milestone 124). A switch parks the running `sp` in the
     // outgoing thread's `Context` and resumes it there, arbitrarily later; a per-core interrupt
@@ -2658,6 +2665,11 @@ fn heal_self_pop(sched: &mut IpcTables, current: ThreadId) {
 /// thread returning from `switch_to`) and from `thread_entry` (a brand-new thread, which never
 /// passes through `schedule()`'s post-switch point). Both run on this core, so both see this core's
 /// `to_reap`. See DECISIONS §11 and thread.rs.
+// In the pinned hot section: milestone 796 (pin the hot trap path's placement).
+#[cfg_attr(
+    target_os = "none",
+    unsafe(link_section = ".text.hot.sched.finish_switch")
+)]
 pub(crate) fn finish_switch() {
     let prev = cpu::current()
         .switched_from
@@ -3619,6 +3631,8 @@ fn wake_load_aware(sched: &mut IpcTables, tid: ThreadId) -> Option<usize> {
 /// **the wake-before-switch-out deferral** (a thread still on its CPU has a stale saved context,
 /// so the wake parks in `wake_pending` and its own core's `finish_switch` completes it once the
 /// context is provably saved; found by a 2-in-10 flake, notes/intrusive-queues.md).
+// In the pinned hot section: milestone 796 (pin the hot trap path's placement).
+#[cfg_attr(target_os = "none", unsafe(link_section = ".text.hot.sched.wake"))]
 fn wake(sched: &mut IpcTables, tid: ThreadId) {
     if let Some(t) = sched.threads.get_mut(tid) {
         match t.handshake.try_wake() {
@@ -3688,6 +3702,11 @@ pub fn ipc_send(ep: RendezvousId, msg: [u64; 3]) {
 /// (milestone 613 (a system log service), provisional; see [`wide`] for why a plain send carries
 /// it). The syscall layer passes the badge of the capability the sender invoked, so it is the
 /// kernel's word and never the sender's. [`ipc_call_badged`] is the same split for `CALL`.
+// In the pinned hot section: milestone 796 (pin the hot trap path's placement).
+#[cfg_attr(
+    target_os = "none",
+    unsafe(link_section = ".text.hot.sched.ipc_send_badged")
+)]
 pub fn ipc_send_badged(ep: RendezvousId, msg: [u64; 3], badge: u64) {
     // E3's footprint-perturbation experiment (milestone 134): reachable but never taken; see
     // `crate::fastpath_pad` for what this is and why it costs nothing when the feature is off.
@@ -3745,6 +3764,11 @@ pub fn ipc_send_badged(ep: RendezvousId, msg: [u64; 3], badge: u64) {
 
 /// **Receive three words from an rendezvous, blocking until one arrives.** The mirror of
 /// [`ipc_send`].
+// In the pinned hot section: milestone 796 (pin the hot trap path's placement).
+#[cfg_attr(
+    target_os = "none",
+    unsafe(link_section = ".text.hot.sched.ipc_receive")
+)]
 pub fn ipc_receive(ep: RendezvousId) -> [u64; 5] {
     let immediate = {
         let mut guard = IPC_TABLES.lock();
@@ -4088,6 +4112,11 @@ fn ipc_send_cap_from(
 /// second lock, and inlined at each site that lock's mask, rank check and release grew both
 /// `script/fastpath-footprint` closures past their band on aarch64 and riscv64. Name provisional.
 #[inline(never)]
+// In the pinned hot section: milestone 796 (pin the hot trap path's placement).
+#[cfg_attr(
+    target_os = "none",
+    unsafe(link_section = ".text.hot.sched.deliver_capability")
+)]
 fn deliver_capability(caps: &CapabilityTableLock, capability: crate::cap::Cap) -> u64 {
     caps.lock().insert(capability).unwrap_or(NO_CAP)
 }
@@ -4100,6 +4129,11 @@ fn deliver_capability(caps: &CapabilityTableLock, capability: crate::cap::Cap) -
 ///
 /// A capability-carrying send and this share the ordinary sender/receiver queues, so either side
 /// may arrive first, exactly as with the plain path.
+// In the pinned hot section: milestone 796 (pin the hot trap path's placement).
+#[cfg_attr(
+    target_os = "none",
+    unsafe(link_section = ".text.hot.sched.ipc_receive_cap")
+)]
 pub fn ipc_receive_cap(ep: RendezvousId) -> [u64; 5] {
     let immediate = {
         let mut guard = IPC_TABLES.lock();
@@ -4244,6 +4278,11 @@ pub fn ipc_call(ep: RendezvousId, msg: [u64; 2]) -> [u64; 3] {
 /// name so the tree's many `ipc_call(ep, msg)` sites (benches, tests, `ipc_stack_depth`) are
 /// unchanged and the fastpath's shape is untouched, which `script/icount`'s tripwire is what
 /// confirms.
+// In the pinned hot section: milestone 796 (pin the hot trap path's placement).
+#[cfg_attr(
+    target_os = "none",
+    unsafe(link_section = ".text.hot.sched.ipc_call_badged")
+)]
 pub fn ipc_call_badged(ep: RendezvousId, msg: [u64; 2], badge: u64) -> [u64; 3] {
     // E3's footprint padding, on the CALL side as well as the SEND side (milestone 134, extended
     // 2026-09-04). It was on `ipc_send` alone, and that was the whole of the fastpath when the
@@ -4334,6 +4373,8 @@ pub fn ipc_call_badged(ep: RendezvousId, msg: [u64; 2], badge: u64) -> [u64; 3] 
 /// [`ipc_call`], reached by invoking the one-shot Reply capability, which carries the caller's `tid`.
 /// The caller is blocked awaiting exactly this. If it is already gone (it cannot be, while blocked,
 /// but be defensive), the reply is simply dropped.
+// In the pinned hot section: milestone 796 (pin the hot trap path's placement).
+#[cfg_attr(target_os = "none", unsafe(link_section = ".text.hot.sched.ipc_reply"))]
 pub fn ipc_reply(caller: ThreadId, msg: [u64; 2]) {
     let mut guard = IPC_TABLES.lock();
     let sched = guard.as_mut().expect("no scheduler");
@@ -4795,6 +4836,11 @@ pub fn delete_current_cap(slot: u64) -> Result<(), crate::cap::Error> {
 /// copy to keep warm. Milestone 368 (`script/fastpath-footprint`'s entry set is flat) holds the
 /// other instances of this shape.
 #[inline(never)]
+// In the pinned hot section: milestone 796 (pin the hot trap path's placement).
+#[cfg_attr(
+    target_os = "none",
+    unsafe(link_section = ".text.hot.sched.current_cap")
+)]
 pub fn current_cap(slot: u64) -> Result<crate::cap::Cap, crate::cap::Error> {
     // **No `IPC_TABLES` here** (2026-10-04 UTC): the running thread's own table, under its own lock.
     // This was the global lock on every capability syscall, and on radon at four busy cores 41% of

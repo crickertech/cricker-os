@@ -55,6 +55,10 @@
 // formula evaluates to that thread's OWN call-site CFA, and the twelve `.cfi_offset` rules below
 // point at the very slots that thread's own prior `stp`s (or `Context::new`) put them in. A
 // debugger stopped anywhere in this function, on either side of the swap, sees a correct frame.
+// In the pinned hot section, because every IPC that blocks runs it: milestone 796 (pin the
+// hot trap path's placement).
+// See notes/benchmarks/kernel-footprint-and-caches.md, "The hot section".
+.section ".text.hot.switch_to", "ax"
 .global switch_to
 .type switch_to, @function
 switch_to:
@@ -119,6 +123,7 @@ switch_to:
     ret
     .cfi_endproc
 .size switch_to, . - switch_to
+.section ".text", "ax"
 
 // Where a brand-new thread begins.
 //

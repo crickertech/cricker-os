@@ -19,7 +19,10 @@
 #
 # The frame layout is `struct TrapFrame`: x[0..32] then sepc, scause, stval, sstatus (288 bytes).
 
-.section ".text", "ax"
+# `.text.hot.*` puts trap_entry, and the trap_return it falls through to, in the pinned hot
+# section: milestone 796 (pin the hot trap path's placement). See
+# notes/benchmarks/kernel-footprint-and-caches.md, "The hot section".
+.section ".text.hot.trap_entry", "ax"
 .balign 4                       # stvec direct mode needs the vector 4-byte aligned
 # CFI: see notes/cfi-unwind.md, "The hard case: a trap is not a call" (written for aarch64's
 # vectors.s; the same reasoning applies here). `.cfi_signal_frame` marks this as an
@@ -290,6 +293,9 @@ trap_return:
     .cfi_endproc
 .size trap_entry, . - trap_entry
 
+# Off the hot section: nothing below runs on a syscall.
+.section ".text", "ax"
+
 # RUN THE HANDLER ON THIS HART'S INTERRUPT STACK (milestone 124).
 #
 #   a0 = &mut TrapFrame      a1 = the stack to run on, or 0 to stay
@@ -354,6 +360,11 @@ user_return:                    # a0 = *mut TrapFrame
     .cfi_startproc
     .cfi_undefined ra
     mv      sp, a0
-    j       trap_return
+    # `tail`, not `j`: trap_return lives in the pinned hot section at the front of `.text`, and a
+    # `j` (JAL, +/-1 MiB) does not reach it from here in a debug test image, whose text is larger
+    # (found by CI on 2026-10-07: `relocation R_RISCV_JAL out of range`). `tail` is auipc + jr
+    # through t1, which trap_return writes before it reads. The linker relaxes it back to a `j`
+    # wherever that reaches.
+    tail    trap_return
     .cfi_endproc
 .size user_return, . - user_return

@@ -149,6 +149,15 @@ SECTIONS
 
     .text : AT(ADDR(.text) - KERNEL_VA_BASE) ALIGN(4096) {
         __text_start = .;
+        /* **The hot trap path, at one address in every build**: milestone 796 (pin the hot trap
+         * path's placement). link-riscv64.ld has the reasoning. Nothing in `.text` precedes it,
+         * and 16 KiB is a multiple of a common x86 L1i way (32 KiB, eight-way, so 4 KiB), so the
+         * block's cache sets do not depend on what the boot sections weigh.
+         * `script/fastpath-footprint` fails the build when a hot symbol is outside these bounds. */
+        . = ALIGN(16384);
+        __text_hot_start = .;
+        *(SORT_BY_NAME(.text.hot.*))
+        __text_hot_end = .;
         *(.text .text.*)
         . = ALIGN(4096);
         __text_end = .;

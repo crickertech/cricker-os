@@ -237,7 +237,10 @@
     .cfi_endproc
 .endm
 
-.section ".text.exceptions", "ax"
+// In the hot trap path's pinned section, which link-aarch64.ld places first in it so the
+// 2 KiB alignment costs no padding (milestone 796 (pin the hot trap path's placement); see
+// notes/benchmarks/kernel-footprint-and-caches.md, "The hot section").
+.section ".text.hot.exception_vectors", "ax"
 
 // The hardware requires 2048-byte alignment. 16 entries x 128 bytes = 2048.
 .balign 0x800
@@ -264,6 +267,10 @@ exception_vectors:
     VECTOR_ENTRY 14
     VECTOR_ENTRY 15
 .size exception_vectors, . - exception_vectors
+
+// Off the hot section: the interrupt-stack trampoline runs on traps taken in the kernel, never on
+// a syscall from EL0.
+.section ".text", "ax"
 
 // RUN THE HANDLER ON THIS CORE'S INTERRUPT STACK (milestone 124).
 //
@@ -322,6 +329,9 @@ dispatch_on_interrupt_stack:
     .cfi_endproc
 .size dispatch_on_interrupt_stack, . - dispatch_on_interrupt_stack
 
+// The return leg of every syscall, so in the hot section with the vectors.
+.section ".text.hot.exception_restore", "ax"
+
 // `eret` is the counterpart to the exception: it restores the processor state from
 // SPSR_EL1 and jumps to ELR_EL1, in one instruction. That includes DROPPING THE
 // EXCEPTION LEVEL, because SPSR_EL1 carries the level to return to.
@@ -345,6 +355,8 @@ exception_restore:
     eret
     .cfi_endproc
 .size exception_restore, . - exception_restore
+
+.section ".text", "ax"
 
 // ENTER USERSPACE, by returning from an exception that never happened.
 //

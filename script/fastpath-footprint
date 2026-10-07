@@ -158,6 +158,11 @@
 #     holds them and the options. Milestone 188 phase 2 fixed the largest *structural* instance of
 #     the same shape (aarch64's sixteen-entry vector table, at `ENTRY_SLICE`) but did nothing about
 #     the inlining one, which is a different mechanism with the same symptom.
+#   - **The pin check (milestone 796 (pin the hot trap path's placement)) costs two more release
+#     builds of aarch64 and riscv64 on every default run**, the shift pair, and proves less on x86_64,
+#     which has no `fastpath_pad` and gets only the containment half. Its hot set is this script's
+#     closure, so it inherits the closure's blind spots: a callee reached only through a conditional
+#     branch or a function pointer is on the path, outside the section, and not reported.
 #   - **`ipc_call_reply` is still an upper bound and a loose one**, for the reason the whole gate is:
 #     whole symbol sizes, so a cold tail inside `ipc_call` or `ipc_receive_cap` counts. Milestone 188
 #     phase 3 outlined the cold tails it could find; the rest are inside branches this script cannot
@@ -214,23 +219,9 @@ if [ ! -x "$tools/llvm-objdump" ]; then
     exit 1
 fi
 
-status=0
-# shellcheck disable=SC2086  # $arches is a deliberate space-separated list; POSIX sh has no arrays
-for arch in $arches; do
-    case "$arch" in
-        aarch64) target=aarch64-unknown-none-softfloat ;;
-        riscv64) target=riscv64imac-unknown-none-elf ;;
-        # No RUSTFLAGS is set anywhere in this script, which is what makes this arm a one-liner:
-        # `x86_64-unknown-none` needs `-C relocation-model=static` (a kernel cannot be a static-PIE)
-        # and gets it from `.cargo/config.toml`. A bare `RUSTFLAGS` in the environment REPLACES that
-        # table rather than appending to it, and rust-lld then fails with `relocation R_X86_64_32
-        # cannot be used against local symbol`. Found by the `script/stack-frame-check` lane that
-        # widened it the same week; if this script ever grows a RUSTFLAGS of its own, re-add the
-        # flag explicitly.
-        x86_64) target=x86_64-unknown-none ;;
-        *) echo "script/fastpath-footprint: no target for arch $arch" >&2; exit 2 ;;
-    esac
-
+# One release build of $arch for $target with $features, measured and checked. A function because
+# the pin check below measures two more builds of the same ISA and must read them the same way.
+measure() {
     # **The RELEASE binary, and that is the whole point.** A debug kernel's `.text` is about twice
     # the size (notes/benchmarks.md measured 348 KiB against 168 KiB on aarch64), so a debug
     # footprint would be measuring the absence of the optimizer rather than the shape of the path.
@@ -242,6 +233,7 @@ for arch in $arches; do
         cargo build -p kernel --release --target "$target" >/dev/null
     fi
 
+    rc=0
     tmp=$(mktemp -d)
     trap 'rm -rf "$tmp"' EXIT
     "$tools/llvm-objdump" -d --no-show-raw-insn "target/$target/release/kernel" > "$tmp/dis.txt"
@@ -252,9 +244,9 @@ for arch in $arches; do
         | grep -oE 'fn [a-z_0-9]+' | sed 's/fn //' | sort -u | tr '\n' ' ')
 
     ARCH="$arch" DIS="$tmp/dis.txt" BASE="bench/fastpath-$arch.txt" SAVE="$save" WHY="$why" \
-        COLD_FNS="$cold_fns" NOCHECK="$features" LAYOUT="$layout" \
+        COLD_FNS="$cold_fns" NOCHECK="$features" LAYOUT="$layout" PIN_DUMP="${pin_dump:-}" \
         NM="$tools/llvm-nm" ELF="target/$target/release/kernel" \
-        LAYOUT_OUT="target/fastpath-layout-$arch${features:+-$(echo "$features" | tr ',' '+')}-pad${NIFE_FASTPATH_PAD:-1}-shift${NIFE_FASTPATH_SHIFT:-0}.txt" python3 - <<'PYEOF' || status=1
+        LAYOUT_OUT="target/fastpath-layout-$arch${features:+-$(echo "$features" | tr ',' '+')}-pad${NIFE_FASTPATH_PAD:-1}-shift${NIFE_FASTPATH_SHIFT:-0}.txt" python3 - <<'PYEOF' || rc=1
 import os, re, sys, collections, datetime
 
 arch, dis_path, base_path, save = os.environ["ARCH"], os.environ["DIS"], os.environ["BASE"], os.environ["SAVE"]
@@ -296,13 +288,46 @@ SYMHDR = re.compile(r"^([0-9a-f]+) <(.+)>:$")
 # would discard anyway. Counting them would add no edge and would risk following a cold arm.
 CALL = re.compile(r"\b(bl|blr|jal|jalr|b|j|callq?|jmpq?)\s+[^<]*<([^>+]+)")
 
+# **A linker-script boundary is not a function, but objdump may print it as one.** Milestone 796
+# (pin the hot trap path's placement) put `__text_hot_start`, a global symbol, at the same address
+# as the first hot function, and when that function is local llvm-objdump heads the block with the
+# global marker instead. On x86_64 that hid `sched::current_cap` and took 5% off `ipc_send_receive`
+# before this mapping existed. So a header named like a linker-script bound (`__<x>_start`,
+# `__<x>_end`) is renamed to the function `llvm-nm` says starts there, and the bounds themselves are
+# kept for the pin check below.
+import subprocess
+MARKER = re.compile(r"^__\w+_(start|end)$")
+func_at, marks = {}, {}
+for ln in subprocess.run([os.environ["NM"], os.environ["ELF"]], capture_output=True,
+                         text=True).stdout.splitlines():
+    f = ln.split()
+    if len(f) != 3:
+        continue
+    if MARKER.match(f[2]):
+        marks[f[2]] = int(f[0], 16)
+    elif f[1] in "tT" and not f[2].startswith(".L"):   # riscv64's `.Lpcrel_hi*` are labels
+        func_at.setdefault(int(f[0], 16), f[2])
+
+
+def fn_name(name):
+    """A symbol objdump printed, with a linker-script bound replaced by the function it shares an
+    address with. Call targets need it as much as headers do: a call to the first hot function is
+    annotated with the bound's name."""
+    return func_at.get(marks.get(name), name) if MARKER.match(name) else name
+
+
+def header_name(m):
+    name = m.group(2)
+    return func_at.get(int(m.group(1), 16), name) if MARKER.match(name) else name
+
+
 start, last, calls = {}, {}, collections.defaultdict(set)
 cur = None
 for line in open(dis_path, encoding="utf8", errors="replace"):
     line = line.rstrip("\n")
     m = SYMHDR.match(line)
     if m:
-        name = m.group(2)
+        name = header_name(m)
         if name.startswith(".L"):
             continue          # a local label inside the current function, not a new one
         cur = name
@@ -315,7 +340,7 @@ for line in open(dis_path, encoding="utf8", errors="replace"):
         last[cur] = int(a.group(1), 16)
     c = CALL.search(line)
     if c:
-        t = c.group(2)
+        t = fn_name(c.group(2))
         if not t.startswith(".L") and t != cur:
             calls[cur].add(t)
 
@@ -547,6 +572,81 @@ print(f"    total          {total:6d} B  {against(total)}"
 # keeps the decision visible against the number it was made about.
 print(f"    {100 * total / (16 * 1024):.0f}% of the 16 KiB ceiling §144 (a delta and a ceiling) decides and does not yet enforce")
 
+HOT_WAY = 16 * 1024
+hot = (set().union(*shape_syms.values()) | set(entry_syms)) - {"fastpath_pad_body"}
+
+def norm_name(n):
+    n = re.sub(r"\.llvm\.\d+", "", re.sub(r"Cs[0-9A-Za-z]+_", "", n))
+    # `.Lpcrel_hi388` renumbers, and aarch64's `adr` names constants `anon.<cgu hash>.N`,
+    # whose hash follows the codegen unit and so the feature set.
+    n = re.sub(r"^anon\.[0-9a-f]+\.", "anon.", n)
+    return re.sub(r"^(\.L[A-Za-z_]+?)\d+", r"\1", n)
+
+def short(n):
+    n = norm_name(n)
+    if not n.startswith("_R"):
+        return n
+    toks, i = [], 0
+    while i < len(n):
+        m = re.match(r"(\d+)", n[i:])
+        if m:
+            k = int(m.group(1)); i += len(m.group(1))
+            toks.append(n[i:i + k]); i += k
+        else:
+            i += 1
+    toks = [t for t in toks if re.match(r"^[A-Za-z_]\w*$", t)]
+    return "::".join(toks[-2:]) if toks else n
+
+
+# **The pin: every hot symbol inside `.text.hot`, and that section on a way boundary** (milestone
+# 796, 2026-10-07). The linker scripts gather every `.text.hot.*` input section, sorted by name, into
+# one block on a 16 KiB boundary that nothing but the boot stub precedes, so its addresses do not
+# move when code is added anywhere else. That holds only for the functions that are in it. A new
+# function on the path, a rename, or an inlining change that gives the path an out-of-line callee
+# leaves a hot symbol in ordinary `.text`, where it moves with every unrelated change again. This
+# names it and fails. The fix is a `#[link_section = ".text.hot.<name>"]` on the function (or a
+# `.section` directive in the assembly), which is what every member already carries.
+#
+# The other direction is reported and not gated: a symbol in the section that this walk did not
+# reach costs its bytes inside the block and nothing more. Two are there by design (x86_64's
+# `isr_common`, which falls through into `isr_restore`; aarch64's vector table, of which a syscall
+# runs one 128-byte slot); anything else is a stale attribute worth removing.
+pin_bad = False
+pin_dump = []
+# An experiment's build (--features) reports an escape as a reading rather than a failure: E3's own
+# `maybe_pad` is on its path and deliberately not pinned.
+pin_out = sys.stdout if os.environ.get("NOCHECK") else sys.stderr
+lo, hi = marks.get("__text_hot_start"), marks.get("__text_hot_end")
+if lo is None or hi is None:
+    print(f"fastpath-footprint: {arch}: no __text_hot_start/__text_hot_end; the linker script lost "
+          f"its hot section (milestone 796)", file=pin_out)
+    pin_bad = True
+else:
+    escaped = sorted((s for s in hot if not lo <= start[s] < hi), key=lambda x: start[x])
+    extra = sorted(short(n) for a, n in func_at.items() if lo <= a < hi and n not in hot)
+    print(f"    pin: .text.hot {hi - lo} B at {lo:#x}, {lo % HOT_WAY} B into a 16 KiB way; "
+          f"{len(hot) - len(escaped)} of {len(hot)} hot symbols inside")
+    if lo % HOT_WAY:
+        print(f"fastpath-footprint: {arch}: .text.hot starts {lo % HOT_WAY} B past a 16 KiB "
+              f"boundary; the linker script's ALIGN is gone", file=pin_out)
+        pin_bad = True
+    for s in escaped:
+        print(f"{'    pin: ' if pin_out is sys.stdout else 'fastpath-footprint: '}{arch}: "
+              f"{short(s)} is on the hot path but outside .text.hot "
+              f"(at {start[s]:#x}); give it a `.text.hot.*` section", file=pin_out)
+        pin_bad = True
+    if extra:
+        print(f"    pin: also in .text.hot, off the measured path: {', '.join(extra)}")
+    pin_dump = [f"{short(s)} {start[s]:#x} {size[s]}"
+                for s in sorted(hot, key=lambda x: start[x]) if lo <= start[s] < hi]
+    pin_dump.insert(0, f".text.hot {lo:#x} {hi:#x}")
+# Read by the shell's shift check below: the section's bounds and each member's address and size.
+if os.environ.get("PIN_DUMP"):
+    with open(os.environ["PIN_DUMP"], "w") as f:
+        f.write("\n".join(pin_dump) + "\n")
+if pin_bad and os.environ.get("NOCHECK"):
+    pin_bad = False             # an experiment's build reports the escape and does not gate on it
+
 # **`--layout`: where the hot path landed, and proof that nothing else moved** (milestone 134's
 # layout control, 2026-09-19; notes/footprint-perturbation.md). E3 compares kernels that differ in
 # where code sits, so each image needs two facts before it is worth a boot: that it executes the
@@ -567,33 +667,10 @@ print(f"    {100 * total / (16 * 1024):.0f}% of the 16 KiB ceiling §144 (a delt
 # ISAs print addresses without sets: no L1i geometry here was read off a manual for them.
 if os.environ.get("LAYOUT"):
     import hashlib
-    hot = (set().union(*shape_syms.values()) | set(entry_syms)) - {"fastpath_pad_body"}
     starts = sorted(start.items(), key=lambda kv: kv[1])
     by_addr = {}
     for s, a in start.items():
         by_addr.setdefault(a, s)
-
-    def norm_name(n):
-        n = re.sub(r"\.llvm\.\d+", "", re.sub(r"Cs[0-9A-Za-z]+_", "", n))
-        # `.Lpcrel_hi388` renumbers, and aarch64's `adr` names constants `anon.<cgu hash>.N`,
-        # whose hash follows the codegen unit and so the feature set.
-        n = re.sub(r"^anon\.[0-9a-f]+\.", "anon.", n)
-        return re.sub(r"^(\.L[A-Za-z_]+?)\d+", r"\1", n)
-
-    def short(n):
-        n = norm_name(n)
-        if not n.startswith("_R"):
-            return n
-        toks, i = [], 0
-        while i < len(n):
-            m = re.match(r"(\d+)", n[i:])
-            if m:
-                k = int(m.group(1)); i += len(m.group(1))
-                toks.append(n[i:i + k]); i += k
-            else:
-                i += 1
-        toks = [t for t in toks if re.match(r"^[A-Za-z_]\w*$", t)]
-        return "::".join(toks[-2:]) if toks else n
 
     # One pass over the disassembly, keeping only hot symbols' instructions.
     text, cur = collections.defaultdict(list), None
@@ -602,7 +679,7 @@ if os.environ.get("LAYOUT"):
         m = SYMHDR.match(line)
         if m:
             if not m.group(2).startswith(".L"):
-                cur = m.group(2)
+                cur = header_name(m)
             continue
         a = re.match(r"^([0-9a-f]+):\s*(.*)$", line)
         if a and cur in hot:
@@ -646,7 +723,7 @@ if os.environ.get("LAYOUT"):
                 if lo <= tgt < hi:
                     rep = f"<@+{tgt - lo:#x}>"
                 else:
-                    rep = "<" + norm_name(re.sub(r"\+0x[0-9a-f]+$", "", t.group(2))) + ">"
+                    rep = "<" + norm_name(fn_name(re.sub(r"\+0x[0-9a-f]+$", "", t.group(2)))) + ">"
                 # `jalr 0x52(ra) <callee>` after `auipc ra`: the offset is the pair's low half.
                 ins = re.sub(r"-?0x[0-9a-f]+(\(\w+\))", r"LO\1", ins[:t.start()]) + rep
                 counts["target"] += 1
@@ -685,13 +762,8 @@ if os.environ.get("LAYOUT"):
     # The sections after `.text` are page-aligned, so they move in whole pages when `.text` crosses
     # a boundary. That is a layout channel of its own: radon's L1d is 32 KiB 4-way, an 8 KiB way,
     # so an odd number of pages moves every static to a different set (U74-MC manual §4.4.1).
-    import subprocess
-    sect = {}
-    for ln in subprocess.run([os.environ["NM"], os.environ["ELF"]], capture_output=True,
-                             text=True).stdout.splitlines():
-        f = ln.split()
-        if len(f) == 3 and f[2] in ("__text_end", "__data_start", "__bss_start", "__image_end"):
-            sect[f[2]] = int(f[0], 16)
+    sect = {k: v for k, v in marks.items()
+            if k in ("__text_end", "__data_start", "__bss_start", "__image_end")}
     if sect:
         print("    layout: " + "  ".join(f"{k} {v:#x}" for k, v in sorted(sect.items(), key=lambda kv: kv[1])))
     pad = [s for s in start if s == "fastpath_pad_body"]
@@ -710,8 +782,7 @@ if os.environ.get("LAYOUT"):
         print(f"    layout: the sled precedes {len(moved)} of {len(hot)} hot symbols, "
               f"{share:.0f}% of their bytes; only those move when it grows")
     SETS = {"riscv64": 256}.get(arch)
-    listed = [s for s in hot if SHAPES[1][1].search(s) or s in entry_syms]
-    for s in sorted(listed, key=lambda x: start[x]):
+    for s in sorted(hot, key=lambda x: start[x]):
         a = start[s]
         where = f"set {(a >> 6) % SETS:3d}  " if SETS else ""
         print(f"    layout: {a:#x}  {where}line+{a & 63:2d}  mod8 {a & 7}  {short(s)}")
@@ -789,7 +860,7 @@ if save:
                closure_total, entry_total)
         )
     print(f"    wrote {base_path}")
-    sys.exit(0)
+    sys.exit(1 if pin_bad else 0)
 
 if not os.path.exists(base_path):
     print(f"fastpath-footprint: {arch}: no baseline at {base_path}; run --save", file=sys.stderr)
@@ -819,7 +890,7 @@ for line in open(base_path):
 # release build has no incremental-compilation or codegen-unit nondeterminism to speak of), so TOL
 # is not narrower than anything the data supports in either direction.
 TOL = 0.05
-bad = False
+bad = pin_bad
 for key, got in GATED:
     ref = want.get(key)
     if ref is None:
@@ -863,6 +934,65 @@ sys.exit(1 if bad else 0)
 PYEOF
     rm -rf "$tmp"
     trap - EXIT
+    return "$rc"
+}
+
+status=0
+# shellcheck disable=SC2086  # $arches is a deliberate space-separated list; POSIX sh has no arrays
+for arch in $arches; do
+    case "$arch" in
+        aarch64) target=aarch64-unknown-none-softfloat ;;
+        riscv64) target=riscv64imac-unknown-none-elf ;;
+        # No RUSTFLAGS is set anywhere in this script, which is what makes this arm a one-liner:
+        # `x86_64-unknown-none` needs `-C relocation-model=static` (a kernel cannot be a static-PIE)
+        # and gets it from `.cargo/config.toml`. A bare `RUSTFLAGS` in the environment REPLACES that
+        # table rather than appending to it, and rust-lld then fails with `relocation R_X86_64_32
+        # cannot be used against local symbol`. Found by the `script/stack-frame-check` lane that
+        # widened it the same week; if this script ever grows a RUSTFLAGS of its own, re-add the
+        # flag explicitly.
+        x86_64) target=x86_64-unknown-none ;;
+        *) echo "script/fastpath-footprint: no target for arch $arch" >&2; exit 2 ;;
+    esac
+
+    measure || status=1
+
+    # **The pin under a shift: the hot section's addresses with the rest of `.text` moved** (milestone
+    # 796). The check inside `measure` proves every hot symbol is in `.text.hot`; this proves the
+    # section does not move when unrelated code is added, by building two kernels that differ only
+    # in milestone 370's `NIFE_FASTPATH_SHIFT` (0, and 20,520 bytes of unreferenced zeros) and
+    # comparing each hot symbol's address and size. 20,520 is a 16 KiB way, a page and 40 bytes, so
+    # every later line, set and page moves, the data sections included. **It must exceed 16 KiB**:
+    # with 4,136 a linker script that put the sled AHEAD of the hot section still passed, because the
+    # section's 16 KiB ALIGN absorbed the whole displacement (found 2026-10-07 by breaking the order
+    # on purpose). x86_64 has no `fastpath_pad` (BUGS above), so it gets only the containment check.
+    # Not run with --features or --save, which measure one build on purpose.
+    case "$arch" in aarch64|riscv64)
+        if [ -z "$features" ] && [ -z "$save" ] && [ "$status" = 0 ]; then
+            echo "==> $arch: the hot section under a 20,520-byte text shift (two fastpath_pad builds)"
+            pin_tmp=$(mktemp -d)
+            features=fastpath_pad
+            export NIFE_FASTPATH_PAD=0
+            for shift in 0 20520; do
+                export NIFE_FASTPATH_SHIFT="$shift"
+                pin_dump="$pin_tmp/$shift.txt"
+                measure >"$pin_tmp/$shift.log" 2>&1 || {
+                    cat "$pin_tmp/$shift.log" >&2
+                    echo "fastpath-footprint: $arch: the shift-$shift build failed" >&2
+                    status=1
+                }
+            done
+            features="" pin_dump=""
+            unset NIFE_FASTPATH_PAD NIFE_FASTPATH_SHIFT
+            if [ "$status" = 0 ] && cmp -s "$pin_tmp/0.txt" "$pin_tmp/20520.txt"; then
+                echo "    pin: $(($(wc -l < "$pin_tmp/0.txt") - 1)) hot symbols at the same address and size with the rest of .text shifted 20,520 B"
+            elif [ "$status" = 0 ]; then
+                echo "fastpath-footprint: $arch: the hot section moved when only unrelated code did:" >&2
+                diff "$pin_tmp/0.txt" "$pin_tmp/20520.txt" >&2 || true
+                status=1
+            fi
+            rm -rf "$pin_tmp"
+        fi ;;
+    esac
 done
 
 [ "$status" = 0 ] && [ -z "$save" ] && [ -z "$features" ] && echo "fastpath-footprint: within the drift band on every ISA checked; the distance to the 4 KiB target is above, and is reported rather than gated"

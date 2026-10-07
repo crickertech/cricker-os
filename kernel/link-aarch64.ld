@@ -45,16 +45,32 @@ SECTIONS
          * point. */
         KEEP(*(.text.header))
         KEEP(*(.text.boot))
+        /* **The hot trap path, at one address in every build**: milestone 796 (pin the hot trap
+         * path's placement). link-riscv64.ld has the reasoning. 16 KiB is a multiple of every L1i
+         * way this ISA's targets have, so the block's cache sets do not depend on what the image
+         * header and boot stub weigh. `script/fastpath-footprint` fails the build when a hot
+         * symbol is outside these bounds. */
+        . = ALIGN(16384);
+        __text_hot_start = .;
+        /* The vector table first, because it must start on 2 KiB and this boundary is one. */
+        *(.text.hot.exception_vectors)
+        *(SORT_BY_NAME(.text.hot.*))
+        /* compiler_builtins' memcpy: the IPC closure calls it on this ISA (the other two inline
+         * their copies), and it carries no attribute we can add. */
+        *(.text.memcpy)
+        __text_hot_end = .;
         /* **E3's padding sled, and only when it exists** (milestone 370, the layout control).
          * Nothing else pins where the linker drops `.text.fastpath_pad_body` among the kernel's
          * other `.text.*` inputs, and it has moved: on 2026-09-04 it landed ahead of the whole
          * trap path, and by 2026-09-19 it landed past all but 5% of the fastpath's bytes, so how
-         * much of the hot path a pad perturbed was redrawn every commit. Placed first, a pad of N
-         * bytes moves the whole kernel text by N, which is the same perturbation
-         * `NIFE_FASTPATH_SHIFT` applies, so E3's two ladders differ only in whether the bytes are
-         * inside the footprint the gate counts. **An ordinary build has no such section**, so this
-         * line matches nothing and the default link order is unchanged (checked: the default boot
-         * image is byte-identical across it). See kernel/src/fastpath_pad.rs. */
+         * much of the hot path a pad perturbed was redrawn every commit. Placed first after the
+         * hot section, a pad of N bytes moves the rest of the kernel text by N, which is the same
+         * perturbation `NIFE_FASTPATH_SHIFT` applies, so E3's two ladders differ only in whether
+         * the bytes are inside the footprint the gate counts. Since milestone 796 neither moves
+         * the hot section itself: that is what a shift sweep on radon now tests. **An ordinary
+         * build has no such section**, so this line matches nothing and the default link order
+         * is unchanged (checked when the layout control landed: the default boot image was
+         * byte-identical across it). See kernel/src/fastpath_pad.rs. */
         *(.text.fastpath_pad_body)
         *(.text .text.*)
         . = ALIGN(4096);

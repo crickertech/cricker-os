@@ -25,6 +25,10 @@
 # `Context::for_*_thread`'s synthetic frame, context.rs) left after these same six pushes. The
 # return address needs no special rule either: it is always at CFA-8 by the ordinary x86-64
 # convention, which stays true across the swap for the same reason the six GP-register offsets do.
+# In the pinned hot section, because every IPC that blocks runs it: milestone 796 (pin the
+# hot trap path's placement).
+# See notes/benchmarks/kernel-footprint-and-caches.md, "The hot section".
+.section ".text.hot.switch_to", "ax"
 .global switch_to
 .type switch_to, @function
 switch_to:
@@ -71,6 +75,7 @@ switch_to:
     ret
     .cfi_endproc
 .size switch_to, . - switch_to
+.section ".text", "ax"
 
 # The first-run landing pad for a KERNEL thread.
 #

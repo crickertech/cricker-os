@@ -373,6 +373,8 @@ unsafe extern "C" {
 /// thread rather than to this hart. See `kernel/src/interrupt_stack.rs` for why the second one
 /// cannot happen anywhere else.
 #[unsafe(no_mangle)]
+// In the pinned hot section: milestone 796 (pin the hot trap path's placement).
+#[unsafe(link_section = ".text.hot.riscv_trap_dispatch")]
 extern "C" fn riscv_trap_dispatch(frame: &mut TrapFrame) {
     // U-mode traps keep their old behaviour: that thread's kernel stack is empty at this instant,
     // and the syscall it is probably taking may block, which an interrupt stack may not do.
@@ -403,6 +405,8 @@ extern "C" fn riscv_trap_dispatch(frame: &mut TrapFrame) {
 /// Returns whether the caller owes a deferred `schedule()`, which is true for an interrupt and false
 /// for everything else.
 #[unsafe(no_mangle)]
+// In the pinned hot section: milestone 796 (pin the hot trap path's placement).
+#[unsafe(link_section = ".text.hot.riscv_trap_body")]
 extern "C" fn riscv_trap_body(frame: &mut TrapFrame) -> bool {
     let scause = frame.scause;
 

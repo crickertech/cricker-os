@@ -106,6 +106,12 @@ isr_\num:
 # register, so no special pseudo-register or GDB cooperation is needed the way AArch64's ELR_mode
 # would need (see vectors.s's CFI note for that comparison, and notes/cfi-unwind.md for what this
 # bought in practice).
+# From here to x86_syscall_entry's end is the pinned hot section: milestone 796 (pin the hot
+# trap path's placement).
+# See notes/benchmarks/kernel-footprint-and-caches.md, "The hot section". A `syscall` runs only
+# isr_restore and x86_syscall_entry. isr_common rides along because it falls through into
+# isr_restore, and splitting them would add a `jmp` to every IDT trap.
+.section ".text.hot.x86_syscall_entry", "ax"
 .type isr_common, @function
 isr_common:
     .cfi_startproc
@@ -387,6 +393,7 @@ x86_syscall_entry:
     jmp isr_restore
     .cfi_endproc
 .size x86_syscall_entry, . - x86_syscall_entry
+.section ".text", "ax"
 
 # RUN THE HANDLER ON THIS CPU'S INTERRUPT STACK (milestone 124, brought to this architecture by
 # milestone 161's roadmap item 4).

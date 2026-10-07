@@ -59,6 +59,11 @@ use crate::sched;
 /// bodies): this is a large match executed once per syscall, and one `bl` is not a cost worth
 /// duplicating a kilobyte of dispatcher into a handler that also serves faults and interrupts.
 #[inline(never)]
+// In the pinned hot section: milestone 796 (pin the hot trap path's placement).
+#[cfg_attr(
+    target_os = "none",
+    unsafe(link_section = ".text.hot.syscall.dispatch")
+)]
 pub fn dispatch(frame: &mut TrapFrame) {
     // The syscall number and arguments come from the trap frame through arch accessors, not raw
     // register indices, because the ABI register file differs per architecture (aarch64 `svc` with
