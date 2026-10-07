@@ -14,12 +14,23 @@
 //! be run by a person. `date` before `components/src/date.rs` existed is the position that left; this is
 //! that milestone's `date`.
 //!
-//! It is **`disk_partitioner`'s draw with the disk taken away**. Both call
-//! `globally_unique_identifier_partition_table::guid::Guid::v4_from_random` over sixteen bytes
-//! from the same service, because a GPT gives every partition a random globally unique id and
-//! `crates/globally_unique_identifier_partition_table` refuses to invent one. The partitioner also
-//! needs a disk capability, which this shell does not hold and cannot attenuate; the sixteen bytes
-//! and the stamping are the half that a prompt can reach today.
+//! It is **`disk_partitioner`'s draw with the disk taken away**. Both fill sixteen bytes with
+//! `user_mode_runtime::entropy::fill` and stamp them with
+//! `universally_unique_identifier::Uuid::v4_from_random`, because a GPT gives every partition a
+//! random unique id and neither crate will invent one. The partitioner also needs a disk
+//! capability, which this shell does not hold and cannot attenuate; the sixteen bytes and the
+//! stamping are the half that a prompt can reach today.
+//!
+//! # Byte order
+//!
+//! The printed form is RFC 9562's: the version nibble at character 14, the variant at 19, and the
+//! digits in the order `Uuid` holds its bytes. Until 2026-10-06 (UTC) this program stamped with the
+//! partition table's `Guid`, which held GPT's mixed-endian on-disk bytes and swapped the first
+//! three groups when printing. The output was still a well-formed version-4 UUID, because the stamp
+//! used the on-disk offsets and the printer undid them, but the bytes drawn reached the screen
+//! permuted: RFC 9562 Appendix A.3's random input printed as `F7089191-D152-4033-9BAC-...` rather
+//! than the RFC's `919108F7-52D1-4320-9BAC-...`. No one could see it in a random identifier, and
+//! `crates/universally_unique_identifier`'s tests now pin the RFC's vector.
 //!
 //! # The capability table
 //!
@@ -74,8 +85,9 @@
 //!   (DECISIONS §120's stopgap). Whether a real board's TRNG is sound is
 //!   `notes/entropy.md`'s open question and endowing a grant does not settle it.
 //! - **A short draw is treated as a failure.** `entropy_protocol` delivers at most eight bytes a round
-//!   trip and this program needs sixteen, so it makes two calls and refuses if either answers with
-//!   fewer than eight. It does not retry. `disk_partitioner::random16` makes exactly the same call.
+//!   trip and this program needs sixteen, so `user_mode_runtime::entropy::fill` makes two calls and
+//!   refuses if either answers with fewer than eight. It does not retry. `disk_partitioner` makes
+//!   exactly the same call.
 //!
 //! Name: ratified 2026-09-13 (calef, working the unratified worklist). Introduced 2026-09-05
 //! alongside `grant_plan::Manifest::entropy`. RFC 9562's own term for the object, and a term of art
@@ -91,8 +103,8 @@
 //! go on disk little-endian and the last two in the order written, where RFC 9562's UUID is
 //! big-endian throughout. `crates/globally_unique_identifier_partition_table/src/guid.rs` is built
 //! around exactly that trap ("a GUID that looks plausible, matches nothing, and is byte-reversed in
-//! three places out of five") and proves the round trip for all 2^128 with
-//! `a_guid_survives_printing_and_parsing`.
+//! three places out of five") and proves its on-disk round trip for all 2^128 with
+//! `a_guid_survives_the_on_disk_layout`.
 //!
 //! So the refusal stands and is stronger than its old reason: `guid` here would not be a
 //! stylistic borrowing from another vendor, it would assert a byte order this program does not
@@ -101,6 +113,14 @@
 //! will otherwise conflate, which is the load-bearing version of the argument §113's amendment
 //! found false for `crates/pci`. (The crate was `gpt` when both of these were written; §154
 //! renamed it `globally_unique_identifier_partition_table` on 2026-09-18, and `Guid` stayed.)
+//!
+//! **Superseded in part on 2026-10-06 (UTC).** calef asked why the UUID code lived in a crate named
+//! for partition tables, and approved moving it: the type is now
+//! `universally_unique_identifier::Uuid`, always in RFC 9562 order, and the mixed-endian layout is
+//! two functions in the partition table's `guid` module (`from_disk`, `to_disk`). The distinction
+//! the paragraph above defends is kept, and is now made by those two functions rather than by a
+//! second type name, so `Guid` is gone and the partition table says GUID only for UEFI's own
+//! fields.
 
 #![no_std]
 // Program entry points, not the crates/ library surface milestone 68's ratchet tracks
@@ -109,9 +129,8 @@
 #![allow(missing_docs)]
 #![no_main]
 
-use entropy_protocol as entropy;
-use globally_unique_identifier_partition_table::guid::Guid;
-use user_mode_runtime::{call, exit, is_granted, send};
+use universally_unique_identifier::Uuid;
+use user_mode_runtime::{exit, is_granted, send};
 
 /// Slot 0: where the identifier goes. An endpoint with `WRITE`, under the sink contract.
 const REPORT: u64 = 0;
@@ -120,8 +139,8 @@ const REPORT: u64 = 0;
 /// cannot swallow it into a file that then looks like a successful run.
 const DIAG_SLOT: u64 = grant_plan::DIAGNOSTICS_SLOT;
 
-/// Slot 9: the entropy service, `WRITE`. Its *presence* is what [`random16`] finds out about, and
-/// it finds out by asking rather than by probing: a `CALL` on an empty slot answers
+/// Slot 9: the entropy service, `WRITE`. Its *presence* is what the draw finds out about, and it
+/// finds out by asking rather than by probing: a `CALL` on an empty slot answers
 /// `abi::Error::NoSuchSlot`, which `entropy_protocol::delivered` separates from every real count.
 const ENTROPY_SLOT: u64 = grant_plan::ENTROPY_SLOT;
 
@@ -134,7 +153,8 @@ pub extern "C" fn _start(_a0: u64, _a1: u64, _a2: u64) -> ! {
     // before the draw has answered. §67's reader also drains the second stream to end-of-stream
     // before it reads a byte of output, so the complaint has to be finished before the identifier
     // starts.
-    let drawn = random16();
+    let mut random = [0u8; 16];
+    let drawn = user_mode_runtime::entropy::fill(ENTROPY_SLOT, &mut random).map(|()| random);
 
     if drawn.is_none() {
         write_on(
@@ -148,41 +168,12 @@ pub extern "C" fn _start(_a0: u64, _a1: u64, _a2: u64) -> ! {
 
     if let Some(bytes) = drawn {
         let mut line = [b'\n'; 37];
-        line[..36].copy_from_slice(&Guid::v4_from_random(bytes).to_ascii());
+        line[..36].copy_from_slice(&Uuid::v4_from_random(bytes).to_ascii());
         write_on(REPORT, &line);
     }
 
     send(REPORT, byte_sink_protocol::eof(), 0, 0);
     exit();
-}
-
-/// Sixteen random bytes from the entropy service, or `None` if this process holds no entropy
-/// capability or the service has none to give.
-///
-/// Two round trips, because a reply carries one word (`entropy_protocol::MAX_BYTES` is 8; DECISIONS
-/// §44 spends the round trip rather than putting random bytes in a page a second party maps).
-/// `entropy_protocol::delivered` is what separates "no capability" (a kernel error in the register a
-/// count would have arrived in) from "the service has none" (a real count of zero) from a real
-/// draw, and this program treats the first two the same: nothing is written either way.
-///
-/// **`components/src/disk_partitioner.rs`'s `random16`, verbatim in shape.** The two are the same draw
-/// against the same contract, and keeping them recognisably one thing is worth more than sharing
-/// twelve lines through a crate neither would otherwise need.
-fn random16() -> Option<[u8; 16]> {
-    let mut out = [0u8; 16];
-    for half in 0..2 {
-        let (r0, r1) = call(
-            ENTROPY_SLOT,
-            entropy::req(entropy::GET, entropy::MAX_BYTES),
-            0,
-        );
-        let n = entropy::delivered(r0)?;
-        if n != entropy::MAX_BYTES as usize {
-            return None;
-        }
-        entropy::take(n, r1, &mut out[half * 8..half * 8 + 8]);
-    }
-    Some(out)
 }
 
 /// Write bytes to an endpoint under the sink contract, sixteen at a time. No newline is added:

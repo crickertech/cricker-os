@@ -77,7 +77,6 @@
 
 extern crate alloc;
 
-use entropy_protocol as entropy;
 use filesystem_protocol::fixture::blank;
 use filesystem_protocol::{blk, req};
 use globally_unique_identifier_partition_table::GloballyUniqueIdentifierPartitionTable;
@@ -186,10 +185,11 @@ pub extern "C" fn _start(role: u64, _a1: u64, _a2: u64) -> ! {
 
     // **Before the first write.** A program that cannot be given randomness must find out while the
     // partition still holds whatever it held.
-    let Some(uuid) = random16() else {
+    let mut uuid = [0u8; 16];
+    if user_mode_runtime::entropy::fill(ENTROPY, &mut uuid).is_none() {
         send(REPORT, R_NO_ENTROPY, 0, 0);
         user_mode_runtime::exit()
-    };
+    }
 
     let disk = PartitionDisk {
         first_block,
@@ -344,25 +344,6 @@ fn data_partition() -> Option<(u64, u64)> {
         return Some((first_block, blocks));
     }
     Some((0, 0))
-}
-
-/// Sixteen random bytes from the entropy service, or `None` if this process holds no entropy
-/// endpoint (or the service has none to give).
-///
-/// Two round trips, because one reply carries one word. `entropy_protocol::delivered` is what tells a
-/// missing capability apart from a short answer: a count is always `0..=8` and every kernel error is
-/// a small negative that reads as an enormous `u64`.
-fn random16() -> Option<[u8; 16]> {
-    let mut out = [0u8; 16];
-    for half in 0..2 {
-        let (r0, r1) = call(ENTROPY, entropy::req(entropy::GET, entropy::MAX_BYTES), 0);
-        let n = entropy::delivered(r0)?;
-        if n != entropy::MAX_BYTES as usize {
-            return None;
-        }
-        entropy::take(n, r1, &mut out[half * 8..half * 8 + 8]);
-    }
-    Some(out)
 }
 
 /// One blk `CALL`: the opcode and a block index, with the bulk in [`BLK_PAGE`]. Negative is an

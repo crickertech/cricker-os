@@ -122,9 +122,6 @@ filesystem_protocol = { version = "0.1.0", path = "../crates/filesystem_protocol
 # dependencies of its own and no I/O at all, so it costs the host build nothing and the sans-IO core
 # never sees it.
 globally_unique_identifier_partition_table = { version = "0.1.0", path = "../crates/globally_unique_identifier_partition_table" }
-# The entropy contract (milestone 56): `mkfs`'s uuid comes over this wire, from a service, and
-# never from inside the engine.
-entropy_protocol = { version = "0.1.0", path = "../crates/entropy_protocol" }
 
 # EL0-only, optional (behind `el0`): the syscall runtime. It does not compile for the host, so it is
 # absent from the host test build. (`abi` went with milestone 706 (a `CALL` server can tell a Reply

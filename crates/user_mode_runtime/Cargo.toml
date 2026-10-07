@@ -26,3 +26,6 @@ counter_frequency_protocol = { version = "0.1.0", path = "../counter_frequency_p
 current_cpu_protocol = { version = "0.1.0", path = "../current_cpu_protocol" }
 # The address-space map (milestone 206 (a program image has under 896 KiB)): the heap's default base is its heap band.
 address_space_map = { version = "0.1.0", path = "../address_space_map" }
+# The entropy contract, for `entropy::fill` (lane/uuid-crate, 2026-10-06): the client loop four
+# programs had copied. Dependency-free and no_std, like the other two protocol crates above.
+entropy_protocol = { version = "0.1.0", path = "../entropy_protocol" }

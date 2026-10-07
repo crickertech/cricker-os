@@ -16,7 +16,7 @@
 //! instead of scattering them.
 
 use crate::crc::crc32_pieces;
-use crate::guid::Guid;
+use crate::guid::{self, Uuid};
 use crate::{Error, is_block_size_ok};
 
 /// `EFI PART`, the eight bytes at offset 0 of every GPT header.
@@ -72,7 +72,7 @@ pub struct Header {
     /// The last block a partition may occupy, inclusive. Everything above it is backup table.
     pub last_usable_lba: u64,
     /// Names the disk, not any partition on it.
-    pub disk_guid: Guid,
+    pub disk_guid: Uuid,
     /// Where this header's copy of the partition entry array starts.
     pub entry_array_lba: u64,
     /// How many entries the array has room for, used or not. 128 in practice, always.
@@ -149,7 +149,7 @@ impl Header {
             alternate_lba: le64(block, at::ALTERNATE_LBA),
             first_usable_lba: le64(block, at::FIRST_USABLE_LBA),
             last_usable_lba: le64(block, at::LAST_USABLE_LBA),
-            disk_guid: Guid::from_bytes(
+            disk_guid: guid::from_disk(
                 block[at::DISK_GUID..at::DISK_GUID + 16].try_into().unwrap(),
             ),
             entry_array_lba: le64(block, at::ENTRY_ARRAY_LBA),
@@ -193,7 +193,7 @@ impl Header {
         put64(block, at::ALTERNATE_LBA, self.alternate_lba);
         put64(block, at::FIRST_USABLE_LBA, self.first_usable_lba);
         put64(block, at::LAST_USABLE_LBA, self.last_usable_lba);
-        block[at::DISK_GUID..at::DISK_GUID + 16].copy_from_slice(&self.disk_guid.to_bytes());
+        block[at::DISK_GUID..at::DISK_GUID + 16].copy_from_slice(&guid::to_disk(self.disk_guid));
         put64(block, at::ENTRY_ARRAY_LBA, self.entry_array_lba);
         put32(block, at::ENTRY_COUNT, self.entry_count);
         put32(block, at::ENTRY_SIZE, self.entry_size);

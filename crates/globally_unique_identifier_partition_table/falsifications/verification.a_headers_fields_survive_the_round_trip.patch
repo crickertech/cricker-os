@@ -13,4 +13,4 @@ index 8f37c6284..f0cc3fec6 100644
          put64(block, at::FIRST_USABLE_LBA, self.first_usable_lba);
 -        put64(block, at::LAST_USABLE_LBA, self.last_usable_lba);
 +        put64(block, at::LAST_USABLE_LBA, self.last_usable_lba as u32 as u64);
-         block[at::DISK_GUID..at::DISK_GUID + 16].copy_from_slice(&self.disk_guid.to_bytes());
+         block[at::DISK_GUID..at::DISK_GUID + 16].copy_from_slice(&guid::to_disk(self.disk_guid));

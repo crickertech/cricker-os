@@ -43,9 +43,10 @@ use std::path::Path;
 use std::time::{SystemTime, UNIX_EPOCH};
 
 use filesystem_protocol::xattr;
-use globally_unique_identifier_partition_table::{GloballyUniqueIdentifierPartitionTable, Guid};
+use globally_unique_identifier_partition_table::GloballyUniqueIdentifierPartitionTable;
 use redoxfs::{BLOCK_SIZE, Disk, DiskFile, FileSystem, Node, Transaction, TreeData, TreePtr};
 use syscall::error::{EIO, Error};
+use universally_unique_identifier::Uuid;
 
 /// Public so the recovery test can read an attribute back off the host file the extract wrote. The
 /// round trip is the claim this feature makes, and closing it needs both halves in one place.
@@ -75,7 +76,7 @@ pub enum PartitionSelector {
     /// **Not the partition name.** GPT names are cosmetic and frequently absent: macOS writes none
     /// at all (notes/globally-unique-identifier-partition-table.md), so a selector keyed on one
     /// would fail on exactly the disk the recovery story is about.
-    Type(Guid),
+    Type(Uuid),
 }
 
 /// Where a filesystem is: the whole file, or one partition inside it.
@@ -516,7 +517,7 @@ fn warn_if_partitioned(file: &File, path: &Path) {
 pub struct PartitionInfo {
     /// The number a person types: 1-based, and a hole in the array does not renumber what follows.
     pub number: usize,
-    pub type_guid: Guid,
+    pub type_guid: Uuid,
     /// The short name for a type this project recognises, or `None`, in which case the GUID is the
     /// string to go and look up.
     pub type_name: Option<&'static str>,
@@ -531,7 +532,7 @@ pub struct PartitionInfo {
 pub struct TableInfo {
     /// The logical block size the table was found at. Printed because every LBA below counts in it.
     pub block_size: usize,
-    pub disk_guid: Guid,
+    pub disk_guid: Uuid,
     pub partitions: Vec<PartitionInfo>,
 }
 

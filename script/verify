@@ -342,6 +342,10 @@ set -- -j "${VERIFY_JOBS:-4}" --output-format=terse "$@"
 # `e1000e`'s 2 seconds (milestone 494 (a driver for the network card a PC actually has), 2026-10-04) are the same kind of dev-Mac number, for three
 # harnesses; replace it from a CI log the same way.
 #
+# `universally_unique_identifier`'s 6 seconds (lane/uuid-crate, 2026-10-06) are the two harnesses that
+# moved out of `globally_unique_identifier_partition_table`, priced at their old rows in
+# notes/globally-unique-identifier-partition-table.md; replace it from the first CI log.
+#
 # `designware_mobile_storage`'s 4 seconds (milestone 53 (the board's own peripherals: network and storage on real silicon),
 # 2026-10-06) are the same kind of dev-Mac number, for four harnesses.
 #
@@ -386,6 +390,7 @@ direct_memory_access_validator	175	the DMA-confinement validator, no descriptor 
 network_time_protocol	17	the 1900-epoch era pivot, and no hostile packet moves the clock
 domain_name_system	34	the name decoder ends on every pointer loop, and a TCP reply never writes past its buffer
 globally_unique_identifier_partition_table	64	the partition table's CRC-32, its round trips, and partitions that overlap
+universally_unique_identifier	6	the UUID text form round trips, and the version-4 stamp touches only the six bits it reserves
 calendar	600	the civil-date arithmetic, and the parser on hostile text
 glob	902	matching is total, and a hostile pattern cannot be made to blow up
 filesystem_protocol	1	a directory capability's child never exceeds its parent, at any depth

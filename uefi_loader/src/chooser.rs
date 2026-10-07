@@ -136,7 +136,7 @@ use core::ptr;
 
 use boot_slot::{SlotHeader, State, select_excluding};
 use globally_unique_identifier_partition_table as gpt;
-use gpt::guid::{Guid, types};
+use gpt::guid::types;
 use gpt::{Entry, GloballyUniqueIdentifierPartitionTable as Table};
 use uefi_loader::device_path;
 use uefi_loader::efi::{
@@ -144,6 +144,7 @@ use uefi_loader::efi::{
     DEVICE_PATH_PROTOCOL_GUID, Handle, LOADED_IMAGE_PROTOCOL_GUID, LoadedImage, SUCCESS,
     SystemTable, memory_type,
 };
+use universally_unique_identifier::Uuid;
 
 use crate::{BOOT_FILE_MAX, PAGE, allocate_below, say, say_decimal};
 
@@ -286,7 +287,7 @@ enum Started {
 struct Disk {
     block_io: *mut BlockIo,
     media_id: u32,
-    disk_guid: Guid,
+    disk_guid: Uuid,
     block_count: u64,
     /// Every used entry, in index order, so a rewrite puts them back where they were.
     parts: [Entry; MAX_PARTITIONS],

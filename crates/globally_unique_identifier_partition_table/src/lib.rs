@@ -82,9 +82,10 @@
 //! ```
 //! # use globally_unique_identifier_partition_table::Entry;
 //! # use globally_unique_identifier_partition_table::GloballyUniqueIdentifierPartitionTable;
-//! # use globally_unique_identifier_partition_table::guid::{Guid, types};
-//! # let disk_guid = Guid::ZERO;
-//! # let part_guid = Guid::ZERO;
+//! # use globally_unique_identifier_partition_table::guid::types;
+//! # use universally_unique_identifier::Uuid;
+//! # let disk_guid = Uuid::NIL;
+//! # let part_guid = Uuid::NIL;
 //! let mut array = [0u8; globally_unique_identifier_partition_table::ENTRY_ARRAY_BYTES];
 //! let table = GloballyUniqueIdentifierPartitionTable::create(
 //!     disk_guid,
@@ -147,8 +148,8 @@ pub mod span;
 
 use crc::crc32;
 pub use entry::Entry;
-pub use guid::Guid;
 pub use header::Header;
+use universally_unique_identifier::Uuid;
 
 /// The smallest logical block a GPT disk can have, and what almost every disk reports.
 pub const MIN_BLOCK_SIZE: usize = 512;
@@ -399,7 +400,7 @@ impl<'a> GloballyUniqueIdentifierPartitionTable<'a> {
     /// partition from straddling an SSD erase block) is policy, and a format crate that silently
     /// moved a partition would be doing policy behind the caller's back.
     pub fn create(
-        disk_guid: Guid,
+        disk_guid: Uuid,
         block_size: usize,
         block_count: u64,
         partitions: &[Entry],
@@ -518,7 +519,7 @@ impl<'a> GloballyUniqueIdentifierPartitionTable<'a> {
     }
 
     /// The GUID naming this disk.
-    pub fn disk_guid(&self) -> Guid {
+    pub fn disk_guid(&self) -> Uuid {
         self.header.disk_guid
     }
 
@@ -810,7 +811,7 @@ pub mod mbr {
 /// tests can see is a helper the documentation cannot use.
 pub mod testing {
     use crate::guid::types;
-    use crate::{ENTRY_ARRAY_BYTES, Entry, GloballyUniqueIdentifierPartitionTable, Guid};
+    use crate::{ENTRY_ARRAY_BYTES, Entry, GloballyUniqueIdentifierPartitionTable, Uuid};
 
     /// A 64 MiB, 512-byte-block disk carrying one nife data partition, as a contiguous
     /// buffer: LBA 0 is at offset 0, so slicing by `lba * 512` gets any block.
@@ -822,14 +823,14 @@ pub mod testing {
         let mut array = [0u8; ENTRY_ARRAY_BYTES];
         let part = Entry::new(
             types::NIFE_DATA,
-            Guid::from_bytes([0x11; 16]),
+            Uuid::from_bytes([0x11; 16]),
             2048,
             131_038,
         )
         .with_name("nife data")
         .expect("twelve characters fit");
         let table = GloballyUniqueIdentifierPartitionTable::create(
-            Guid::from_bytes([0x22; 16]),
+            Uuid::from_bytes([0x22; 16]),
             512,
             131_072,
             &[part],
@@ -989,43 +990,21 @@ mod verification {
         assert_eq!(Entry::decode(&bytes).encode(), bytes);
     }
 
-    /// **A GUID survives the mixed-endian round trip**, for all 2^128 of them, out through the
-    /// printed form and back.
+    /// **A GUID survives GPT's mixed-endian layout**, for all 2^128 on-disk byte patterns: what
+    /// [`guid::from_disk`] reads, [`guid::to_disk`] writes back unchanged.
     ///
-    /// The swapping is the one place in this crate where a transposition produces something that
-    /// looks entirely reasonable and matches nothing.
-    /// Falsification: replayable `crates/globally_unique_identifier_partition_table/falsifications/verification.a_guid_survives_printing_and_parsing.patch`
+    /// The swap is the one place in this crate where a transposition produces something that looks
+    /// entirely reasonable and matches nothing. This proves the two directions are inverses; the
+    /// EFI System Partition vector in `guid.rs`'s tests proves they are the right permutation.
+    /// Until 2026-10-06 (UTC) the swap lived in the printer and this was
+    /// `a_guid_survives_printing_and_parsing`; the text half moved to
+    /// `crates/universally_unique_identifier` with the type.
+    /// Falsification: replayable `crates/globally_unique_identifier_partition_table/falsifications/verification.a_guid_survives_the_on_disk_layout.patch`
     #[kani::proof]
-    #[kani::unwind(37)]
-    fn a_guid_survives_printing_and_parsing() {
-        let g = Guid::from_bytes(kani::any());
-        assert_eq!(Guid::try_from_ascii(&g.to_ascii()), Some(g));
-    }
-
-    /// **The version-4 stamp lands where a reader looks, and touches nothing else**, for all 2^128
-    /// inputs.
-    ///
-    /// Two claims in one, and the second is the one a test cannot make convincingly: the printed
-    /// form says version 4 and a `10` variant, *and* the other 122 bits are exactly the bytes the
-    /// caller supplied. A stamp that quietly normalised more than the format reserves would be
-    /// discarding entropy the caller paid a round trip to a service for, and it would look correct
-    /// in every sample anyone thought to write down.
-    /// Falsification: replayable `crates/globally_unique_identifier_partition_table/falsifications/verification.stamping_reserves_six_bits_and_keeps_the_other_hundred_and_twenty_two.patch`
-    #[kani::proof]
-    #[kani::unwind(37)]
-    fn stamping_reserves_six_bits_and_keeps_the_other_hundred_and_twenty_two() {
-        let raw: [u8; 16] = kani::any();
-        let stamped = Guid::v4_from_random(raw).to_bytes();
-        let text = Guid::v4_from_random(raw).to_ascii();
-        assert_eq!(text[14], b'4');
-        assert!(matches!(text[19], b'8' | b'9' | b'A' | b'B'));
-        for i in 0..16 {
-            if i != 7 && i != 8 {
-                assert_eq!(stamped[i], raw[i]);
-            }
-        }
-        assert_eq!(stamped[7] & 0x0f, raw[7] & 0x0f);
-        assert_eq!(stamped[8] & 0x3f, raw[8] & 0x3f);
+    #[kani::unwind(17)]
+    fn a_guid_survives_the_on_disk_layout() {
+        let bytes: [u8; 16] = kani::any();
+        assert_eq!(guid::to_disk(guid::from_disk(bytes)), bytes);
     }
 
     /// **A header's fields survive the round trip**, for every value of every one of the nine.
@@ -1052,7 +1031,7 @@ mod verification {
             alternate_lba: kani::any(),
             first_usable_lba: kani::any(),
             last_usable_lba: kani::any(),
-            disk_guid: Guid::from_bytes(kani::any()),
+            disk_guid: Uuid::from_bytes(kani::any()),
             entry_array_lba: kani::any(),
             entry_count: kani::any(),
             entry_size: kani::any(),
@@ -1090,13 +1069,8 @@ mod verification {
     /// Falsification: replayable `crates/globally_unique_identifier_partition_table/falsifications/verification.overlap_is_exactly_sharing_a_block.patch`
     #[kani::proof]
     fn overlap_is_exactly_sharing_a_block() {
-        let a = Entry::new(
-            types::LINUX_FILESYSTEM,
-            Guid::ZERO,
-            kani::any(),
-            kani::any(),
-        );
-        let b = Entry::new(types::NIFE_DATA, Guid::ZERO, kani::any(), kani::any());
+        let a = Entry::new(types::LINUX_FILESYSTEM, Uuid::NIL, kani::any(), kani::any());
+        let b = Entry::new(types::NIFE_DATA, Uuid::NIL, kani::any(), kani::any());
         kani::assume(a.first_lba <= a.last_lba && b.first_lba <= b.last_lba);
 
         let shared = a.first_lba.max(b.first_lba) <= a.last_lba.min(b.last_lba);
@@ -1105,7 +1079,7 @@ mod verification {
 
         // An unused entry overlaps nothing, whatever its bounds say.
         let mut ghost = a;
-        ghost.type_guid = Guid::ZERO;
+        ghost.type_guid = Uuid::NIL;
         assert!(!ghost.overlaps(&b));
     }
 
@@ -1134,7 +1108,7 @@ mod verification {
     fn create_never_lays_out_a_table_parse_would_reject() {
         let part = Entry::new(
             types::NIFE_DATA,
-            Guid::from_bytes([7; 16]),
+            Uuid::from_bytes([7; 16]),
             kani::any(),
             kani::any(),
         );
@@ -1142,7 +1116,7 @@ mod verification {
 
         let mut array = [0u8; entry::SIZE];
         let Ok(table) = GloballyUniqueIdentifierPartitionTable::create(
-            Guid::from_bytes([3; 16]),
+            Uuid::from_bytes([3; 16]),
             MIN_BLOCK_SIZE,
             blocks,
             &[part],
