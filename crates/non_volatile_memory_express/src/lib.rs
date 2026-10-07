@@ -88,7 +88,11 @@
 //!
 //! Name: ratified 2026-09-17 (calef, DECISIONS §154), **deratifying this crate's own 2026-08-23
 //! ratification** to do it, and performed on 2026-09-18. Refused `nvme`, `nvm_express`,
-//! `nvme_driver` and `nvme_server`; the argument for each is below.
+//! `nvme_driver` and `nvme_server`; the argument for each is below. Kept as the crates.io name by
+//! calef on 2026-10-07 (UTC), pull request #1806's publish-ours review, whose maintainer comment
+//! reads: "one milestone per crate, minted now, each keeping its tree name (all free on crates.io
+//! as of today) [...] Names are ratified now and permanent on first publication." His words: "Yes,
+//! one per crate". Milestone 814 (proven NVMe queue logic, released on its own) publishes it.
 //!
 //! **What it overturns is its own earlier ratification** (2026-08-23, a kernel-dependency crate
 //! naming review), which read: *"the specification's own name for the device family, the same

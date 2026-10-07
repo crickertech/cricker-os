@@ -97,12 +97,18 @@
 //!   the first the tree names, which is `gmac0` (`16030000`) in both trees and the port U-Boot
 //!   netboots radon over. `gmac1`'s clocks are all in the SYS domain and no plan for them exists.
 //!
-//! Name: provisional (milestone 53's lane, 2026-10-06 UTC). "`DesignWare` Ethernet" is how
-//! Synopsys's own documentation and both trees' `snps,dwmac` compatible read aloud, and §154 (the acronym
-//! test is whether the phrase is spoken, applied recursively) spells out `dwmac`. The alternative an architect may prefer is
+//! Name: ratified 2026-10-07 (calef, pull request #1806's publish-ours review). The maintainer
+//! comment reads: "one milestone per crate, minted now, each keeping its tree name (all free on
+//! crates.io as of today) [...] Names are ratified now and permanent on first publication." His
+//! words: "Yes, one per crate". Minted provisionally 2026-10-06 (UTC) by milestone 53's lane:
+//! "`DesignWare` Ethernet" is how Synopsys's own documentation and both trees' `snps,dwmac`
+//! compatible read aloud, and §154 (the acronym test is whether the phrase is spoken, applied
+//! recursively) spells out `dwmac`. The provisional block offered
 //! `designware_ethernet_quality_of_service`, which says which generation this is: the 4.x and 5.x
 //! "`QoS`" controllers have these descriptors, while the older 3.x GMAC (`snps,dwmac-3.70a`, which
-//! milestone 655 (DMA on a non-coherent RISC-V machine) names for the TH1520) has a different descriptor format and would not fit here.
+//! milestone 655 (DMA on a non-coherent RISC-V machine) names for the TH1520) has a different
+//! descriptor format and would not fit here. The ruling kept the tree name. Milestone 816 (proven
+//! `DesignWare` Ethernet `QoS` logic, released on its own) publishes it.
 
 #[cfg(test)]
 extern crate std;

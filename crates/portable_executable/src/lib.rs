@@ -1,12 +1,16 @@
 //! **Turning a position-independent ELF into the PE/COFF image UEFI firmware loads.**
 //!
-//! Name: provisional. Minted 2026-09-19 by the lane that built it
-//! (`milestone/the-program-that-makes-the-stick`).
-//! The format's own name, spelled out as design/naming.md asks of an acronym people say whole ("PE"
-//! is what nobody expands, but "portable executable" is the phrase the specification's title uses,
-//! which puts it on the spelled-out side of §154 (the acronym test is whether the phrase is
-//! spoken); an architect's call either way). Considered and set aside `elf_to_efi` (a verb phrase,
-//! and systemd's tool name) and `pe_image` (the acronym).
+//! Name: ratified 2026-10-07 (calef, pull request #1806's publish-ours review). The maintainer
+//! comment reads: "one milestone per crate, minted now, each keeping its tree name (all free on
+//! crates.io as of today): [...] and `portable_executable` (its milestone writes its proofs
+//! first). Names are ratified now and permanent on first publication." His words: "Yes, one per
+//! crate". Minted provisionally 2026-09-19 by the lane that built it
+//! (`milestone/the-program-that-makes-the-stick`): the format's own name, spelled out as
+//! design/naming.md asks of an acronym people say whole ("PE" is what nobody expands, but "portable
+//! executable" is the phrase the specification's title uses, which puts it on the spelled-out side
+//! of §154 (the acronym test is whether the phrase is spoken)). Considered and set aside
+//! `elf_to_efi` (a verb phrase, and systemd's tool name) and `pe_image` (the acronym). Milestone
+//! 821 (an ELF-to-PE converter, proven, then released on its own) publishes it.
 //!
 //! UEFI loads applications in Microsoft's PE/COFF format. rustc builds PE directly for the three
 //! UEFI targets it has (`aarch64-`, `i686-`, `x86_64-unknown-uefi`) and has **no riscv64 UEFI

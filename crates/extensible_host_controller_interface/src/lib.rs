@@ -76,10 +76,16 @@
 //!   device behind a hub cannot be addressed. Milestone 242's own BUGS entry; the keyboards on
 //!   the bench plug into a root port.
 //!
-//! Name: provisional. Introduced 2026-10-04 for milestone 242 (USB host and HID). The expansion
-//! of xHCI, by DECISIONS §154 (the acronym test is whether the phrase is spoken) as `crates/non_volatile_memory_express` was named;
-//! too long for a program (`nifefs`'s 32-byte limit), so the program that drives it is
-//! `usb_keyboard_driver`, which says what it is for. An architect's call; expect it to be asked.
+//! Name: ratified 2026-10-07 (calef, pull request #1806's publish-ours review). The maintainer
+//! comment reads: "one milestone per crate, minted now, each keeping its tree name (all free on
+//! crates.io as of today): [...] `extensible_host_controller_interface` (no offer to rust-osdev's
+//! dormant `xhci`, per today's only-our-dependencies rule) [...] Names are ratified now and
+//! permanent on first publication." His words: "Yes, one per crate". Minted provisionally
+//! 2026-10-04 for milestone 242 (USB host and HID): the expansion of xHCI, by DECISIONS §154 (the
+//! acronym test is whether the phrase is spoken) as `crates/non_volatile_memory_express` was
+//! named; too long for a program (`nifefs`'s 32-byte limit), so the program that drives it is
+//! `usb_keyboard_driver`, which says what it is for. Milestone 820 (proven xHCI logic, released on
+//! its own) publishes it.
 
 pub mod context;
 pub mod dma;
