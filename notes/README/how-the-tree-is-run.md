@@ -24,6 +24,7 @@ Part of [the notes index](../README.md), which says how to add a line.
 - [The untracked-work sweep, and what each finding became](../untracked-work-sweep.md).
 - [The dependency census](../dependency-census.md): real prerequisite edges between milestones, measured against declared ones.
 - [Citations that name what they cite](../citations.md).
+- [What Rust comments cost, 2026-10-07](../comment-cost-2026-10-07.md): comment-only Rust changes and the CI they ran, why comments change, density against seL4, Linux and Rust's library, and a sampled audit. Name provisional.
 - [Counted claims](../counted-claims.md): numbers in prose that a gate re-derives. Name provisional.
 - [The register of measures](../register-of-measures.md): the numbers this kernel holds itself to. Name provisional.
 - [Project metrics: what moved, week by week](../project-metrics.md): weekly charts of the project's measures, from git history. Script and data names provisional.
