@@ -103,144 +103,176 @@ Three facts shape the answer, and each is already true of the tree.
 
 ## Options and prior art
 
-Prior art was read on 2026-10-06 where a URL is given; the rest is marked as recalled.
+Prior art was read where a URL is given; the rest is marked recalled. How eleven systems package
+software across languages, Genode and Fuchsia in particular, is in the
+[prior-art appendix](a-package-declares-what-it-needs-at-run-time/prior-art.md).
 
-| Option | Prior art | What it does here | Rung |
-|---|---|---|---|
-| A. Record it in comments in each package file | none needed | a `# needs entropy` line | 3, a record |
-| B. Hand-declared `requires` and `provides` per package, checked by `packages.py` | Debian virtual packages: "the dependency may be satisfied by ... any other concrete package which provides the virtual package" ([policy ch. 7](https://www.debian.org/doc/debian-policy/ch-relationships.html)) | consistency gate over two hand lists | 2 for consistency, 3 for truth |
-| C. Unit ordering | systemd: `Wants=` is weak, `Requires=` strong, and "requirement dependencies do not influence the order", which `After=` sets ([systemd.unit(5)](https://man7.org/linux/man-pages/man5/systemd.unit.5.html)) | nothing at package level; ordering is code in `system_initializer` | none |
-| D. Derive package needs from what the binaries declare | Nix closures: runtime dependencies are found by scanning the output for store paths, never declared (recalled) | union each package's program manifests into contract names | 2, and cannot drift |
-| E. `use`, `offer`, `expose` with routes verified before boot | Fuchsia: `use` "declares capabilities that this component requires in its namespace at runtime", and "there must also be a valid capability route from the consuming component to a provider" ([capabilities](https://fuchsia.dev/fuchsia-src/concepts/components/v2/capabilities)). Its `scrutiny` tool verifies routes over a product image at build time (recalled) | per-program `use`, per-package `expose`, image-level route check | 1 in tree, 2 at pack and install |
-| F. A static assembly the compiler wires | seL4 CAmkES: components `provide` and `use` interfaces, an assembly connects them, and glue is generated before run time ([manual](https://docs.sel4.systems/projects/camkes/manual.html)) | the whole system fixed at build | 1 |
+| Option | Prior art | Rung |
+|---|---|---|
+| A. A comment in each package file | none | 3 |
+| B. Hand-declared `requires` and `provides` per package | Debian: a dependency "may be satisfied by ... any other concrete package which provides the virtual package" ([policy ch. 7](https://www.debian.org/doc/debian-policy/ch-relationships.html)) | 2 for consistency, 3 for truth |
+| C. Unit ordering | systemd: "requirement dependencies do not influence the order", which `After=` sets ([systemd.unit(5)](https://man7.org/linux/man-pages/man5/systemd.unit.5.html)) | none |
+| D. Derive package needs from what binaries declare | Nix closures, found by scanning outputs for store paths (recalled) | 2, cannot drift |
+| E. `use`, `offer`, `expose`, routes verified before run | Fuchsia: "there must also be a valid capability route from the consuming component to a provider" ([capabilities](https://fuchsia.dev/fuchsia-src/concepts/components/v2/capabilities)); `scrutiny` checks routes over an image (recalled) | 1 in tree, 2 at pack and install |
+| F. A static assembly the compiler wires | seL4 CAmkES: `provides` and `uses`, connected in an assembly, glue generated before run time ([manual](https://docs.sel4.systems/projects/camkes/manual.html)) | 1 |
 
-Why each loses or wins:
-
-- A is where things stand plus prose. It is rung 3 and would rot the first time a program gains a
-  field.
-- B is the obvious port and the trap. It duplicates the manifest in a second file, so a gate can
-  prove the two package lists agree with each other and never that they agree with the code. It
-  also turns every new service into an edit in two places.
-- C answers a question nife does not have at package level. Ordering is already readiness: a
-  provider answers `READY` before its endpoint is handed out. Keep only its vocabulary, wants against
-  requires, for fork 3.
-- F fixes the image at build time. §235 (the OS is built and updated from packages) and milestone 198 (a package manager) install packages on a
-  running system, and `jig` exists to do it, so a static assembly refuses the thing being built.
-- D and E together fit. nife already has Fuchsia's `use` (the manifest) and an implicit `offer` (the
-  progenitor endows every service it built to every child that declared it). What is missing is
-  `expose`, and a check that a route exists. Fuchsia also keeps packages and capability routes apart:
-  a package carries component manifests, and package membership is not a routing edge (recalled).
-  That is the split calef's #1796 ruling already drew.
+- A rots the first time a program gains a field.
+- B duplicates the manifest, so a gate can prove two hand lists agree and never that they agree with
+  the code.
+- C answers a question nife does not have at package level: ordering is readiness, a provider
+  answering `READY` before its endpoint is handed out. Its vocabulary of wants and requires is kept.
+- F fixes the image at build time, and §235 (the OS is built and updated from packages) and `jig`
+  install onto a running system.
+- D and E fit together. nife has Fuchsia's `use` (the manifest) and an implicit `offer` (the
+  progenitor endows each service it built to each child that declared it). What is missing is
+  `expose`, and a check that a route exists.
 
 ## Recommendation
 
-Declare a need once, per program, where it is today. Declare a provider once, per package. Derive
-everything else, and check the routes in a gate.
+Fork 1 is ruled, so needs live only in program manifests and the build derives the rest.
 
-1. Use: unchanged. `grant_plan::Manifest` for an archive program, its ELF note for a foreign one.
-   Add `Manifest::contracts()`, which maps each service field to the contract crate that answers it:
-   `entropy` to `entropy_protocol`, `network` to `socket_protocol`, a `file` or `dir` grant to
-   `filesystem_protocol`, and so on. Write it as a destructure with no `..`, so a new field is a
-   compile error until it is mapped. That is rung 1.
-2. Expose: a new key in a package file, naming the contract and the member program that serves it.
+1. Use: `grant_plan::Manifest`, carried as in fork A. Add `Manifest::contracts()`, mapping each
+   service field to a contract identifier. Write it as a destructure with no `..`, so a new field is
+   a compile error until it is mapped (rung 1). A manifest also names its runner (fork B).
+2. Expose: a `provides` table in a package file, covering contracts and runners (fork 2).
+   `packages.py` checks each named program is a member, the `subtree_grants` precedent
+   (`helpers/packages.py:449-458`).
+3. Route check: `xtask` already links `grant_plan` and checks every archive it packs
+   (`check_declared_programs`, `xtask/src/archive.rs:265`). It emits each package's derived needs,
+   and `packages.py` applies the kind rules `depends` already has (fork 3).
+4. Install: the derived needs go into the package metadata and the index, per fork 1.
+
+`depends` stays link-only, so no package gains a `depends` on `system-log` by calling it. Counted
+cost: seven service fields plus `file` and `dir` to map, a `provides` table in about six packages,
+one function in `grant_plan`, one emitter in `xtask`, one rule in `packages.py`. Would I choose this
+if B cost the same? Yes; B loses on drift, not effort.
+
+The gate would fire on day one. `rm` (`core-tools`, `base`) declares a directory, which only a file
+server answers, and the only file server's package, `redoxfs`, is `optional`. Fork 3 takes it.
+
+System log: `system-log` provides the contract `system_log`. Its first client adds a manifest field
+(`log`, provisional), links only `contracts`, and has no `depends` on `system-log`.
+
+Ripgrep: `helpers/build-ripgrep.sh` links a note declaring `runtime = Std`, `arg = Words(ReadOnly)`
+and `output = Bytes`, by the mechanism #1319 measured (`-Clink-arg=note.o`). The words grant then
+derives the `filesystem` contract, which is slot 4 above. The lint sees it through fork 4's file.
+
+## Every kind of language
+
+calef, 2026-10-07 (UTC): *"What about dynamic languages, non-C languages, go, java? I'm trying to
+make certain that we can package software comprehensively."* The question here is only where each
+kind's manifest lives and who runs it. Porting each runtime is per-workload milestone work, not part
+of this proposal.
+
+| Kind | Examples | What the kernel runs | Where the manifest lives | In the tree today |
+|---|---|---|---|---|
+| Native compiled | Rust, C, C++, Zig, Swift, Go | the program's own ELF | an ELF note | Rust `std` (`patches/std-nife`); C behind a Rust shim |
+| Interpreted | Python, JavaScript, Ruby, Lua, shell | the interpreter | a file beside the script (fork A) | none |
+| Bytecode VM | Java, .NET, WebAssembly | the VM | a file beside the bytecode (fork A) | none |
+
+Native compiled. Each language needs its runtime ported, and the shape differs. C runs today only
+as §31 (the foreign-language seam) builds it: `fixtures/c/c_seam.c` is linked into `c_shim`, a Rust
+shell that holds every capability, and the C makes no syscalls. Full POSIX, §31's tier three, is
+unbuilt. C++, Zig and Swift need a libc or their own runtime ported; nothing has started. Go is
+different: its runtime makes system calls itself per `GOOS` rather than through a libc (recalled),
+so Go needs a `GOOS=nife` port. `git grep GOOS` finds nothing. §83 (take the Rust one) still
+applies, so a C path is for software with no Rust equivalent. A native program carries its note by
+linking an object, the same as `rg`.
+
+Interpreted. The interpreter is the ELF the progenitor builds, shared by every script. Its note
+cannot carry a script's needs, because it would have to be the union of every script's, which is
+ambient authority. So the manifest belongs to the script, and the grants attach to the
+interpreter-plus-script pair: the interpreter's own needs plus what the script declares. That closes
+§219 (how the shell names an installed program to the spawner)'s first recorded limitation, that a
+vouched interpreter runs any script with all of its own authority (`design/decisions/219-naming-an-installed-program-to-the-spawner.md:45`).
+§219 already names the shape: `interp build.nsh`, with the script as a read-only file grant (`:129`).
+
+Bytecode VMs. The same as interpreters, one level down. The JVM and .NET assume threads, which
+§105 (`std::thread::spawn` stays declined) declines for now, so they wait on that ruling as well.
+WebAssembly is the cheap route. WASI's preopens hand a module its directories at start, which is
+this system's directory capability already. §84 (how we port) records that alignment and is careful
+that it is "of design shape, not of ABI". One WASI runtime ported as a nife program would run every
+language that targets `wasm32-wasip1` behind one runner. That is a candidate milestone, not a
+promise.
+
+## Forks
+
+Each is reversible while nothing outside the tree reads these files. A "no" leaves the gap as it is
+and breaks nothing that runs.
+
+1. Where a need is declared. Ruled by calef, 2026-10-07 (UTC): only in program manifests. The build
+   computes them into package metadata (§197) and the index (§250 (an image names its
+   distribution's package index)), where `jig` resolves them before download.
+
+A. Where a manifest travels. Options:
+   - The ELF note only. A script would need a stub ELF per script, wrapping it (PyInstaller's shape,
+     recalled), which repeats the interpreter in every package.
+   - A manifest file only, for every program. Loses §197's option M2, which put the manifest inside
+     the bytes the progenitor hashes.
+   - Two carriers: the ELF note for an ELF, and a manifest file inside the package beside a script or
+     bytecode, both decoding to one `grant_plan::Manifest`. Android ships `AndroidManifest.xml`
+     beside `classes.dex` in one signed APK, and Fuchsia packages a compiled `.cml` beside the binary
+     (both recalled). The file is covered by the package digest, as the note is by the program's.
+
+   Recommend two carriers. One consequence: to vouch for a script, the progenitor must hash the
+   script as well as the interpreter, so the activation set gains script digests.
+
+B. How a program names what runs it. Options:
+   - `#!` and a path the shell resolves, Unix's and Linux `binfmt_misc`'s way (recalled). It names
+     a path, which is ambient, and the package system cannot see it.
+   - Bundle the interpreter into each package. Every package then ships its own copy.
+   - `runner` as a kind of need. A manifest names a runner (`elf`, `python`), and an interpreter's
+     package provides it. Fuchsia does this: `program: { runner: "elf", binary: "bin/example" }`,
+     the ELF runner built in, and a component able to serve a runner capability
+     ([runners](https://fuchsia.dev/fuchsia-src/concepts/components/v2/capabilities/runner)).
+
+   Recommend `runner` as a need, with `elf` implicit for native programs and provided by `init`.
+   Unlike a contract, a missing runner means nothing runs, so it is a requirement, not a want.
+
+2. How a provider is declared. Recommend a `provides` table in the package file covering both kinds,
+   each naming the member program that serves it:
 
    ```toml
-   provides = { entropy_protocol = "entropy" }
+   [provides]
+   contracts = { entropy = "entropy" }
+   runners = { python = "python3" }
    ```
 
-   `packages.py` checks that the contract is an interface of `contracts` and the program is a member
-   of this package. This is the `subtree_grants` precedent (`helpers/packages.py:449-458`): a package
-   key about run-time behavior, held to the code both ways.
-3. Route check: `cargo xtask` already links `grant_plan` and checks every archive's programs as it
-   packs (`check_declared_programs`). It emits each package's derived contracts, and `packages.py`
-   applies the kind rules `depends` already has: a `base` package's need is met by a `base` provider,
-   and nothing but `test` relies on a `test` provider. Fork 3 sets how hard.
-4. Install: the catalog line `jig` reads gains the derived contracts, so `jig install` can say what
-   a package needs that the running system does not provide. The digest already covers the note, so
-   the claim is vouched for by the same hash.
-5. Boot services: `system_initializer`'s `measured(&fs, table, "entropy")` strings become lookups by
-   contract through `provides`. That is a later milestone and not required for the gate.
-
-`depends` keeps its meaning, link edges only. No package gains a `depends` because it calls a
-service, which is what #1796's ruling asked for.
-
-What it costs, counted rather than measured. There are seven service fields to map, plus `file` and
-`dir`. About six packages gain a `provides` line: `entropy`, `network`, `redoxfs`, `time`, `init`
-(for the pages the progenitor endows itself) and `system-log` once it exists. The code is one
-function in `grant_plan`, one emitter in `xtask`, and one rule in `packages.py` with a planted
-selftest.
-
-The gate would fire on day one, and should. `rm` (`core-tools`, `base`) declares a directory, which
-only a file server answers, and the only file server's package, `redoxfs`, is `optional`. Either
-`redoxfs` is base, or `rm` is a base program that some images cannot run. That is a real question
-the current lint cannot see, and it goes in fork 3.
-
-Would I choose this if B cost the same? Yes. B is less work, and it loses on drift, not effort.
-
-### System log under this proposal
-
-The `system-log` package declares `provides = { system_log_protocol = "system_log" }`. Its first
-client, when one exists, adds a manifest field (`log`, provisional) mapped to `system_log_protocol`.
-That client's package still links only `contracts`, still has no `depends` on `system-log`, and the
-gate now knows it wants a log service and which package provides one.
-
-### Ripgrep under this proposal
-
-Two changes, neither in this pull request.
-
-1. `helpers/build-ripgrep.sh` links a note declaring `runtime = Std`, `arg = Words(ReadOnly)` and
-   `output = Bytes`. #1319 measured the mechanism (`-Clink-arg=note.o`). `Manifest::contracts()`
-   then derives `filesystem_protocol` from the words grant, which is the slot 4 the harness hands it
-   by hand today.
-2. A package file the lint can see, which needs one new key for a program built outside the tree:
+   A contract is named by an identifier, and the Rust crate (`entropy_protocol`) is one binding of
+   it, so a Python or WASI client names the same contract. The alternative, a `Serve` declaration in
+   the provider's own manifest, is stronger and waits on the boot services adopting manifests.
+3. How hard an unmet need fails. Recommend: in the tree, a `base` program's contract or runner must
+   be met by a `base` provider, and the gate fails otherwise. In `jig`, a missing runner is resolved
+   or refused before download, and a missing contract is installed if it can be and warned if not,
+   since a consumer degrades and says so. This fires on `rm` at once; recommend making `redoxfs`
+   base, because a base image whose `rm` cannot run is the defect.
+4. Whether `rg` becomes a package now. Recommend yes: `ripgrep`, kind `test` until `jig` installs it,
+   its note written by `helpers/build-ripgrep.sh` (carrier: the ELF note; runner: `elf`), and a new
+   `[[foreign]]` key, since `packages.py` admits only in-tree binaries:
 
    ```toml
    name = "ripgrep"
    kind = "test"
    home = { status = "undecided", reason = "upstream is BurntSushi/ripgrep; we ship a build, not a fork" }
    paths = ["helpers/build-ripgrep.sh", "notes/ripgrep-on-nife.md"]
-
    [[foreign]]
    program = "rg"
    source = { crate = "ripgrep", version = "14.1.1" }
    build = "helpers/build-ripgrep.sh"
    ```
 
-   `packages.py` checks that `build` is a member path and that no in-tree binary shares the program
-   name. `xtask`'s `BUILT_ELSEWHERE` list is then read from `[[foreign]]` entries instead of being a
-   second hand list.
+   `xtask`'s `BUILT_ELSEWHERE` list is then read from `[[foreign]]` entries. A paths-only file would
+   pass the lint today and read as complete when it is not, so the lane added none.
+5. Versioning. Held for the package client's milestone, which #1799 promotes: a later version
+   goes on the contract, as Fuchsia's API levels do, not a range on the providing package.
 
-The lane did not add this file. `packages.py` refuses an unknown key, so the cheap version is
-`paths` alone, which would place `rg` in the table without saying it is a program. That reads as a
-complete record and is not one, so the lane left the file for the ruling.
-
-## Forks
-
-Each is reversible while nothing outside the tree reads these files. A "no" leaves the gap as it is
-and costs nothing that runs today.
-
-1. Where a run-time need is declared. Recommend: only in the program's manifest, and derive the
-   package's needs from it (D). Refused: a hand-written `requires` per package (B), because it can
-   disagree with the note the progenitor actually endows from.
-2. How a provider is declared. Recommend: a `provides` key in the package file, naming a `contracts`
-   interface and the member program that serves it (key name provisional), checked like
-   `subtree_grants`. The alternative is a `Serve` declaration in the provider's own note, which is
-   stronger and waits on the boot services adopting a manifest at all.
-3. How hard an unmet need fails. Recommend: the in-tree gate fails on a `base` need with no `base`
-   provider, and `jig install` warns rather than refuses, since every consumer degrades and says so.
-   This fires at once on `rm` and `redoxfs`. Recommend making `redoxfs` base, because a base image
-   whose `rm` cannot run is the defect, not the rule.
-4. Whether `rg` becomes a package now. Recommend: yes, named `ripgrep` (provisional), kind `test`
-   until `jig` installs it from the index, with a new `[[foreign]]` key, and with its note written by
-   `helpers/build-ripgrep.sh`.
-
-Names for calef, all provisional: `provides`, `[[foreign]]`, `Manifest::contracts`, the package
-`ripgrep` and the manifest field `log`.
+Names for calef, all provisional: `provides`, `contracts`, `runners`, `runner`, `[[foreign]]`,
+`Manifest::contracts`, the package `ripgrep`, the manifest field `log`, and contract identifiers.
 
 ## BUGS
 
-- Services that boot services use from each other, such as `system_log`'s `WRITE` on the console,
-  stay literals in `system_initializer`. Only `component_plan` components declare those today.
-- The derived set says which contract, not which instance. Two file servers would both provide
-  `filesystem_protocol`, and which one a program gets is still the progenitor's choice.
+- Needs between boot services, such as `system_log`'s `WRITE` on the console, stay literals in
+  `system_initializer`. Only `component_plan` components declare those.
+- A contract names a kind of service, not an instance. Two file servers would both provide
+  `filesystem`, and the progenitor still chooses.
 - Prior art marked "recalled" was not reread for this file.
