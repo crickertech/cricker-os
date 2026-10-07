@@ -2,7 +2,7 @@
 status: PROPOSED
 raised: 2026-10-06
 milestone_dependencies: 611
-decision_dependencies: unwritten
+decision_dependencies: none
 machine_requirements: none
 specific_machine: none
 needs_person: no
@@ -11,9 +11,26 @@ needs_person: no
 
 Raised 2026-10-06 (UTC) by lane `init-package-regrouping`, on calef's approval of a maintainer
 request the same day. The lane moved nothing in code or in `packages/`; this file is the whole of
-its work. Every new package name below is provisional and listed at the end for calef. Package names
-follow his 2026-10-06 ruling: spelled out and hyphenated, as in `core-tools`, `disk-tools` and
-`process-tools`.
+its work. Package names follow calef's 2026-10-06 ruling: spelled out and hyphenated, as in
+`core-tools`, `disk-tools` and `process-tools`.
+
+## The rulings
+
+calef ruled all five forks on 2026-10-07 (UTC), between 01:32 and 02:13, in comments on pull request
+#1796. Those comments are the record; his words are quoted from them.
+
+| fork | ruling | his words |
+|---|---|---|
+| 1 | `system_log`, program and crate, moves to a new `system-log` package | "Yes, seems like a lot of packages would be dependent upon the service it provides, if not its actual implementation." |
+| 2 | `swapper` moves from `init` to `fixtures` | "Yes, move to fixtures." |
+| 3 | `broker` stays in `init`, and the program is renamed `queue_broker` | "Put it in init. Rename it to queue-broker", then "Yes" to the underscore, since programs take underscores and only packages take hyphens |
+| 4 | `system_initializer` stays in `init`; the three status words move to `graphics_protocol` and the installer's fetch moves to `jig` | "Yes" |
+| 5 | `root_supervisor`, `spawner` and `sub_server_supervisor` stay in `init` | "Yes" |
+
+Fork 3's rename re-rules the 2026-07-30 ratification of `broker` under §39 (a component is named for
+what it is). The program's provenance line records both rulings. On Fork 5, the gap that the three
+run only under `system_tests` is the thing to close, not a reason to move them. The ordered list of
+follow-on lanes is at the end.
 
 ## The problem
 
@@ -88,7 +105,7 @@ Alternatives:
 Prior art, recalled: Debian ships `rsyslog` apart from any init. macOS ships `launchd` and its log
 daemon as separate programs in one OS release. Genode's LOG service is provided by core, not by `init`.
 
-Recommendation: move it, to a `base` package named `system-log`. Cheap and reversible: one package
+Ruled yes, 2026-10-07. Recommendation was: move it, to a `base` package named `system-log`. Cheap and reversible: one package
 file and two lines of `init`'s.
 
 ## Fork 2: `swapper` leaves for `fixtures`
@@ -117,7 +134,7 @@ Alternatives:
   (recalled). It would be a `base` package nothing on a booted machine uses. If a general swap
   operator is built for milestone 198 (a package manager)'s installer, that is the time to draw it.
 
-Recommendation: move it to `fixtures`. Reversible. The cost is that `fixtures` grows by a program
+Ruled yes, 2026-10-07. Recommendation was: move it to `fixtures`. Reversible. The cost is that `fixtures` grows by a program
 that milestone 23 calls its flagship, which is a matter for the records, not the code.
 
 ## Fork 3: `broker` stays in `init`
@@ -141,7 +158,7 @@ Alternatives:
   The future `memory_broker` is the natural first member of a `memory` package. The gate refuses a
   package with no members, so that package waits for the program.
 
-Recommendation: keep it in `init`.
+Ruled yes, 2026-10-07, with a rename to `queue_broker`. Recommendation was: keep it in `init`.
 
 ## Fork 4: `system_initializer` stays, and its two exceptions are retired where they arise
 
@@ -182,7 +199,7 @@ composition is init's job there. Fuchsia's `component_manager` both composes and
 its memory monitor is a separate component. Linux's `kswapd` is a kernel thread, which puts memory
 reclaim beside the kernel rather than beside init.
 
-Recommendation: keep it in `init`. Move the three status words into `graphics_protocol` as a small
+Ruled yes, 2026-10-07. Recommendation was: keep it in `init`. Move the three status words into `graphics_protocol` as a small
 lane of its own, and let `jig` retire `http_response`. Correct the "integration, not init" wording in
 both exception reasons and in the package-boundaries limitation, since it misdescribes the crate.
 
@@ -194,7 +211,7 @@ build one thing, and a restart policy that holds no memory. The orderly shutdown
 as nife's supervision tree. Moving them to `fixtures` would be accurate about who runs them and wrong
 about what they are.
 
-Recommendation: keep them. Record in `init`'s header comment that the booted system does not yet
+Ruled yes, 2026-10-07, with the test-only gap recorded as one to close. Recommendation was: keep them. Record in `init`'s header comment that the booted system does not yet
 run them, so a reader of the package file does not assume it does.
 
 ## What blocks `components` from dissolving
@@ -223,17 +240,47 @@ possible first step for 691, not a fork of this proposal.
   system (recalled). This proposal agrees.
 - `memory_broker`, when built, goes to a new `memory` package; see Fork 3.
 
-## Names for calef
+## Names
 
-All provisional: the package `system-log` (Fork 1), and the deferred names `memory` and
-`live-swap`. Fork 2 uses the existing `fixtures`. The slug of this file is a draft, like every
-roadmap title.
+`system-log` was the package name in the question calef answered yes to (Fork 1). `queue_broker` is
+his, by ruling (Fork 3). `memory` and `live-swap` stay provisional and unused. The slug of this file
+is a draft, like every roadmap title.
 
 **Reuse:** the existing `fixtures` package for Fork 2 and the existing `graphics_protocol` contract for
 Fork 4; no new crate is proposed. The package format, gate and table are milestone 611's, unchanged.
 
-## If it is ruled
+## The worklist
 
-One pull request per ruled fork, each editing `packages/` and the generated table in
-`notes/package-boundaries.md`, and nothing in code. Fork 4's status-word move is a code change and
-its own lane. #1793 (the `disk-tools` rename) edits the same two files, so these wait for it to land.
+One lane per item, in this order. Each package move is one pull request that edits
+`packages/` and regenerates the table in `notes/package-boundaries.md`, with no code change.
+#1793 (the `disk-tools` rename), which edits those two files, merged before the rulings, so no
+item waits on it.
+
+1. Fork 1: `system_log` to `system-log`. A new `base` package file holding the program and the
+   crate, two lines out of `init`, and the regenerated table. Waits on nothing.
+2. Fork 2: `swapper` to `fixtures`. One line out of `init`, one into `fixtures`. Waits on nothing.
+   `fixtures` already depends on `init`, and `swapper` links only contracts and the runtime.
+3. Fork 3: rename `broker` to `queue_broker`. A code change, performed as design/naming.md says a
+   ratified rename is performed. Its scope, measured 2026-10-06: the `[[bin]]` and source file in
+   `components`, the `init` package line, and the archive name `swapper` builds it by. Then the
+   `contract` string in `swap_protocol` and `component_plan`, and the kernel's `broker_rtt`
+   comments. The provenance line keeps the 2026-07-30 ruling and adds this one. Best after item 2, so
+   the file it edits in `swapper` has settled in its new package. The `broker_rtt` benchmark name is
+   keyed in the three `bench/baseline-*.txt` files and the recorded radon logs; the program rename
+   does not require it, so the lane leaves it unless calef says otherwise.
+4. Fork 4a: the three status words (`MODE_DISPLAY`, `TERM_UP`, `KEYBOARD_UP`) move from
+   `video_terminal::status` to `graphics_protocol`, and the `video_terminal` exception leaves
+   `init`. A code change; it waits on nothing.
+5. Fork 4b: the package installer's fetch moves to `jig`, and the `http_response` exception leaves
+   `init`. Waits on `jig` existing, which is
+   [the package client becomes a program](the-package-client-becomes-a-program.md), not yet
+   numbered or built. This item is that program's work, not a lane of its own.
+6. Fork 5: say in `init`'s package header that the supervision tree runs only under
+   `system_tests`, and close the gap. The record is one comment and can ride with item 1 or 2;
+   wiring the tree into the real boot is a milestone of its own, to be proposed by whoever takes it.
+7. Fix the stale wording. The two exception reasons and the package-boundaries limitation call
+   `system_initializer` "integration, not init". Items 4 and 5 delete the exceptions, and the
+   limitation's wording goes with the last of them.
+
+`reboot` (on #1783, still open) joins `init` as that pull request places it, and `memory_broker`
+starts a `memory` package when it is built.
