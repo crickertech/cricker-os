@@ -91,8 +91,8 @@ Checked rather than assumed. Each is a gap the model must close before a lab mac
    by archive entry. Starting a base service from the activation set is what §241's B2 required and
    nothing has built.
 4. **The kernel itself starts `block_driver` and `redoxfs_server`** (`kernel/src/user.rs`, §241's
-   fact 5). Nothing can restart those, so in effect they are slot programs until #1807 (the boot
-   services leave the kernel, numbered 811 provisionally, not yet merged) moves the spawns to the progenitor.
+   fact 5). Nothing can restart those, so in effect they are slot programs until milestone 811 (the
+   boot services leave the kernel) moves the spawns to the progenitor.
 5. **No real boot starts `root_supervisor`.** Only `authority_tests` does. Today the progenitor is
    the root, and the slot holds the kernel and the progenitor.
 6. **The restart tier is unbuilt.** Live swap exists for `line_editor` alone (§232 (the line editor
@@ -106,8 +106,8 @@ Checked rather than assumed. Each is a gap the model must close before a lab mac
 
 Each line is one lane. "Proposed" means a new milestone an integrator would number.
 
-1. #1807 (the boot services leave the kernel, numbered 811 provisionally, not yet merged): the
-   kernel stops starting `block_driver` and `redoxfs_server`.
+1. Milestone 811 (the boot services leave the kernel): the kernel stops starting `block_driver`
+   and `redoxfs_server`.
 2. Proposed, the slot holds only what nothing can restart: the progenitor starts every base service
    from the live generation, the archive carries the kernel's boot set, and §229's refusal narrows.
 3. Proposed, the ABI revision field in the manifest note (§235, Fork 2), and the progenitor's check.
