@@ -317,9 +317,9 @@ jobs:
     timeout-minutes: 45
     steps:
       - uses: actions/checkout@v7
-      - uses: Swatinem/rust-cache@v2
-        with:
-          save-if: ${{ github.event_name != 'merge_group' }}
+      # No rust-cache in this job (calef, #1814, 2026-10-07 UTC): a hit gained under half a minute,
+      # and without it the time the step spent moves into the first cargo build rather than
+      # growing. See notes/actions-cache-budget-2026-10-07.md.
       # Not cached; the `prove` job's comment has the measurement.
       - name: Install Kani
         run: |
@@ -358,9 +358,9 @@ jobs:
     timeout-minutes: 60
     steps:
       - uses: actions/checkout@v7
-      - uses: Swatinem/rust-cache@v2
-        with:
-          save-if: ${{ github.event_name != 'merge_group' }}
+      # No rust-cache in this job (calef, #1814, 2026-10-07 UTC): a hit gained under half a minute,
+      # and without it the time the step spent moves into the first cargo build rather than
+      # growing. See notes/actions-cache-budget-2026-10-07.md.
       # The patch's file name carries the Kani version, and hashFiles reads bytes, not names, so the
       # name goes into the key on its own.
       - name: Name the carried Kani patch

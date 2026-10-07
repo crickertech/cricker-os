@@ -21,7 +21,7 @@ Result.
   second run of the same pull request. A pull request's first run always misses, because `main` has
   nothing to fall back to.
 - A hit is cheap and buys little. Restores took 0.3 to 3.1 s (median entry 19 MB). Job medians on a
-  hit were within 0.4 minutes of a miss for 13 of 17 jobs; only clippy (2.0), prove (2.7) and
+  hit were within 0.4 minutes of a miss for 14 of 17 jobs; only clippy (2.0), prove (2.7) and
   falsify-shard (3.7) gained more, on 4 to 11 hits each.
 - The 16 to 20 s #1810 attributed to the restore is mostly not the restore. rust-cache spends a
   median 17 s computing its key before it looks for an entry (p10 13 s, p90 21 s), on a hit and on a
@@ -29,8 +29,8 @@ Result.
 - The eviction horizon is 12 hours. No entry had gone unaccessed for longer, so an entry not touched
   within half a day is gone whatever its worth.
 
-This lane fixed the part with no fork: no rust-cache step in a merge-group workflow saves any more,
-and `script/lint` refuses one that does. What remains is calef's, below.
+This pull request stops merge groups saving rust-cache entries, with a `script/lint` check, and on
+calef's rulings drops rust-cache from 14 of the 17 jobs (section 5).
 
 ## 1. What the cache holds
 
@@ -80,7 +80,7 @@ What a hit buys, as median job wall time on a hit against a miss:
 | prove | 10 | 19 | 14.9 | 17.6 | 2.7 |
 | clippy | 4 | 19 | 4.0 | 6.0 | 2.0 |
 | fuzz | 4 | 16 | 11.6 | 12.0 | 0.4 |
-| the other 13 | 2 to 11 | 8 to 29 | | | -2.3 to 0.2 |
+| the other 12 | 2 to 11 | 8 to 29 | | | -2.3 to 0.2 |
 
 The rest are noise around zero (cpu-matrix-shard's -2.3 is a slower hit). The reason is in what
 rust-cache keeps. It caches `target/` after removing the workspace's own crates, so a hit saves
@@ -116,7 +116,7 @@ job run with and without the step.
 
 ## 4. What changed in this pull request
 
-Every `Swatinem/rust-cache` step in ci.yml (14) and verify.yml (4) now carries
+Every `Swatinem/rust-cache` step in ci.yml and verify.yml (18 at first) carries
 `save-if: ${{ github.event_name != 'merge_group' }}`. A merge group still restores (from `main`,
 when `main` has something), so nothing that hits today stops hitting. The measurement is at the first
 step in ci.yml.
@@ -127,6 +127,23 @@ any workflow whose `on:` lists `merge_group`. Watched failing on the 18 steps at
 Expected effect: about 39% fewer bytes written, so the 12-hour horizon should stretch toward 20
 hours at the same pull request traffic. The cache will still fill to the limit, as an LRU cache
 does. Being at the limit is not the harm; evicting entries before their second use is.
+
+## 5. One job without rust-cache, then the drop
+
+stack-frame-check ran without the step on this branch (job 112877874401, run 37646272872): 115.7 s,
+against a median 112.8 s over the 20 runs with it (range 79.9 to 120.0). The step's 19.6 s did not
+vanish. The first `script/ci-build` step took 44.1 s against a median 23.0, because it now paid for
+what rust-cache's `cargo metadata` and `rustc -vV` had triggered. So dropping the step costs no time
+and saves none on this job; it saves the bytes and one moving part. One sample, inside the range.
+
+**Correction: 14 jobs, not 13.** The fork and the first draft of this note said 13 jobs gained under
+half a minute. fuzz gained 0.4 minutes, which is also under it, so the count is 14 of 17.
+
+Dropped, on calef's ruling: bench, boot-check, coverage, cpu-matrix-shard, fuzz, image-permissions,
+interleavings, stack-frame-check, supply-chain, swish-check, swish-check-x86_64 and test in ci.yml,
+prove-kernel-aarch64 and prove-kernel-riscv64 in verify.yml. watchdog also lost its step; it ran in
+none of the 34 sampled runs, so it is unmeasured, and it is neither of the three kept jobs. Kept:
+clippy, prove and falsify-shard, each saving only outside merge groups.
 
 ## Caveats, together
 
@@ -155,9 +172,10 @@ calef ruled all three on 2026-10-07 (UTC), on #1814.
 3. Drop rust-cache from the jobs where a hit gained under half a minute. Keep it on clippy, prove
    and falsify-shard, with `shared-key` where jobs build the same graph.
 
-**Ruled: option 3, measured on one job first.** The measurement is stack-frame-check, run without
-the step on this branch against its 20 samples with it; section 5 records the result and the drop
-that followed.
+**Ruled: option 3, measured on one job first, and without `shared-key`.** The three kept jobs build
+different graphs (clippy lints the host and kernel crates on x64, prove and falsify-shard run Kani,
+falsify-shard on arm64), so one shared entry would be overwritten by each in turn and serve none.
+Section 5 records the measurement and the drop.
 
 ### (b) sccache or another backend?
 
