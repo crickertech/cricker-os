@@ -30,7 +30,7 @@ WORK="${WORK:-${TMPDIR:-/tmp}/nife-fs-probes}"
 MODE=${1:?usage: probe.sh nife|host [probe...]}
 shift
 
-all='lambutter rust-fs-btrfs btrfs-core btrfs-fs btrfs-transaction ferrosys fatfs fatfs-nochrono lamfat embedded-sdmmc hadris-fat ext4-view ext4_rs'
+all='lambutter rust-fs-btrfs btrfs-core btrfs-fs btrfs-transaction ferrosys fatfs fatfs-nochrono lamfat embedded-sdmmc hadris-fat ext4-view ext4_rs lamzfs zfs-forensic-core'
 
 deps() {
     case "$1" in
@@ -50,6 +50,8 @@ deps() {
         echo 'hadris-storage = "=3.0.0-rc.1"' ;;
     ext4-view) echo 'ext4-view = "=1.0.0"' ;;
     ext4_rs) echo 'ext4_rs = "=1.3.3"' ;;
+    lamzfs) echo 'lamzfs = "=0.1.2"' ;;
+    zfs-forensic-core) echo 'zfs_core = { package = "zfs-forensic-core", version = "=0.1.2" }' ;;
     *) return 1 ;;
     esac
 }

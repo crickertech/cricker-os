@@ -21,12 +21,14 @@ rm -rf $OUT && mkdir -p $OUT/mnt
 typeset -A PATHS READERS
 PATHS=(btrfs-f1 'hello.txt dir-a/nested.txt' btrfs-f2 'big.bin small.txt'
     btrfs-kfix 'toplevel.txt subvol1/hello.txt subvol2/zeros.bin'
-    fat32 'hello.txt sub/data.bin' fat32-mbr 'HELLO.TXT' ext4 '')
+    fat32 'hello.txt sub/data.bin' fat32-mbr 'HELLO.TXT' ext4 ''
+    zfs-lam 'os-release big.bin loader/entries/test.conf' zfs-dir 'file.txt')
 READERS=(btrfs-f1 'lambutter rust-fs-btrfs btrfs-core btrfs-fs ferrosys'
     btrfs-f2 'lambutter rust-fs-btrfs btrfs-core btrfs-fs ferrosys'
     btrfs-kfix 'lambutter rust-fs-btrfs btrfs-core btrfs-fs ferrosys'
     fat32 'fatfs fatfs-nochrono lamfat hadris-fat ferrosys' fat32-mbr 'embedded-sdmmc'
-    ext4 'ext4-view ext4_rs ferrosys')
+    ext4 'ext4-view ext4_rs ferrosys'
+    zfs-lam 'lamzfs zfs-forensic-core' zfs-dir 'lamzfs zfs-forensic-core')
 
 verdict() { # outdir image file
     local name=${3//\//_} got want
@@ -36,9 +38,11 @@ verdict() { # outdir image file
 }
 
 print '## reads'
-for img in btrfs-f1 btrfs-f2 btrfs-kfix fat32 fat32-mbr ext4; do
+for img in btrfs-f1 btrfs-f2 btrfs-kfix fat32 fat32-mbr ext4 zfs-lam zfs-dir; do
     for p in ${=READERS[$img]}; do
         o=$OUT/r-$img-$p && mkdir -p $o
+        # lamzfs's fixture keeps its files in the BOOT/test dataset, not the pool's root.
+        [[ $img == zfs-lam ]] && export DATASET=BOOT/test || unset DATASET
         $B/$p $IMG/$img.img $o ${=PATHS[$img]} >$o/log 2>&1
         rc=$?
         line="$img $p exit=$rc entries=$(grep -c '^D' $o/log)"
