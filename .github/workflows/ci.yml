@@ -1144,9 +1144,10 @@ jobs:
           # `script/stack-depth-check` gates every bare-metal target in rust-toolchain.toml, so
           # this job needs all three even though `stack-frame-check` below defaults to two.
           rustup target add --toolchain nightly x86_64-unknown-none
-      - uses: Swatinem/rust-cache@v2
-        with:
-          save-if: ${{ github.event_name != 'merge_group' }}
+      # No rust-cache here: a hit gained nothing measurable (1.9 minutes median on a hit and on a
+      # miss, 2026-10-07), and the step costs about 17 s before it restores anything. calef ruled
+      # fork 1 of #1814 on 2026-10-07 (UTC); this job is the one measured with and without it
+      # first. See notes/actions-cache-budget-2026-10-07.md.
       # Its own job rather than a step in `clippy`: it builds the kernel test binary twice (the flag
       # changes the build, so CI's existing kernel artifacts cannot be reused), and jobs run in
       # parallel so a separate one costs no wall clock against the 30-minute Kani job. **Why it is

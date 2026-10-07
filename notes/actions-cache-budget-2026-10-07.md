@@ -141,34 +141,34 @@ does. Being at the limit is not the harm; evicting entries before their second u
   one of their keys changes, the new entry is saved on a pull request or merge-group ref and `main`
   gets one only from a push that runs in full. Not measured; noted in the helper's `BUGS`.
 
-## Forks for calef
+## Forks, and calef's rulings
+
+calef ruled all three on 2026-10-07 (UTC), on #1814.
 
 ### (a) Where should a pull request's first run get a warm cache?
 
-`main` has none, so every first run misses.
+`main` has none, so every first run misses. The options were:
 
-1. Nothing more. The merge-group fix stops the waste, and second runs keep hitting 40% of the time.
-2. bevy's layout: a workflow on push to `main` (and after a toolchain bump) that saves, and every
-   CI and verify job restores only. Costs a build on each merge, about the three jobs' worth below.
-3. Drop rust-cache from the 13 jobs where a hit gained under half a minute, and keep it, with
-   `shared-key` where jobs build the same graph, on clippy, prove and falsify-shard. Saves about
-   19 s a job (key computation plus save) and most of the remaining bytes.
+1. Nothing more.
+2. bevy's layout: a workflow on push to `main` saves, and every job restores only. It costs a build
+   per merge.
+3. Drop rust-cache from the jobs where a hit gained under half a minute. Keep it on clippy, prove
+   and falsify-shard, with `shared-key` where jobs build the same graph.
 
-Recommendation: 3, then 2 for the three kept jobs only if their first-run misses still show in the
-shard-timing chart. Before 3, run one job with and without the step to split the 17 s, since some of
-it moves to cargo rather than vanishing. Would I choose this if both cost the same? Yes; it is
-fewer moving parts for the same measured speed.
+**Ruled: option 3, measured on one job first.** The measurement is stack-frame-check, run without
+the step on this branch against its 20 samples with it; section 5 records the result and the drop
+that followed.
 
 ### (b) sccache or another backend?
 
-No, for now. rust-lang/rust's model needs a bucket, credentials and a new dependency, and the
-measured gain is in dependency compiles, which are not where these jobs spend their time. Revisit if
-(a)3's kept jobs grow.
+**Ruled: no remote compile cache.** rust-lang/rust's model needs a bucket, credentials and a new
+dependency, and what it would cache is dependency compiles, which are not where these jobs spend
+their time. Revisit if job timings show dependency compiles taking real time.
 
 ### (c) Something that shows this before a lane trips over it
 
-A daily sample of `GET /repos/nifeos/nife/actions/cache/usage` and the list's oldest
-`last_accessed_at`, charted in notes/project-metrics.md as bytes against 10 GB and the eviction
-horizon in hours. The horizon is the number that matters; a full cache with a week's horizon is
-healthy. Filed as a proposal:
-[design/roadmap/proposals/the-actions-cache-horizon-is-charted.md](../design/roadmap/proposals/the-actions-cache-horizon-is-charted.md).
+**Ruled: yes.** The proposal is now milestone 822 (the Actions cache horizon is charted),
+[design/roadmap/822-the-actions-cache-horizon-is-charted.md](../design/roadmap/822-the-actions-cache-horizon-is-charted.md).
+Its number is provisional until the queue lands it. It samples bytes against 10 GB and the eviction horizon daily and charts them in
+notes/project-metrics.md. The horizon is the number that matters; a full cache with a week's
+horizon is healthy.

@@ -1,16 +1,20 @@
 ---
-status: PROPOSED
+status: NOT-STARTED
 raised: 2026-10-07
 milestone_dependencies: none
 decision_dependencies: none
 machine_requirements: none
 specific_machine: none
 needs_person: no
+promoted_from: the-actions-cache-horizon-is-charted
 ---
-# The Actions cache horizon is charted
+# 822. The Actions cache horizon is charted
 
-Written by lane/actions-cache-budget, from its measurement in
-[notes/actions-cache-budget-2026-10-07.md](../../../notes/actions-cache-budget-2026-10-07.md).
+*(Minted 2026-10-07 (UTC) by lane/actions-cache-budget on calef's ruling of fork 3 on #1814. The
+number is provisional until the merge queue lands it; the title and slug are drafts.)*
+
+Written from the measurement in
+[notes/actions-cache-budget-2026-10-07.md](../../notes/actions-cache-budget-2026-10-07.md).
 
 ## In brief
 
@@ -38,3 +42,10 @@ count of 455 on 2026-10-07), so a sample is approximate to a few entries.
 
 **Reuse:** the merge-queue daily sampler's workflow and CSV shape, and `script/metrics`'s existing
 chart path. Nothing new is written beyond the sampler's few lines of `gh api`.
+
+## Index row
+
+A daily sample of the repository's Actions cache, bytes against GitHub's 10 GB limit and the
+eviction horizon in hours, charted in notes/project-metrics.md. The cache passed its limit unseen
+until #1810 tripped over it on 2026-10-07; this makes the next overflow visible before a lane pays
+for it.
