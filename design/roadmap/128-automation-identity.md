@@ -217,7 +217,10 @@ expiry from an outage into a fifteen-minute procedure someone can run without re
   environment only, never a configuration file. Every workflow's App token is pinned to Contents
   and Pull requests write so widening the App reaches none of them. Wiring Claude Code and opencode
   to opt in automatically is a later change, after a trial. `notes/session-identity.md` has calef's
-  steps and the kill switch; the forks are asked on #1828.
+  steps and the kill switch. calef ruled the four forks on #1828 on 2026-10-07 (UTC): opted-in
+  sessions author as `nife-smelter[bot]`; one App with `lane` and `maintainer` scopes; installed
+  on All repositories in `nifeos`; his classic token left as it is, with confinement recorded as
+  the fix in that note's BUGS.
 
 - **Done.** The second deliverable (attribution) needs nothing further from a lane. The interim
   `**Lane:**` convention is in `AGENTS.md` and applied; `toolchain-bump.yml` now computes that line

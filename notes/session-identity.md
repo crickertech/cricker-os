@@ -22,6 +22,18 @@ the state before it:
 
 A shell that never set `NIFE_SMELTER=1`, calef's own terminal among them, is never affected.
 
+## What calef ruled
+
+All four on 2026-10-07 (UTC), on #1828:
+
+- A session that opts in acts as `nife-smelter[bot]`: its pull requests, comments, labels and
+  pushes. Commits keep calef's git identity, with `Co-Authored-By:` naming the model.
+- One App with two scopes, `lane` by default and `maintainer` only when the command sets
+  `NIFE_SMELTER_SCOPE=maintainer`. A guard against accident, not a boundary (BUGS).
+- The App is installed on All repositories in `nifeos`, and goes back to selected if a repository
+  that should be off-limits to agents ever appears.
+- calef's classic `gh` token stays as it is: no regeneration and no logout (BUGS).
+
 ## The gap this closes
 
 A security audit on 2026-10-07 (UTC) found that every agent session on patagonia ran `gh` and `git
@@ -145,7 +157,10 @@ helpers/smelter-token --selftest                      # no network, no keychain
   read calef's `gh` login and SSH key the same way. What changes is what a session uses by default
   and what a leaked token reaches: the `nifeos` organization, for an hour. A boundary needs the key
   out of the session's reach (another macOS user, or a sandbox that denies the keychain).
-- calef's own `gh` login is still on the machine. Moving sessions off it does not remove it.
+- calef's classic `gh` token stays on the machine, as he ruled on 2026-10-07 (UTC), and stays
+  within reach of any session (`gh auth token` works for whoever runs it as his user). This is
+  the audit finding left open; confinement, the key and the token out of a session's reach, is
+  its fix.
 - No harness-neutral automatic hook exists, and this change wires none. Until a later change wires
   Claude Code and opencode after a trial, a session is on the App only for commands that carry the
   `eval` prefix. A session that set `NIFE_SMELTER=1` and forgot the prefix acts as calef; `check`
