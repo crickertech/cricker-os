@@ -3254,6 +3254,25 @@ pub mod fixture {
             // The wide, narrow and sized files, at depth 2.
             sum + 2 * (WIDE_COUNT + 1 + SIZE_FILES.len())
         };
+
+        /// **What unmodified `ripgrep` is told to do over this tree** (milestone 121), as a line
+        /// typed at the prompt, with the tree as its working directory. The kernel harness turns
+        /// it into an argv with `grant_plan::argv`, the shell's own function, and
+        /// `walk_pricing`'s `rg_host` example runs the same words on a host, so nife and Linux run
+        /// one command. `--threads 1` and `--no-mmap` are the block's two honesty pins: nife
+        /// answers one thread and has no `mmap`, so the host must be held to the same. `--stats`
+        /// is what makes the search measurable from inside both: ripgrep times its own walk and
+        /// search. Name: provisional.
+        pub const RG_SEARCH: &str = "rg --threads 1 --no-mmap --stats 'walk entry'";
+        /// Lines [`RG_SEARCH`] matches: one in every file holding [`SMALL_BODY`], none in the
+        /// sized files, whose bytes are the alphabet.
+        pub const RG_MATCHES: usize = WALK_FILES - SIZE_FILES.len();
+        /// **The control for the refusal**: the same pattern naming one file, which needs `READ`
+        /// and `DESCEND` and no `ENUMERATE`. Under a grant lacking `ENUMERATE` this still finds
+        /// its one line, so a refused walk is about enumeration alone. Typed as a person would,
+        /// with neither pin: a single named file is where `ripgrep` tries a memory map, so this
+        /// also shows nife needs no `--no-mmap`. Name: provisional.
+        pub const RG_NAMED: &str = "rg 'walk entry' narrow/n000";
     }
 
     /// **The directory attacker's report** (milestone 47), a bitmap for the same reason the per-file

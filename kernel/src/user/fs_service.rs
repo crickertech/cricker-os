@@ -1,6 +1,7 @@
 use super::*;
 use crate::cap::{
-    Rights, irq_cap, memory_region_cap, rendezvous_cap, rendezvous_cap_badged, virtio_cap,
+    Rights, irq_cap, memory_region_cap, page_frame_cap, rendezvous_cap, rendezvous_cap_badged,
+    virtio_cap,
 };
 use crate::sched::RendezvousId;
 
@@ -1737,7 +1738,7 @@ pub fn start_std_full(
 ) -> Option<StdSpawn> {
     let (file_ep, file_shared, readiness) = ensure(blk_image, fs_server_image)?;
     let report = crate::sched::create_rendezvous();
-    let (heap, thread, _stack) = spawn_std(file_ep, 0, file_shared, report, std_image);
+    let (heap, thread, _stack, _args) = spawn_std(file_ep, 0, file_shared, report, std_image, None);
     Some(StdSpawn {
         readiness,
         report,
@@ -1756,6 +1757,8 @@ pub struct NarrowedStd {
     /// The stack frames [`spawn_std`] allocated. A [`Mapping`] does not give its frame to the
     /// process, so they outlive it unless somebody frees them; see [`NarrowedStd::release`].
     stack: [u64; STD_FS_STACK_PAGES as usize],
+    /// The argument page, if the program was given words. Not the process's either.
+    args: Option<u64>,
     /// The caretaker in front of it, which [`NarrowedStd::release`] ends.
     caretaker: super::holding::Holding,
 }
@@ -1774,7 +1777,7 @@ impl NarrowedStd {
             "released a std program's memory while it was still running",
         );
         let _ = crate::sched::reclaim_region(self.heap);
-        for phys in self.stack {
+        for phys in self.stack.into_iter().chain(self.args) {
             crate::memory::free(page_frames::PageFrame::from_addr(phys));
         }
         self.caretaker.release()
@@ -1791,8 +1794,12 @@ impl NarrowedStd {
 /// wider. Nothing in the PAL knows the difference, which is the point: a stranger's walker runs
 /// against a narrowed grant exactly as it runs against the root.
 ///
-/// Built for the two halves milestone 121 could price without an argument vector: the walk under
-/// `ENUMERATE | READ | DESCEND`, and the same walk refused under a grant lacking `ENUMERATE`.
+/// Built for milestone 121: `std_exerciser`'s walk under `ENUMERATE | READ | DESCEND` and the same
+/// walk refused under a grant lacking `ENUMERATE`, and then `rg` doing both. `line`, when given,
+/// is a command line as typed at the prompt (`rg --stats 'walk entry'`): it becomes the program's
+/// argv through `grant_plan::argv`, the function the shell uses, so the program hears exactly the
+/// words `swish` would send for that line. Milestone 205 (how a foreign program is told what to do)
+/// built that page as DECISIONS §170 (how a foreign program is told what to do) ruled.
 #[cfg_attr(not(any(test, feature = "system_tests")), allow(dead_code))]
 pub fn start_std_narrowed(
     blk_image: &'static [u8],
@@ -1801,15 +1808,17 @@ pub fn start_std_narrowed(
     std_image: &'static [u8],
     name: &'static str,
     rights: u64,
+    line: Option<&[u8]>,
 ) -> Option<NarrowedStd> {
     let (narrow_ep, file_shared, report, caretaker) =
         narrow_dir_held(blk_image, fs_server_image, caretaker_image, name, rights)?;
-    let (heap, thread, stack) = spawn_std(narrow_ep, 0, file_shared, report, std_image);
+    let (heap, thread, stack, args) = spawn_std(narrow_ep, 0, file_shared, report, std_image, line);
     Some(NarrowedStd {
         report,
         heap,
         thread,
         stack,
+        args,
         caretaker,
     })
 }
@@ -1883,8 +1892,14 @@ pub fn start_std_bound(
     let grant = bind_subtree(blk_image, fs_server_image, name, rights)?;
     let ep_region = crate::memory_region::create(1).expect("no endpoint region for a bound grant");
     let report = crate::sched::create_rendezvous_from(ep_region).expect("no report endpoint");
-    let (heap, thread, stack) =
-        spawn_std(grant.file_ep, grant.window, grant.phys, report, std_image);
+    let (heap, thread, stack, _args) = spawn_std(
+        grant.file_ep,
+        grant.window,
+        grant.phys,
+        report,
+        std_image,
+        None,
+    );
     Some(BoundStd {
         report,
         heap,
@@ -1953,7 +1968,13 @@ pub fn bind_subtree(
 
 /// The spawn both of the above share: a std program whose directory is whatever `file_ep` serves,
 /// with the file page it shares mapped where the PAL expects it, writing to `report`. Returns the
-/// heap's region, the thread, and the stack frames, which the process does not own.
+/// heap's region, the thread, the stack frames, and the argument page if `line` gave one; the
+/// process owns none of the frames.
+///
+/// `line` is assembled onto a fresh page by `grant_plan::argv` and handed over the way the
+/// progenitor hands it (`crates/system_initializer`'s spawn): a `READ` page frame capability at
+/// `ARGS_SLOT`, the page mapped read-only at `ARGS_PAGE`. `None` leaves the slot empty, which the
+/// PAL reads as no arguments at all.
 ///
 /// BUGS: [`start_std_full`] drops the stack frames, so every program it spawns keeps its 32 for
 /// the boot. That was true before this function was split out of it and is left as it was: its
@@ -1964,13 +1985,23 @@ fn spawn_std(
     file_shared: u64,
     report: RendezvousId,
     std_image: &'static [u8],
+    line: Option<&[u8]>,
 ) -> (
     u64,
     crate::thread::ThreadId,
     [u64; STD_FS_STACK_PAGES as usize],
+    Option<u64>,
 ) {
     let heap =
         crate::memory_region::create(STD_FS_HEAP_PAGES).expect("no untyped for the std fs heap");
+    let args = line.map(|line| {
+        let phys = page_frame();
+        // SAFETY: a frame just allocated and zeroed, reached through the direct map, which nothing
+        // else holds until the program below is given it read-only.
+        let page = unsafe { &mut *(mmu::phys_to_virt(phys) as *mut [u8; FRAME_SIZE as usize]) };
+        grant_plan::argv(line, page).expect("the harness's own command line is not an argv");
+        phys
+    });
 
     // The shared file page, then the deep stack std needs. `run` maps one stack page; std's
     // startup and formatting overflow it immediately, the same reason the other std spawns map
@@ -1979,17 +2010,30 @@ fn spawn_std(
         va: 0,
         phys: 0,
         flags: Flags::user_data(),
-    }; 1 + STD_FS_STACK_PAGES as usize];
+    }; 2 + STD_FS_STACK_PAGES as usize];
     maps[0] = Mapping {
         va: FS_PAGE_STD,
         phys: file_shared,
         flags: Flags::user_data(),
     };
     let mut stack = [0u64; STD_FS_STACK_PAGES as usize];
-    for ((k, m), phys) in maps[1..].iter_mut().enumerate().zip(stack.iter_mut()) {
+    for ((k, m), phys) in maps[1..=STD_FS_STACK_PAGES as usize]
+        .iter_mut()
+        .enumerate()
+        .zip(stack.iter_mut())
+    {
         m.va = USER_STACK_VA - (k as u64 + 1) * FRAME_SIZE;
         m.phys = page_frame();
         *phys = m.phys;
+    }
+    let mut maps_used = 1 + STD_FS_STACK_PAGES as usize;
+    if let Some(phys) = args {
+        maps[maps_used] = Mapping {
+            va: std_runtime_protocol::ARGS_PAGE,
+            phys,
+            flags: Flags::user_rodata(),
+        };
+        maps_used += 1;
     }
 
     let tid = crate::sched::spawn(move || {
@@ -2003,6 +2047,13 @@ fn spawn_std(
             rendezvous_cap_badged(file_ep, Rights::WRITE, badge)
         };
         crate::sched::grant_at(FS_DIR_SLOT, dir).expect("the std fs slot was already occupied");
+        if let Some(phys) = args {
+            crate::sched::grant_at(
+                std_runtime_protocol::ARGS_SLOT,
+                page_frame_cap(phys, Rights::READ),
+            )
+            .expect("the argument slot was already occupied");
+        }
         run(
             std_image,
             Spawn {
@@ -2013,12 +2064,12 @@ fn spawn_std(
                     memory_region_cap(heap),               // slot 0: the heap's budget
                     rendezvous_cap(report, Rights::WRITE), // slot 1: stdout/stderr
                 ],
-                maps: &maps,
+                maps: &maps[..maps_used],
             },
         )
     })
     .expect("could not spawn the std fs program");
-    (heap, tid, stack)
+    (heap, tid, stack, args)
 }
 
 /// **Two directory grants to one process** (milestone 154,

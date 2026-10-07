@@ -1658,6 +1658,7 @@ fn fs_walk() {
         walker,
         filesystem_protocol::fixture::walk::ROOT,
         dir::ENUMERATE | dir::READ | dir::DESCEND,
+        None,
     ) else {
         return; // no RedoxFS disk on this run
     };

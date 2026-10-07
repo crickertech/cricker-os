@@ -12,3 +12,8 @@ workspace = true
 # The priced tree's shape. `no_std` and dependency-free; only its `fixture::walk` module is used,
 # so the image builder, the priced program and a host run cannot disagree about what was walked.
 filesystem_protocol = { version = "0.1.0", path = "../filesystem_protocol" }
+
+[dev-dependencies]
+# `examples/rg_host.rs` splits `fixture::walk::RG_SEARCH` with the function that builds nife's argv,
+# so the host's `rg` hears the words nife's does per milestone 121 (`ripgrep` on nife).
+grant_plan = { version = "0.1.0", path = "../grant_plan" }

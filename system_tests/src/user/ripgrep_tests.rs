@@ -135,6 +135,20 @@ fn caretaker_image() -> &'static [u8] {
 /// Run `std_exerciser` holding milestone 121's priced tree with `rights`, and return its whole
 /// transcript. `None` when there is nothing to run it against, which the caller skips on.
 fn walk_with(rights: u64, out: &mut [u8]) -> Option<usize> {
+    let image = program("std_exerciser").expect("no std_exerciser program in the initrd archive");
+    run_confined(image, "std_exerciser (walk)", rights, None, out).map(|(len, _)| len)
+}
+
+/// **Run `image` holding the priced tree with `rights`, told `line` if given**, and return its
+/// transcript's length and how many of its 256 heap pages it spent. The program must exit on its
+/// own and must not trap. Everything it held comes back before this returns.
+fn run_confined(
+    image: &'static [u8],
+    who: &str,
+    rights: u64,
+    line: Option<&str>,
+    out: &mut [u8],
+) -> Option<(usize, u64)> {
     use core::sync::atomic::Ordering;
 
     use crate::arch::exceptions::USER_FAULTS;
@@ -144,32 +158,36 @@ fn walk_with(rights: u64, out: &mut [u8]) -> Option<usize> {
         block_server_image(),
         program("redoxfs_server").expect("no redoxfs_server program in the initrd archive"),
         caretaker_image(),
-        program("std_exerciser").expect("no std_exerciser program in the initrd archive"),
+        image,
         filesystem_protocol::fixture::walk::ROOT,
         rights,
+        line.map(str::as_bytes),
     )?;
-    let len = super::std_tests::drain_sink(spawned.report, out, "std_exerciser (walk)");
+    let len = super::std_tests::drain_sink(spawned.report, out, who);
 
-    // `std_exerciser` returns from `main`, and a program that printed a whole transcript and then
-    // trapped would look identical from here without these two.
+    // The program returns from `main` or calls `exit`, and one that printed a whole transcript and
+    // then trapped would look identical from here without these two.
     assert!(
         super::wait_for(|| !crate::sched::is_thread_present(spawned.thread)),
-        "std_exerciser never left the walk: it is neither exited nor faulted",
+        "{who} never left: it is neither exited nor faulted",
     );
     assert_eq!(
         USER_FAULTS.load(Ordering::Relaxed),
         faults_before,
-        "std_exerciser trapped during the walk instead of exiting",
+        "{who} trapped instead of exiting",
     );
-    // **Give everything back: the heap, the stack and the caretaker.** The suite's frame ledger has
-    // always carried exactly one `std_exerciser` (`fs_service::start_std`'s reasoning). These are
-    // two more, and the first version of this test kept its caretakers: the aarch64 suite then ran
-    // out of page frames three tests later, in `std_net_runs_over_the_socket_contract`.
+    // Pages the heap's region retyped, which only grows: the program's high-water mark.
+    let spent = crate::memory_region::usage(spawned.heap).map_or(0, |(spent, _)| spent);
+    // **Give everything back: the heap, the stack, the argument page and the caretaker.** The
+    // suite's frame ledger has always carried exactly one `std_exerciser` (`fs_service::start_std`'s
+    // reasoning). These are more, and the first version of the walk test kept its caretakers: the
+    // aarch64 suite then ran out of page frames three tests later, in
+    // `std_net_runs_over_the_socket_contract`.
     assert!(
         spawned.release(),
-        "the walk's caretaker outlived its holding: a service this test cannot give back",
+        "{who}'s caretaker outlived its holding: a service this test cannot give back",
     );
-    Some(len)
+    Some((len, spent))
 }
 
 /// Skip when this archive or this boot cannot run the walk.
@@ -435,4 +453,175 @@ fn a_bound_grant_reaches_nothing_outside_it() {
         "after UNBIND the badge reaches nothing, not the whole image (EBADF)",
     );
     fs_service::release_window_after_test(b);
+}
+
+// ===========================================================================================
+// `rg` itself: milestone 121's three points, since milestone 205 (how a foreign program is told
+// what to do) gave a foreign program an argv and milestone 206 (a program image has under 896 KiB)
+// gave it room for its image. The grant is the walk tests' caretaker over
+// `fixture::walk::ROOT`; the words are `fixture::walk::RG_SEARCH`, made into an argv by
+// `grant_plan::argv`, the shell's own function, so `rg` hears what `swish` would send for that
+// line. This is the kernel harness, not the prompt: `rg` is in this archive only because somebody
+// ran `helpers/build-ripgrep.sh`, and it is never part of the base image (calef, 2026-10-07: it is
+// installed by `jig`, from its own package).
+// ===========================================================================================
+
+/// Skip when this archive has no `rg` or this boot no file service.
+macro_rules! skip_without_rg {
+    () => {
+        if program("rg").is_none() {
+            crate::testing::skip!(NO_RIPGREP);
+        }
+        if fs_service::fs_server_image().is_none() {
+            crate::testing::skip!(fs_service::NO_FS_SERVER);
+        }
+    };
+}
+
+/// One `rg` run over the priced tree, its transcript in `out`. Prints the transcript's tail and
+/// the heap it spent, which is the figure the 256-page budget is judged on.
+fn rg_with(rights: u64, line: &str, out: &mut [u8]) -> Option<usize> {
+    let image = program("rg").expect("no rg program in the initrd archive");
+    let (len, spent) = run_confined(image, "rg", rights, Some(line), out)?;
+    let text = core::str::from_utf8(&out[..len]).unwrap_or("<not utf-8>");
+    crate::println!("    `{line}` printed {len} bytes and spent {spent} heap pages; it ended:");
+    // The stats block and, for a refusal, the error above it: the last dozen lines. A line of
+    // ripgrep's own that says files were "skipped" is left out, because the runner reads that word
+    // in a test's output as a test that skipped itself and returned: milestone 214 (a test that
+    // prints "skipping" and returns is counted as passed).
+    let lines = text.lines().count();
+    for l in text.lines().skip(lines.saturating_sub(12)) {
+        if !l.contains("skip") {
+            crate::println!("    | {l}");
+        }
+    }
+    Some(len)
+}
+
+/// `"{n} {what}\n"`, without an allocator.
+fn count_line(n: usize, what: &str) -> Line {
+    use core::fmt::Write;
+    let mut l = Line {
+        buf: [0; 128],
+        len: 0,
+    };
+    write!(l, "\n{n} {what}\n").expect("the line fits");
+    l
+}
+
+impl Line {
+    fn as_str(&self) -> &str {
+        core::str::from_utf8(&self.buf[..self.len]).expect("ASCII")
+    }
+}
+
+/// **Unmodified `ripgrep` searches a tree it was granted, and finds exactly what is there.**
+///
+/// The first half of the point of milestone 121: a stranger's forty-crate search tool, told a
+/// pattern, walks a directory capability carrying `ENUMERATE | READ | DESCEND` and searches every
+/// file in it. The counts come from `rg --stats` and are asserted against the fixture's own
+/// constants, so a walk that skipped a directory, a read that came back short, or a grant that
+/// leaked a sibling into the listing fails on a number: every file searched, every byte of every
+/// file searched, and one match in each file that holds the walk's small body. One match line is
+/// asserted whole, to prove `rg` printed matches and not only a summary.
+///
+/// Falsification: unfalsified. A replay needs `rg` in the archive, and no gate builds it (the
+/// archive takes it only after `helpers/build-ripgrep.sh`), so a replayed patch would skip here.
+#[test_case]
+fn ripgrep_searches_the_tree_it_was_granted() {
+    use filesystem_protocol::dir;
+    use filesystem_protocol::fixture::walk as tree;
+    skip_without_rg!();
+    let mut got = [0u8; 8192];
+    let Some(len) = rg_with(
+        dir::ENUMERATE | dir::READ | dir::DESCEND,
+        tree::RG_SEARCH,
+        &mut got,
+    ) else {
+        crate::testing::skip!("no RedoxFS disk attached");
+    };
+    let text = core::str::from_utf8(&got[..len]).unwrap_or("<not utf-8>");
+    assert!(
+        text.contains("narrow/n000:nife walk entry\n"),
+        "rg printed no match line for narrow/n000",
+    );
+    for (n, what) in [
+        (tree::RG_MATCHES, "matches"),
+        (tree::RG_MATCHES, "files contained matches"),
+        (tree::WALK_FILES, "files searched"),
+        (tree::WALK_BYTES, "bytes searched"),
+    ] {
+        let want = count_line(n, what);
+        assert!(
+            text.contains(want.as_str()),
+            "rg's stats did not say {:?}",
+            want.as_str(),
+        );
+    }
+    assert!(text.ends_with(" seconds\n"), "rg did not finish its stats");
+}
+
+/// **`rg` through a grant lacking `ENUMERATE` is refused, and says so, rather than finding nothing.**
+///
+/// The second half, and the one milestone 121 calls load-bearing: the same `rg`, the same words,
+/// the same tree, and one right withheld. A search that silently reports zero matches because it
+/// could not look is the worst failure a search tool can have. Here `rg` names the refusal (the
+/// `EPERM` §47 chose over an empty listing, carried through the caretaker, std's `read_dir` and
+/// `ignore`'s walker, and worded by the PAL as "this directory capability does not carry the right
+/// that verb needs"), says it searched nothing, and prints no match.
+///
+/// The control is [`ripgrep_reaches_a_named_file_without_enumerate`]: under the same grant, a
+/// search naming a file still finds its line, so this refusal is about enumeration alone.
+///
+/// Falsification: unfalsified. A replay needs `rg` in the archive, and no gate builds it (the
+/// archive takes it only after `helpers/build-ripgrep.sh`), so a replayed patch would skip here.
+#[test_case]
+fn ripgrep_without_enumerate_is_refused_rather_than_empty() {
+    use filesystem_protocol::dir;
+    use filesystem_protocol::fixture::walk as tree;
+    skip_without_rg!();
+    let mut got = [0u8; 8192];
+    let Some(len) = rg_with(dir::READ | dir::DESCEND, tree::RG_SEARCH, &mut got) else {
+        crate::testing::skip!("no RedoxFS disk attached");
+    };
+    let text = core::str::from_utf8(&got[..len]).unwrap_or("<not utf-8>");
+    assert!(
+        text.contains("does not carry the right"),
+        "rg did not name the refusal: a walk it could not make read as something else",
+    );
+    assert!(
+        !text.contains(":nife walk entry"),
+        "rg printed a match through a grant that cannot list",
+    );
+    assert!(
+        text.contains(count_line(0, "files searched").as_str()),
+        "rg searched files through a grant that cannot list",
+    );
+}
+
+/// **The refusal's control: a named file needs no `ENUMERATE`.** `READ | DESCEND`, the grant the
+/// refusal above holds, and `rg` told a path two components down. It finds the one line, so the
+/// grant reaches the tree and only listing is withheld.
+///
+/// The line is the one a person would type, without `--no-mmap` or `--threads 1`, and that is a
+/// second finding. A single named file is exactly where `ripgrep` reaches for a memory map, and
+/// nife has none: `memmap2` compiles its stub, the map fails, and `ripgrep` reads instead. So
+/// `--no-mmap` is a measurement pin and never a requirement.
+///
+/// Falsification: unfalsified. A replay needs `rg` in the archive, and no gate builds it (the
+/// archive takes it only after `helpers/build-ripgrep.sh`), so a replayed patch would skip here.
+#[test_case]
+fn ripgrep_reaches_a_named_file_without_enumerate() {
+    use filesystem_protocol::dir;
+    use filesystem_protocol::fixture::walk as tree;
+    skip_without_rg!();
+    let mut got = [0u8; 1024];
+    let Some(len) = rg_with(dir::READ | dir::DESCEND, tree::RG_NAMED, &mut got) else {
+        crate::testing::skip!("no RedoxFS disk attached");
+    };
+    assert_eq!(
+        core::str::from_utf8(&got[..len]).unwrap_or("<not utf-8>"),
+        "nife walk entry\n",
+        "rg did not find the line in the file it was named",
+    );
 }

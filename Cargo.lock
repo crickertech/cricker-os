@@ -1466,6 +1466,7 @@ name = "walk_pricing"
 version = "0.1.0"
 dependencies = [
  "filesystem_protocol",
+ "grant_plan",
 ]
 
 [[package]]
