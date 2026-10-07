@@ -237,7 +237,7 @@ Public items removed or changed each week: [definitions](interface-stability.md)
 [per crate](project-metrics/interface-stability.md).
 
 <!-- interface-stability: script/metrics writes this -->
-interface, 2026W38 to 2026W41: 155 breaking changes (862 additions); 5 syscall numbers changed, 0 format bumps; 74% co-change.
+interface, 2026W38 to 2026W41: 212 breaking changes (894 additions); 5 syscall numbers changed, 0 format bumps; 74% co-change.
 <!-- /interface-stability -->
 
 ## Kani proof harnesses, and what can falsify them
