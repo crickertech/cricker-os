@@ -3098,6 +3098,15 @@ echo "==> American spelling and metric units (calef, 2026-10-06)"
 # listed in the helper's header. Fixtures first, so a green check is not a counter matching nothing.
 python3 helpers/house_style.py --selftest
 python3 helpers/house_style.py --check
+echo "==> capability is not abbreviated cap (calef, 2026-10-06)"
+# calef ruled on 2026-10-06 (UTC): "I don't think we should abbreviate capability as cap." New
+# code spells it out; the existing identifiers are renamed in one sweep when the tree is quiet,
+# from design/naming/capability-worklist.md. Until then helpers/cap_abbreviation.py counts Rust
+# identifiers with a `cap` or `caps` component (comments and strings skipped, so the English word
+# for a ceiling is never read) and fails a count over its ceiling or a branch that adds any net.
+# Fixtures first, so a green check is not a counter matching nothing.
+python3 helpers/cap_abbreviation.py --selftest
+python3 helpers/cap_abbreviation.py --check
 # Milestone 415 (sub-tripwire drift accumulates across baseline saves), item 3's arithmetic
 # (helpers/baseline_drift.py), against fixtures and with no git:
 # the weekly drift report is a record other people quote, so its sums are checked where a change to
