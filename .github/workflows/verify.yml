@@ -238,6 +238,17 @@ jobs:
     steps:
       - uses: actions/checkout@v7
       - uses: Swatinem/rust-cache@v2
+      # **Not cached, on a measurement** (2026-10-07 UTC, lane/cache-kani, after calef's "We should
+      # cache kani"). This step takes 8 to 20 seconds, mean 12, over 96 jobs in the 14 verify runs
+      # that installed Kani between 37581663864 and 37633221412, and 8 to 21 in falsifications.yml
+      # and kani-reach.yml; the 2-to-3-minute figure the request was made on does not appear in any
+      # of them. Run 37630636854's shard 1 splits it: `cargo install` 3 s (kani-verifier is a small
+      # wrapper crate), the release bundle into ~/.kani 4 s, and Kani's pinned nightly through
+      # rustup 8 s. A cache would have to hold both of the last two, about 325 MB on disk per
+      # architecture, and restoring 119 MB of the riscv64 cache below takes 2 s, so the best case
+      # saves under ten seconds a job. Against that, the repository's caches stood at 10.8 GB
+      # against GitHub's 10 GB limit that day, and an entry this size evicts rust-cache entries that
+      # cost more to miss. Revisit if this step's time grows past a minute.
       - name: Install Kani
         run: |
           cargo install --locked kani-verifier
@@ -276,8 +287,10 @@ jobs:
   # repeat it, and `arch/aarch64/` would be proved nowhere. So this job is the x86_64 one mirrored
   # rather than a fourth prover: same command, arm64 label, and the label IS the mechanism.
   #
-  # **Cost**: about 0.1 minutes of proving and the rest Kani's install, measured on the x86_64 twin
-  # (2026-09-24, run 36029132635). Its harnesses are the `arch/aarch64/` ones (the SMMU tables and
+  # **Cost**: about a minute, and none of it dominant. Run 37630636854 (2026-10-07): 20 s restoring
+  # rust-cache, 14 s installing Kani, 12 s proving. (This said "0.1 minutes of proving and the rest
+  # Kani's install", from the x86_64 twin's run 36029132635; the install is seconds, measured in
+  # the `prove` job's comment above.) Its harnesses are the `arch/aarch64/` ones (the SMMU tables and
   # stream isolation), whose formulas are small, so `VERIFY_JOBS` stays at the script's default. It
   # still waits for an arm64 runner, and that is the price of the proof: one short job in that queue
   # rather than four long ones.
@@ -294,12 +307,13 @@ jobs:
       needs.scope.outputs.needed == 'true' &&
       needs.gate.outputs.run != 'false'
     runs-on: ubuntu-24.04-arm
-    # Kani's install dominates; the proving is ~1 minute. Generous against growth, tight enough that
-    # a hung solver fails loudly rather than sitting on the runner's 6-hour default.
+    # The whole job is about a minute (above). Generous against growth, tight enough that a hung
+    # solver fails loudly rather than sitting on the runner's 6-hour default.
     timeout-minutes: 45
     steps:
       - uses: actions/checkout@v7
       - uses: Swatinem/rust-cache@v2
+      # Not cached; the `prove` job's comment has the measurement.
       - name: Install Kani
         run: |
           cargo install --locked kani-verifier
@@ -424,6 +438,7 @@ jobs:
         with:
           fetch-depth: 0
       - uses: Swatinem/rust-cache@v2
+      # Not cached; the `prove` job's comment has the measurement.
       - name: Install Kani
         run: |
           cargo install --locked kani-verifier

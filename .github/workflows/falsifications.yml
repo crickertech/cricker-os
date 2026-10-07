@@ -58,8 +58,9 @@ jobs:
   sweep:
     name: replay every recorded falsification
     runs-on: ubuntu-24.04-arm
-    # Kani's own install is the long pole today, not the solving. Generous enough that growth in the
-    # record count does not need this touched every month, and low enough that a hang fails loudly.
+    # Generous enough that growth in the record count does not need this touched every month, and
+    # low enough that a hang fails loudly. (This said Kani's install was the long pole. It takes 11
+    # to 17 s here, runs 37368707083 and 37311742614; verify.yml's `prove` job has the measurement.)
     timeout-minutes: 120
     steps:
       - uses: actions/checkout@v7
