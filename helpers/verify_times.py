@@ -62,6 +62,7 @@ import re
 import statistics
 import subprocess
 import sys
+import time
 
 REPO = "nifeos/nife"
 WORKFLOW = "verify.yml"
@@ -252,11 +253,16 @@ def parse_log(text):
 # ---------------------------------------------------------------------------------------------
 # GitHub.
 
-def gh_json(path):
-    done = subprocess.run(["gh", "api", path], capture_output=True, text=True)
-    if done.returncode:
-        raise RuntimeError("gh api %s: %s" % (path, done.stderr.strip()))
-    return json.loads(done.stdout)
+def gh_json(path, tries=3):
+    # Retried, because one TLS timeout in hour-long backfill of thousands of calls lost the lot on
+    # 2026-10-07; a call that fails three times still raises.
+    for attempt in range(tries):
+        done = subprocess.run(["gh", "api", path], capture_output=True, text=True)
+        if not done.returncode:
+            return json.loads(done.stdout)
+        if attempt + 1 < tries:
+            time.sleep(5 * (attempt + 1))
+    raise RuntimeError("gh api %s: %s" % (path, done.stderr.strip()))
 
 
 def gh_text(path):
@@ -311,6 +317,19 @@ def runs_on(day):
         page += 1
 
 
+# A run shorter than this cannot have run a prove shard (the fastest one on record took 13
+# minutes), so its jobs are not fetched. It is a cost filter only: `run_row` still decides.
+MIN_RUN_MINUTES = 10
+
+
+def long_enough(run):
+    if not run.get("run_started_at") or not run.get("updated_at"):
+        return True
+    t0 = datetime.datetime.fromisoformat(run["run_started_at"].replace("Z", "+00:00"))
+    t1 = datetime.datetime.fromisoformat(run["updated_at"].replace("Z", "+00:00"))
+    return (t1 - t0).total_seconds() >= MIN_RUN_MINUTES * 60
+
+
 def jobs_of(run_id):
     return gh_json("repos/%s/actions/runs/%d/jobs?per_page=100" % (REPO, run_id))["jobs"]
 
@@ -322,6 +341,8 @@ def recent_prove_runs(count):
         data = gh_json("repos/%s/actions/workflows/%s/runs?status=success&per_page=100&page=%d"
                        % (REPO, WORKFLOW, page))
         for run in data["workflow_runs"]:
+            if not long_enough(run):
+                continue
             jobs = jobs_of(run["id"])
             if run_row(run, jobs):
                 found.append((run, jobs))
@@ -452,22 +473,27 @@ def update(argv):
     today = datetime.datetime.now(datetime.timezone.utc).date()
     since = datetime.date.fromisoformat(
         arg_value(argv, "--since", (today - datetime.timedelta(days=DEFAULT_WINDOW_DAYS)).isoformat()))
-    fresh = []
+    total = 0
     day = since
     while day <= today:
-        taken = 0
+        fresh, taken = [], 0
         for run in runs_on(day.isoformat()):
+            if not long_enough(run):
+                continue
             row = run_row(run, jobs_of(run["id"]))
             if row:
                 fresh.append(row)
                 taken += 1
                 if taken == PER_DAY:
                     break
+        # Written a day at a time, so a failure part way keeps every day before it.
+        existing = from_csv(open(RUNS_CSV).read()) if os.path.exists(RUNS_CSV) else {}
+        with open(RUNS_CSV, "w") as f:
+            f.write(to_csv(merge_rows(existing, fresh)))
+        print("verify_times: %s: %d run(s)" % (day, len(fresh)), file=sys.stderr)
+        total += len(fresh)
         day += datetime.timedelta(days=1)
-    existing = from_csv(open(RUNS_CSV).read()) if os.path.exists(RUNS_CSV) else {}
-    with open(RUNS_CSV, "w") as f:
-        f.write(to_csv(merge_rows(existing, fresh)))
-    print("verify_times: %d run(s) from %s written to %s" % (len(fresh), since, RUNS_CSV))
+    print("verify_times: %d run(s) from %s written to %s" % (total, since, RUNS_CSV))
     return 0
 
 
@@ -524,6 +550,10 @@ def selftest():
     expect("a failed prove shard drops the run",
            run_row(run, good[:1] + [job("prove (shard 2/2)", 9, "failure")]), None)
     expect("no prove shard, no row", run_row(run, [job("gate", 1)]), None)
+    expect("a five-minute run is skipped unfetched",
+           long_enough({"run_started_at": "2026-10-06T00:00:00Z", "updated_at": "2026-10-06T00:05:00Z"}), False)
+    expect("a forty-minute run is fetched",
+           long_enough({"run_started_at": "2026-10-06T00:00:00Z", "updated_at": "2026-10-06T00:40:00Z"}), True)
     expect("the single replay job stands in before shards existed",
            run_row(run, [job("prove (shard 1/2)", 10), job(REFALSIFY_SINGLE, 12)])["refalsify_minutes"], "12.0")
 

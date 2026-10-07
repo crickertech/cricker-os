@@ -77,6 +77,8 @@ concurrency:
 permissions:
   contents: write
   pull-requests: write
+  # verify's run and job records, for helpers/verify_times.py update.
+  actions: read
 
 jobs:
   record:
@@ -172,6 +174,18 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
         run: python3 helpers/merge_queue_share.py update
+
+      # How long verify's shards took (lane/verify-shard-refresh, provisional): one row per sampled
+      # green run, from GitHub's job records, committed as `verify-runs.csv` for `script/metrics`
+      # to take weekly medians of. The same reasons as the queue step above: the record is not in
+      # git, a fetch failure is an instrument problem, and the last eight days are rewritten so a
+      # missed run heals on the next.
+      - name: Fetch verify's per-shard times
+        id: verifytimes
+        continue-on-error: true  # outcome: re-raised
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: python3 helpers/verify_times.py update
 
       - name: Recompute this week's row and redraw the charts
         run: |
@@ -292,12 +306,13 @@ jobs:
         if: >-
           steps.covtool.outcome == 'failure' || steps.coverage.outcome == 'failure' ||
           steps.interfacetool.outcome == 'failure' || steps.interface.outcome == 'failure' ||
-          steps.queue.outcome == 'failure'
+          steps.queue.outcome == 'failure' || steps.verifytimes.outcome == 'failure'
         run: |
           echo "::error::an instrument failed, so its cells were carried rather than measured:" \
             "cargo-llvm-cov install '${{ steps.covtool.outcome }}'," \
             "coverage '${{ steps.coverage.outcome }}'," \
             "interface target '${{ steps.interfacetool.outcome }}'," \
             "interface '${{ steps.interface.outcome }}'," \
-            "merge queue fetch '${{ steps.queue.outcome }}'"
+            "merge queue fetch '${{ steps.queue.outcome }}'," \
+            "verify shard times '${{ steps.verifytimes.outcome }}'"
           exit 1

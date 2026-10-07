@@ -1,0 +1,10 @@
+week,verify_runs_sampled,verify_slowest_minutes,verify_prove_fastest_minutes,verify_prove_slowest_minutes,verify_refalsify_slowest_minutes
+2026W33,36,16.4,14.4,16.4,
+2026W34,70,17.4,15.9,17.4,
+2026W35,70,17.6,15.9,17.6,
+2026W36,75,17.7,16.1,17.7,0.8
+2026W37,47,18.0,16.3,18.0,0.9
+2026W38,84,17.1,12.8,17.1,1.8
+2026W39,84,17.9,13.3,17.9,12.8
+2026W40,64,26.4,18.9,21.9,26.4
+2026W41,36,27.1,20.2,26.3,22.5
