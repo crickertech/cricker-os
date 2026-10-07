@@ -1,7 +1,7 @@
 # Benchmarks with teeth
 
 *(Milestone 21 (performance measurement). `script/bench`, `kernel/src/bench.rs`, `bench/baseline-<arch>.txt`. This page carries
-the current numbers, how to take them, and what they do not mean. The dated history is in the
+the current numbers. The dated history is in the
 [appendices](#appendices), whose names calef ratified on 2026-09-24 ([the naming record](benchmarks/README.md)).)*
 
 ## Why two instruments
@@ -17,8 +17,7 @@ One tool cannot both gate commits and tell the truth about magnitudes.
 | job | regression gating: `--check` fails on drift past 10% | knowing what a path costs |
 | architectures | aarch64, riscv64, x86_64 | aarch64 only (Hypervisor.framework runs the host ISA) |
 
-The committed baseline is the performance record: each save is made in the commit that moved the
-numbers.
+The committed baseline is the performance record.
 
 ## Running it
 
@@ -39,13 +38,13 @@ order.
 
 ### The rules a baseline save follows
 
-- The tripwire is coarse on purpose: `max(base / 10, 64)` ticks. icount is exact per binary but drifts
+- The tripwire is coarse on purpose, `max(base / 10, 64)` ticks, because icount drifts
   a few percent across builds as the compiler remakes inlining
   ([icount drift](benchmarks/icount-drift-and-provenance.md)).
 - Every leg boots one hart: under `-icount` all vCPUs share one clock, and an idle hart's `wfi` jumps
-  it forward. One hart is what every leg has measured since; x86_64 briefly lost the pin on
+  it forward. Every leg has measured one hart since; x86_64 briefly lost the pin on
   2026-09-23.
-- A save runs with the shipping feature set: measurement features off, shipping features on. `icount`
+- A save runs with shipping features on and measurement features off. `icount`
   is the one bench feature allowed, because it changes how time is observed and not what is measured.
 - Each baseline records its nightly (`# toolchain:`, checked by `script/lint`), the QEMU that ran
   (`# qemu:`, checked by `--check`) and a `# why:` line (milestone 302 (a baseline records what it was saved against)). Auto-re-saving on a toolchain bump is refused (calef, 2026-09-21): such a floor could
@@ -54,14 +53,14 @@ order.
   moves no row by 0.5%, and none by 2% since the last save. The stamp now means "last proven valid
   for".
 - An unexplained movement is investigated, never re-saved away. The 2026-08-15 riscv64 `map_new`
-  +15.6% was one command from being blessed into the floor. See the
-  [`map_new` episode](benchmarks/riscv-map-new-and-the-rfence-probe.md).
+  +15.6% nearly was (the
+  [`map_new` episode](benchmarks/riscv-map-new-and-the-rfence-probe.md)).
 - A timed window that a preemption can land in is not a measurement. `map_new` masks interrupts
   across its window since milestone 541 (a timed window that excludes preemption).
 
 ## What is measured
 
-Kernel-side benches call scheduler and IPC functions directly, measuring the kernel's own path. EL0
+Kernel-side benches call scheduler and IPC functions directly. EL0
 benches are userspace programs making real traps, as lmbench and seL4 do, so they are the cross-OS
 numbers.
 
@@ -88,7 +87,7 @@ I/O bitmap), and on `--smp` only, `smp_*` and `fs_*`.
 
 ### Against Linux and macOS, on one core (HVF, release)
 
-Linux runs as a static musl `/init` under QEMU-HVF on the same M-series core, the same tier as nife.
+Linux runs as a static musl `/init` under QEMU-HVF on the same M-series core, nife's tier.
 Native macOS is the bare-metal ceiling. The host side is `bench/host/`.
 
 | metric | nife | date | Linux (HVF) | macOS (native) |
@@ -105,8 +104,8 @@ latest release reading of each row, and the 2026-08-04 figures are a median of f
 
 nife wins four rows and ties one. The null syscall and the IPC round trip are about 5x faster than
 Linux at the same tier. Page provisioning is a three-way tie near 500 ns, because zeroing 4 KiB is
-bandwidth-bound on all three. The 92 ns mechanism is real but not a page a program can use, so
-it stays out of the win column. [Cross-OS primitives](benchmarks/cross-os-primitives.md) has the
+bandwidth-bound on all three. The 92 ns mechanism is not a page a program can use, so it
+is no win. [Cross-OS primitives](benchmarks/cross-os-primitives.md) has the
 methods and the debug-build history.
 
 ### Against seL4's published cycles
@@ -118,7 +117,7 @@ nanoseconds times an assumed clock. The M3 runs 2.75 GHz on an E-core and 4.05 G
 puts us at ~960 to ~1,420 cycles. So the corrected figure is roughly 1.1x to 1.7x an L4-lineage round
 trip, not 4 to 7 times.
 
-Read that as "same order", never tighter. The caveats are listed under
+Read that as "same order", never tighter; the caveats are under
 [what is not apples to apples](#what-is-not-apples-to-apples). The same-silicon comparison waits on
 argon, the TX1 (milestone 127 (the seL4 machine)), because sel4bench needs a real PMU and this host has
 none. [Calibration against seL4](benchmarks/calibration-against-sel4.md) has the three errors a first
@@ -126,8 +125,8 @@ version of this comparison made, and the build recipe.
 
 ### The regression floors (icount, `nightly-2026-09-23`, QEMU 11.1.1)
 
-Ticks per iteration from `bench/baseline-<arch>.txt`. Ticks are not comparable across architectures:
-aarch64 counts at 62.5 MHz (16 instructions a tick), riscv64 at 10 MHz (about 100), x86_64 at 1 GHz
+Ticks per iteration from `bench/baseline-<arch>.txt`, the source of truth, read as of 2026-09-24.
+Ticks are not comparable across architectures: aarch64 counts at 62.5 MHz (16 instructions a tick), riscv64 at 10 MHz (about 100), x86_64 at 1 GHz
 (one). [Icount tick scales](benchmarks/icount-tick-scales.md) ground-truth measures them and
 corrects the cross-arch table.
 
@@ -144,8 +143,6 @@ corrects the cross-arch table.
 | `ctx_switch` | 612 | 103 | |
 | `ipc_rtt_el0` | 2,203 | 372 | |
 | `spawn_el0` | 13,721 | 2,167 | |
-
-The files are the source of truth, read here as of 2026-09-24.
 
 ### What a userspace server costs
 
@@ -200,8 +197,8 @@ has the method and its limits.
 
 ### x86_64
 
-There is no HVF or KVM for x86_64 on this host, so `--real` there is plain TCG and its magnitudes stand
-in for nothing. The icount leg works and gates (since 2026-08-25). The I/O-bitmap write that
+There is no HVF or KVM for x86_64 on this host, so `--real` there is plain TCG, whose magnitudes
+mean nothing. The icount leg works and gates (since 2026-08-25). The I/O-bitmap write that
 §121 (x86 port I/O) priced costs +216 ticks per iteration when nothing holds a port, against +2,373 for the
 naive 8 KiB write ([x86 TSS I/O bitmap](benchmarks/x86-tss-iomap.md)). `CR4.PGE` and `CR4.PCIDE`
 cannot be measured under TCG at all ([x86 instruments](benchmarks/x86-instruments.md)).
@@ -225,9 +222,7 @@ underneath, an L1 large enough to hide any footprint effect. argon's PMU is wher
 
 ## What is not apples to apples
 
-A number quoted without its caveat is worth less than no number.
-
-- Map is a tie. Page provisioning is zeroing-bound on every OS. `map_el0` aliases a frame and skips
+- Map is a tie, as above. `map_el0` aliases a frame and skips
   the zeroing, so it measures a different operation from Linux's first-touch fault.
 - Spawn builds a lighter object. `fork` duplicates the parent; `spawn_el0` builds a minimal process
   from nothing, paying about ten traps to Unix's two. Most of the gap is that structural difference.
@@ -244,7 +239,7 @@ A number quoted without its caveat is worth less than no number.
 - Filesystem: the other side has a page cache and in-kernel metadata caching. Our write commits a
   transaction per request but issues no device flush unless asked, which sits between ext4's
   `O_DIRECT` and `O_DIRECT`+`O_DSYNC`. macOS APFS runs natively on NVMe, a different tier.
-- Every debug figure in the appendices is a debug figure. The IPC path pays about 6.7x at `-O0`, and a
+- The appendices' debug figures are debug: the IPC path pays about 6.7x at `-O0`, and a
   debug number in a release comparison is the error the calibration appendix records.
 
 ## Where a new finding goes
@@ -299,7 +294,7 @@ The third column lists the dated entries each holds, so a citation of "notes/ben
 - `map_el0` has `map_new`'s preemption-in-the-window shape and is not masked, because a kernel cannot
   mask a window it does not own. It has not been measured for this.
 - The x86_64 two-core counters are deterministic but not a function of the code, and are not gated.
-  The work is proposed in `design/roadmap/proposals/two-core-bench-is-a-different-instrument.md`.
+  Proposed in `design/roadmap/proposals/two-core-bench-is-a-different-instrument.md`.
 - riscv64's `rfence_self` has oscillated between 5991 and 6476 across saves, and the cause (a hart
   count or the compiler) is unsettled. It reads 5991 today.
 - `bench/fastpath-*.txt` names its nightly only from its next `--save --why` (since 2026-09-24),
