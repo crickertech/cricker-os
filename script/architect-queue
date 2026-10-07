@@ -1,0 +1,89 @@
+#!/bin/sh
+#
+# The architect's queue, oldest first, one line per item: what is waiting on calef and what it asks.
+#
+#     script/architect-queue                 # nifeos/nife
+#     script/architect-queue --repo o/r
+#
+# Each line: the number, how long the ask has waited, the title, the question's first line, and a
+# link to the comment that asks it.
+#
+#     #1783   3h  805: reboot at the prompt, the reboot object
+#             1. **Rule on the amendment** ...  https://github.com/nifeos/nife/pull/1783#issuecomment-...
+#
+# # Why this exists
+#
+# calef, 2026-10-06 (UTC): "I need a reliable work queue just like your agents." The queue was
+# `gh pr list --label needs-architect`, which shows a label and not a question, and the label had
+# drifted both ways that day (#1783 still on after his ruling, #1745 never on). This reads the
+# invariant instead: an item is in the queue when it carries `needs-architect` OR has an open
+# question (helpers/open-question.jq decides "open", the same file the drain's three architect causes
+# in helpers/needs-maintainer.jq read). Where the two disagree the line says so, `[unlabeled]` or
+# `[no open question]`, so a broken invariant is visible here before the drain's next pass labels it.
+#
+# A question asked only in a chat is not here and cannot be: the decisions skill
+# (notes/skills/decisions/SKILL.md) requires every question to calef to be posted on its pull request
+# or issue as a `## What I need from you` comment, with `needs-architect`.
+#
+# Reads the newest 100 open pull requests and 50 open issues, and the newest 30 comments on each (the
+# drain's window). An empty queue says how many items it read, so "nothing" is never a silent zero.
+#
+# Name: provisional, lane/architect-queue, 2026-10-06 (UTC). A noun, per DECISIONS §134 ("family
+# splits in a way nobody had written down"): what reports takes a noun. calef has not ruled on it.
+# See notes/scripts.md.
+
+set -eu
+
+repo_root="$(cd "$(dirname "$0")/.." && pwd)"
+repo="nifeos/nife"
+case "${1:-}" in
+--repo) [ $# -ge 2 ] || { echo "usage: script/architect-queue [--repo owner/repo]" >&2; exit 2; }; repo="$2" ;;
+'') ;;
+*) echo "usage: script/architect-queue [--repo owner/repo]" >&2; exit 2 ;;
+esac
+
+query='query($owner: String!, $name: String!) {
+  repository(owner: $owner, name: $name) {
+    pullRequests(states: OPEN, first: 100, orderBy: {field: CREATED_AT, direction: DESC}) { nodes {
+      number title createdAt url body isDraft
+      labels(first: 30) { nodes { name } }
+      comments(last: 30) { nodes { createdAt url body } }
+      labelEvents: timelineItems(last: 20, itemTypes: [LABELED_EVENT]) { nodes { ... on LabeledEvent { createdAt label { name } } } }
+    } }
+    issues(states: OPEN, first: 50, orderBy: {field: CREATED_AT, direction: DESC}) { nodes {
+      number title createdAt url body
+      labels(first: 30) { nodes { name } }
+      comments(last: 30) { nodes { createdAt url body } }
+      labelEvents: timelineItems(last: 20, itemTypes: [LABELED_EVENT]) { nodes { ... on LabeledEvent { createdAt label { name } } } }
+    } }
+  }
+}'
+
+resp="$(gh api graphql -F owner="${repo%/*}" -F name="${repo#*/}" -f query="$query")" || {
+	echo "architect-queue: could not read $repo; the queue is unknown, not empty." >&2
+	exit 1
+}
+
+printf '%s' "$resp" | jq -r --argjson now "$(date +%s)" "$(cat "$repo_root/helpers/open-question.jq")"'
+  def age: ($now - (. | oq_ts)) as $s
+    | if $s < 3600 then "\($s / 60 | floor)m" elif $s < 172800 then "\($s / 3600 | floor)h" else "\($s / 86400 | floor)d" end;
+  .data.repository as $r
+  | ([$r.pullRequests.nodes[]] | length) as $prs
+  | ([$r.issues.nodes[]] | length) as $iss
+  | [ ($r.pullRequests.nodes[] | . + {kind: ""}), ($r.issues.nodes[] | . + {kind: "issue "}) ]
+  | map(. as $it
+        | oq_open as $ask
+        | oq_has_label("needs-architect") as $held
+        | select($ask != null or $held)
+        | { since: ($ask.at // ([$it.labelEvents.nodes[]? | select(.label.name == "needs-architect") | .createdAt] | max) // $it.createdAt),
+            head: "\($it.kind)#\($it.number)",
+            title: $it.title,
+            flag: (if $ask == null then "  [no open question]" elif $held | not then "  [unlabeled]" else "" end),
+            line: (if $ask == null then "needs-architect with no `What I need from you` since the last ruling"
+                   else ($ask.line | .[0:110]) end),
+            url: ($ask.url // $it.url) })
+  | sort_by(.since | oq_ts)
+  | if length == 0 then "architect queue: empty (read \($prs) open pull requests and \($iss) open issues)"
+    else (.[] | "\(.head)  \(.since | age)  \(.title)\(.flag)\n        \(.line)  \(.url)"),
+         "architect queue: \(length) item(s), from \($prs) open pull requests and \($iss) open issues"
+    end'

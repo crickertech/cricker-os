@@ -61,10 +61,12 @@ $report
 \`\`\`
 
 Each line is \`rule: file: what matched\`; \`helpers/architect-label-rules.py\`'s docstring names all
-five rules and their known false positives. This is a best-effort finding, not a verdict: a false
+six rules and their known false positives. This is a best-effort finding, not a verdict: a false
 positive is normal, and a human removes the label if this does not need an architect. Someone still
-needs to add a \`## What I need from you\` naming the actual ask (CLAUDE.md, "Open decisions, and
-work waiting on an architect").
+needs to add a \`## What I need from you\` comment naming the actual ask (the decisions skill,
+notes/skills/decisions/SKILL.md); a label with no ask under it is flagged \`needs-maintainer\`
+(\`hold-no-ask\`) after 30 minutes. If calef has already ruled, record it with
+\`script/record-ruling\`.
 
 <!-- $marker -->
 BODY

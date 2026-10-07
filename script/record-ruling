@@ -1,0 +1,145 @@
+#!/bin/sh
+#
+# Record an architect's ruling on a pull request or issue, and take it out of the architect's queue,
+# in one step.
+#
+#     script/record-ruling 1783 --text '"Send it back to build the flush-only capability."' --held-by-lane
+#     script/record-ruling 1786 --link https://github.com/nifeos/nife/pull/1786#issuecomment-123
+#     script/record-ruling 1786 --partial --text 'Fork 1: "Yes."'
+#
+# # Why this exists
+#
+# calef's queue is the `needs-architect` label, and on 2026-10-06 (UTC) it showed him #1783 after he
+# had ruled every question on it ("But the label says that the PR needs my attention"). The ruling
+# lived in a chat and in a comment; the label swap was a second step somebody had to remember. This
+# makes them one command: it posts the ruling (or a link to where it is recorded), then removes
+# `needs-architect` and adds `architect-ruled`, plus `held-by-lane` when the ruling sends work back
+# to the lane. The labels keep their meanings: `needs-architect` is "an open question for calef",
+# `architect-ruled` is "calef ruled", `held-by-lane` is "ruled, and the lane still owes the change".
+#
+# What makes forgetting visible anyway: the comment carries `<!-- architect-ruling -->`, which
+# helpers/open-question.jq reads as closing every older `## What I need from you`. If the label step
+# fails, the item is left with `needs-architect` and no open question, and the drain's `hold-no-ask`
+# cause (helpers/needs-maintainer.jq) labels it `needs-maintainer`. This script also exits 1 and says
+# so, but the gate does not depend on anyone reading that.
+#
+# `--partial` records a ruling on some of the asks (one fork of four, #1786) and leaves the labels
+# and the question open. The workflow architect-ruled-clears-hold.yml also removes `needs-architect`
+# when `architect-ruled` is applied by hand; this script does it in the same API call, so the queue
+# is right even where that workflow does not run (an issue, a fork's token).
+#
+# Name: provisional, lane/architect-queue, 2026-10-06 (UTC). A verb phrase, per DECISIONS §134 ("family
+# splits in a way nobody had written down"): what does something takes a verb. calef has not ruled on it.
+# See notes/scripts.md.
+
+set -eu
+
+usage() {
+	cat >&2 <<'EOF'
+usage: script/record-ruling <number> (--text <ruling> | --file <path> | --link <url>)
+                            [--held-by-lane] [--partial] [--lane <name>] [--repo <owner/repo>] [--dry-run]
+
+  <number>          the pull request or issue the ruling answers
+  --text <ruling>   the ruling, in calef's words where there are any (markdown)
+  --file <path>     the same, read from a file
+  --link <url>      the ruling is recorded elsewhere (a comment, a design/decisions/ section); link it
+  --held-by-lane    the ruling sends work back: also add held-by-lane
+  --partial         rules on some of the asks only: post it, change no label, leave the question open
+  --lane <name>     who is relaying, for the comment's first line (default: $NIFE_LANE, else
+                    "maintainer session")
+  --repo <o/r>      default: nifeos/nife
+  --dry-run         print the comment and the label change, post nothing
+EOF
+	exit 2
+}
+
+[ $# -ge 1 ] || usage
+num="$1"
+shift
+case "$num" in '' | *[!0-9]*) usage ;; esac
+
+text="" link="" held="" partial="" dry=""
+lane="${NIFE_LANE:-maintainer session}"
+repo="nifeos/nife"
+while [ $# -gt 0 ]; do
+	case "$1" in
+	--text) [ $# -ge 2 ] || usage; text="$2"; shift 2 ;;
+	--file) [ $# -ge 2 ] || usage; text="$(cat "$2")"; shift 2 ;;
+	--link) [ $# -ge 2 ] || usage; link="$2"; shift 2 ;;
+	--held-by-lane) held=1; shift ;;
+	--partial) partial=1; shift ;;
+	--lane) [ $# -ge 2 ] || usage; lane="$2"; shift 2 ;;
+	--repo) [ $# -ge 2 ] || usage; repo="$2"; shift 2 ;;
+	--dry-run) dry=1; shift ;;
+	*) usage ;;
+	esac
+done
+if [ -z "$text" ] && [ -z "$link" ]; then
+	echo "record-ruling: give the ruling (--text or --file) or where it is recorded (--link)." >&2
+	usage
+fi
+if [ -n "$partial" ] && [ -n "$held" ]; then
+	echo "record-ruling: --partial changes no label, so it cannot add held-by-lane." >&2
+	exit 2
+fi
+
+kind="$(gh api "repos/$repo/issues/$num" --jq 'if .pull_request then "pr" else "issue" end')" || {
+	echo "record-ruling: could not read #$num in $repo." >&2
+	exit 1
+}
+
+when="$(date -u '+%Y-%m-%d %H:%M')"
+if [ -n "$partial" ]; then
+	heading="## Partial ruling (calef, $when UTC)"
+	marker="<!-- architect-ruling partial -->"
+	tail="Some asks remain open; \`needs-architect\` stays on."
+else
+	heading="## Ruling (calef, $when UTC)"
+	marker="<!-- architect-ruling -->"
+	if [ -n "$held" ]; then
+		tail="Sent back: the lane owes a change, so this carries \`held-by-lane\` and \`architect-ruled\`."
+	else
+		tail="Every open ask above is answered, so this carries \`architect-ruled\`."
+	fi
+fi
+body="**Lane:** $lane, relaying an architect ruling, written by an agent; calef's account is the author GitHub shows.
+
+$heading
+"
+[ -n "$text" ] && body="$body
+$text
+"
+[ -n "$link" ] && body="$body
+Recorded at $link.
+"
+body="$body
+$tail
+
+$marker"
+
+if [ -n "$dry" ]; then
+	printf 'record-ruling: (dry run) would comment on %s #%s:\n\n%s\n\n' "$kind" "$num" "$body"
+	[ -z "$partial" ] && echo "record-ruling: (dry run) would remove needs-architect and add architect-ruled${held:+ and held-by-lane}"
+	exit 0
+fi
+
+printf '%s\n' "$body" | gh "$kind" comment "$num" --repo "$repo" --body-file - >/dev/null
+echo "record-ruling: ruling posted on #$num"
+[ -n "$partial" ] && exit 0
+
+# One edit, so the queue never shows the item half-swapped. Remove only what is present: `gh` refuses
+# to remove a label the item does not carry.
+labels="$(gh api "repos/$repo/issues/$num" --jq '.labels[].name')" || labels=""
+set -- --add-label architect-ruled
+[ -n "$held" ] && set -- "$@" --add-label held-by-lane
+printf '%s\n' "$labels" | grep -qx needs-architect && set -- "$@" --remove-label needs-architect
+gh "$kind" edit "$num" --repo "$repo" "$@" >/dev/null || true
+
+after="$(gh api "repos/$repo/issues/$num" --jq '.labels[].name')" || after=""
+if printf '%s\n' "$after" | grep -qx needs-architect || ! printf '%s\n' "$after" | grep -qx architect-ruled ||
+	{ [ -n "$held" ] && ! printf '%s\n' "$after" | grep -qx held-by-lane; }; then
+	echo "record-ruling: the ruling is posted, but the labels on #$num did not swap (now: $(printf '%s' "$after" | tr '\n' ' '))." >&2
+	echo "record-ruling: fix them by hand; until then the drain flags #$num hold-no-ask." >&2
+	exit 1
+fi
+echo "record-ruling: #$num now carries architect-ruled${held:+ and held-by-lane}, and not needs-architect"

@@ -244,6 +244,15 @@
          "createdAt": "2026-10-03T23:07:29Z"
         }
        ]
+      },
+      "comments": {
+       "nodes": [
+        {
+         "createdAt": "2026-10-02T00:00:00Z",
+         "url": "https://example.invalid/ask",
+         "body": "## What I need from you\n\nAn open ask, so the hold is honest (added with the architect causes, 2026-10-06)."
+        }
+       ]
       }
      }
     ]
