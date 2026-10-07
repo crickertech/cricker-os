@@ -42,3 +42,24 @@ Closed records (`BUILT` roadmap blocks, `design/decisions/`, dated audit reports
 used, so a grep for `OP_` finds them.
 
 The live notes and roadmap documents that cited `OP_` were swept on 2026-10-04 UTC (lane `records/rename-pointer-sweep`).
+
+## The tree spells `capability`, never `cap`
+
+calef, 2026-10-06 UTC: *"I don't think we should abbreviate capability as cap."* When the
+maintainer proposed how to apply it, he answered: *"Record the ruling. We've almost got a quiet
+tree so we can run that shortly."*
+
+> New code spells `capability` out in every identifier. `cap` is not a ratified abbreviation for
+> it, as a whole word or as a component (`cap`, `Cap`, `CAP`, `caps`, `cap_slot`, `SEND_CAP`,
+> `irq_cap`). The existing names are renamed in one sweep when the tree is quiet.
+
+The rule is the `operation` ruling's. Its exceptions are carried over as proposals, not yet ruled:
+an identifier that mirrors a name a specification coined keeps it, and so does `cap` where it is
+the English word for a ceiling. Comments and prose are outside the rule, since "a cap on lane
+count" abbreviates nothing.
+
+`script/lint` holds the line until the sweep, through `helpers/cap_abbreviation.py`: a ratchet
+over Rust identifiers that fails when the count rises, 2,890 on the ruling's day. The census, the
+kept names and a proposed spelling for each public name are in
+[capability-worklist.md](capability-worklist.md). The proposals are not ruled. The ABI names
+(`SEND_CAP`, `RECEIVE_CAP`, `CAP_INSERT`, `SYS_CAP_DELETE`) and the `Cap` type go last, as one batch.
