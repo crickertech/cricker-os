@@ -308,7 +308,8 @@ The directory and stems are provisional, minted 2026-09-24.
 | [provenance-limits.md](naming/provenance-limits.md) | the provenance BUGS |
 | [documents-numbers-and-gates.md](naming/documents-numbers-and-gates.md) | Where a document goes; `§N`; Branches; What is checked |
 | [vocabulary-rulings.md](naming/vocabulary-rulings.md) | the rulings above, the received abbreviation, and the casing of `nife` |
-| [spelled-out-rulings.md](naming/spelled-out-rulings.md) | new, 2026-10-04: `op` is spelled `operation` |
+| [spelled-out-rulings.md](naming/spelled-out-rulings.md) | new, 2026-10-04: `op` and `cap` spelled out |
+| [capability-worklist.md](naming/capability-worklist.md) | the `cap` sweep's worklist |
 | [boolean-predicates.md](naming/boolean-predicates.md) | new, 2026-09-24: the argument for functions that answer yes or no |
 | [boolean-predicates-worklist.md](naming/boolean-predicates-worklist.md) | new, 2026-09-24: every non-conforming predicate, and what became of it |
 | [rename-what-moves.md](naming/rename-what-moves.md) | Performing a ratified rename, through A quotation never moves |
