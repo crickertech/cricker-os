@@ -168,26 +168,25 @@ The rest of the verdict table needed no ruling and landed in #1821:
 
 ## What the last lane found
 
-The ban over-exemption is load-bearing. Naming `script/decisions`' `^\*\*Status:` in `NOT_MARKERS`
-put four documents over the bold density of §213 (writing standards). It is the only exemption for
-25 free-form `**Status:` lines (`**Status:** open idea.`) in notes and design documents that no script reads.
-So it stays exempt, marked as an exception beside `NOT_MARKERS`.
+The ban over-exemption was load-bearing, and is gone. Naming `script/decisions`' `^\*\*Status:` in
+`NOT_MARKERS` put four documents over the bold density of §213 (writing standards), because it was the
+only exemption for 25 free-form `**Status:` lines in notes and design documents that no script reads.
+It stayed exempt, marked as an exception, until those lines lost their bold (see Follow-on).
 
 ## Follow-on
 
 - **Done.** The tracking mechanism, by #1702; the nine experiment-status lines, by #1714; the plain
   `Reuse:` line and the registry staleness check, by #1821.
-- **Recorded.** The 25 `**Status:` lines the ban exempts, and the two blocks still carrying a bold
-  `Reuse:`, are in this block's `BUGS` (`design/roadmap/791-bold-keys-to-frontmatter.md`).
+- **Done.** 2026-10-07 (UTC), by lane/bold-status-sweep: 16 of the 25 line-opening `**Status:` spans
+  lost their bold, the other nine (eight in `notes/roadmap.md`, one in milestone 253) sit inside code
+  fences as quotations of the old spellings and stay as written, and `('script/decisions',
+  r'^\*\*Status:')` joined `NOT_MARKERS`, so the ban is not a key. `script/roadmap`'s `RESTATED` did
+  not fire on the plain form.
+- **Recorded.** The two blocks still carrying a bold `Reuse:` are in this block's `BUGS`.
 - **Refused.** Moving the Follow-on and Revisit tags to frontmatter: a flat format holds no list.
 
 ## BUGS
 
-- 25 line-opening `**Status:` spans, in 18 documents under `notes/` and `design/`, are emphasis that
-  the ratchet exempts by accident through a ban. `git grep -n '^\s*\*\*Status:' -- '*.md'` lists them.
-  Dropping the bold would let the ban join `NOT_MARKERS`. Not done here, because seven are in
-  roadmap blocks, where `script/roadmap`'s `RESTATED` ban reads a status line and a plain form may
-  trip it. Each needs a reading, not a sed.
 - Milestones 796 (pin the hot trap path's placement) and 800 (a non-Anthropic model attacks the
   confinement claim) still carry `**Reuse:**`. Their lanes had the blocks open on 2026-10-07. It
   is counted as one bold span and both are under the limit.
