@@ -8,7 +8,7 @@
 # session must pick up, so the session finds it in the `needs-maintainer` listing
 # (briefs/session-start.md) and not by watching. Nothing here arms, enqueues or re-queues; it only names.
 #
-# Thirteen causes, each a fact nothing else reports to anyone:
+# Fourteen causes, each a fact nothing else reports to anyone:
 #
 #   ejected   the last removal from the queue was neither `merged` nor `manual`, nothing put it
 #             back since, and the head is still the one that was ejected. A removal whose event
