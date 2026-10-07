@@ -4,6 +4,21 @@ An appendix of [a package declares what it needs at run time](../a-package-decla
 written 2026-10-07 (UTC) on calef's request: *"I would like prior art as part of that review."* It
 is a separate file because the table would put the proposal over §212 (a prose budget)'s cap.
 
+## The package-level options
+
+The main text's options A to F. Prior art was read where a URL is given; the rest is recalled.
+
+| Option | Prior art | Rung |
+|---|---|---|
+| A. A comment in each package file | none | 3 |
+| B. Hand-declared `requires` and `provides` per package | Debian: a dependency "may be satisfied by ... any other concrete package which provides the virtual package" ([policy ch. 7](https://www.debian.org/doc/debian-policy/ch-relationships.html)) | 2 for consistency, 3 for truth |
+| C. Unit ordering | systemd: "requirement dependencies do not influence the order", which `After=` sets ([systemd.unit(5)](https://man7.org/linux/man-pages/man5/systemd.unit.5.html)) | none |
+| D. Derive package needs from what binaries declare | Nix closures, found by scanning outputs for store paths (recalled) | 2, cannot drift |
+| E. `use`, `offer`, `expose`, routes verified before run | Fuchsia: "there must also be a valid capability route from the consuming component to a provider" ([capabilities](https://fuchsia.dev/fuchsia-src/concepts/components/v2/capabilities)); `scrutiny` checks routes over an image (recalled) | 1 in tree, 2 at pack and install |
+| F. A static assembly the compiler wires | seL4 CAmkES: `provides` and `uses`, connected in an assembly, glue generated before run time ([manual](https://docs.sel4.systems/projects/camkes/manual.html)) | 1 |
+
+## Across languages
+
 Each row covers a program that is not native code. It says how one is packaged, where its run-time
 needs are written, and how its interpreter or runtime is named. The last column says what nife
 should take or refuse. "Read" names

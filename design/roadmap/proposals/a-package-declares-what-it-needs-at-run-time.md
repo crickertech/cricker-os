@@ -80,9 +80,8 @@ Without slot 4 the same binary prints `failed to get current working directory`.
 written down only in that harness call.
 
 From the prompt it would be worse. With no note, `grant_plan::image_manifest` (`:1477`) falls back
-to `NO_NOTE_MANIFEST` (`:1397`), which is `uptime`'s: native layout, no words. A `std` binary built
-in the native layout takes its output endpoint for an allocator (the `Runtime` doc says so). That is
-read from the code and not run. The note `rg` needs is three fields: `runtime = Std`,
+to `NO_NOTE_MANIFEST` (`:1397`), `uptime`'s native layout, so a `std` binary would take its output
+endpoint for an allocator (read from the code, not run). The note `rg` needs is three fields: `runtime = Std`,
 `arg = Words(ReadOnly)` and `output = Bytes`. `UNVOUCHED_STD_MANIFEST` (`:1574`) is already that
 shape, and a word such as `.` then designates the directory, as §170 (how a foreign program is told what to do) rules.
 
@@ -94,18 +93,8 @@ A need is a capability, not a process: a program needs a `WRITE` endpoint that a
 
 ## Options and prior art
 
-Prior art was read where a URL is given; the rest is marked recalled. How eleven systems package
-software across languages, Genode and Fuchsia in particular, is in the
-[prior-art appendix](a-package-declares-what-it-needs-at-run-time/prior-art.md).
-
-| Option | Prior art | Rung |
-|---|---|---|
-| A. A comment in each package file | none | 3 |
-| B. Hand-declared `requires` and `provides` per package | Debian: a dependency "may be satisfied by ... any other concrete package which provides the virtual package" ([policy ch. 7](https://www.debian.org/doc/debian-policy/ch-relationships.html)) | 2 for consistency, 3 for truth |
-| C. Unit ordering | systemd: "requirement dependencies do not influence the order", which `After=` sets ([systemd.unit(5)](https://man7.org/linux/man-pages/man5/systemd.unit.5.html)) | none |
-| D. Derive package needs from what binaries declare | Nix closures, found by scanning outputs for store paths (recalled) | 2, cannot drift |
-| E. `use`, `offer`, `expose`, routes verified before run | Fuchsia: "there must also be a valid capability route from the consuming component to a provider" ([capabilities](https://fuchsia.dev/fuchsia-src/concepts/components/v2/capabilities)); `scrutiny` checks routes over an image (recalled) | 1 in tree, 2 at pack and install |
-| F. A static assembly the compiler wires | seL4 CAmkES: `provides` and `uses`, connected in an assembly, glue generated before run time ([manual](https://docs.sel4.systems/projects/camkes/manual.html)) | 1 |
+Options A to F, with prior art and the rung each lands on, are tabled in the
+[prior-art appendix](a-package-declares-what-it-needs-at-run-time/prior-art.md). In short:
 
 - B duplicates the manifest, so a gate can prove two hand lists agree and never that they agree with
   the code.
@@ -203,12 +192,14 @@ A. Where a manifest travels. Revised by calef, 2026-10-07 (UTC), on his question
    | Format | Slot | Encoding |
    |---|---|---|
    | ELF | the note, milestone 597 (a program carries its manifest in an ELF note) | the note's binary descriptor |
-   | Script | a comment block right after `#!` | the text form below |
+   | Script | the leading comment lines, after an optional `#!` | the text form below |
    | WebAssembly | a custom section named `nife.manifest` | the note's binary descriptor |
    | Java jar | the entry `META-INF/nife/manifest` | the text form |
    | A format with no slot | a sidecar file, as the last resort | the text form |
 
-   The marker. A block opens with a line made of the script's comment prefix, a space, `/// nife`,
+   The marker. The block sits in the script's leading comment lines, after an optional `#!`, so a
+   Python encoding line can keep line 1 or 2; the reader finds it by its marker. It opens with the
+   script's comment prefix, a space, `/// nife`,
    and closes with the prefix, a space and `///`. Every line between starts with the same prefix.
    The reader takes the prefix from the opening line, so `#`, `//` and `--` all work. This is PEP
    723's block shape with its own type word, so a Python script can carry `# /// script` for its
@@ -235,11 +226,8 @@ A. Where a manifest travels. Revised by calef, 2026-10-07 (UTC), on his question
    support grows. That belongs to the package client's milestone (#1799 promotes it), and this
    proposal does not edit that block.
 
-   Prior art, in the [appendix](a-package-declares-what-it-needs-at-run-time/prior-art.md): PEP 723,
-   Cargo's script frontmatter, `nix-shell` `#!` lines, Deno's permission flags in a shebang,
-   WebAssembly custom sections and the jar manifest. Refused: a sidecar for every format, which
-   separates the manifest from the bytes §197's option M2 hashes, and a stub ELF per script, which
-   repeats the interpreter in every package.
+   Prior art is in the appendix. Refused: a sidecar for every format, which separates the manifest
+   from the bytes §197's option M2 hashes, and a stub ELF per script.
 
    Recommend this shape, with the marker and encoding above.
 
@@ -252,9 +240,11 @@ B. How a program names what runs it. Options:
      the ELF runner built in, and a component able to serve a runner capability
      ([runners](https://fuchsia.dev/fuchsia-src/concepts/components/v2/capabilities/runner)).
 
-   Recommend `runner` as a need, with `elf` implicit for native programs and provided by `init`.
-   Unlike a contract, a missing runner means nothing runs, so it is a requirement, not a want. A
-   script keeps its `#!` line for other systems; nife reads the runner from the block, not the path.
+   Ruled by calef, 2026-10-07 (UTC), as a trial: *"Lets try it. I think we need to use it to figure
+   out the usability challenges."* `runner` is a hard need declared in the block, with `elf`
+   implicit for native programs and provided by `init`. nife never reads `#!`, which stays for other
+   systems. A script with `#!` and no block is refused. `jig` may offer to write a block, and never
+   infers one silently.
 
 2. How a provider is declared. Recommend a `provides` table in the package file covering both kinds,
    each naming the member program that serves it:
@@ -303,3 +293,14 @@ Names for calef, all provisional: `provides`, `contracts`, `runners`, `runner`, 
 - A contract names a kind of service, not an instance. Two file servers would both provide
   `filesystem`, and the progenitor still chooses.
 - Prior art marked "recalled" was not reread for this file.
+- An open usability risk, in calef's words: *"One of the powers of a scripting language is that it
+  doesn't take a build step to get running and I worry we're creating just that."* The trial should
+  test one distinction. An installed program comes through `jig`, needs its block, and its grant is
+  reviewed. An ad hoc script typed at the shell (`python foo.py` in swish) could run with a subset
+  of what the shell itself holds and need no block. Prior art for that path, all read: Deno prompts
+  at run time for a permission no `--allow-*` flag granted. Android asks in a dialog for a
+  manifest-declared permission when it is used. `ffx component run` starts a component in the
+  `ffx-laboratory` collection, whose narrowed capabilities are unverified. It needs a measurement
+  once a first interpreter runs.
+- Proposed milestone (candidate, not a fork): an ad hoc script runs from the prompt with a subset of
+  the shell's authority and no block, measured against the installed path on the first interpreter.
