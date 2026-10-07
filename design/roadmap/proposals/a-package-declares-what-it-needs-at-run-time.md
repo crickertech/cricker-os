@@ -223,7 +223,7 @@ A. Where a manifest travels. Revised by calef, 2026-10-07 (UTC), on his question
    Prior art is in the appendix. Refused: a sidecar for every format, which separates the manifest
    from the bytes §197's option M2 hashes, and a stub ELF per script.
 
-   Ruled by calef in that revision. The marker and encoding above are the lane's, unratified.
+   Ruled by calef, 2026-10-07 (UTC), as written at c40c633c7, marker and encoding included: *"Yes"*.
 
 B. How a program names what runs it. Options:
    - `#!` and a path the shell resolves, Unix's and Linux `binfmt_misc`'s way (recalled). It names
@@ -275,7 +275,7 @@ B. How a program names what runs it. Options:
    A script may need Python 3.12 and not 3.8, so this fork covers runner versions as well.
 
 Every fork is ruled except fork 5. Names still provisional: `contracts`, `runners`, `runner`,
-`Manifest::contracts`, the manifest field `log`, the marker word `nife`, and contract identifiers.
+`Manifest::contracts`, the manifest field `log` and contract identifiers.
 
 ## BUGS
 
