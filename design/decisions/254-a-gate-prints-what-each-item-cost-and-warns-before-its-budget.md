@@ -11,7 +11,10 @@ calef ruled four forks on PR #1778 on 2026-10-06 (UTC), one at a time, each reco
 maintainer comment on that pull request the same day. They settle the two proposals promoted there:
 milestone 807 (the kernel suite reports what each test cost) and milestone 808 (every gate accounts
 for its time), which depends on 807. *(Section and milestone numbers provisional until the merge
-queue lands them.)* Recorded by the maintainer session the same day. Nothing is built yet.
+queue lands them.)* Recorded by the maintainer session the same day.
+
+Status, 2026-10-07 (UTC): milestone 807 is built on PR #1819, PARTIAL until merge-group runs
+accumulate; milestone 808 is partly built on PR #1825. Neither is merged yet.
 
 Every name here is provisional: the shared crate that holds the record's grammar, the per-job
 breakdown file, the tracking issue's label and the daily record's CSV. Naming them is a separate
@@ -102,8 +105,17 @@ one run at a time.
 - Whether the 85% line reads a single run or a median of recent runs is left to milestone 808's
   lane. A single run near the line will open and close the issue repeatedly. If it does, the lane
   damps it and amends this section in the same pull request.
+
+  **Amendment, 2026-10-07 (UTC), recorded by the maintainer from the lane's proposal on PR #1825
+  (milestone 808's lane; label name still provisional).** One merge-group run at or past the line
+  opens the job's `near-budget` issue, and three runs in a row under it close it. Opening on one
+  run keeps the warning as early as the ruling wants, and it fails nothing. Closing on one run
+  would flap, since one job on one commit varies by about 30% across hosted runners
+  (`helpers/verify_times.py`, measured 2026-10-06). `helpers/ci_job_times.py` holds the rule
+  (`CLOSE_AFTER`).
 - `helpers/job-budget.py check` already prints a warning at 75% of the budget on every run, a fact
   the fork as presented did not mention. The ruling's line is about 85%. Milestone 808's lane moves
   the existing line to 85% so there is one warning, not two; if calef wants both, this section is
   amended.
+  Done on PR #1825 (2026-10-07 UTC): the line moved from 75% to 85%, so there is one warning.
 - The label's name and the shared crate's name wait on ratification.
