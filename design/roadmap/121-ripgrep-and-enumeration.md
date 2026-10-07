@@ -11,20 +11,36 @@ needs_person: no
 
 Minted 2026-08-13 by calef.
 
-Checked 2026-09-26: what is left is `rg`
-itself doing the three things this block calls the point, and three milestones stand between.
+Checked 2026-10-07 (UTC) by lane `lane/121-ripgrep`. Both blockers the 2026-09-26 check named are
+BUILT. Milestone 205 (how a foreign program is told what to do) gives a `std` program an argv
+through `grant_plan::argv`. Milestone 206 (a program image has under 896 KiB) moved the ceiling to
+496 MiB, so `rg` loads unrelinked. With them, `rg` does the three things this block calls the
+point, on all three architectures, through the kernel harness (notes/ripgrep-on-nife.md):
 
-- It cannot be told a pattern. Milestone 205 (how a foreign program is told what to do) builds the
-  answer to §170 (how a foreign program is told what to do). The maintainer reports calef ruled on
-  2026-09-26; the ruling was not in the tree when this was written, so this cites the section only.
-- Its image does not fit. `rg`'s 1.37 MiB `.text` is over the 896 KiB ceiling, and only the kernel
-  harness relinks it at `0x100_0000`. Milestone 206 (a program image has under 896 KiB) is building
-  option D of §171 (where a program image starts), an address-space map, and the relink folds into
-  it.
-- It cannot be started from the prompt, where the confined demonstration has to be typed. That is
-  milestone 595 (the shell runs a `std` program).
+- A real search. `ripgrep_tests::ripgrep_searches_the_tree_it_was_granted` tells `rg` the line
+  `rg --threads 1 --no-mmap --stats 'walk entry'` over the priced tree, granted
+  `ENUMERATE | READ | DESCEND` behind a caretaker. Its own `--stats` say 138 matches in 141 files
+  and 333,984 bytes searched, which the test asserts against the fixture's constants. The 3,813
+  bytes it prints are byte for byte what the same `rg` prints on macOS.
+- The refusal. `ripgrep_without_enumerate_is_refused_rather_than_empty` withholds `ENUMERATE`. `rg`
+  prints "this directory capability does not carry the right that verb needs" for `./`, searches
+  zero files and prints no match. The control, `ripgrep_reaches_a_named_file_without_enumerate`,
+  still finds the line in a file it is named under the same grant.
+- The measurement. `rg_search` in `script/bench --real --release --smp` against
+  `bench/host/run_linux_rg.sh` on the same `virt,accel=hvf` machine: 1.24 to 1.33 ms on nife against
+  0.82 to 0.87 ms on Linux by ripgrep's own clock, about 1.5x. The caveats are in the note.
 
-None of the three is waiting on calef.
+Two questions this block left open are answered by measurement. The 256-page heap suffices: every
+run retyped 65 pages of it. `--no-mmap` need not be a default: the control runs without it, on a
+single named file, which is where `ripgrep` reaches for a map, and the stub fails over to reads.
+
+What is left is the prompt. The exit below gains `rg pattern dir` at the swish prompt (calef,
+2026-10-07, on #1797's fork 4). That clause waits on `rg` being installed rather than built into
+the base image. Two milestones do that: the packaging milestone #1797 mints (`ripgrep` packaged in
+nifeos/basalt), and milestone 809 (the package client becomes a program, `jig`, with the verbs an
+index needs), which installs it. calef, 2026-10-07: "With a functional jig, ripgrep should be installed via jig and not
+part of the base image. It isn't base." Until both land, this stays PARTIAL with that one clause
+outstanding.
 
 Built 2026-08-31 (lane `milestone/121-ripgrep`; notes/ripgrep-on-nife.md). Unmodified
 `ripgrep` 14.1.1 builds for all three `*-unknown-nife` triples with zero source changes, loads,
@@ -128,6 +144,19 @@ for exactly that reason.
 This is a better first demonstration than git for one reason worth stating plainly: everybody has
 run grep. The confinement claim needs no explanation to anyone who has ever typed a search.
 
+## Exit
+
+1. `rg` searches a tree through a directory capability and finds exactly what is there. Done
+   2026-10-07, all three architectures, kernel harness.
+2. The same `rg` through a capability lacking `ENUMERATE` is refused loudly, never empty. Done
+   2026-10-07, with a named-file control.
+3. The search is measured against Linux with `--threads 1 --no-mmap` on both sides. Done
+   2026-10-07, aarch64 under HVF (the one tier where both run on matched hardware).
+4. `rg pattern dir` at the swish prompt, holding `ENUMERATE | READ | DESCEND` over `dir` and nothing
+   else. Added 2026-10-07 by calef's ruling on #1797's fork 4. Waits on the packaging milestone
+   #1797 mints and on milestone 809 (`jig`) to install `rg`, and on milestone 595 (the shell runs a
+   `std` program) to start it. `rg` is never added to the base image for this.
+
 ## The benchmark, which is the part worth the lane
 
 Every `read_dir` is IPC to the filesystem server. A recursive walk is therefore the workload that
@@ -176,16 +205,28 @@ ripgrep working beautifully and confinement being decorative.
 - Single-threaded only, per §105. Any published number that does not say so is dishonest, and any
   comparison that does not pin the other side to one thread is worse.
 - ripgrep memory-maps large files by default and this system has no `mmap`, which milestone 99 (`git` on
-  nife)'s block also names as a gap. `--no-mmap` is the workaround and its cost is unmeasured.
+  nife)'s block also names as a gap. Measured 2026-10-07: it costs nothing to correctness, since
+  `memmap2`'s stub fails and `ripgrep` reads instead, so `--no-mmap` is a measurement pin and not a
+  requirement. What a map would have bought on a large file is unmeasured, because there is none.
 - The benchmark measures this tree, not a class of systems. One microkernel's IPC cost is not
   "microkernels are slow at walks", and the note that records it must say so.
 - `ignore` building is not `ignore` behaving. 64's probe proved it compiles. Whether its
   metadata-heavy paths and gitignore semantics behave identically here is a separate question that
   only running it answers. The correction above is the sharp version of this: it compiles, and it
-  cannot walk past one level, and no probe that only builds a crate would have found that.
+  cannot walk past one level, and no probe that only builds a crate would have found that. Since
+  2026-10-07 it has run: the walk reaches every file in the fixture and nothing else. The fixture
+  holds no ignore files, so gitignore semantics are still untested here.
 - A walker's cost is per component, and on 2026-09-26 it stopped being invisible: 15 to 51 us
   per component under HVF with a debug kernel, smaller than a single operation's fixed cost and
   than a listed entry's (notes/walk-pricing.md). `ripgrep` on Linux pays neither.
+- The Linux `rg` the search is measured against is not upstream's musl build: it drops `jemalloc`,
+  which needs a C cross-compiler this machine lacks, and uses musl's malloc. Upstream added
+  `jemalloc` because musl's allocator is slow for `ripgrep`, so the Linux figure is if anything
+  pessimistic. `bench/host/run_linux_rg.sh` says so where it does it.
+- `rg` runs only where somebody ran `helpers/build-ripgrep.sh`. No gate builds it (DECISIONS §46
+  (thin primitives or whole subsystems)), so CI skips all four `rg` tests and only a local run proves
+  them. The packaging milestone #1797 mints is what would let a gate fetch a pinned `rg`.
+
 ## Follow-on
 
 - **Milestone 205.** The ABI has no argument vector, which is what stops `rg` after it loads and
@@ -194,15 +235,17 @@ ripgrep working beautifully and confinement being decorative.
 - **Milestone 206.** The 896 KiB image ceiling this lane found became
   `design/roadmap/206-user-image-ceiling.md`, which also owns the mapping error that names an
   overlap rather than a size.
-- **Outstanding.** Gated on milestones 205, 206 and 595. The confined demonstration: `rg pattern src/`
-  at the prompt, holding `ENUMERATE | READ | DESCEND` over `src/` and nothing else.
-  `kernel/src/user/ripgrep_tests.rs`'s `rg` test still asserts only its usage text. Checked
-  2026-09-26.
-- **Outstanding.** Gated on milestones 205, 206 and 595. The same refusal with `rg` as the walker. The
-  property is proven with `walk_pricing::walk` since 2026-09-26; what is missing is `rg` meeting it.
-- **Outstanding.** Gated on milestone 205. `rg --threads 1 --no-mmap` against Linux, the search
-  half of the benchmark. The harness can run `rg` past the image ceiling, so this needs arguments
-  and not the prompt.
+- **Outstanding.** Gated on the packaging milestone #1797 mints, milestone 809 (`jig`) and milestone
+  595. Exit clause 4: `rg pattern dir` at the swish prompt, holding `ENUMERATE | READ | DESCEND`
+  over `dir` and nothing else, with `rg` installed by `jig` and never in the base image. The search
+  and the refusal it will show are proven in the harness. Checked 2026-10-07.
+- **Done.** 2026-10-07: `rg` searches the priced tree and its counts match the fixture, on all
+  three architectures (`ripgrep_tests::ripgrep_searches_the_tree_it_was_granted`).
+- **Done.** 2026-10-07: the same refusal with `rg` as the walker, and a named-file control
+  (`ripgrep_without_enumerate_is_refused_rather_than_empty`,
+  `ripgrep_reaches_a_named_file_without_enumerate`).
+- **Done.** 2026-10-07: `rg --threads 1 --no-mmap` against Linux on the same machine, `rg_search`
+  and `bench/host/run_linux_rg.sh`; numbers and caveats in notes/ripgrep-on-nife.md.
 - **Done.** 2026-09-26: the walk priced, per component, per entry and per KiB: notes/walk-pricing.md.
 - **Recorded.** The walk pricing's own gaps (a debug kernel, no matched-tier Linux run, three samples
   per slope) are in notes/walk-pricing.md's BUGS. The per-entry listing cost is in `redoxfs_server`'s
@@ -214,7 +257,8 @@ ripgrep working beautifully and confinement being decorative.
   memory cost of a deep walk over large directories is unmeasured. Checked 2026-09-03 against the
   filesystem shim under `patches/std-nife/overlay/std/src/sys/`.
 - **Recorded.** `mmap` is absent, `memmap2` compiles its stub, and the searcher falls back to reads
-  on its own, so the no-mmap cost stays unmeasured until a search actually runs.
+  on its own. Since 2026-10-07 a search has run without `--no-mmap` and found its line, so the flag
+  is not needed; this block's `BUGS` has it.
 - **Recorded.** A process is single-threaded, so any published number must say so and pin the Linux
   side to one thread. `ripgrep` never reaches DECISIONS §105 because the parallelism query answers
   one and it picks its own serial walker.
@@ -223,10 +267,9 @@ ripgrep working beautifully and confinement being decorative.
 
 Enumeration is authority: `ENUMERATE` is a §47 (a directory capability carries six rights) right,
 and `rg pattern src/` that provably cannot see outside its grant is the confinement claim anyone who
-has typed a search understands. Unmodified `ripgrep` 14.1.1 builds and runs on all three
-architectures with zero source changes and stops at "requires at least one pattern", because the
-ABI has no argument vector. Without `rg`, the refusal is proven (a walk through a grant lacking
-`ENUMERATE` is an error, never empty) and the walk is priced: about 42 ms for 153 entries under HVF,
-with listing rather than path components as the largest per-unit cost (notes/walk-pricing.md). What
-is left is `rg` doing both, gated on milestones 205 (arguments), 206 (the image ceiling) and 595
-(the prompt).
+has typed a search understands. Unmodified `ripgrep` 14.1.1 searches a granted tree on all three
+architectures with zero source changes, finds exactly the fixture's 138 matches in 141 files, and
+through a grant lacking `ENUMERATE` says so and searches nothing. On the same HVF machine the search
+takes 1.24 to 1.33 ms against Linux's 0.82 to 0.87 ms, single-threaded on both. What is left is
+`rg pattern dir` at the swish prompt, which waits on `rg` being packaged and installed with `jig`
+(milestone 809 and the packaging milestone #1797 mints), never on the base image.

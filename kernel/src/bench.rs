@@ -36,6 +36,7 @@
 
 use core::sync::atomic::{AtomicBool, AtomicU64, Ordering};
 
+use crate::cap::{Rights, address_space_cap, memory_region_cap, page_frame_cap, rendezvous_cap};
 use crate::{println, sched};
 
 /// Iterations per benchmark. Fixed and part of the output, so a baseline is self-describing.
@@ -116,6 +117,7 @@ pub fn run() -> ! {
     fs_throughput();
     fs_walk();
     fs_walk_bound();
+    rg_search();
 
     println!("bench: done");
     // Parked, not exited: the host side saw the marker and tears QEMU down. `wfi`, so a
@@ -819,10 +821,7 @@ fn spawn_os_primitives_benchmarker(role: u64, report: sched::RendezvousId) -> bo
                 arg0: role,
                 arg1: 0,
                 arg2: 0,
-                grants: &[crate::cap::rendezvous_cap(
-                    report,
-                    crate::cap::Rights::WRITE,
-                )],
+                grants: &[rendezvous_cap(report, Rights::WRITE)],
                 maps: &[],
             },
         )
@@ -878,7 +877,6 @@ fn ipc_rtt_el0() {
     let request = sched::create_rendezvous();
     let reply = sched::create_rendezvous();
     let report = sched::create_rendezvous();
-    use crate::cap::{Rights, rendezvous_cap};
 
     sched::spawn(move || {
         crate::user::run(
@@ -1302,7 +1300,6 @@ fn sink_throughput() {
     };
     let pipe = sched::create_rendezvous();
     let report = sched::create_rendezvous();
-    use crate::cap::{Rights, rendezvous_cap};
 
     // The producer first, so the consumer's first `RECEIVE` meets a waiting sender rather than the
     // other way round. Either order works (a rendezvous blocks whichever side arrives first) and
@@ -1381,7 +1378,6 @@ fn map_el0() {
     };
 
     let report = sched::create_rendezvous();
-    use crate::cap::{Rights, address_space_cap, page_frame_cap, rendezvous_cap};
     sched::spawn(move || {
         crate::user::run(
             image,
@@ -1421,7 +1417,6 @@ fn spawn_el0() {
     };
     let report = sched::create_rendezvous();
     let child_done = sched::create_rendezvous();
-    use crate::cap::{Rights, memory_region_cap, rendezvous_cap};
     sched::spawn(move || {
         crate::user::run(
             image,
@@ -1658,6 +1653,7 @@ fn fs_walk() {
         walker,
         filesystem_protocol::fixture::walk::ROOT,
         dir::ENUMERATE | dir::READ | dir::DESCEND,
+        None,
     ) else {
         return; // no RedoxFS disk on this run
     };
@@ -1695,6 +1691,133 @@ fn fs_walk_bound() {
     }
     if !spawned.release() {
         println!("bench-probe: fs_walk_bound could not take its grant back");
+    }
+}
+
+/// Warm `rg` runs [`rg_search`] times, after one untimed run that fills the FS server's memo. Odd,
+/// so the median is a run.
+const RG_SEARCH_RUNS: usize = 5;
+
+/// **Unmodified `ripgrep` searching the priced tree** (milestone 121, `ripgrep` on nife), the
+/// search half of the walk [`fs_walk`] prices. `rg` holds the same grant behind the same caretaker
+/// and is told `fixture::walk::RG_SEARCH` as its argv. The row is ripgrep's own `--stats` figure,
+/// the median of [`RG_SEARCH_RUNS`] warm runs: it starts after argument parsing and ends after the
+/// last file, so this system's process creation and image loading are not in it, and neither are
+/// Linux's in `bench/host/run_linux_rg.sh`, which runs the same words through the same function
+/// on the same machine. The spawn-to-exit time, which does include them, is a probe beside it.
+///
+/// Present only when somebody ran `helpers/build-ripgrep.sh`: `rg` is never part of the base image
+/// (calef, 2026-10-07), so the row skips on every ordinary bench boot and in CI.
+///
+/// # BUGS
+///
+/// - **One process per run.** Each run is a fresh `rg`, so its heap, its allocator and its regex
+///   compilation are cold every time; only the FS server is warm. That is what a person typing
+///   `rg` twice gets, on both sides.
+fn rg_search() {
+    if crate::smp::online_count() <= 1 {
+        return;
+    }
+    let (Some(blk), Some(server), Some(caretaker), Some(rg)) = (
+        crate::trust::require_program("block_driver"),
+        crate::trust::require_program("redoxfs_server"),
+        crate::trust::require_program("fs_subtree_caretaker"),
+        crate::trust::require_program("rg"),
+    ) else {
+        println!("bench-probe: rg_search skipped (no rg in the archive; helpers/build-ripgrep.sh)");
+        return;
+    };
+    use filesystem_protocol::dir;
+    use filesystem_protocol::fixture::walk as tree;
+    let hz = crate::arch::timer::frequency();
+    let mut searched = [0u64; RG_SEARCH_RUNS];
+    let mut whole = [0u64; RG_SEARCH_RUNS];
+    for run in 0..=RG_SEARCH_RUNS {
+        let started = crate::arch::timer::now();
+        let Some(spawned) = crate::user::fs_service::start_std_narrowed(
+            blk,
+            server,
+            caretaker,
+            rg,
+            tree::ROOT,
+            dir::ENUMERATE | dir::READ | dir::DESCEND,
+            Some(tree::RG_SEARCH.as_bytes()),
+        ) else {
+            return; // no RedoxFS disk on this run
+        };
+        let mut text = [0u8; 8192];
+        let len = drain_report(spawned.report, &mut text);
+        while crate::sched::is_thread_present(spawned.thread) {
+            sched::yield_now();
+        }
+        let ended = crate::arch::timer::now();
+        if !spawned.release() {
+            println!("bench-probe: rg_search could not take its grant back");
+            return;
+        }
+        let text = core::str::from_utf8(&text[..len]).unwrap_or("");
+        let Some(ns) = rg_seconds(text) else {
+            println!("bench-probe: rg_search printed no stats ({len} bytes)");
+            return;
+        };
+        if run == 0 {
+            // The counts, once, so a reader can see the search found what the kernel test asserts.
+            for line in text
+                .lines()
+                .filter(|l| l.contains("files searched") || l.contains("matches"))
+            {
+                println!("bench-probe: rg_search {line}");
+            }
+            continue;
+        }
+        searched[run - 1] = ns;
+        whole[run - 1] = (ended - started) * 1_000_000_000 / hz;
+    }
+    searched.sort_unstable();
+    whole.sort_unstable();
+    let mid = RG_SEARCH_RUNS / 2;
+    println!("bench: rg_search {} 1", searched[mid] * hz / 1_000_000_000);
+    println!(
+        "bench-probe: rg_search {} ns by rg's own clock, {} to {}",
+        searched[mid],
+        searched[0],
+        searched[RG_SEARCH_RUNS - 1]
+    );
+    println!(
+        "bench-probe: rg_search spawn to exit {} ns, {} to {}",
+        whole[mid],
+        whole[0],
+        whole[RG_SEARCH_RUNS - 1]
+    );
+}
+
+/// `rg --stats`'s last line, `<seconds> seconds` with six decimals, in nanoseconds.
+fn rg_seconds(text: &str) -> Option<u64> {
+    let line = text.lines().rev().find(|l| l.ends_with(" seconds"))?;
+    let (whole, frac) = line.strip_suffix(" seconds")?.split_once('.')?;
+    let mut ns = whole.parse::<u64>().ok()? * 1_000_000_000;
+    let mut scale = 100_000_000;
+    for b in frac.bytes() {
+        ns += u64::from(b.checked_sub(b'0')?) * scale;
+        scale /= 10;
+    }
+    Some(ns)
+}
+
+/// A program's whole transcript from its stdout sink, as far as `out` holds it.
+fn drain_report(report: crate::sched::RendezvousId, out: &mut [u8]) -> usize {
+    let mut len = 0usize;
+    loop {
+        let words = sched::ipc_receive(report);
+        let mut chunk = [0u8; byte_sink_protocol::INLINE_MAX];
+        match byte_sink_protocol::unpack(words[0], words[1], words[2], &mut chunk) {
+            byte_sink_protocol::Msg::Bytes(n) => {
+                let take = n.min(out.len() - len);
+                out[len..len + take].copy_from_slice(&chunk[..take]);
+                len += take;
+            }
+            byte_sink_protocol::Msg::Eof | byte_sink_protocol::Msg::Malformed => return len,
+        }
     }
 }
 
