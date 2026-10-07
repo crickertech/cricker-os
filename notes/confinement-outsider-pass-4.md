@@ -197,9 +197,8 @@ first.
 **How this pass counts toward risk 7's criterion (c) is ruled: option (b), an escape on a shipped
 path (calef, 2026-10-07, PR #1798's thread).** The two-consecutive count restarts at zero until
 649's defect is fixed and a fresh pass comes back clean. His reasoning: the stack starts on every
-booted system, per milestone 590 (the booted system starts its network stack), so any granted
-program is a client today. The "wiring no hostile program holds today" reading was refused: a
-known, unfixed escape counted as anything else would flatter the
+booted system, so any granted program is a client today, and a known, unfixed escape counted as
+anything else would flatter the
 verdict. The ruling also resolves 649's option fork toward the badge
 (its option 1); the maintainer updates 649's block at merge. The claims row the fix will owe is
 ruled (i) (calef, 2026-10-07, PR #1798), recorded in this milestone's roadmap block; the
@@ -207,7 +206,9 @@ maintainer adds the row at merge.
 
 ## Refusal log
 
-Every step this pass declined or was stopped from taking, one entry each, per the standing rule:
+Every step this pass declined or was stopped from taking, one entry each, per the rule.
+Their order is ruled (i) (calef, 2026-10-07, PR #1798): the redoxfs boot is the next probe; the
+rest stay in their homes:
 
 1. Claim 19/24's name-window TOCTOU: I was trying to boot a hostile client racing its own window
    against `redoxfs_server`. I declined to build it (a RedoxFS disk fixture plus a racing writer is

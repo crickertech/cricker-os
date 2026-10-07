@@ -199,6 +199,13 @@ The pass ran informed, per the brief, and its note is `notes/confinement-outside
   neither substitute nor capture another's socket traffic.* It states the property, not the
   implementation, in the table's own idiom. The maintainer adds the row, with its number, at
   merge.
+- **The refusal targets' order: ruled (i)** (calef, 2026-10-07, PR #1798's thread). The redoxfs
+  name-window TOCTOU boot is proposed as the next probe, and the maintainer mints its milestone;
+  it is the likeliest live escape and the only item that could change a verdict this week. The
+  compositor respawn scrub waits for a reachable respawn path, since no red boot test can exist
+  before one does. MSI confinement stays with the milestones that already own it. Kani re-runs in
+  attack passes need no home: the pass brief already forbids them, which is a process rule, not a
+  worklist item.
 - **The routed `chatty` reshape landed.** Claim 26's own test now fails rather than hangs: the
   operator retires the last receiver, a plant parks the marker, and a let-open `RECEIVE_CAP`
   returns it. Green on aarch64 (whole module) and riscv64, red at its own assertion under the
