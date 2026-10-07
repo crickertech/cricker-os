@@ -13,6 +13,14 @@
 //! - **`diskutil eraseDisk` on a physical stick has not been run by this program.** It was run on
 //!   file-backed disks only (`hdiutil attach`), which is the one place this lane was allowed to
 //!   erase anything. Apple documents the same command for both.
+//! - **Every stick `diskutil eraseDisk ... MBR` makes has MBR disk signature `0x00000000`**
+//!   (measured on two file-backed disks, 2026-10-06 UTC; see the crate documentation). So Linux
+//!   gives every such stick's partition the same `PARTUUID`, `00000000-01`. A firmware boot entry
+//!   that names the partition by its MBR signature alone cannot tell two of them apart. The FAT32
+//!   volume ids do differ. nife looks nothing up by either, and `diskutil` has no option to set the
+//!   signature. Writing one ourselves means opening the raw device, which needs root for a real
+//!   stick, and the macOS path is built to need none. Linux's `sfdisk` draws a random signature for
+//!   a new `label: dos` (libfdisk's behavior, read rather than run here).
 
 use std::path::PathBuf;
 
