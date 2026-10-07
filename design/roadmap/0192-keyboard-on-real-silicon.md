@@ -1,11 +1,11 @@
 ---
 status: PARTIAL
 raised: 2026-08-30
-milestone_dependencies: none
+milestone_dependencies: 242
 decision_dependencies: none
 machine_requirements: none
 specific_machine: none
-needs_person: no
+needs_person: yes
 ---
 # 192. A keyboard on real silicon: the input half of every graphical story, which nothing owns
 

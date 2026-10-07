@@ -5,7 +5,7 @@ promoted_from: a-wedged-kernel-resets-itself
 milestone_dependencies: none
 decision_dependencies: none
 machine_requirements: riscv64 and aarch64 silicon with a hardware watchdog
-specific_machine: none
+specific_machine: xenon (its Intel TCO watchdog step is the first bench step)
 needs_person: yes
 ---
 # 593. A wedged kernel resets itself, through a watchdog that does not need asking

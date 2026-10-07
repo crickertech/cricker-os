@@ -2,7 +2,7 @@
 status: PARTIAL
 raised: 2026-09-26
 milestone_dependencies: 121
-decision_dependencies: unwritten
+decision_dependencies: 230, 236, 237
 machine_requirements: none
 specific_machine: none
 needs_person: no

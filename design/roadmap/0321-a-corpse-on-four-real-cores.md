@@ -4,7 +4,7 @@ raised: 2026-09-17
 milestone_dependencies: none
 decision_dependencies: none
 machine_requirements: four-core x86_64 silicon
-specific_machine: none
+specific_machine: xenon (the corpse failure was seen there; rerun the x86_64 suite at NIFE_SMP=4)
 needs_person: yes
 ---
 # 321. A corpse that did not park, on four real cores

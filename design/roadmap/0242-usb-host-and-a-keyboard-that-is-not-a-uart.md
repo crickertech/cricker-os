@@ -4,7 +4,7 @@ raised: 2026-09-03
 milestone_dependencies: none
 decision_dependencies: none
 machine_requirements: a PC with an xHCI controller behind an IOMMU, a USB keyboard and a monitor
-specific_machine: none
+specific_machine: xenon (calef types on a real USB keyboard there)
 needs_person: yes
 ---
 # 242. USB host and HID, because on commodity hardware the keyboard is not a UART

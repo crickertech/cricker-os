@@ -4,7 +4,7 @@ raised: 2026-09-19
 milestone_dependencies: none
 decision_dependencies: none
 machine_requirements: an x86_64 UEFI machine with a display attached
-specific_machine: none
+specific_machine: xenon (the same stick, with a monitor attached)
 needs_person: yes
 ---
 # 400. The shell on the firmware's screen, because on a PC with no serial port the prompt went nowhere
