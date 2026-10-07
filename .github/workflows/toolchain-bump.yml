@@ -272,6 +272,11 @@ jobs:
         with:
           app-id: ${{ secrets.AUTOMATION_APP_ID }}
           private-key: ${{ secrets.AUTOMATION_APP_KEY }}
+          # Exactly the set the App held before milestone 128 (the automation gets its own identity)
+          # widened it for sessions, Administration among them. Named here so the widening reaches no
+          # workflow; notes/session-identity.md.
+          permission-contents: write
+          permission-pull-requests: write
 
       # **Which identity this run is using, printed before anything depends on it.** The fallback
       # below is otherwise unobservable: a run using the App and a run using the ephemeral token look
