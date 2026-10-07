@@ -22,7 +22,7 @@ criterion 6, the radon silicon run, and nothing else. The QEMU gate on aarch64, 
 does not wait for 592, and a lane can build and land everything else first.)*
 
 calef asked for this on 2026-10-06 (UTC), in a maintainer session. A writing-only lane wrote it the
-same day and built nothing. The design fork below is ruled (§251). Every name here is provisional:
+same day and built nothing. Every name here is provisional:
 the program `reboot`, the kernel object, its method and the manifest field. They are an architect's
 call, and §251's ruling does not name them. Under design/naming.md, `reboot` is a verb that would pass only as a term of art, like `bind`.
 
@@ -63,7 +63,7 @@ OpenSBI resets the board with an I2C write to the AXP15060 PMIC, and U-Boot had 
 in reset. The transcript is `target/board/radon-2026-09-04-srst-reset-pmic.log`. Milestone 592
 (radon's cold reboot dies in OpenSBI's PMIC write) built a kernel fix on 2026-09-25 that releases
 the bus first, and it is waiting on one bench reset. Until that bench run passes, `reboot` cannot
-work on radon whatever this milestone builds. That is why 592 is this block's dependency, for the radon exit criterion only.
+work on radon whatever this milestone builds.
 
 The writable filesystem is RedoxFS behind `redoxfs_server`, not nifefs. nifefs is the read-only
 boot archive. notes/fs-server.md measures RedoxFS as prefix-consistent at every power-cut point.
@@ -108,8 +108,8 @@ own.
 E would be right if 391 had been decided. §149 (may the kernel answer on an endpoint) deliberately
 left that question open until a consumer existed, and milestone 269 (`machine` at the prompt) is
 that consumer. Folding reset into 391 would also put a harmless read (what is this machine) and a
-destructive act behind one capability. That pairing would need rights to split them, and this tree
-has none for it.
+destructive act behind one capability. Splitting them would need rights this tree
+does not have.
 
 A is the shape this tree already uses for an authority the kernel must exercise itself: `Irq` and
 `Timer` are kernel objects a holder invokes. It costs one `Object` variant, one `abi::objtype`
@@ -117,7 +117,7 @@ number, one method, a `GRANTS` slot and a `grant_plan` field. `script/fastpath-f
 the syscall decoder flat, so it prices the new dispatch arm. That arm is cold and should cost
 nearly nothing, but no number exists until it is built.
 
-Prior art, from memory and not re-read for this proposal: Linux gates `reboot(2)` on
+Prior art, from memory and not re-read: Linux gates `reboot(2)` on
 `CAP_SYS_BOOT` plus magic numbers, which is D with an identity check. Fuchsia's `zx_system_powerctl`
 takes a resource handle, which is A. seL4 has no reset call and leaves it to the platform, which
 is C.
@@ -253,18 +253,15 @@ Built 2026-10-06 (UTC) by lane/805-reboot. Every name below is provisional.
 
 **radon (riscv64 silicon) is not proven, and this block claims nothing about it.** The kernel half
 is the same code on radon as under QEMU `virt`, including milestone 592's I2C5 release, which runs
-before SBI SRST on any JH7110. But 592's fix has never run on the board, and on 2026-09-04 radon's
-OpenSBI accepted SRST type 1 and hung in its PMIC write. Until 592's bench run passes, `reboot`
+before SBI SRST on any JH7110. But 592's fix has never run on the board (the 2026-09-04 hang above). Until 592's bench run passes, `reboot`
 typed at radon's prompt prints its sync report and the kernel's attempt line, and the board may
 stop there. The plan: once 592 is BUILT, calef types `reboot` at radon's prompt with nobody at
-plug 2, and the serial capture goes under `target/board/`. Exit criterion 6 is that run. xenon and
-argon are not lab machines for this, as above.
+plug 2, and the serial capture goes under `target/board/`. Exit criterion 6 is that run.
 
 ## What was blocked until the ruling
 
-The kernel object, the endowment, the program and the gate waited on the first question. calef
-picked A on 2026-10-06, so nothing in this block waits on a ruling now. Only exit criterion 6 waits,
-on milestone 592.
+The kernel object, the endowment, the program and the gate waited on the first question until calef
+picked A on 2026-10-06. Only exit criterion 6 still waits, on milestone 592.
 
 ## BUGS
 
