@@ -66,11 +66,22 @@ fn main() {
     // One untimed run first, so every timed one is warm, as nife's bench row is.
     for run in 0..=runs {
         let t = Instant::now();
+        // stdin is inherited rather than `output()`'s default of /dev/null, for two reasons. The
+        // Linux run is PID 1 on an initramfs with no /dev, so opening /dev/null fails the spawn.
+        // And `rg` given no path searches stdin when stdin is a file or a pipe; inheriting the
+        // console (or a terminal) keeps it walking its working directory, as nife's does.
         let out = Command::new(&rg)
             .args(&words[1..])
             .current_dir(&dir)
+            .stdin(std::process::Stdio::inherit())
             .output()
-            .expect("could not run rg");
+            .unwrap_or_else(|e| {
+                panic!(
+                    "could not run {rg:?} in {dir:?} (it exists: {}, the directory: {}): {e}",
+                    std::path::Path::new(&rg).exists(),
+                    dir.exists()
+                )
+            });
         let wall = t.elapsed();
         let text = String::from_utf8_lossy(&out.stdout);
         if run == 0 {
