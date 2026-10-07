@@ -125,7 +125,7 @@ byte over serial":
 > This milestone is `BUILT` when xenon prints `nife self-test: N of N passed`.
 
 **Why that line and not the obvious alternatives.** "The tour completing" was proposed first and
-withdrawn: milestone 267 established that the tour is three things wearing one name, and deleted
+withdrawn: milestone 267 (the tour is three things wearing one name) established as much, and deleted
 one of them (the narrative program), so "the tour" would cite something that partly does not exist.
 
 The self-test is the right bound for **this** milestone. It is a machine-readable line that
@@ -134,8 +134,8 @@ read it; and passing it means exceptions, mapping, frames, timer and scheduler a
 hardware, which is "this machine runs nife" with a definite answer rather than a liveness signal.
 
 The progenitor handover (`nife: handing the system to the userspace progenitor`) is a stronger
-claim, but it drags in the archive, ELF loading and the FS service, which are milestone 161's
-scope. That line belongs to 161 or 182, not here.
+claim, but it drags in the archive, ELF loading and the FS service, which are the scope of
+milestone 161 (the x86_64 kernel port). That line belongs to 161 or 182, not here.
 
 The sentence below is kept as written because it is what the block promised; rewriting a promise
 to match an outcome is how a record stops being one. Believe this paragraph instead.

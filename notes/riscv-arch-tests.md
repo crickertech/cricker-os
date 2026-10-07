@@ -3,7 +3,7 @@
 `kernel/src/arch/aarch64/` carried 21 unit tests. `kernel/src/arch/riscv64/` carried none, across
 the same three files (`mmu.rs`, `timer.rs`, `exceptions.rs`). Both ISAs booted the same suite green,
 so nothing looked wrong. But the missing tests are exactly the ones about *what the two ISAs do
-differently*, where a port is most likely to be subtly wrong. DECISIONS §19 makes parity a gate; the gate was being applied to the
+differently*, where a port is most likely to be subtly wrong. DECISIONS §19 (architectural parity is a tenet) makes parity a gate; the gate was being applied to the
 kernel's capabilities and not to the suite that proves them.
 
 **The exercise found three defects**, which is the argument for the lane: "write the missing
@@ -113,7 +113,7 @@ the MODE field above or the root PPN below (they are packed with no slack, so a 
 four lands in one or the other). It still earns its keep as the only test that would catch a wrong
 shift.
 
-Milestone 58 closed it. The follow-up this section once described (drop the flush and the aarch64
+Milestone 58 (RISC-V TLB shootdown) closed it. The follow-up this section once described (drop the flush and the aarch64
 property becomes true) was right about the goal and understated the work: the flush was covering for the fact that `flush_asid` was local, because
 `sfence.vma` does not broadcast. So the order was the shootdown first, then the removal, gated on a
 runtime probe of `satp.ASID`'s implemented width. The witness now runs on both ISAs and a new
@@ -136,7 +136,7 @@ notes/riscv-tlb-shootdown.md.
   cannot move unless the trap came from S-mode; and the trap could not have reached our handler at
   all from M-mode, where `mtvec` (OpenSBI's) owns it. A count that went up is a machine executing in
   S-mode. A `main.rs` comment promising this analogue "arrives with the RISC-V boot path" outlived
-  milestone 20 and now points here.
+  milestone 20 (a portable HAL) and now points here.
 
 - **`asid_tagging_keeps_address_spaces_apart_without_flushes` is half-translatable**, covered above.
 

@@ -112,8 +112,8 @@ echoes it at boot so a console log says what a card expects before anything depe
 lease is then one line at the prompt (`setenv nife_boot_server <addr>`, `source ${scriptaddr}`) rather
 than a card reader.
 
-The first implementation was wrong and the machine said so, milestone 256's own lesson arriving
-in a new place. The obvious discovery is a
+The first implementation was wrong and the machine said so, the lesson of milestone 256 (PCI BARs in a
+hardcoded window) arriving in a new place. The obvious discovery is a
 connected UDP socket whose local address the kernel picks from the route. patagonia's default route
 belongs to a Tailscale interface, so every probe answered `100.75.22.70`, a CGNAT address radon has
 no path to, and a card written that evening would have silently fallen back to the card forever.

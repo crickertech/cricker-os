@@ -232,7 +232,7 @@ through SBI, so it works on both.
   the preemption test in its second, which replaced the one-second deadline with a budget of 200
   delivered ticks. The third, `the_handler_keeps_up_when_no_lock_is_held`, was judged impossible to
   re-aim on this instrument (notes/load-sensitive-assertions.md), and on 2026-08-18 milestone 62
-  deleted it on both ISAs.)* That was the right diagnosis and the wrong conclusion: an assertion that
+  (tests that assert on time) deleted it on both ISAs.)* That was the right diagnosis and the wrong conclusion: an assertion that
   cannot be aimed at anything the host does not touch has no business on the wall-clock path at all. The claim is `script/icount`'s now, in instructions.
   So the matrix's exposure here is one assertion smaller than this paragraph says, and the surviving
   wall-clock timer claim (`ticks_arrive_at_the_configured_rate`'s re-arm law) reports `UNMEASURED`

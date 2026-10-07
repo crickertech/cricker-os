@@ -9,7 +9,7 @@ The shape is Hermit's, not Redox's. Hermit implements std's platform layer direc
 non-POSIX unikernel ABI; Redox writes a POSIX C library (relibc) first and puts std on top of that.
 We took the native road: no errno, no fd table, no `open`, no `fork` under our `sys` backend,
 because the OS lacks them and std does not need them for a workload that stays off files and
-sockets. That is why the native ABI came first (DECISIONS §14, §15): std widens "runs real workloads" from hand-built `no_std` binaries to most of
+sockets. That is why the native ABI came first, per DECISIONS §14 (the project's direction) and §15 (the native ABI): std widens "runs real workloads" from hand-built `no_std` binaries to most of
 crates.io, without smuggling in the POSIX assumptions the ABI deliberately excludes.
 
 ## What a std program is given
@@ -44,7 +44,7 @@ A program never touches the slots it does not use. The absence of slots 2 and 3 
 ambient network" feels like from inside a process, and the absence of slot 4 is "no ambient
 filesystem": each returns `Unsupported` because there is no capability to reach, not because the
 code was compiled out. A program can hold
-one and not the other, so slots do not fill contiguously; notes/abi.md §4 records how the kernel
+one and not the other, so slots do not fill contiguously; section 4 of notes/abi.md records how the kernel
 places slot 4 while leaving 2 and 3 empty, and why the gap matters.
 
 ## The PAL surface, and what each piece binds to
@@ -125,7 +125,7 @@ its own farm; every lane takes the link by design. Now the theft is printed, so 
 pointing at nothing and unrelated builds failed far from the cause with
 `override toolchain 'nife-dev' is not installed`.
 
-**Telling a lane not to take the link was never possible**, as milestone 57's lane established on
+**Telling a lane not to take the link was never possible**, as the lane for milestone 57 (partitioning a real drive) established on
 2026-08-01 by reading the code. `script/test` calls `std_src()` transitively
 and a fresh worktree always has a cold farm, so any lane that runs the gate takes the
 account-wide name. `AGENTS.md` then gave two instructions that could not both be obeyed: gate
@@ -169,7 +169,7 @@ The load-bearing fields:
   `kernel/src/arch/x86_64/` saves no FPU or SSE state on a context switch, so a std program that let
   LLVM emit SSE would have its `xmm` registers overwritten by whichever thread ran next.
 
-Milestone 184's (extend the `std` port to x86_64) reasoning for each field, the probe showing no
+The reasoning of milestone 184 (extend the `std` port to x86_64) for each field, the probe showing no
 SSE leaked in, and the entry stub that fixes the stack offset are in [the x86_64 spec
 appendix](std/x86-64-target.md).
 

@@ -131,7 +131,7 @@ one rung over.
 
 Proposed milestone (provisional, the integrator mints the number): give the usurper a bounded
 wait, so an escape is reported rather than waited out. It is the same move milestone 202 (every confinement test is a ritual until somebody breaks the confinement) made for
-§31 when its break surfaced as a 234-second timeout. It needs a non-blocking or timed receive (see
+§31 (the foreign-language seam) when its break surfaced as a 234-second timeout. It needs a non-blocking or timed receive (see
 Follow-on). Until it exists, row 26 has a test and no
 evidence that the test can fail.
 

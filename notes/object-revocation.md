@@ -14,7 +14,7 @@ one was reclamation.
 To reclaim an object you must guarantee no live capability can still reach it. seL4 does this with a
 capability derivation tree (CDT): every copy/mint/grant records a parent-child edge, and revoking
 a capability walks the subtree deleting every descendant. It is powerful (revoke one delegation, leave
-its siblings) and it is the machinery milestone 19 declined to build.
+its siblings) and it is the machinery milestone 19 (run a real workload) declined to build.
 
 nife already had a different lever, and it decided the design:
 
@@ -24,7 +24,7 @@ nife already had a different lever, and it decided the design:
   its generation no longer matches. Invalidation is a side effect of freeing the object, with no
   capability to hunt down: the milestone-14 machinery, reused for teardown.
 - **Frames do not carry names.** A `Frame` capability holds a raw physical address, so frame
-  revocation (§13) must find and delete every matching capability, which is why frames need a
+  revocation under §13 (untyped reclamation) must find and delete every matching capability, which is why frames need a
   revocation *log* and objects do not.
 
 So the model is: **an object's lifetime is its backing region's lifetime, and generational names make

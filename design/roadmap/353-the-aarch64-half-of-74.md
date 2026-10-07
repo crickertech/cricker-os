@@ -20,7 +20,7 @@ cycle figure should be quoted until decision A is made, and no program should re
 through a shared function until decision B is.
 
 Two branches met in this file: one numbered the proposal, the other rewrote it on 2026-09-19
-after building it (milestone 74's block, "What the aarch64 half built"). The number and filename
+after building it (the block of milestone 74 (cycle counters), "What the aarch64 half built"). The number and filename
 are the first's, the content the second's, and nothing of either was dropped. Each decision is
 answered against AGENTS.md's seven questions, with options and no winner, because both are facts
 that leave the machine.
