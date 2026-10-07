@@ -670,6 +670,36 @@ pub fn call(slot: u64, w0: u64, w1: u64) -> (u64, u64) {
     (r0, r1)
 }
 
+/// [`call`], also returning the capability the server's reply carried, if it carried one: the slot
+/// a [`reply_capability`] filed in this process's table, or `None` after a plain [`reply`] or when the
+/// table was full (§255 (each socket is its own capability)). Name provisional.
+pub fn call_receiving(slot: u64, w0: u64, w1: u64) -> (u64, u64, Option<u64>) {
+    // `NO_CAP` goes in as the unused third argument: a refused CALL returns without writing x2,
+    // so x2 is then this value rather than a 0 that would read as slot 0.
+    let none = abi::rendezvous::NO_CAP;
+    // SAFETY: forwarded from `invoke5`'s contract; CALL returns the delivered slot in x2.
+    let (r0, r1, x2, ..) = unsafe { invoke5(slot, abi::rendezvous::CALL, w0, w1, none) };
+    let delivered = (x2 != none).then_some(x2);
+    (r0, r1, delivered)
+}
+
+/// **`REPLY_CAPABILITY`: answer a caller with two words and a copy of the capability in slot
+/// `capability`** (§255 (each socket is its own capability); name follows the ratified method). The copy keeps the
+/// rights it has here and needs `GRANT`. `Ok(true)` means the copy is in the caller's table, and
+/// `Ok(false)` that the caller was answered without it (its table was full) or was no longer
+/// waiting. On a refusal nothing was delivered and the Reply is still this server's, so it comes
+/// back in `Err` to be answered with [`reply`].
+pub fn reply_capability(
+    to: Reply,
+    r0: u64,
+    r1: u64,
+    capability: u64,
+) -> Result<bool, (Reply, i64)> {
+    // SAFETY: `svc`/`ecall`; the kernel validates the Reply and the carried capability.
+    let r = unsafe { invoke(to.0, abi::reply::REPLY_CAPABILITY, r0, r1, capability) };
+    if r < 0 { Err((to, r)) } else { Ok(r == 0) }
+}
+
 /// `REPLY` through a `CALL`'s one-shot Reply capability: deliver two words to the blocked caller
 /// and wake it. The capability is consumed by the kernel on use (that is what makes it one-shot),
 /// so the slot is free again when this returns, and this takes the [`Reply`] by value to say so.

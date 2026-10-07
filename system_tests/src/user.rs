@@ -127,6 +127,13 @@ mod e1000e_tests;
 #[cfg(all(test, initrd))]
 mod name_resolver_tests;
 
+/// **A client of a network stack reaches the sockets it was handed and no others** (milestone 649
+/// (every client of a network stack shares its socket numbers), §255 (each socket is its own
+/// capability)): a squatter against a held socket, and a socket handed from one program to another.
+/// All three architectures, over the `e1000e`.
+#[cfg(all(test, initrd))]
+mod net_confinement_tests;
+
 /// **Randomness that an adversary cannot predict** (milestone 56, DECISIONS §44).
 ///
 /// Not arch-gated and not transport-gated: the same binary, the same contract, the same assertions,
@@ -369,6 +376,11 @@ pub mod process_composition_service;
 // only because its consumer was.
 #[cfg(test)]
 pub mod call_service;
+
+/// **A reply that carries a capability, at EL0** (§255 (each socket is its own capability),
+/// milestone 649 (every client of a network stack shares its socket numbers)). See fixtures/src/carried_capability_server.rs.
+#[cfg(test)]
+pub mod carried_capability_service;
 
 /// **Milestone 13: revoke a frame, at EL0.** One process with an untyped budget retypes a frame,
 /// maps it, revokes it, and reports whether the revoke deleted its own capability. See

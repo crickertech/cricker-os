@@ -1,0 +1,35 @@
+Falsifies `system_tests::user::tests::a_reply_carries_a_capability_the_caller_can_use`.
+
+Architecture: aarch64, riscv64, x86_64
+
+The defect is `REPLY_CAPABILITY` carrying a capability without the delegation check: `ipc_reply_capability`
+files the server's capability as it stands instead of passing it through `Delegation::derive`, so
+a capability held without `GRANT` reaches the caller. That is the one rule that makes a reply a
+delegation rather than a copy anyone may make.
+
+Expected to fail: `assert_eq!(server & 0b0001, 0b0001, "a capability held without GRANT was
+carried by a reply")`. Confirmed red on 2026-10-07 (UTC) at `system_tests/src/user/tests.rs:3437`
+on aarch64, with `script/test --arch aarch64 --test a_reply_carries_a_capability`. The hunk is
+portable code, so one patch serves every leg; riscv64 and x86_64 were not replayed by hand. Re-cut the same day, unchanged in substance, after
+`ipc_reply_capability` learned to report a copy that did not land; the re-cut hunk was not replayed
+again.
+
+diff --git a/kernel/src/sched.rs b/kernel/src/sched.rs
+index ca3d9f108..1a90d41a2 100644
+--- a/kernel/src/sched.rs
++++ b/kernel/src/sched.rs
+@@ -4391,11 +4391,11 @@ pub fn ipc_reply_capability(caller: ThreadId, msg: [u64; 2], slot: u64) -> Result<
+             .ok_or(abi::Error::NoSuchSlot)?;
+         let table = ours.lock();
+         let src = table.get(slot).map_err(|_| abi::Error::NoSuchSlot)?;
+-        Delegation {
++        let _ = Delegation {
+             slot,
+             rights: src.rights,
+-        }
+-        .derive(&table)?
++        };
++        src
+     };
+     let delivered;
+     {

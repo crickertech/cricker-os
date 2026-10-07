@@ -364,7 +364,7 @@ place instead of moving text between two systems. Numbers 68 to 73 are the six t
 | 252 | DECIDED | [A resolver grant is one zone per client badge, and a client speaks the socket contract's shape](252-a-resolver-grant-is-a-zone-per-badge-over-the-socket-contracts-shape.md) |
 | 253 | DECIDED | [Concurrent login sessions: a greeter per terminal, authority granted at login, memory from a broker](253-concurrent-login-sessions.md) |
 | 254 | DECIDED | [A gate prints what each item cost, and a job near its budget warns rather than fails](254-a-gate-prints-what-each-item-cost-and-warns-before-its-budget.md) |
-| 255 | PROPOSED | [Each socket is its own capability, and the network stack needs a way to hand it over](255-each-socket-is-its-own-capability.md) |
+| 255 | DECIDED | [Each socket is its own capability, and a reply carries it](255-each-socket-is-its-own-capability.md) |
 
 Two blocks that lived among the decisions are not decisions and moved out with the split, the same
 way milestone 76 moved four essays out of the roadmap: [the open design

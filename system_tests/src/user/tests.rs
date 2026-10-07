@@ -3417,6 +3417,67 @@ fn a_process_calls_a_server_and_the_reply_is_one_shot() {
     sched::reclaim_region(endpoints).expect("the endpoint region did not come back");
 }
 
+/// **A reply carries a capability** (`abi::reply::REPLY_CAPABILITY`, §255 (each socket is its own
+/// capability), milestone 649 (every client of a network stack shares its socket numbers)). A
+/// server answers a `CALL` with a copy of an endpoint capability; the client finds it in a slot of
+/// its own and sends on it, and the word arrives at the server.
+/// Around that, the method's two refusals, each of which must leave the Reply usable (a carried
+/// capability without `GRANT`, and an empty slot), and the plain `REPLY` that must carry nothing
+/// (`x2` is `NO_CAP`, never a slot 0 the caller would misread).
+///
+/// Falsification: replayable `system_tests/falsifications/user.tests.a_reply_carries_a_capability_the_caller_can_use.patch`
+#[test_case]
+fn a_reply_carries_a_capability_the_caller_can_use() {
+    let endpoints = crate::memory_region::create(4).expect("no endpoint region");
+    let (server_report, client_report) = carried_capability_service::wire(endpoints);
+    // The server first: a server that took a refusal for success reports early, and its client is
+    // then left sending on a probe nobody receives, so reading the client first would hang rather
+    // than name the failure.
+    let server = sched::ipc_receive(server_report)[0];
+    assert_eq!(
+        server & 0b0001,
+        0b0001,
+        "a capability held without GRANT was carried by a reply"
+    );
+    assert_eq!(
+        server & 0b0010,
+        0b0010,
+        "an empty slot was carried by a reply"
+    );
+    assert_eq!(
+        server & 0b0100,
+        0b0100,
+        "the carrying reply was refused after two refusals: a refusal consumed the Reply"
+    );
+    let client = sched::ipc_receive(client_report)[0];
+    assert_eq!(
+        client & 0b0001,
+        0b0001,
+        "the reply arrived without the capability it carried"
+    );
+    assert_eq!(
+        client & 0b1000,
+        0b1000,
+        "the carried capability landed on a slot the client already held"
+    );
+    assert_eq!(
+        client & 0b0010,
+        0b0010,
+        "the client could not send on the carried capability"
+    );
+    assert_eq!(
+        server & 0b1000,
+        0b1000,
+        "the word sent on the carried capability did not reach the endpoint it names"
+    );
+    assert_eq!(
+        client & 0b0100,
+        0b0100,
+        "a plain REPLY delivered something in x2 a caller would read as a capability"
+    );
+    sched::reclaim_region(endpoints).expect("the endpoint region did not come back");
+}
+
 /// **Milestone 13: a process revokes a frame across the boundary.** It retypes a page, maps it,
 /// then `REVOKE`s it; the kernel unmaps the page and deletes every capability to it, the
 /// process's own included, so a second operation on that slot finds nothing there. This exercises
