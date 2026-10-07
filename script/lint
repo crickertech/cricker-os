@@ -1635,6 +1635,10 @@ python3 "$(dirname "$0")/../helpers/lint_icount_baselines.py" || exit 1
 # buys, and it is the same restraint `script/names --check` keeps: insist a marked number be right,
 # never that every number be marked.
 echo "==> counted claims"
+# The comment-and-literal stripper every count below is built on, against its fixtures first. It
+# once backtracked exponentially on an unterminated raw string (CodeQL alert 26, see
+# notes/code-scanning.md), which would hang this gate instead of failing it.
+python3 helpers/rust_source.py --selftest >/dev/null
 python3 - <<'PYEOF' || exit 1
 import json
 import os

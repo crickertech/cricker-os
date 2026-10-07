@@ -49,10 +49,17 @@ import re
 # Block comments are matched non-greedily and do NOT nest, which Rust's do. The tree has none
 # nested; a nested one would end the strip early and could only ADD to a count, which fails loud
 # rather than quiet.
+#
+# The raw-string body is `.*?` and NOT `(?:.|\n)*?`, which it was until 2026-10-07 (UTC). Under
+# `re.S` a `.` already matches a newline, so the old alternation gave every newline two ways to
+# match, and an unterminated `r"` followed by n newlines cost 2^n backtracking steps: 24 newlines
+# took a second, and each one more doubled it. That is CodeQL alert 26 (py/redos), and the input
+# is any Rust file a branch adds, so one bad file would hang `script/lint` rather than fail it.
+# `_selftest` below holds the pathological case.
 _NON_CODE = re.compile(
     r'/\*.*?\*/'                        # block comment
     r'|//[^\n]*'                        # line comment, doc comment included
-    r'|r(#*)"(?:.|\n)*?"\1'             # raw string, any hash count
+    r'|r(#*)".*?"\1'                    # raw string, any hash count (re.S: `.` spans lines)
     r'|"(?:[^"\\\n]|\\.)*"'             # ordinary string
     r"|'(?:[^'\\]|\\.)'",               # char literal (a lifetime has no closing quote, so it is
     re.S)                               # left alone, which is what we want)
@@ -626,3 +633,32 @@ def comment_only_change(old, new, docs_are_code=False):
         return code_tokens(old, docs_are_code) == code_tokens(new, docs_are_code)
     except LexError:
         return False
+
+
+def _selftest():
+    """The stripper's fixtures, run by `script/lint` before anything trusts a count built on it."""
+    import time
+
+    # Raw strings still strip whole, across lines and with hashes, and keep the line structure.
+    src = 'let a = r#"x\n"y"\n"#; let b = 1;\n'
+    out = strip_non_code(src)
+    assert out.count('\n') == src.count('\n'), out
+    assert 'x' not in out and 'y' not in out and 'let b = 1;' in out, out
+
+    # Alert 26: an unterminated raw string over 27 newlines. The old pattern took about seven
+    # seconds here on an M-series Mac and doubles with each newline; the fixed one is linear, so a
+    # full second of slack cannot flake on a loaded runner and still fails the exponential version
+    # instead of hanging the gate on it.
+    started = time.monotonic()
+    strip_non_code('r"' + '\n' * 27)
+    elapsed = time.monotonic() - started
+    assert elapsed < 1.0, f'raw-string strip took {elapsed:.2f}s: catastrophic backtracking is back'
+    print('rust_source selftest: ok')
+
+
+if __name__ == '__main__':
+    import sys
+    if sys.argv[1:] == ['--selftest']:
+        _selftest()
+    else:
+        sys.exit('usage: python3 helpers/rust_source.py --selftest')
