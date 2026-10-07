@@ -76,8 +76,9 @@ in the order written:
 ```
 
 This is Microsoft's `GUID` struct layout, inherited. Get it wrong and you have a GUID that looks
-entirely reasonable, matches nothing, and is byte-reversed in three groups out of five. `Guid` keeps
-the on-disk bytes and does the swapping in two functions, one of which is proved.
+entirely reasonable, matches nothing, and is byte-reversed in three groups out of five. The
+identifier is `universally_unique_identifier::Uuid`, always in RFC 9562 order; `guid::from_disk`
+and `guid::to_disk` are the only functions that see on-disk bytes (2026-10-06).
 
 ### 2. `last_lba` is inclusive
 
@@ -162,18 +163,19 @@ load is a serial dependency in the loop. That is the number that decided the tes
 
 ### Proved, symbolically
 
-`script/verify` runs nine harnesses over `globally_unique_identifier_partition_table`, about 96 seconds in total on an M-series laptop:
+`script/verify` runs these harnesses, about 96 seconds in total on an M-series laptop; the last two are now `universally_unique_identifier`'s:
 
 | harness | what it quantifies over | time |
 |---|---|---|
 | `crc32_matches_its_bitwise_definition` | every 8-byte input | 20 s |
 | `a_single_byte_change_always_changes_the_crc` | every 8-byte buffer, every position, every replacement | 33 s |
 | `an_entry_survives_the_round_trip` | all 2^1024 partition entries | 8 s |
-| `a_guid_survives_printing_and_parsing` | all 2^128 GUIDs, out through text and back | 5 s |
+| `a_guid_survives_the_on_disk_layout` | all 2^128 on-disk GUIDs | 3 s |
 | `overlap_is_exactly_sharing_a_block` | every pair of LBA ranges (complete, not bounded) | 2 s |
 | `a_headers_fields_survive_the_round_trip` | every value of all nine header fields | 3 s |
 | `the_header_fields_partition_the_block` | every 512-byte block: no two fields share a byte | 2 s |
 | `create_never_lays_out_a_table_parse_would_reject` | every disk size and every partition placement | 22 s |
+| `a_uuid_survives_printing_and_parsing` | all 2^128 UUIDs, out through text and back | 5 s |
 | `stamping_reserves_six_bits_and_keeps_the_other_hundred_and_twenty_two` | all 2^128 random inputs to the v4 stamp | 1 s |
 
 Three of these need their reasoning spelled out, and one of them is a correction.
@@ -243,9 +245,7 @@ Stated plainly, because a demonstrator's docs are part of the deliverable:
   the program that does them, and on nothing else.
 
   **Both were unblocked on 2026-08-03, and the crate still generates nothing.** What it gained is
-  `Guid::v4_from_random`, which takes sixteen bytes the caller brings and sets the six bits RFC 9562
-  reserves, leaving the other 122 exactly as they arrived. That is pure computation, so it belongs
-  here; the randomness stays in the program that holds an entropy endpoint. The section below is
+  `v4_from_random` (now in `universally_unique_identifier`), which stamps bytes the caller brings. The section below is
   what uses it.
 - No alignment policy. `GloballyUniqueIdentifierPartitionTable::create` places partitions
   exactly where it is told. The 2048-block (1 MiB) convention that keeps a partition off an SSD
@@ -270,11 +270,11 @@ judgment is still this crate's; the program is I/O, a layout, and a refusal.
 
 ### The version-4 stamp, and the one way to get it wrong
 
-`Guid::v4_from_random` sets four version bits and two variant bits. They live in printed
-positions, so this is the mixed-endian rule from the top of this note one more time: the version
+`Uuid::v4_from_random` sets four version bits and two variant bits. On a GPT that is the
+mixed-endian rule again: the version
 nibble is the high nibble of the third group, which is stored little-endian and therefore lands in
 on-disk byte 7; the variant bits are the top of the fourth group, stored as written, so on-disk
-byte 8.
+byte 8, which `guid.rs`'s `a_version_4_uuid_lands_its_version_in_on_disk_byte_7` checks.
 
 Setting them at the wrong offsets produces a GUID that is still unique, still unpredictable, and
 reads as some other UUID version to every tool that ever looks at the disk, forever. Nothing in a

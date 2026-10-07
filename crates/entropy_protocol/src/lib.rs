@@ -264,9 +264,97 @@ pub fn take(n: usize, word: u64, out: &mut [u8]) -> usize {
     n
 }
 
+/// **Fill `out` with random bytes, one request at a time, refusing a short answer.** `call` is the
+/// `CALL` on the entropy endpoint: it takes a request word and returns the two reply words.
+///
+/// `None` if any reply is not a count (the process holds no entropy capability; see [`delivered`])
+/// or delivers fewer bytes than were asked for (the service is dry). On `None` the contents of
+/// `out` are unspecified and must not be used. Asks for [`MAX_BYTES`] at a time and the remainder
+/// last, so sixteen bytes are two round trips.
+///
+/// **The `CALL` is a parameter so this crate stays a contract.** It makes no syscall and depends on
+/// nothing; `user_mode_runtime::entropy::fill` is the wrapper that passes a real `CALL`, and the
+/// refusals are tested here, on the host, against fakes.
+///
+/// The std PAL (`patches/std-nife/overlay/std/src/sys/random/nife.rs`) does not use this: it
+/// accepts a partial count and asks again, and panics where this refuses. Both are deliberate.
+pub fn fill_with(out: &mut [u8], mut call: impl FnMut(u64) -> (u64, u64)) -> Option<()> {
+    let mut filled = 0;
+    while filled < out.len() {
+        let want = (out.len() - filled).min(MAX_BYTES as usize);
+        let (r0, r1) = call(req(GET, want as u64));
+        if delivered(r0)? != want {
+            return None;
+        }
+        filled += take(want, r1, &mut out[filled..]);
+    }
+    Some(())
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    /// A full service: sixteen bytes in two round trips, each answered with what it asked for, in
+    /// order.
+    #[test]
+    fn sixteen_bytes_take_two_calls() {
+        let mut calls = 0;
+        let mut out = [0u8; 16];
+        let got = fill_with(&mut out, |w0| {
+            calls += 1;
+            assert_eq!(operation(w0), GET);
+            (want(w0), 0x0807_0605_0403_0201 * calls)
+        });
+        assert_eq!(got, Some(()));
+        assert_eq!(calls, 2);
+        assert_eq!(out[..8], [1, 2, 3, 4, 5, 6, 7, 8]);
+        assert_eq!(out[8..], [2, 4, 6, 8, 10, 12, 14, 16]);
+    }
+
+    /// A short answer on the second trip refuses the whole fill, which is what the four programs'
+    /// copies of `random16` did before this existed.
+    #[test]
+    fn a_short_answer_is_a_refusal() {
+        let mut trip = 0;
+        let got = fill_with(&mut [0u8; 16], |_| {
+            trip += 1;
+            (if trip == 2 { 7 } else { 8 }, 0)
+        });
+        assert_eq!(got, None);
+    }
+
+    /// No capability: the kernel's `NoSuchSlot` in the count register, and no second call.
+    #[test]
+    fn a_missing_endpoint_is_a_refusal_after_one_call() {
+        let mut calls = 0;
+        let got = fill_with(&mut [0u8; 16], |_| {
+            calls += 1;
+            (-4i64 as u64, 0)
+        });
+        assert_eq!(got, None);
+        assert_eq!(calls, 1);
+    }
+
+    /// A dry service (zero bytes, `NO_ENTROPY`) is a refusal too, not a loop that never ends.
+    #[test]
+    fn a_dry_service_is_a_refusal() {
+        assert_eq!(fill_with(&mut [0u8; 8], |_| (NO_ENTROPY, 0)), None);
+    }
+
+    /// A length that is not a multiple of eight asks for the remainder last, not eight.
+    #[test]
+    fn the_last_request_asks_for_the_remainder() {
+        let mut asked = [0u64; 3];
+        let mut i = 0;
+        let got = fill_with(&mut [0u8; 20], |w0| {
+            asked[i] = want(w0);
+            i += 1;
+            (want(w0), u64::MAX)
+        });
+        assert_eq!(got, Some(()));
+        assert_eq!(asked, [8, 8, 4]);
+    }
 
     #[test]
     fn a_request_round_trips_its_opcode_and_count() {

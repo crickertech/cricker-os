@@ -5,16 +5,17 @@
 //! partitions that overlap by exactly one block, a disk too small for its own table, a header with
 //! a stray byte after it.
 
-use globally_unique_identifier_partition_table::guid::{Guid, types};
+use globally_unique_identifier_partition_table::guid::types;
 use globally_unique_identifier_partition_table::{
     DEFAULT_ENTRY_COUNT, ENTRY_ARRAY_BYTES, Entry, Error, GloballyUniqueIdentifierPartitionTable,
     Header, MbrProblem, entry, is_block_size_ok, mbr, testing,
 };
+use universally_unique_identifier::Uuid;
 
 const BLOCK: usize = 512;
 const BLOCKS: u64 = 131_072;
-const DISK: Guid = Guid::from_fields(0x1234_5678, 0x9ABC, 0x4DEF, [1, 2, 3, 4, 5, 6, 7, 8]);
-const PART: Guid = Guid::from_fields(0xFEDC_BA98, 0x7654, 0x4321, [9, 8, 7, 6, 5, 4, 3, 2]);
+const DISK: Uuid = Uuid::from_fields(0x1234_5678, 0x9ABC, 0x4DEF, [1, 2, 3, 4, 5, 6, 7, 8]);
+const PART: Uuid = Uuid::from_fields(0xFEDC_BA98, 0x7654, 0x4321, [9, 8, 7, 6, 5, 4, 3, 2]);
 
 /// A table and the four regions it wants written, as one value, so a test can build a disk in a
 /// line and then check any part of it. The three block buffers are the largest block GPT allows;
@@ -149,7 +150,7 @@ fn partitions_that_share_one_block_overlap() {
 #[test]
 fn an_unused_entry_is_not_a_partition_however_it_looks() {
     let mut ghost = Entry::new(types::LINUX_FILESYSTEM, PART, 2048, 4096);
-    ghost.type_guid = Guid::ZERO;
+    ghost.type_guid = Uuid::NIL;
     assert!(!ghost.is_used());
 
     let real = Entry::new(types::NIFE_DATA, PART, 2048, 4096);
@@ -811,7 +812,7 @@ fn an_exact_fit_name_buffer_is_enough() {
 /// unused type has its name.
 #[test]
 fn a_guid_shows_itself_and_unused_has_a_name() {
-    let g = Guid::from_fields(0x1234_5678, 0x9ABC, 0x4DEF, [1, 2, 3, 4, 5, 6, 7, 8]);
+    let g = Uuid::from_fields(0x1234_5678, 0x9ABC, 0x4DEF, [1, 2, 3, 4, 5, 6, 7, 8]);
     assert_eq!(g.to_string(), "12345678-9ABC-4DEF-0102-030405060708");
     assert_eq!(format!("{g:?}"), "12345678-9ABC-4DEF-0102-030405060708");
     assert_eq!(types::name(types::UNUSED), Some("unused"));

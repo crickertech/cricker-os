@@ -31,9 +31,8 @@ use std::path::{Path, PathBuf};
 use std::process::Command;
 
 use globally_unique_identifier_partition_table::guid::types;
-use globally_unique_identifier_partition_table::{
-    Entry, GloballyUniqueIdentifierPartitionTable, Guid,
-};
+use globally_unique_identifier_partition_table::{Entry, GloballyUniqueIdentifierPartitionTable};
+use universally_unique_identifier::Uuid;
 
 /// The built binary, not the library: `cargo test` compiles it and hands us the path.
 const TOOL: &str = env!("CARGO_BIN_EXE_redoxfs_host");
@@ -106,8 +105,8 @@ fn tool_fails(args: &[&str]) -> String {
 }
 
 /// A version-4-shaped GUID with a recognisable body, so a failure names which one it was.
-fn guid(tag: u8) -> Guid {
-    Guid::v4_from_random([tag; 16])
+fn guid(tag: u8) -> Uuid {
+    Uuid::v4_from_random([tag; 16])
 }
 
 /// Build a device: a protective MBR, a primary and backup GPT, and a RedoxFS image dropped into the

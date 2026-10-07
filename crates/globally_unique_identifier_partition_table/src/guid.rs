@@ -1,11 +1,18 @@
-//! GUIDs, the "G" in GPT, and the partition types worth recognising by name.
+//! GPT's GUIDs: how the GUID Partition Table stores a UUID on disk, and the partition types worth
+//! recognizing by name.
+//!
+//! The identifier itself is [`Uuid`], from `crates/universally_unique_identifier`, in RFC 9562's
+//! byte order. This module keeps only what is GPT's: the on-disk byte layout and the type constants.
+//! It keeps the spec's word, GUID, because the UEFI fields it serves are spelled that way
+//! (`PartitionTypeGUID`, `UniquePartitionGUID`, `DiskGUID`). Everything else says UUID, RFC 9562's
+//! term (calef approved the split on 2026-10-06 (UTC)).
 //!
 //! # The mixed-endian trap
 //!
 //! A GUID is 16 bytes and everybody writes it as `C12A7328-F81F-11D2-BA4B-00A0C93EC93B`. The trap is
-//! that **the five groups are not stored the same way**. The first three are integers and go on disk
-//! little-endian; the last two are byte strings and go on disk in the order written. So the bytes of
-//! that GUID are:
+//! that **the five groups are not stored the same way on a GPT**. The first three are integers and
+//! go on disk little-endian; the last two are byte strings and go on disk in the order written. So
+//! the bytes of that GUID on disk are:
 //!
 //! ```text
 //!   28 73 2A C1  1F F8  D2 11  BA 4B  00 A0 C9 3E C9 3B
@@ -13,10 +20,13 @@
 //!    u32 LE       u16 LE u16 LE  as written
 //! ```
 //!
-//! This is not a GPT quirk, it is how Microsoft's `GUID` struct is laid out and GPT inherited it.
-//! Getting it wrong gives you a GUID that looks plausible, matches nothing, and is byte-reversed in
-//! three places out of five. [`Guid`] stores the on-disk bytes and does the swapping in exactly two
-//! functions, so there is one place for the mistake to live and it is covered by a proof.
+//! where RFC 9562 order (what [`Uuid::to_bytes`] returns) is `C1 2A 73 28 F8 1F 11 D2 BA 4B ...`.
+//! This is Microsoft's `GUID` struct, which UEFI inherited; RFC 9562 section 4 names it as the one known
+//! exception to big-endian storage. Getting it wrong gives you a GUID that looks plausible, matches
+//! nothing, and is byte-reversed in three places out of five. [`from_disk`] and [`to_disk`] are the
+//! only two functions that see the on-disk order, and [`Entry`](crate::Entry) and
+//! [`Header`](crate::Header) call nothing else, so a [`Uuid`] in this crate is always canonical and
+//! always prints right.
 //!
 //! # Type GUIDs versus unique GUIDs
 //!
@@ -24,154 +34,34 @@
 //! constant ([`types`]); the **unique** GUID names this particular partition and is generated once,
 //! never reused. Confusing them is how you get two partitions the OS thinks are the same one.
 
-/// A 128-bit GUID, stored in the byte order it has on disk.
-///
-/// Construct one from its printed fields with [`Guid::from_fields`] (const, so it works for the
-/// constants in [`types`]) or from disk bytes with [`Guid::from_bytes`].
-#[derive(Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Default)]
-pub struct Guid([u8; 16]);
+pub use universally_unique_identifier::Uuid;
 
-impl Guid {
-    /// The all-zero GUID, which in a partition entry's type field means "this entry is unused".
-    /// The one GUID with a meaning rather than an identity.
-    pub const ZERO: Guid = Guid([0; 16]);
+/// Which RFC 9562 byte each on-disk byte holds: the first three fields reversed, the last two not.
+/// The same table read either way, because each swap is its own inverse.
+const SWAP: [usize; 16] = [3, 2, 1, 0, 5, 4, 7, 6, 8, 9, 10, 11, 12, 13, 14, 15];
 
-    /// Build a GUID from the five printed groups, doing the mixed-endian encoding.
-    ///
-    /// `C12A7328-F81F-11D2-BA4B-00A0C93EC93B` is
-    /// `from_fields(0xC12A7328, 0xF81F, 0x11D2, [0xBA, 0x4B, 0x00, 0xA0, 0xC9, 0x3E, 0xC9, 0x3B])`.
-    pub const fn from_fields(a: u32, b: u16, c: u16, rest: [u8; 8]) -> Guid {
-        let a = a.to_le_bytes();
-        let b = b.to_le_bytes();
-        let c = c.to_le_bytes();
-        Guid([
-            a[0], a[1], a[2], a[3], b[0], b[1], c[0], c[1], rest[0], rest[1], rest[2], rest[3],
-            rest[4], rest[5], rest[6], rest[7],
-        ])
+/// The UUID that sixteen bytes read from a GPT (an entry's type or unique GUID, or the header's
+/// disk GUID) stand for. Every bit pattern is one, so this cannot fail.
+pub const fn from_disk(bytes: [u8; 16]) -> Uuid {
+    let mut canonical = [0u8; 16];
+    let mut i = 0;
+    while i < 16 {
+        canonical[i] = bytes[SWAP[i]];
+        i += 1;
     }
-
-    /// Wrap 16 bytes read from a disk. Every bit pattern is a GUID, so this cannot fail.
-    pub const fn from_bytes(bytes: [u8; 16]) -> Guid {
-        Guid(bytes)
-    }
-
-    /// The 16 bytes as they appear on disk.
-    pub const fn to_bytes(self) -> [u8; 16] {
-        self.0
-    }
-
-    /// Stamp 16 random bytes into an RFC 9562 version-4 GUID.
-    ///
-    /// **This crate has no randomness and this function does not invent any**: the caller brings the
-    /// bytes, from a source that is genuinely unpredictable, and all this does is set the six bits
-    /// the format reserves. On nife the caller is `disk_partitioner`, which holds an entropy
-    /// endpoint; a GUID built from a counter would be unique on one disk and collide with every
-    /// other machine's, which is the failure the format's uniqueness rule exists to prevent.
-    ///
-    /// Six bits are spent: four for the version (`4`) and two for the variant (`0b10`). They land in
-    /// **printed** positions, so this is the mixed-endian rule again: the version nibble is the high
-    /// nibble of the third group, which is stored little-endian and therefore lives in on-disk byte
-    /// 7; the variant bits are the top of the fourth group, which is stored as written, so on-disk
-    /// byte 8. Setting them at the wrong offsets produces a GUID that is still unique and reads as
-    /// some other version, which nothing would ever catch.
-    ///
-    /// The remaining 122 bits are the caller's bytes, unmodified. A partition GUID does not have to
-    /// be a v4 UUID (the spec asks only that it be unique), but every real tool writes one, and a
-    /// disk this OS partitions should not be the odd one out under `sgdisk -i`.
-    pub const fn v4_from_random(mut bytes: [u8; 16]) -> Guid {
-        bytes[7] = (bytes[7] & 0x0f) | 0x40;
-        bytes[8] = (bytes[8] & 0x3f) | 0x80;
-        Guid(bytes)
-    }
-
-    /// True for the all-zero GUID. See [`Guid::ZERO`].
-    pub const fn is_zero(self) -> bool {
-        let mut i = 0;
-        while i < 16 {
-            if self.0[i] != 0 {
-                return false;
-            }
-            i += 1;
-        }
-        true
-    }
-
-    /// The canonical `XXXXXXXX-XXXX-XXXX-XXXX-XXXXXXXXXXXX` form, uppercase, as ASCII.
-    ///
-    /// Returns a fixed-size buffer rather than a `String` because this crate allocates nothing; the
-    /// `Display` impl below is a thin wrapper for anywhere a formatter is available.
-    pub fn to_ascii(self) -> [u8; 36] {
-        const HEX: [u8; 16] = *b"0123456789ABCDEF";
-        // The printed order, group by group: the first three groups are byte-reversed relative to
-        // the storage order, the last two are not. This table is the mixed-endian rule made
-        // explicit, so the loop below has no special cases.
-        const ORDER: [usize; 16] = [3, 2, 1, 0, 5, 4, 7, 6, 8, 9, 10, 11, 12, 13, 14, 15];
-
-        let mut out = [b'-'; 36];
-        let mut at = 0;
-        for (n, &src) in ORDER.iter().enumerate() {
-            if n == 4 || n == 6 || n == 8 || n == 10 {
-                at += 1; // leave the dash this position was initialised with
-            }
-            out[at] = HEX[(self.0[src] >> 4) as usize];
-            out[at + 1] = HEX[(self.0[src] & 0xf) as usize];
-            at += 2;
-        }
-        out
-    }
-
-    /// Parse the canonical form, accepting either case. `None` if it is not 36 characters with
-    /// dashes in the four right places and hex everywhere else.
-    ///
-    /// Here for a future `mkpart` that takes a `--typecode` on a command line. Nothing on the parse
-    /// path uses it: disks carry bytes, not text.
-    pub fn try_from_ascii(text: &[u8]) -> Option<Guid> {
-        const ORDER: [usize; 16] = [3, 2, 1, 0, 5, 4, 7, 6, 8, 9, 10, 11, 12, 13, 14, 15];
-        if text.len() != 36 {
-            return None;
-        }
-        for &dash in &[8usize, 13, 18, 23] {
-            if text[dash] != b'-' {
-                return None;
-            }
-        }
-        let mut bytes = [0u8; 16];
-        let mut at = 0;
-        for (n, &dst) in ORDER.iter().enumerate() {
-            if n == 4 || n == 6 || n == 8 || n == 10 {
-                at += 1;
-            }
-            bytes[dst] = (nibble(text[at])? << 4) | nibble(text[at + 1])?;
-            at += 2;
-        }
-        Some(Guid(bytes))
-    }
+    Uuid::from_bytes(canonical)
 }
 
-fn nibble(c: u8) -> Option<u8> {
-    match c {
-        b'0'..=b'9' => Some(c - b'0'),
-        b'a'..=b'f' => Some(c - b'a' + 10),
-        b'A'..=b'F' => Some(c - b'A' + 10),
-        _ => None,
+/// The sixteen bytes a GPT stores for `id`. Inverse of [`from_disk`], proved.
+pub const fn to_disk(id: Uuid) -> [u8; 16] {
+    let canonical = id.to_bytes();
+    let mut bytes = [0u8; 16];
+    let mut i = 0;
+    while i < 16 {
+        bytes[SWAP[i]] = canonical[i];
+        i += 1;
     }
-}
-
-impl core::fmt::Display for Guid {
-    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
-        let ascii = self.to_ascii();
-        // to_ascii emits only hex digits and dashes, so this is always valid UTF-8.
-        f.write_str(core::str::from_utf8(&ascii).unwrap_or("<guid>"))
-    }
-}
-
-/// `Debug` prints the same canonical form as `Display`. The default derive would print sixteen
-/// decimal bytes in storage order, which is the one representation nobody can match against a
-/// `sgdisk -i` listing.
-impl core::fmt::Debug for Guid {
-    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
-        core::fmt::Display::fmt(self, f)
-    }
+    bytes
 }
 
 /// Partition **type** GUIDs, and a name for each.
@@ -184,13 +74,13 @@ impl core::fmt::Debug for Guid {
 /// Every value here was read back out of `sgdisk` on the machine rather than typed from memory, and
 /// four of them are pinned by the committed fixtures.
 pub mod types {
-    use super::Guid;
+    use super::Uuid;
 
     /// An unused entry. The type GUID is what marks an entry live, not the LBA fields.
-    pub const UNUSED: Guid = Guid::ZERO;
+    pub const UNUSED: Uuid = Uuid::NIL;
 
     /// EFI System Partition: the FAT volume firmware loads a bootloader from.
-    pub const EFI_SYSTEM: Guid = Guid::from_fields(
+    pub const EFI_SYSTEM: Uuid = Uuid::from_fields(
         0xC12A_7328,
         0xF81F,
         0x11D2,
@@ -199,7 +89,7 @@ pub mod types {
 
     /// BIOS boot partition, where GRUB puts its core image on a legacy-booted GPT disk. The GUID
     /// spells `Hah!IdontNeedEFI` in ASCII, which is the only joke in the UEFI ecosystem.
-    pub const BIOS_BOOT: Guid = Guid::from_fields(
+    pub const BIOS_BOOT: Uuid = Uuid::from_fields(
         0x2168_6148,
         0x6449,
         0x6E6F,
@@ -208,7 +98,7 @@ pub mod types {
 
     /// Microsoft basic data. Also what macOS's `diskutil` labels a FAT partition it creates, which
     /// is why the Apple fixture carries it.
-    pub const MICROSOFT_BASIC_DATA: Guid = Guid::from_fields(
+    pub const MICROSOFT_BASIC_DATA: Uuid = Uuid::from_fields(
         0xEBD0_A0A2,
         0xB9E5,
         0x4433,
@@ -217,7 +107,7 @@ pub mod types {
 
     /// Linux filesystem data, `sgdisk` type code `8300`. The generic "there is a Linux filesystem
     /// here" marker and by far the most common type on a Linux disk.
-    pub const LINUX_FILESYSTEM: Guid = Guid::from_fields(
+    pub const LINUX_FILESYSTEM: Uuid = Uuid::from_fields(
         0x0FC6_3DAF,
         0x8483,
         0x4772,
@@ -225,7 +115,7 @@ pub mod types {
     );
 
     /// Linux swap.
-    pub const LINUX_SWAP: Guid = Guid::from_fields(
+    pub const LINUX_SWAP: Uuid = Uuid::from_fields(
         0x0657_FD6D,
         0xA4AB,
         0x43C4,
@@ -235,7 +125,7 @@ pub mod types {
     /// Linux root filesystem, arm64. From the Discoverable Partitions Specification, which is how a
     /// systemd machine finds its root without a kernel command line. Here because arm64 is the
     /// architecture this OS runs on and a disk shared with Linux may carry one.
-    pub const LINUX_ROOT_ARM64: Guid = Guid::from_fields(
+    pub const LINUX_ROOT_ARM64: Uuid = Uuid::from_fields(
         0xB921_B045,
         0x1DF0,
         0x41C3,
@@ -244,7 +134,7 @@ pub mod types {
 
     /// LUKS, Linux's encrypted-volume container. Recognised so that a tool can say "encrypted, and
     /// this crate does not open it" instead of reporting an unreadable filesystem.
-    pub const LINUX_LUKS: Guid = Guid::from_fields(
+    pub const LINUX_LUKS: Uuid = Uuid::from_fields(
         0xCA7D_7CCB,
         0x63ED,
         0x4C53,
@@ -252,7 +142,7 @@ pub mod types {
     );
 
     /// Apple HFS+.
-    pub const APPLE_HFS_PLUS: Guid = Guid::from_fields(
+    pub const APPLE_HFS_PLUS: Uuid = Uuid::from_fields(
         0x4846_5300,
         0x0000,
         0x11AA,
@@ -260,7 +150,7 @@ pub mod types {
     );
 
     /// Apple APFS, which is what any Mac disk made since 2017 is.
-    pub const APPLE_APFS: Guid = Guid::from_fields(
+    pub const APPLE_APFS: Uuid = Uuid::from_fields(
         0x7C34_57EF,
         0x0000,
         0x11AA,
@@ -274,7 +164,7 @@ pub mod types {
     /// ask. **Never change this value.** A disk written by one release and read by another has only
     /// this number to agree on, and the recovery story (milestone 57's "the board is dead, can I get
     /// my data") depends on a `sgdisk -p` five years from now still showing it.
-    pub const NIFE_DATA: Guid = Guid::from_fields(
+    pub const NIFE_DATA: Uuid = Uuid::from_fields(
         0xEC5C_C08B,
         0xD749,
         0x4434,
@@ -299,7 +189,7 @@ pub mod types {
     /// was minted. A type GUID is a value two programs agree on, so ratification is what moves it
     /// from a lane's proposal to a number this project has committed to; from here it changes only
     /// the way [`NIFE_DATA`] would, which is to say not at all.
-    pub const NIFE_BOOT: Guid = Guid::from_fields(
+    pub const NIFE_BOOT: Uuid = Uuid::from_fields(
         0x1163_1EE3,
         0xE18F,
         0x4AFC,
@@ -310,7 +200,7 @@ pub mod types {
     ///
     /// Deliberately returns `None` rather than a placeholder: a partition tool should print the raw
     /// GUID for an unknown type, because that is the string a person can look up.
-    pub fn name(guid: Guid) -> Option<&'static str> {
+    pub fn name(guid: Uuid) -> Option<&'static str> {
         Some(match guid {
             UNUSED => "unused",
             EFI_SYSTEM => "EFI system",
@@ -333,9 +223,20 @@ pub mod types {
 mod tests {
     use super::*;
 
+    /// The EFI System Partition GUID as it sits on disk, which is offset 0 of entry 0 in the
+    /// committed `sgdisk` fixture. The one known vector for GPT's layout: the first three groups
+    /// little-endian, the last two as written.
+    const EFI_SYSTEM_ON_DISK: [u8; 16] = [
+        0x28, 0x73, 0x2A, 0xC1, // C12A7328, little-endian
+        0x1F, 0xF8, // F81F, little-endian
+        0xD2, 0x11, // 11D2, little-endian
+        0xBA, 0x4B, // BA4B, as written
+        0x00, 0xA0, 0xC9, 0x3E, 0xC9, 0x3B, // node, as written
+    ];
+
     /// Every type GUID this crate names says its name, and one it does not know says nothing. A
     /// deleted arm would hand a person a raw GUID for a partition type this crate was written to
-    /// recognise.
+    /// recognize.
     #[test]
     fn every_known_type_has_its_name() {
         let known = [
@@ -355,108 +256,54 @@ mod tests {
         for (guid, name) in known {
             assert_eq!(types::name(guid), Some(name));
         }
-        assert_eq!(types::name(Guid([0xab; 16])), None);
+        assert_eq!(types::name(Uuid::from_bytes([0xab; 16])), None);
     }
 
-    /// The EFI System Partition GUID, spelled out byte by byte, because this is the one place the
-    /// mixed-endian rule can be wrong without anything else noticing. Cross-checked against the
-    /// committed `sgdisk` fixture, where these sixteen bytes sit at offset 0 of entry 0.
+    /// **The two byte orders, side by side, on one known GUID.** The type constant is canonical
+    /// (RFC 9562 order, the printed digits), `to_disk` is GPT's mixed-endian order, and
+    /// `from_disk` takes the fixture's bytes back to the constant. This is the one place the
+    /// mixed-endian rule can be wrong without anything else noticing.
     #[test]
-    fn the_mixed_endian_layout_is_the_one_on_disk() {
+    fn the_efi_system_partition_guid_in_both_byte_orders() {
         assert_eq!(
             types::EFI_SYSTEM.to_bytes(),
             [
-                0x28, 0x73, 0x2A, 0xC1, // C12A7328, little-endian
-                0x1F, 0xF8, // F81F, little-endian
-                0xD2, 0x11, // 11D2, little-endian
-                0xBA, 0x4B, // BA4B, as written
-                0x00, 0xA0, 0xC9, 0x3E, 0xC9, 0x3B, // node, as written
-            ]
+                0xC1, 0x2A, 0x73, 0x28, 0xF8, 0x1F, 0x11, 0xD2, 0xBA, 0x4B, 0x00, 0xA0, 0xC9, 0x3E,
+                0xC9, 0x3B,
+            ],
+            "canonical order is the printed digits",
+        );
+        assert_eq!(to_disk(types::EFI_SYSTEM), EFI_SYSTEM_ON_DISK);
+        assert_eq!(from_disk(EFI_SYSTEM_ON_DISK), types::EFI_SYSTEM);
+        assert_eq!(
+            &from_disk(EFI_SYSTEM_ON_DISK).to_ascii(),
+            b"C12A7328-F81F-11D2-BA4B-00A0C93EC93B"
         );
     }
 
     #[test]
-    fn printing_undoes_the_swapping() {
-        assert_eq!(
-            &types::EFI_SYSTEM.to_ascii(),
-            b"C12A7328-F81F-11D2-BA4B-00A0C93EC93B"
-        );
+    fn printing_a_type_constant_gives_its_registered_string() {
         assert_eq!(
             &types::NIFE_DATA.to_ascii(),
             b"EC5CC08B-D749-4434-AC38-A274C50385BA"
         );
         assert_eq!(
-            &Guid::ZERO.to_ascii(),
-            b"00000000-0000-0000-0000-000000000000"
+            &types::NIFE_BOOT.to_ascii(),
+            b"11631EE3-E18F-4AFC-9D7F-171572635629"
         );
     }
 
+    /// A version-4 UUID written to a GPT has its version nibble in on-disk byte 7, where `sgdisk`
+    /// and UEFI read the third group's high nibble from. Before 2026-10-06 the stamp itself wrote
+    /// byte 7 because the type held on-disk bytes; now the stamp writes RFC byte 6 and `to_disk`
+    /// moves it, and this is the check that the two together land where the old one did.
     #[test]
-    fn text_round_trips_and_junk_is_refused() {
-        for g in [types::EFI_SYSTEM, types::NIFE_DATA, Guid::ZERO] {
-            assert_eq!(Guid::try_from_ascii(&g.to_ascii()), Some(g));
+    fn a_version_4_uuid_lands_its_version_in_on_disk_byte_7() {
+        for fill in [0x00u8, 0xff, 0x5a] {
+            let disk = to_disk(Uuid::v4_from_random([fill; 16]));
+            assert_eq!(disk[7] >> 4, 4, "version nibble, from a {fill:#04x} fill");
+            assert_eq!(disk[8] >> 6, 0b10, "variant bits, from a {fill:#04x} fill");
         }
-        // Lowercase in, canonical uppercase out.
-        let lower = b"c12a7328-f81f-11d2-ba4b-00a0c93ec93b";
-        assert_eq!(Guid::try_from_ascii(lower), Some(types::EFI_SYSTEM));
-
-        assert_eq!(Guid::try_from_ascii(b"too short"), None);
-        assert_eq!(
-            Guid::try_from_ascii(b"C12A7328+F81F-11D2-BA4B-00A0C93EC93B"),
-            None,
-            "a dash in the wrong place"
-        );
-        assert_eq!(
-            Guid::try_from_ascii(b"G12A7328-F81F-11D2-BA4B-00A0C93EC93B"),
-            None,
-            "G is not hex"
-        );
-    }
-
-    /// The six reserved bits land where a **reader** looks for them, which is the only thing about
-    /// `v4_from_random` that can be wrong: at any other offsets the GUID is still unique, still
-    /// unpredictable, and reads as some other UUID version forever.
-    ///
-    /// So the check is the printed form, not the bytes: position 14 is the version nibble and
-    /// position 19 is the variant, and both are where `sgdisk -i` and `uuidgen` read them.
-    #[test]
-    fn stamping_random_bytes_gives_a_version_4_guid() {
-        for fill in [0x00u8, 0xff, 0x5a, 0xa5] {
-            let g = Guid::v4_from_random([fill; 16]);
-            let text = g.to_ascii();
-            assert_eq!(text[14], b'4', "version nibble, from a {fill:#04x} fill");
-            assert!(
-                matches!(text[19], b'8' | b'9' | b'A' | b'B'),
-                "variant bits, from a {fill:#04x} fill: got {}",
-                text[19] as char,
-            );
-        }
-    }
-
-    /// The other 122 bits are the caller's, untouched. A "stamp" that quietly normalised more than
-    /// the format reserves would be throwing away entropy the caller paid a round trip for.
-    #[test]
-    fn stamping_keeps_every_bit_it_does_not_reserve() {
-        let raw = [
-            0x01, 0x23, 0x45, 0x67, 0x89, 0xab, 0xcd, 0xef, 0xfe, 0xdc, 0xba, 0x98, 0x76, 0x54,
-            0x32, 0x10,
-        ];
-        let out = Guid::v4_from_random(raw).to_bytes();
-        for (i, (&before, &after)) in raw.iter().zip(out.iter()).enumerate() {
-            match i {
-                7 => assert_eq!(after, (before & 0x0f) | 0x40),
-                8 => assert_eq!(after, (before & 0x3f) | 0x80),
-                _ => assert_eq!(after, before, "byte {i} was modified"),
-            }
-        }
-    }
-
-    #[test]
-    fn only_the_zero_guid_is_zero() {
-        assert!(Guid::ZERO.is_zero());
-        assert!(!types::LINUX_FILESYSTEM.is_zero());
-        // One bit set, in the last group, which the naive "is the first word zero" check misses.
-        assert!(!Guid::from_bytes([0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1]).is_zero());
     }
 
     #[test]
@@ -472,6 +319,7 @@ mod tests {
             types::APPLE_HFS_PLUS,
             types::APPLE_APFS,
             types::NIFE_DATA,
+            types::NIFE_BOOT,
         ];
         for (i, a) in all.iter().enumerate() {
             assert!(types::name(*a).is_some(), "{a} has no name");
@@ -479,6 +327,5 @@ mod tests {
                 assert_ne!(a, b, "two type constants collide");
             }
         }
-        assert_eq!(types::name(Guid::from_bytes([0xAB; 16])), None);
     }
 }

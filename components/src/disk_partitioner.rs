@@ -111,15 +111,15 @@
 #![allow(missing_docs)]
 #![no_main]
 
-use entropy_protocol as entropy;
 use filesystem_protocol::fixture::blank;
 use filesystem_protocol::{blk, req};
 use globally_unique_identifier_partition_table::entry::{Entry, NAME_UNITS};
-use globally_unique_identifier_partition_table::guid::{Guid, types};
+use globally_unique_identifier_partition_table::guid::types;
 use globally_unique_identifier_partition_table::span::Span;
 use globally_unique_identifier_partition_table::{
     ENTRY_ARRAY_BYTES, GloballyUniqueIdentifierPartitionTable, PRIMARY_HEADER_LBA, mbr,
 };
+use universally_unique_identifier::Uuid;
 use user_mode_runtime::{call, send};
 
 /// Slot 0: where the verdict goes. An endpoint with `WRITE`.
@@ -200,13 +200,14 @@ pub extern "C" fn _start(role: u64, _a1: u64, _a2: u64) -> ! {
 fn partition() -> ! {
     // Four unique ids: the disk's, and one per partition. Drawn first and all together, because the
     // only refusal worth making is one made before anything is written.
-    let mut guids = [Guid::ZERO; 4];
+    let mut guids = [Uuid::NIL; 4];
     for g in guids.iter_mut() {
-        let Some(bytes) = random16() else {
+        let mut bytes = [0u8; 16];
+        if user_mode_runtime::entropy::fill(ENTROPY, &mut bytes).is_none() {
             send(REPORT, R_NO_ENTROPY, 0, 0);
             user_mode_runtime::exit()
-        };
-        *g = Guid::v4_from_random(bytes);
+        }
+        *g = Uuid::v4_from_random(bytes);
     }
 
     let layout = [
@@ -339,7 +340,7 @@ fn verify() -> ! {
 
     let mut named = 0u64;
     let mut unique = 0u64;
-    let mut seen = [Guid::ZERO; blank::PARTITIONS];
+    let mut seen = [Uuid::NIL; blank::PARTITIONS];
     for (i, part) in table.partitions() {
         if partitions as usize >= blank::PARTITIONS {
             partitions += 1; // more entries than the layout has: the count below will say so
@@ -361,7 +362,7 @@ fn verify() -> ! {
         // whole shape exists to prevent.
         let g = part.unique_guid;
         let text = g.to_ascii();
-        if !g.is_zero() && text[14] == b'4' && !seen[..partitions as usize].contains(&g) {
+        if !g.is_nil() && text[14] == b'4' && !seen[..partitions as usize].contains(&g) {
             unique += 1;
         }
         seen[partitions as usize] = g;
@@ -378,26 +379,6 @@ fn verify() -> ! {
 
     send(REPORT, flags, partitions, data_first_lba);
     user_mode_runtime::exit()
-}
-
-/// Sixteen random bytes from the entropy service, or `None` if this process holds no entropy
-/// endpoint (or the service has none to give).
-///
-/// Two round trips, because a reply carries one word. `entropy_protocol::delivered` is what separates
-/// "the service answered with n bytes" from "the kernel refused the call", and it can: a count is
-/// always `0..=8`, while every kernel error is a small negative that reads as an enormous `u64`.
-/// So a program with an empty slot 2 finds out here, before it has written anything.
-fn random16() -> Option<[u8; 16]> {
-    let mut out = [0u8; 16];
-    for half in 0..2 {
-        let (r0, r1) = call(ENTROPY, entropy::req(entropy::GET, entropy::MAX_BYTES), 0);
-        let n = entropy::delivered(r0)?;
-        if n != entropy::MAX_BYTES as usize {
-            return None;
-        }
-        entropy::take(n, r1, &mut out[half * 8..half * 8 + 8]);
-    }
-    Some(out)
 }
 
 /// Lay `data` over the disk starting at logical block `first_lba`, **preserving everything else in

@@ -39,10 +39,11 @@
 //! dd if=apple64.img of=apple-64m.tail bs=512 skip=131039 count=33
 //! ```
 
-use globally_unique_identifier_partition_table::guid::{Guid, types};
+use globally_unique_identifier_partition_table::guid::types;
 use globally_unique_identifier_partition_table::{
     BackupMismatch, Entry, Error, GloballyUniqueIdentifierPartitionTable, MbrProblem, entry,
 };
+use universally_unique_identifier::Uuid;
 
 const SGDISK_HEAD: &[u8] = include_bytes!("fixtures/sgdisk-64m.head");
 const SGDISK_TAIL: &[u8] = include_bytes!("fixtures/sgdisk-64m.tail");
@@ -81,7 +82,7 @@ fn sgdisk_writes_a_table_we_accept_whole() {
     assert_eq!(table.block_count(), BLOCKS);
     assert_eq!(
         table.disk_guid(),
-        Guid::try_from_ascii(b"1A2B3C4D-5E6F-4718-9A0B-C1D2E3F40506").unwrap(),
+        Uuid::try_from_ascii(b"1A2B3C4D-5E6F-4718-9A0B-C1D2E3F40506").unwrap(),
         "the disk GUID we told sgdisk to use, decoded through the mixed-endian rule"
     );
     assert_eq!(table.entry_count(), 128);
@@ -106,7 +107,7 @@ fn sgdisk_writes_a_table_we_accept_whole() {
     assert_eq!(parts[1].1.blocks(), Some(20480), "10 MiB");
     assert_eq!(
         parts[1].1.unique_guid,
-        Guid::try_from_ascii(b"11111111-2222-4333-8444-555555555502").unwrap()
+        Uuid::try_from_ascii(b"11111111-2222-4333-8444-555555555502").unwrap()
     );
 
     // The one that matters for this OS: our own type GUID, recognised on a disk written by a tool
@@ -419,7 +420,7 @@ fn a_backup_that_belongs_to_another_disk_is_refused_field_by_field() {
     let cases: [Case; 6] = [
         (|h| h.my_lba += 1, BackupMismatch::MyLba),
         (|h| h.alternate_lba += 1, BackupMismatch::AlternateLba),
-        (|h| h.disk_guid = Guid::ZERO, BackupMismatch::DiskGuid),
+        (|h| h.disk_guid = Uuid::NIL, BackupMismatch::DiskGuid),
         (|h| h.last_usable_lba -= 1, BackupMismatch::LastUsableLba),
         (|h| h.entry_count -= 1, BackupMismatch::EntryCount),
         (|h| h.entry_array_crc ^= 1, BackupMismatch::EntryArrayCrc),

@@ -148,6 +148,7 @@
 #![no_std]
 
 pub mod child_stub;
+pub mod entropy;
 pub mod heap;
 pub mod initrd;
 pub mod mapped_window;

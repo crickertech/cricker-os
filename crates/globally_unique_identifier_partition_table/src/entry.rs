@@ -21,7 +21,7 @@
 //! the world, and that is not a bug in the browser.
 
 use crate::Error;
-use crate::guid::Guid;
+use crate::guid::{self, Uuid};
 
 /// Bytes per partition entry, and the only size anything writes. The spec permits larger (any
 /// multiple of 8 that is at least 128) so entries can grow; this crate reads a larger entry by
@@ -63,9 +63,9 @@ mod at {
 pub struct Entry {
     /// What the partition is for. All zeros means the entry is unused; see
     /// [`crate::guid::types`] for the ones this crate names.
-    pub type_guid: Guid,
+    pub type_guid: Uuid,
     /// Names this partition, uniquely, forever. Generated once when the partition is created.
-    pub unique_guid: Guid,
+    pub unique_guid: Uuid,
     /// First block of the partition.
     pub first_lba: u64,
     /// Last block of the partition, **inclusive**. A one-block partition has
@@ -82,8 +82,8 @@ pub struct Entry {
 impl Entry {
     /// An unused entry: all zeros, which is what an empty slot in the array looks like on disk.
     pub const UNUSED: Entry = Entry {
-        type_guid: Guid::ZERO,
-        unique_guid: Guid::ZERO,
+        type_guid: Uuid::NIL,
+        unique_guid: Uuid::NIL,
         first_lba: 0,
         last_lba: 0,
         attributes: 0,
@@ -95,7 +95,7 @@ impl Entry {
     /// Both GUIDs are the caller's: this crate has no randomness and will not invent a unique GUID
     /// for you. That is the honest boundary (a GUID that is not random is not unique), and milestone
     /// 55's entropy work is where the caller gets one.
-    pub const fn new(type_guid: Guid, unique_guid: Guid, first_lba: u64, last_lba: u64) -> Entry {
+    pub const fn new(type_guid: Uuid, unique_guid: Uuid, first_lba: u64, last_lba: u64) -> Entry {
         Entry {
             type_guid,
             unique_guid,
@@ -124,7 +124,7 @@ impl Entry {
     /// live. An entry with LBAs set and a zero type is unused, and a partition editor that reads
     /// the LBAs first will hallucinate partitions on a freshly wiped disk.
     pub const fn is_used(&self) -> bool {
-        !self.type_guid.is_zero()
+        !self.type_guid.is_nil()
     }
 
     /// How many blocks the partition covers. `last_lba` is inclusive, hence the `+ 1`.
@@ -170,10 +170,10 @@ impl Entry {
             *unit = u16::from_le_bytes([bytes[o], bytes[o + 1]]);
         }
         Entry {
-            type_guid: Guid::from_bytes(
+            type_guid: guid::from_disk(
                 bytes[at::TYPE_GUID..at::TYPE_GUID + 16].try_into().unwrap(),
             ),
-            unique_guid: Guid::from_bytes(
+            unique_guid: guid::from_disk(
                 bytes[at::UNIQUE_GUID..at::UNIQUE_GUID + 16]
                     .try_into()
                     .unwrap(),
@@ -188,8 +188,9 @@ impl Entry {
     /// The 128 bytes this entry is on disk. Inverse of [`Entry::decode`], proved.
     pub fn encode(&self) -> [u8; SIZE] {
         let mut bytes = [0u8; SIZE];
-        bytes[at::TYPE_GUID..at::TYPE_GUID + 16].copy_from_slice(&self.type_guid.to_bytes());
-        bytes[at::UNIQUE_GUID..at::UNIQUE_GUID + 16].copy_from_slice(&self.unique_guid.to_bytes());
+        bytes[at::TYPE_GUID..at::TYPE_GUID + 16].copy_from_slice(&guid::to_disk(self.type_guid));
+        bytes[at::UNIQUE_GUID..at::UNIQUE_GUID + 16]
+            .copy_from_slice(&guid::to_disk(self.unique_guid));
         bytes[at::FIRST_LBA..at::FIRST_LBA + 8].copy_from_slice(&self.first_lba.to_le_bytes());
         bytes[at::LAST_LBA..at::LAST_LBA + 8].copy_from_slice(&self.last_lba.to_le_bytes());
         bytes[at::ATTRIBUTES..at::ATTRIBUTES + 8].copy_from_slice(&self.attributes.to_le_bytes());

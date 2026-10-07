@@ -180,12 +180,10 @@ fn take_selector(args: &mut Vec<String>) -> Result<Option<PartitionSelector>, St
             }
             "--partition-type" => {
                 let value = value_for(&flag, inline, &mut it)?;
-                let guid = globally_unique_identifier_partition_table::Guid::try_from_ascii(
-                    value.as_bytes(),
-                )
-                .ok_or_else(|| {
-                    format!("--partition-type wants a 36-character type GUID, not {value:?}")
-                })?;
+                let guid = universally_unique_identifier::Uuid::try_from_ascii(value.as_bytes())
+                    .ok_or_else(|| {
+                        format!("--partition-type wants a 36-character type GUID, not {value:?}")
+                    })?;
                 PartitionSelector::Type(guid)
             }
             _ => {

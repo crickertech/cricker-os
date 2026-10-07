@@ -182,15 +182,15 @@
 #![no_main]
 
 use boot_slot::{SlotHeader, State};
-use entropy_protocol as entropy;
 use file_allocation_table as fat;
 use filesystem_protocol::fixture::blank;
 use filesystem_protocol::{blk, req};
 use globally_unique_identifier_partition_table::entry::Entry;
-use globally_unique_identifier_partition_table::guid::{Guid, types};
+use globally_unique_identifier_partition_table::guid::types;
 use globally_unique_identifier_partition_table::{
     ENTRY_ARRAY_BYTES, GloballyUniqueIdentifierPartitionTable, PRIMARY_HEADER_LBA,
 };
+use universally_unique_identifier::Uuid;
 use user_mode_runtime::{call, send};
 
 /// Slot 0: where the verdict goes. An endpoint with `WRITE`.
@@ -572,18 +572,20 @@ fn install(boot_file_len: u64) -> ! {
     // **Every random byte this install needs, drawn together and before the first write**, so that
     // a process with no entropy endpoint finds out while the disk still holds whatever it held.
     // One id for the disk, one per partition, and one serial for the FAT volume.
-    let mut guids = [Guid::ZERO; 1 + 2 + SLOTS];
+    let mut guids = [Uuid::NIL; 1 + 2 + SLOTS];
     for g in guids.iter_mut() {
-        let Some(bytes) = random16() else {
+        let mut bytes = [0u8; 16];
+        if user_mode_runtime::entropy::fill(ENTROPY, &mut bytes).is_none() {
             send(REPORT, R_NO_ENTROPY, 0, 0);
             user_mode_runtime::exit()
-        };
-        *g = Guid::v4_from_random(bytes);
+        }
+        *g = Uuid::v4_from_random(bytes);
     }
-    let Some(serial) = random16() else {
+    let mut serial = [0u8; 4];
+    if user_mode_runtime::entropy::fill(ENTROPY, &mut serial).is_none() {
         send(REPORT, R_NO_ENTROPY, 0, 0);
         user_mode_runtime::exit()
-    };
+    }
     let volume_id = u32::from_le_bytes([serial[0], serial[1], serial[2], serial[3]]);
 
     let Ok(volume) = fat::Volume::new(
@@ -695,7 +697,7 @@ impl Layout {
 fn write_table(
     layout: &Layout,
     block_count: u64,
-    guids: &[Guid; 1 + 2 + SLOTS],
+    guids: &[Uuid; 1 + 2 + SLOTS],
 ) -> Result<(), u64> {
     let mut entries = [(types::UNUSED, 0u64, 0u64, "", 0u64); 2 + SLOTS];
     entries[0] = (
@@ -896,22 +898,6 @@ fn copy_boot_file(first_block: u64, boot_file_len: u64, step: u64) -> Result<(),
         }
     }
     Ok(())
-}
-
-/// Sixteen random bytes from the entropy service, or `None` if this process holds no entropy
-/// endpoint. Two round trips, because a reply carries one word; `entropy_protocol::delivered` is
-/// what separates "the service answered with n bytes" from "the kernel refused the call".
-fn random16() -> Option<[u8; 16]> {
-    let mut out = [0u8; 16];
-    for half in 0..2 {
-        let (r0, r1) = call(ENTROPY, entropy::req(entropy::GET, entropy::MAX_BYTES), 0);
-        let n = entropy::delivered(r0)?;
-        if n != entropy::MAX_BYTES as usize {
-            return None;
-        }
-        entropy::take(n, r1, &mut out[half * 8..half * 8 + 8]);
-    }
-    Some(out)
 }
 
 /// Lay `data` over the disk starting at logical block `first_lba`, **preserving everything else in

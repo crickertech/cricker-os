@@ -15,3 +15,6 @@ license.workspace = true
 workspace = true
 
 [dependencies]
+# The identifier every entry and the header carry. This crate owns only how a GPT stores one
+# (mixed-endian, `guid::from_disk`/`to_disk`); the type and its text form are RFC 9562's.
+universally_unique_identifier = { version = "0.1.0", path = "../universally_unique_identifier" }

@@ -654,6 +654,9 @@ name_resolution_protocol = { version = "0.1.0", path = "../crates/name_resolutio
 bitmap_font = { version = "0.1.0", path = "../crates/bitmap_font" }
 block_roster = { version = "0.1.0", path = "../crates/block_roster" }
 globally_unique_identifier_partition_table = { version = "0.1.0", path = "../crates/globally_unique_identifier_partition_table" }
+# RFC 9562's UUID: what `uuid` prints and what `disk_partitioner` and `system_installer` stamp
+# before the partition table stores it mixed-endian.
+universally_unique_identifier = { version = "0.1.0", path = "../crates/universally_unique_identifier" }
 file_allocation_table = { version = "0.1.0", path = "../crates/file_allocation_table" }
 # Milestone 198 rung 2b: the two-slot boot state the installer writes into GPT attribute bits and
 # `uefi_loader`'s chooser reads back. One implementation, two programs.
