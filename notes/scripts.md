@@ -2,9 +2,9 @@
 
 Every command you need to work on this repo lives in `script/`, one short file each, with the
 same names GitHub's [Scripts to Rule Them All](https://github.com/github/scripts-to-rule-them-all)
-pattern uses. The whole idea is muscle memory: clone any repo that follows the pattern, run
-`script/setup`, then `script/test`, and you are working. You do not have to learn that this one
-uses `cargo xtask` and that one uses `make` and the next uses `npm`.
+pattern uses. The idea is muscle memory: clone any repo that follows the pattern, run
+`script/setup`, then `script/test`, and you are working, without learning which one uses
+`cargo xtask`, `make` or `npm`.
 
 ## The commands
 
@@ -12,7 +12,7 @@ One table per group. Each links to an appendix holding the full row: flags, gate
 
 ### Build, test and gate
 
-Full rows, with every flag and the history behind each: [build-test-and-gate.md](scripts/build-test-and-gate.md).
+Full rows: [build-test-and-gate.md](scripts/build-test-and-gate.md).
 
 | script | what it does |
 |---|---|
@@ -39,7 +39,7 @@ Full rows, with every flag and the history behind each: [build-test-and-gate.md]
 
 ### The tree's records and indexes
 
-Full rows, with every flag and the history behind each: [records-and-indexes.md](scripts/records-and-indexes.md).
+Full rows: [records-and-indexes.md](scripts/records-and-indexes.md).
 
 | script | what it does |
 |---|---|
@@ -56,7 +56,7 @@ Full rows, with every flag and the history behind each: [records-and-indexes.md]
 
 ### How the project measures itself
 
-Full rows, with every flag and the history behind each: [process-measures.md](scripts/process-measures.md).
+Full rows: [process-measures.md](scripts/process-measures.md).
 
 | script | what it does |
 |---|---|
@@ -70,7 +70,7 @@ Full rows, with every flag and the history behind each: [process-measures.md](sc
 
 ### Boards and boot checks
 
-Full rows, with every flag and the history behind each: [boards-and-boot-checks.md](scripts/boards-and-boot-checks.md).
+Full rows: [boards-and-boot-checks.md](scripts/boards-and-boot-checks.md).
 
 | script | what it does |
 |---|---|
@@ -84,7 +84,7 @@ Full rows, with every flag and the history behind each: [boards-and-boot-checks.
 
 ### Load, concurrency and reliability
 
-Full rows, with every flag and the history behind each: [load-and-reliability.md](scripts/load-and-reliability.md).
+Full rows: [load-and-reliability.md](scripts/load-and-reliability.md).
 
 | script | what it does |
 |---|---|
@@ -98,7 +98,7 @@ Full rows, with every flag and the history behind each: [load-and-reliability.md
 
 ### Analysis, proofs and the supply chain
 
-Full rows, with every flag and the history behind each: [analysis-and-supply-chain.md](scripts/analysis-and-supply-chain.md).
+Full rows: [analysis-and-supply-chain.md](scripts/analysis-and-supply-chain.md).
 
 | script | what it does |
 |---|---|
@@ -132,8 +132,8 @@ it does not use.
 The scripts do almost nothing themselves. `script/test` is `cargo xtask test`; `script/server`
 is `cargo xtask run`; `script/console` is `cargo xtask shell`. `cargo xtask` is still the
 engine and still the place the real build logic lives (and it exposes more than the scripts do:
-`gdb`, `objdump`, `image`, `std-aborts`). The scripts add a normalized interface on top, and nothing was
-duplicated to get it. If you prefer typing `cargo xtask …`, it all still works.
+`gdb`, `objdump`, `image`, `std-aborts`). The scripts add a normalized interface on top, duplicating
+nothing, and `cargo xtask …` still works.
 
 ## `script/` and `helpers/`
 
@@ -145,17 +145,16 @@ has the reasons, the exceptions and the 2026-09-23 rename from `scripts/`.
 ## A piped gate reports the pipe's status, not the gate's
 
 `script/lint | tail -30; echo $?` prints `tail`'s exit code. So does `| grep`, `| head`, and
-every other filter somebody reaches for to make a long gate readable. The gate can fail and the
-shell will say `0`.
+every other filter used to make a long gate readable. The gate can fail and the shell will say `0`.
 
-This is not theoretical and it is not rare. A rename lane on 2026-09-18 read exit 0 from a piped
+This is not theoretical. A rename lane on 2026-09-18 read exit 0 from a piped
 `script/lint` while clippy was failing on a `doc_markdown` error that lane's own edit had
 introduced; it was caught only by re-running the command unpiped. The maintainer session briefing
 that lane had been using the same shape earlier the same night.
 
-It is the worst kind of defect this tree can have in a gate, because it fails in the safe-looking
-direction: a red gate reporting green is indistinguishable from a green one, and the whole point of
-`script/lint` is that a person does not have to read it.
+It is the worst kind of gate defect, because it fails in the safe-looking direction: a red gate
+reporting green looks like a green one, and the point of `script/lint` is that nobody has to read
+it.
 
 Write it as a redirect, and read `$?` before anything else touches it:
 
@@ -165,24 +164,23 @@ exit=0
 $ grep -iE "^error|PROBLEM" /tmp/lint.txt      # now filter, having already read the status
 ```
 
-`set -o pipefail` fixes it inside a script and is what `script/` entry points use; it is not on
-by default in an interactive shell or in most one-liners, which is exactly where this bites.
+`set -o pipefail` fixes it, and `script/` entry points use it; it is off by default in an
+interactive shell and most one-liners, which is where this bites.
 
-Nothing gates this, and nothing plausibly could: a shell pipeline is not something the repository
-can inspect. It is rung four, recorded where somebody about to run a gate is already reading.
+Nothing gates this, and nothing could: the repository cannot inspect a shell pipeline. It is rung
+four, recorded where somebody about to run a gate is already reading.
 
 ## CI leverages them
 
 Every job in `.github/workflows/ci.yml` names one check out of `script/ci-build`'s table
 (milestone 286): the format job runs `script/ci-build fmt`, the clippy job `script/ci-build lint`,
 the suite job `script/ci-build test`, the swish job `script/ci-build swish-check`, the bench job
-`script/ci-build bench` and `script/ci-build icount`, and so on down the file. So CI executes the
-same commands a developer does, out of the same list, and adding a job without adding its row is
-the defect that list exists to prevent. `verify.yml` is the exception and says so: Kani is sharded
+`script/ci-build bench` and `script/ci-build icount`, and so on. CI executes the same commands a
+developer does, from the same list, and a job without a row is the defect that list prevents. `verify.yml` is the exception and says so: Kani is sharded
 across jobs with its own scope predicate, and the table does not claim it.
 
-Before that milestone the set was written down twice, here and in `script/gates`, and nothing
-compared them. All three of the places that explained the difference were stale by 2026-09-13:
+Before that milestone the set was written twice, here and in `script/gates`, and nothing compared
+them. All three places explaining the difference were stale by 2026-09-13:
 `ci.yml` said `script/icount` was not in the local set (it had been since milestone 62), this file
 listed four stages where the script ran six, and `CONTRIBUTING.md` and the pull request template
 both said "five".
@@ -190,14 +188,13 @@ both said "five".
 ## The versioned hooks
 
 `.githooks/` holds hooks the repository owns, wired by `script/setup` with
-`git config core.hooksPath .githooks`. One line rather than copying files into `.git/hooks`,
-because that directory is neither versioned nor shared, and a lane's worktree shares the main
-checkout's `.git`: setting `core.hooksPath` covers every worktree at once, which is the case
-that motivated the first hook.
+`git config core.hooksPath .githooks`, not files copied into `.git/hooks`, which is neither
+versioned nor shared. A lane's worktree shares the main checkout's `.git`, so `core.hooksPath`
+covers every worktree at once, the case that motivated the first hook.
 
 - `pre-push` runs `script/fmt --check` (~0.7 s) and refuses the push if rustfmt would change
-  a file, because CI's `rustfmt` is a required check and learning about a wrapped line from a
-  runner ten minutes later is the slowest possible way to learn it. Every lane on 2026-08-15 and
+  a file, because CI's `rustfmt` is a required check and a runner ten minutes later is the slowest
+  way to learn about a wrapped line. Every lane on 2026-08-15 and
   -16 paid that tax at least once. `git push --no-verify` bypasses it, deliberately: pushing a
   work-in-progress branch for safekeeping is a legitimate reason, and the hook is a courtesy to
   the queue rather than a rule about what may exist on a branch.
@@ -233,9 +230,8 @@ internal move to userspace over time; the backlog is in
 ## Running one kernel test (`script/test --test`)
 
 Milestone 210. A host crate's test is a function a harness calls, so `cargo test <name>` has always
-worked there. A kernel test is not: it runs inside a booted kernel under QEMU, the runner is
-`kernel/src/testing.rs`'s `runner`, and until this flag existed that runner took no filter at all.
-So the only way to see one kernel test was to run all 312 of them.
+worked there. A kernel test runs inside a booted kernel under QEMU, and until this flag
+`kernel/src/testing.rs`'s `runner` took no filter, so seeing one meant running all 312.
 
 ```
 script/test --arch aarch64 --test frames_are_zeroed
@@ -247,8 +243,8 @@ selects a module's worth and a full path selects exactly one.
 
 ### What it costs, measured
 
-The block that minted this guessed that "the boot is most of the four minutes", which would have
-made the flag worth much less than it sounds. It is not. Timed on patagonia, aarch64,
+The block that minted this guessed that "the boot is most of the four minutes". It is not. Timed
+on patagonia, aarch64,
 `cargo xtask test --arch aarch64`:
 
 | | |
@@ -258,8 +254,8 @@ made the flag worth much less than it sounds. It is not. Timed on patagonia, aar
 | the whole `--arch aarch64` run, host crates and builds included | **174 s** |
 | the same run with `--test <one test>`, warm | **8.6 s** |
 
-So the boot is about 1% of the QEMU leg, not most of it, and the flag is worth more than the
-block expected rather than less. What is left in the 8.6 s is the fixture work `test` does before
+So the boot is about 1% of the QEMU leg, and the flag is worth more than the block expected. What
+is left in the 8.6 s is the fixture work `test` does before
 any leg (the userspace archive, the `std` exerciser, and five disk images), not the boot.
 
 How the filter reaches the kernel, and what a filtered run switches off, are in
@@ -311,7 +307,7 @@ nothing is counting across images for it.
   test passes", never as "the suite would".
 - Tests are not independent, and running one alone can fail honestly. A test that only passes
   because an earlier one wired a service will fail on its own. That is a true finding about the
-  test rather than a defect in the flag, and it is worth reading as one.
+  test, not a defect in the flag.
 - The fixture work is not filtered. The 8.6 s above is almost entirely archive and image
   building that happens whether or not the selected test needs a disk. Filtering that too would
   need `test` to know which fixtures a given test wants, which nothing records.
