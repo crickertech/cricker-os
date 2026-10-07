@@ -45,7 +45,7 @@ themselves. The last column is this milestone's result.
 | 23 | The progenitor cannot rebuild after dropping its construction authority | §26 | `kernel::user::authority_tests::init_drops_its_construction_authority_and_cannot_build_again` | **yes, and see below** |
 | 24 | Two shells with different roots cannot name each other's files | §50 (namespace composition, not stored paths) | `kernel::user::shell_navigation_tests::two_shells_with_different_roots_cannot_name_each_others_files`, `grant_plan::job_windows::tests::take_never_hands_out_a_window_whose_last_holder_is_unreaped`, `job_undertaker_tests::job_undertaker_says_which_job_it_reaped_and_only_then_is_its_window_free` | **yes, and see below**; window reuse [closed](../design/roadmap/685-a-job-is-finished-when-its-memory-is-back.md) 2026-10-06 |
 | 25 | A client cannot reach its neighbor's pixels or read the screen | §33 (the compositor's authority is memory, not messages) | `kernel::user::compositor_tests::a_client_holds_no_capability_for_its_neighbours_pixels_or_the_screen` and five more in [compositor-claim-25.md](compositor-claim-25.md) | **yes, six patches, aarch64** |
-| 26 | A client of a rendezvous cannot become its server | §41 (the endpoint is the broker) | `kernel::user::live_swap_tests::a_client_of_the_stable_rendezvous_cannot_become_its_server`; `confinement_attack_tests::a_write_only_rendezvous_holder_cannot_receive_reap_or_survey` | [yes, the second](../system_tests/falsifications/user.confinement_attack_tests.a_write_only_rendezvous_holder_cannot_receive_reap_or_survey.patch); the first hangs, see below |
+| 26 | A client of a rendezvous cannot become its server | §41 (the endpoint is the broker) | `kernel::user::live_swap_tests::a_client_of_the_stable_rendezvous_cannot_become_its_server`; `confinement_attack_tests::a_write_only_rendezvous_holder_cannot_receive_reap_or_survey` | yes, [the first](../system_tests/falsifications/user.live_swap_tests.a_client_of_the_stable_rendezvous_cannot_become_its_server.patch) and [the second](../system_tests/falsifications/user.confinement_attack_tests.a_write_only_rendezvous_holder_cannot_receive_reap_or_survey.patch), see below |
 | 27 | A thread holding no port capability cannot touch a port, and a holder's ports do not leak across a context switch (`x86_64`) | §121, milestone 299 | `kernel::user::x86_port_tests::port_holder_transmits_then_a_non_holder_faults` | **yes, milestone 313, and see below** |
 | 28 | A revoked port holder faults on its next `in`/`out` (`x86_64`) | §121, milestone 299 | `kernel::user::x86_port_tests::a_revoked_holder_faults_on_its_next_port_write` | **yes, milestone 313** |
 | 29 | A thread that deletes its own port capability faults on its next `in`/`out` (`x86_64`) | §12, milestone 313 | `kernel::user::x86_port_tests::a_holder_that_deletes_its_port_capability_faults_on_its_next_port_write` | **yes, milestone 313, and it was false in the tree** |
@@ -53,8 +53,9 @@ themselves. The last column is this milestone's result.
 | 31 | An unvouched child holds no capability its caller did not delegate, beyond two read-only pages | §219 (how the shell names an installed program to the spawner) | `script/swish-check`: `installed/unvouched` | yes, 2026-10-03, swept weekly ([patch](../xtask/falsifications/swish_check.swish_check_boot.patch)) |
 | 32 | The boot shell holds no display device | Milestone 715 (provisional) | `script/swish-check`: the `caps` census on the gpu boots | yes, 2026-10-03, swept weekly ([patch](../xtask/falsifications/swish_check.swish_check_leg.patch)) |
 | 33 | No `WRITE`, no x86_64 port I/O | Milestone 768 (provisional) | `kernel::user::x86_port_tests::a_read_only_port_capability_must_not_grant_port_output` | [yes](../system_tests/falsifications/user.x86_port_tests.a_read_only_port_capability_must_not_grant_port_output.patch) |
+| 34 | A program reaches only the sockets it holds; a socket moves only by its capability | §255 (each socket is its own capability), milestone 649 | `kernel::user::net_confinement_tests::a_squatter_at_a_shared_stack_endpoint_cannot_capture_the_clients_traffic`, `a_socket_moves_by_its_capability_and_a_closed_one_reaches_nothing` | yes: [the squatter](../system_tests/falsifications/user.net_confinement_tests.a_squatter_at_a_shared_stack_endpoint_cannot_capture_the_clients_traffic.patch), [the hand-off](../system_tests/falsifications/user.net_confinement_tests.a_socket_moves_by_its_capability_and_a_closed_one_reaches_nothing.patch) |
 
-Every row carries a replayable record as of 2026-10-06 (UTC), fatal risk 7's second criterion.
+Every row carries a replayable record as of 2026-10-07 (UTC), fatal risk 7's second criterion.
 
 ## Five claims that are stated nowhere, which is what step 1 was for
 
@@ -301,31 +302,21 @@ The `x86_64` leg had no evidence until milestone 323 (the falsification record i
 `U/S` bit while SMAP stays off. Replayed 2026-10-03 (UTC), red at `tests.rs:257` on both. The record
 names `Architecture: aarch64, x86_64`. Read the row as aarch64 twice, `x86_64` once, riscv64 once.
 
-### Row 26 cannot be falsified as written, because a real escape hangs the run
+### Row 26 could not be falsified as written, because a real escape hung the run
 
 `a_client_of_the_stable_rendezvous_cannot_become_its_server` asserts `attack[1] ==
--NotPermitted`, and the honest defect is the one that breaks the claim: delete the kernel's
-`Rights::READ` check on `RECEIVE_CAP`, so a client really can receive on the stable rendezvous. That
-patch was written and run on 2026-09-16, and the result was a 60-second watchdog reading "no
-progress ... a lost-wakeup hang", with a thread dump and not one word about impersonation.
+-NotPermitted`. The honest defect deletes the kernel's `Rights::READ` check on `RECEIVE_CAP`. Run on
+2026-09-16, it gave a 60-second lost-wakeup watchdog and not one word about impersonation.
+`RECEIVE_CAP` blocks, so an attacker the kernel fails to refuse takes the server's message or parks,
+and the run deadlocks. That is milestone 202's wrong-reason red on a third claim, so the row stayed
+unfalsified rather than take an easier defect that only changes which error the refusal returns.
 
-The reason is structural. `RECEIVE_CAP` is a blocking receive. An attacker the kernel fails to
-refuse does not come back and report an escape; it takes the message the honest server was waiting
-for, or parks on the rendezvous, and the run deadlocks. So the assertion that states the claim is
-reachable only when the kernel *does* refuse, and the case it is written about cannot reach it.
-
-**That is milestone 202's wrong-reason red, on a third claim, and a red for the wrong reason is not
-evidence.** The row is `unfalsified` on purpose, the same disposition as row 17's, rather than being
-filled with the easier defect that *does* fire the assertion: changing which error the refusal
-returns makes `attack[1]` wrong while leaving the claim entirely intact, which would put a false
-claim in the record whose whole job is saying what is known.
-
-**Row 26's replayable evidence now sits beside this test** (2026-10-06 (UTC)), and it needed no
-new syscall. Milestone 633 (an outside agent attacks the confinement claim)'s
+Two fixes followed. Milestone 633 (an outside agent attacks the confinement claim)'s
 `a_write_only_rendezvous_holder_cannot_receive_reap_or_survey` parks a sender first, so a let-open
-receive returns instead of blocking; deleting `RECEIVE_CAP`'s check turned it red on aarch64. This
-test still hangs; reshaping `chatty` is attack-shaped, routed to milestone 800 (a non-Anthropic model attacks the
-confinement claim).
+receive returns; deleting the check turned it red on aarch64 (2026-10-06 UTC). Milestone 800 (a
+non-Anthropic model attacks the confinement claim) reshaped `chatty` on 2026-10-07 (UTC): the
+operator retires the last receiver and a plant parks a marker. The first test now fails at its own
+assertion under [its record](../system_tests/falsifications/user.live_swap_tests.a_client_of_the_stable_rendezvous_cannot_become_its_server.patch).
 
 ### One row's falsification proves less than the row looks like it proves
 
