@@ -1,6 +1,6 @@
 # Design proposal: driver domains, and the DMA-confinement design space
 
-**Status:** open idea. Not decided. It is the principled version of a hole we already closed in
+Status: open idea. Not decided. It is the principled version of a hole we already closed in
 software (see notes/dma.md), and it would only be worth building alongside a real SMMU driver and a
 decision to run nife at EL2.
 

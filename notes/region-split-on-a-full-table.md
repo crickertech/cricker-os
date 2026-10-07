@@ -1,6 +1,6 @@
 # A split refused for a full region table
 
-**Status: PROPOSED, for calef.** Filed 2026-09-26 by milestone 601 (the region table prints its
+Status: PROPOSED, for calef. Filed 2026-09-26 by milestone 601 (the region table prints its
 peak), whose number is provisional, from a finding in the lane of milestone 152 (durable
 delegation). Nothing here changes code; the recorded limitation is the `# BUGS` entry on
 `RegionTable::split` in `crates/memory_regions/src/table.rs`, whose doctest is the reproduction.

@@ -198,7 +198,7 @@ block only says what it costs.
 ## Follow-on
 
 - **Milestone 106.** `design/decisions/147-a-timer-a-userspace-service-cannot-hold.md` is
-  **Status: DECIDED** (calef, 2026-09-05: *"option 1, the new object. ... A deadline argument seems
+  decided (calef, 2026-09-05: *"option 1, the new object. ... A deadline argument seems
   like a work around to reduce effort."*), so the fork this spike was minted to force is closed and
   the lines below are the history of how it was put rather than a live question. What remains owed
   is the build, which is 106's, and the two prices above are part of what it costs. The options as

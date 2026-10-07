@@ -225,7 +225,7 @@ Options and reasoning are in [notes/durable-delegation.md](../../notes/durable-d
 5. When `login` builds the session process. Ruled L2 (calef, 2026-09-26); built.
 7. Boot re-derivation moves into `login`; `session_reviver` is retired. Reasoning in
    [the fork 7 appendix](../../notes/durable-delegation/boot-rederivation-in-login.md).
-   **Status: DECIDED**, option A, calef, 2026-09-27; built the same day.
+   Status: DECIDED, option A, calef, 2026-09-27; built the same day.
 8. Which programs a scheduled job may run on the real boot. **Status: DECIDED**, option D (the
    live activation generation), calef, 2026-09-27, on #1377; built the same day.
 6. Where a scheduled job's report goes once nobody is attached. **Status: DECIDED**, option C (no
