@@ -855,6 +855,27 @@ if git grep -nE '^(<{7}|={7}|>{7})( |$)' -- \
 fi
 rm -f "/tmp/nife-conflict-markers.$$"
 
+# Every `uses:` in .github/ is pinned to a full 40-hex commit SHA, with the tag in a trailing
+# comment. A tag is a mutable pointer: whoever controls the action's repository can move `v2` to new
+# code, and that code then runs in a job that holds a token. metrics.yml and toolchain-bump.yml mint
+# the nife-smelter App token in the same job as `Swatinem/rust-cache` and `taiki-e/install-action`,
+# so an unpinned third-party tag was a path from someone else's repository to a write-scoped App
+# token (audit, 2026-10-07 UTC). A local `./` action is in this tree and is exempt. Dependabot's
+# github-actions ecosystem (.github/dependabot.yml) bumps the SHA and the comment together.
+# LINT_ACTIONS_REV, a test hook only, reads another revision (`origin/main`) to watch this fail.
+echo "==> actions are pinned to a commit SHA"
+unpinned="$(git grep -nE '^[[:space:]]*(-[[:space:]]+)?uses:[[:space:]]' ${LINT_ACTIONS_REV:-} -- .github \
+    | grep -vE 'uses:[[:space:]]+\./' \
+    | grep -vE 'uses:[[:space:]]+[^@[:space:]]+@[0-9a-f]{40}([[:space:]]|$)' || true)"
+if [ -n "$unpinned" ]; then
+    echo "lint: a workflow action is not pinned to a 40-hex commit SHA:" >&2
+    echo "$unpinned" >&2
+    echo "lint: resolve it with 'gh api repos/<owner>/<repo>/commits/<tag> --jq .sha' and write" >&2
+    echo "lint: 'uses: <owner>/<repo>@<sha> # <tag>'." >&2
+    exit 1
+fi
+echo "actions: every uses: line is pinned to a commit SHA"
+
 # A TODO marker names the milestone that owns it, or it does not exist (milestone 94).
 #
 # The failure this drains is not untidiness. Work gets identified in media nobody rereads (a lane's

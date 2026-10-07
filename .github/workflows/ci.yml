@@ -282,6 +282,7 @@ jobs:
         run: echo "JOB_STARTED_AT=$(date +%s)" >> "$GITHUB_ENV"
       - id: state
         env:
+          PR_NUMBER: ${{ github.event.pull_request.number }}
           GH_TOKEN: ${{ github.token }}
         run: |
           # A′: a push to `main` whose exact commit a merge group already tested. See the comment
@@ -306,7 +307,7 @@ jobs:
             echo "==> ${{ github.event_name }} is not a pull request; running everything"
             exit 0
           fi
-          draft="$(gh pr view "${{ github.event.pull_request.number }}" \
+          draft="$(gh pr view "$PR_NUMBER" \
                      --repo "$GITHUB_REPOSITORY" --json isDraft -q .isDraft 2>/dev/null || true)"
           if [ "$draft" = "true" ]; then
             echo "run=false" >> "$GITHUB_OUTPUT"
@@ -317,12 +318,15 @@ jobs:
           fi
           exit 0
       # The prose-only rule: see the comment above this job. Only asked when something would run.
-      - uses: actions/checkout@v7
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
           fetch-depth: 0
       - name: Is this change prose that no build or test reads?
         id: prose
         if: steps.state.outputs.run != 'false'
+        env:
+          BASE_REF: ${{ github.event.pull_request.base.ref }}
+          BASE_SHA: ${{ github.event.pull_request.base.sha || github.event.merge_group.base_sha }}
         run: |
           # The base, resolved exactly as the scope checks this replaced resolved it.
           # `helpers/scope-merge-base.sh` (its header has #1416) takes the merge base against the
@@ -331,8 +335,8 @@ jobs:
           # the diff is every queued pull request's changes at once: the group is prose-only only if
           # every pull request in it is.
           base="$(helpers/scope-merge-base.sh \
-              '${{ github.event.pull_request.base.ref }}' \
-              '${{ github.event.pull_request.base.sha || github.event.merge_group.base_sha }}' 2>/dev/null || true)"
+              "$BASE_REF" \
+              "$BASE_SHA" 2>/dev/null || true)"
           # A dispatched run has no event base, and `HEAD~1` alone scoped it to the newest commit:
           # a lane whose last commit was documentation skipped the build its earlier commits needed
           # (#1347, 2026-09-26). Off `main`, the merge base is the whole branch; on `main` it is
@@ -365,7 +369,7 @@ jobs:
     steps:
       - name: Start the job wall-time clock
         run: echo "JOB_STARTED_AT=$(date +%s)" >> "$GITHUB_ENV"
-      - uses: actions/checkout@v7
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
           # Full history: it was for a scope check here that the gate's prose classifier replaced
           # (lane/docs-only-ci, 2026-10-05). Kept rather than dropped untested.
@@ -383,7 +387,7 @@ jobs:
       # script/bootstrap on purpose, because bootstrap skips its apt install when QEMU is already on
       # PATH, which is how the built one wins.
       - name: Cache QEMU
-        uses: actions/cache@v6
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6
         with:
           path: ~/.cache/nife-qemu
           key: qemu-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('.qemu-version') }}
@@ -418,7 +422,7 @@ jobs:
         run: cargo xtask time-summary target/time-record.tsv >> "$GITHUB_STEP_SUMMARY"
       - name: Upload the time record
         if: always() && hashFiles('target/time-record.tsv') != ''
-        uses: actions/upload-artifact@v7
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7
         with:
           name: time-record-test
           path: target/time-record.tsv
@@ -461,7 +465,7 @@ jobs:
     steps:
       - name: Start the job wall-time clock
         run: echo "JOB_STARTED_AT=$(date +%s)" >> "$GITHUB_ENV"
-      - uses: actions/checkout@v7
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
           # Full history: it was for a scope check here that the gate's prose classifier replaced
           # (lane/docs-only-ci, 2026-10-05). Kept rather than dropped untested.
@@ -480,7 +484,7 @@ jobs:
       # script/bootstrap on purpose, because bootstrap skips its apt install when QEMU is already on
       # PATH, which is how the built one wins.
       - name: Cache QEMU
-        uses: actions/cache@v6
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6
         with:
           path: ~/.cache/nife-qemu
           key: qemu-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('.qemu-version') }}
@@ -561,7 +565,7 @@ jobs:
     steps:
       - name: Start the job wall-time clock
         run: echo "JOB_STARTED_AT=$(date +%s)" >> "$GITHUB_ENV"
-      - uses: actions/checkout@v7
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
           # Full history: it was for a scope check here that the gate's prose classifier replaced
           # (lane/docs-only-ci, 2026-10-05). Kept rather than dropped untested.
@@ -580,7 +584,7 @@ jobs:
       # script/bootstrap on purpose, because bootstrap skips its apt install when QEMU is already on
       # PATH, which is how the built one wins.
       - name: Cache QEMU
-        uses: actions/cache@v6
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6
         with:
           path: ~/.cache/nife-qemu
           key: qemu-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('.qemu-version') }}
@@ -634,7 +638,7 @@ jobs:
     steps:
       - name: Start the job wall-time clock
         run: echo "JOB_STARTED_AT=$(date +%s)" >> "$GITHUB_ENV"
-      - uses: actions/checkout@v7
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
           # Full history: it was for a scope check here that the gate's prose classifier replaced
           # (lane/docs-only-ci, 2026-10-05). Kept rather than dropped untested.
@@ -652,7 +656,7 @@ jobs:
       # script/bootstrap on purpose, because bootstrap skips its apt install when QEMU is already on
       # PATH, which is how the built one wins.
       - name: Cache QEMU
-        uses: actions/cache@v6
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6
         with:
           path: ~/.cache/nife-qemu
           key: qemu-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('.qemu-version') }}
@@ -729,7 +733,7 @@ jobs:
     steps:
       - name: Start the job wall-time clock
         run: echo "JOB_STARTED_AT=$(date +%s)" >> "$GITHUB_ENV"
-      - uses: actions/checkout@v7
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
           # Full history: it was for a scope check here that the gate's prose classifier replaced
           # (lane/docs-only-ci, 2026-10-05). Kept rather than dropped untested.
@@ -741,7 +745,7 @@ jobs:
       # The same cached QEMU the test and bench jobs use, restored before script/bootstrap for the
       # same reason (bootstrap skips its apt install when QEMU is already on PATH).
       - name: Cache QEMU
-        uses: actions/cache@v6
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6
         with:
           path: ~/.cache/nife-qemu
           key: qemu-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('.qemu-version') }}
@@ -777,7 +781,7 @@ jobs:
       # written.
       - name: Upload the per-model logs
         if: failure()
-        uses: actions/upload-artifact@v7
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7
         with:
           name: cpu-matrix-logs-${{ matrix.shard }}
           path: target/cpu-matrix/
@@ -788,7 +792,7 @@ jobs:
         run: cargo xtask time-summary target/cpu-matrix/time-record.tsv >> "$GITHUB_STEP_SUMMARY"
       - name: Upload the time record
         if: always() && hashFiles('target/cpu-matrix/time-record.tsv') != ''
-        uses: actions/upload-artifact@v7
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7
         with:
           name: time-record-cpu-matrix-${{ matrix.shard }}
           path: target/cpu-matrix/time-record.tsv
@@ -834,7 +838,7 @@ jobs:
     steps:
       - name: Start the job wall-time clock
         run: echo "JOB_STARTED_AT=$(date +%s)" >> "$GITHUB_ENV"
-      - uses: actions/checkout@v7
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
           fetch-depth: 0
 
@@ -848,11 +852,14 @@ jobs:
       # predicate that was wrong about a path shows up one merge later rather than never.
       - name: Does this change touch the watchdog?
         id: scope
+        env:
+          BASE_REF: ${{ github.event.pull_request.base.ref }}
+          BASE_SHA: ${{ github.event.pull_request.base.sha || github.event.merge_group.base_sha }}
         run: |
           if [ "${{ github.event_name }}" = "push" ]; then echo "needed=true" >> "$GITHUB_OUTPUT"; exit 0; fi
           base="$(helpers/scope-merge-base.sh \
-              '${{ github.event.pull_request.base.ref }}' \
-              '${{ github.event.pull_request.base.sha || github.event.merge_group.base_sha }}' 2>/dev/null || true)"
+              "$BASE_REF" \
+              "$BASE_SHA" 2>/dev/null || true)"
           # A dispatched run has no event base, and `HEAD~1` alone scoped it to the newest commit:
           # a lane whose last commit was documentation skipped the build its earlier commits needed
           # (#1347, 2026-09-26). Off `main`, the merge base is the whole branch; on `main` it is
@@ -872,7 +879,7 @@ jobs:
       # growing. See notes/actions-cache-budget-2026-10-07.md.
       - name: Cache QEMU
         if: steps.scope.outputs.needed == 'true'
-        uses: actions/cache@v6
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6
         with:
           path: ~/.cache/nife-qemu
           key: qemu-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('.qemu-version') }}
@@ -889,7 +896,7 @@ jobs:
         if: steps.scope.outputs.needed == 'true'
       - name: Upload the soak logs
         if: failure()
-        uses: actions/upload-artifact@v7
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7
         with:
           name: watchdog-logs
           path: target/soak-test-*.log
@@ -909,7 +916,7 @@ jobs:
     steps:
       - name: Start the job wall-time clock
         run: echo "JOB_STARTED_AT=$(date +%s)" >> "$GITHUB_ENV"
-      - uses: actions/checkout@v7
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
       - name: Install rustfmt (pinned nightly)
         run: rustup toolchain install nightly --profile minimal --component rustfmt
       - run: script/ci-build fmt
@@ -929,7 +936,7 @@ jobs:
     steps:
       - name: Start the job wall-time clock
         run: echo "JOB_STARTED_AT=$(date +%s)" >> "$GITHUB_ENV"
-      - uses: actions/checkout@v7
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
           # `script/lint` runs `script/roadmap --check`, whose merged-branch check reads
           # `git log --merges`. At the default depth 1 that returns nothing, so the check passed
@@ -961,7 +968,7 @@ jobs:
       # to 3.7 minutes; without `shared-key`, because the three build different graphs and a shared
       # entry would only overwrite itself (calef, #1814, 2026-10-07 UTC). See
       # notes/actions-cache-budget-2026-10-07.md.
-      - uses: Swatinem/rust-cache@v2
+      - uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6 # v2
         with:
           save-if: ${{ github.event_name != 'merge_group' }}
       # cargo-machete (unused dependencies) and typos (spelling), both new gates in script/lint.
@@ -1017,7 +1024,7 @@ jobs:
     steps:
       - name: Start the job wall-time clock
         run: echo "JOB_STARTED_AT=$(date +%s)" >> "$GITHUB_ENV"
-      - uses: actions/checkout@v7
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
       # Every bare-metal target, because this gates every one of them.
       # §19 (architectural parity is a tenet): a fastpath that fits on one ISA and not another is
       # exactly the asymmetry that rule exists to catch. The list said two until 2026-09-23, a month after
@@ -1046,7 +1053,7 @@ jobs:
     steps:
       - name: Start the job wall-time clock
         run: echo "JOB_STARTED_AT=$(date +%s)" >> "$GITHUB_ENV"
-      - uses: actions/checkout@v7
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
       # A release x86_64 kernel and archive, and the UEFI loader, which is the image an install
       # writes into a 64 MiB boot slot (calef, 2026-10-03 UTC). Measured 28 seconds warm on the dev
       # machine; the 20-minute cap is for a cold runner. Its own job because no other job builds a
@@ -1073,7 +1080,7 @@ jobs:
     steps:
       - name: Start the job wall-time clock
         run: echo "JOB_STARTED_AT=$(date +%s)" >> "$GITHUB_ENV"
-      - uses: actions/checkout@v7
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
           fetch-depth: 0
       # No rust-cache in this job (calef, #1814, 2026-10-07 UTC): a hit gained under half a minute,
@@ -1100,7 +1107,7 @@ jobs:
     steps:
       - name: Start the job wall-time clock
         run: echo "JOB_STARTED_AT=$(date +%s)" >> "$GITHUB_ENV"
-      - uses: actions/checkout@v7
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
       - name: Install the bare-metal target
         run: rustup target add aarch64-unknown-none-softfloat
       # Its own job for fastpath-footprint's reason one step further: this needs TWO release builds
@@ -1127,7 +1134,7 @@ jobs:
     steps:
       - name: Start the job wall-time clock
         run: echo "JOB_STARTED_AT=$(date +%s)" >> "$GITHUB_ENV"
-      - uses: actions/checkout@v7
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
       # All three bare-metal targets, because this gates all three (§19, architectural parity is a
       # tenet: an image that obeys W^X on one ISA and not another is exactly the asymmetry that rule
       # exists to catch, and on 2026-08-31 x86_64 was the one that did not).
@@ -1164,7 +1171,7 @@ jobs:
     steps:
       - name: Start the job wall-time clock
         run: echo "JOB_STARTED_AT=$(date +%s)" >> "$GITHUB_ENV"
-      - uses: actions/checkout@v7
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
       # Two of the three bare-metal targets, and this one is a decision rather than a stale list:
       # `script/stack-frame-check` holds x86_64 out of its DEFAULT set, reachable through `--arch`,
       # because widening it found `kernel::arch::x86_64::iommu::init` at 12,504 bytes against a
@@ -1217,7 +1224,7 @@ jobs:
     steps:
       - name: Start the job wall-time clock
         run: echo "JOB_STARTED_AT=$(date +%s)" >> "$GITHUB_ENV"
-      - uses: actions/checkout@v7
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
           # Full history: it was for a scope check here that the gate's prose classifier replaced
           # (lane/docs-only-ci, 2026-10-05). Kept rather than dropped untested.
@@ -1246,7 +1253,7 @@ jobs:
       # script/bootstrap on purpose, because bootstrap skips its apt install when QEMU is already on
       # PATH, which is how the built one wins.
       - name: Cache QEMU
-        uses: actions/cache@v6
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6
         with:
           path: ~/.cache/nife-qemu
           key: qemu-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('.qemu-version') }}
@@ -1303,7 +1310,7 @@ jobs:
     steps:
       - name: Start the job wall-time clock
         run: echo "JOB_STARTED_AT=$(date +%s)" >> "$GITHUB_ENV"
-      - uses: actions/checkout@v7
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
       # A prebuilt binary rather than `cargo install`, the same trade the coverage job makes: this
       # job compiles nothing of ours, so it has no business compiling a tool either. The version
       # comes from .cargo-deny-version so this and script/supply-chain cannot disagree, which they
@@ -1312,13 +1319,13 @@ jobs:
       - name: Read the pinned cargo-deny version
         id: deny
         run: echo "version=$(cat .cargo-deny-version)" >> "$GITHUB_OUTPUT"
-      - uses: taiki-e/install-action@v2.87.22
+      - uses: taiki-e/install-action@83ac0ad63c0167e6f06796fab0fce28db1bf3db0 # v2.87.22
         with:
           tool: cargo-deny@${{ steps.deny.outputs.version }}
       # The published .crate tarballs script/vendor-verify hashes. Keyed on the pin files, so
       # changing a pin correctly misses the cache and refetches. A miss costs one HTTP request.
       - name: Cache the vendored tarballs
-        uses: actions/cache@v6
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6
         with:
           path: ~/.cache/nife-vendor
           key: nife-vendor-${{ hashFiles('vendor/*.pin') }}
@@ -1345,7 +1352,7 @@ jobs:
     steps:
       - name: Start the job wall-time clock
         run: echo "JOB_STARTED_AT=$(date +%s)" >> "$GITHUB_ENV"
-      - uses: actions/checkout@v7
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
           # Full history: it was for a scope check here that the gate's prose classifier replaced
           # (lane/docs-only-ci, 2026-10-05). Kept rather than dropped untested.
@@ -1411,7 +1418,7 @@ jobs:
     steps:
       - name: Start the job wall-time clock
         run: echo "JOB_STARTED_AT=$(date +%s)" >> "$GITHUB_ENV"
-      - uses: actions/checkout@v7
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
           # Full history: it was for a scope check here that the gate's prose classifier replaced
           # (lane/docs-only-ci, 2026-10-05). Kept rather than dropped untested.
@@ -1419,7 +1426,7 @@ jobs:
 
       - name: Install llvm-tools (pinned nightly)
         run: rustup toolchain install nightly --profile minimal --component llvm-tools
-      - uses: taiki-e/install-action@v2.87.22
+      - uses: taiki-e/install-action@83ac0ad63c0167e6f06796fab0fce28db1bf3db0 # v2.87.22
         with:
           tool: cargo-llvm-cov
       # No rust-cache in this job (calef, #1814, 2026-10-07 UTC): a hit gained under half a minute,
@@ -1438,7 +1445,7 @@ jobs:
             echo '```'
           } >> "$GITHUB_STEP_SUMMARY"
       - name: Upload the lcov + HTML report
-        uses: actions/upload-artifact@v7
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7
         with:
           name: coverage-report
           path: target/llvm-cov/

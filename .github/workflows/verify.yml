@@ -113,6 +113,7 @@ jobs:
     steps:
       - id: state
         env:
+          PR_NUMBER: ${{ github.event.pull_request.number }}
           GH_TOKEN: ${{ github.token }}
         run: |
           # A′: a push to `main` whose exact commit a merge group already tested. See the comment
@@ -137,7 +138,7 @@ jobs:
             echo "==> ${{ github.event_name }} is not a pull request; running everything"
             exit 0
           fi
-          draft="$(gh pr view "${{ github.event.pull_request.number }}" \
+          draft="$(gh pr view "$PR_NUMBER" \
                      --repo "$GITHUB_REPOSITORY" --json isDraft -q .isDraft 2>/dev/null || true)"
           if [ "$draft" = "true" ]; then
             echo "run=false" >> "$GITHUB_OUTPUT"
@@ -151,17 +152,20 @@ jobs:
       # ci.yml's gate, whose comment has the reasoning. A Markdown change no code reads cannot reach
       # a proof, and skipping `verify (Kani proofs)` at the job level reports Success, which is what
       # the ruleset requires; `scope` already concluded "not needed" for it, one runner later.
-      - uses: actions/checkout@v7
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         if: steps.state.outputs.run != 'false'
         with:
           fetch-depth: 0
       - name: Is this change prose that no build or test reads?
         id: prose
         if: steps.state.outputs.run != 'false'
+        env:
+          BASE_REF: ${{ github.event.pull_request.base.ref }}
+          BASE_SHA: ${{ github.event.pull_request.base.sha || github.event.merge_group.base_sha }}
         run: |
           base="$(helpers/scope-merge-base.sh \
-              '${{ github.event.pull_request.base.ref }}' \
-              '${{ github.event.pull_request.base.sha || github.event.merge_group.base_sha }}' 2>/dev/null || true)"
+              "$BASE_REF" \
+              "$BASE_SHA" 2>/dev/null || true)"
           [ -n "$base" ] || base="$(git merge-base HEAD origin/main 2>/dev/null || true)"
           [ -n "$base" ] && [ "$base" != "$(git rev-parse HEAD)" ] || base="$(git rev-parse HEAD~1 2>/dev/null || git rev-parse HEAD)"
           echo "==> classifying $base..HEAD"
@@ -178,13 +182,15 @@ jobs:
       falsify-shards: ${{ steps.plan.outputs.shards }}
       falsify-count: ${{ steps.plan.outputs.count }}
     steps:
-      - uses: actions/checkout@v7
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
           fetch-depth: 0
       - name: Does this change need the proofs?
         id: scope
+        env:
+          BASE_SHA: ${{ github.event.pull_request.base.sha || github.event.merge_group.base_sha }}
         run: |
-          base="${{ github.event.pull_request.base.sha || github.event.merge_group.base_sha }}"
+          base="$BASE_SHA"
           # A dispatched run has no event base, and `HEAD~1` alone scoped it to the newest commit:
           # a lane whose last commit was documentation skipped the build its earlier commits needed
           # (#1347, 2026-09-26). Off `main`, the merge base is the whole branch; on `main` it is
@@ -236,11 +242,11 @@ jobs:
       matrix:
         shard: [1, 2, 3]
     steps:
-      - uses: actions/checkout@v7
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
       # `save-if`: no rust-cache entry is saved from a merge group, since no later run can restore
       # it. The measurement is at ci.yml's first rust-cache step and in
       # notes/actions-cache-budget-2026-10-07.md.
-      - uses: Swatinem/rust-cache@v2
+      - uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6 # v2
         with:
           save-if: ${{ github.event_name != 'merge_group' }}
       # **Not cached, on a measurement** (2026-10-07 UTC, lane/cache-kani, after calef's "We should
@@ -316,7 +322,7 @@ jobs:
     # solver fails loudly rather than sitting on the runner's 6-hour default.
     timeout-minutes: 45
     steps:
-      - uses: actions/checkout@v7
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
       # No rust-cache in this job (calef, #1814, 2026-10-07 UTC): a hit gained under half a minute,
       # and without it the time the step spent moves into the first cargo build rather than
       # growing. See notes/actions-cache-budget-2026-10-07.md.
@@ -357,7 +363,7 @@ jobs:
     # enough that a hung solver fails loudly.
     timeout-minutes: 60
     steps:
-      - uses: actions/checkout@v7
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
       # No rust-cache in this job (calef, #1814, 2026-10-07 UTC): a hit gained under half a minute,
       # and without it the time the step spent moves into the first cargo build rather than
       # growing. See notes/actions-cache-budget-2026-10-07.md.
@@ -367,7 +373,7 @@ jobs:
         id: kani
         run: echo "patch=$(basename patches/kani-*-riscv64-target.patch .patch)" >> "$GITHUB_OUTPUT"
       - name: Cache the patched Kani
-        uses: actions/cache@v6
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6
         with:
           path: ~/.cache/nife-kani-riscv64
           key: kani-riscv64-${{ runner.os }}-${{ runner.arch }}-${{ steps.kani.outputs.patch }}-${{ hashFiles('patches/kani-*-riscv64-target.patch', 'script/verify-riscv64') }}
@@ -443,10 +449,10 @@ jobs:
       matrix:
         shard: ${{ fromJSON(needs.scope.outputs.falsify-shards) }}
     steps:
-      - uses: actions/checkout@v7
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
           fetch-depth: 0
-      - uses: Swatinem/rust-cache@v2
+      - uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6 # v2
         with:
           save-if: ${{ github.event_name != 'merge_group' }}
       # Not cached; the `prove` job's comment has the measurement.

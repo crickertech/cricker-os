@@ -173,7 +173,7 @@ jobs:
         # measured less; the same 9,857 mutants are attempted, in smaller pieces.
         shard: [0, 1, 2, 3, 4, 5, 6, 7]
     steps:
-      - uses: actions/checkout@v7
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
 
       - name: Install the pinned toolchain
         run: rustup show active-toolchain || rustup toolchain install
@@ -185,11 +185,11 @@ jobs:
       - name: Read the pinned cargo-mutants version
         id: mutants
         run: echo "version=$(cat .cargo-mutants-version)" >> "$GITHUB_OUTPUT"
-      - uses: taiki-e/install-action@v2.87.22
+      - uses: taiki-e/install-action@83ac0ad63c0167e6f06796fab0fce28db1bf3db0 # v2.87.22
         with:
           tool: cargo-mutants@${{ steps.mutants.outputs.version }}
 
-      - uses: Swatinem/rust-cache@v2
+      - uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6 # v2
 
       # script/mutation runs -j 2, and that bound is load-bearing here too: each job holds a full
       # tree copy with its own target/, and the run that established the baseline OOM-killed a
@@ -228,7 +228,7 @@ jobs:
       # below states which shards it actually saw.
       - name: Upload this shard's outcomes
         if: always()
-        uses: actions/upload-artifact@v7
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7
         with:
           name: mutants-shard-${{ matrix.shard }}
           path: |
@@ -245,9 +245,9 @@ jobs:
     runs-on: ubuntu-24.04-arm
     timeout-minutes: 10
     steps:
-      - uses: actions/checkout@v7
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
       - name: Download every shard's outcomes
-        uses: actions/download-artifact@v8
+        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8
         with:
           pattern: mutants-shard-*
           path: shards
@@ -309,12 +309,12 @@ jobs:
     steps:
       # Full history: the blame walks every commit that wrote a new survivor's line, and
       # `merge-base --is-ancestor` needs the previous census's commit.
-      - uses: actions/checkout@v7
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
           fetch-depth: 0
 
       - name: Download every shard's outcomes
-        uses: actions/download-artifact@v8
+        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8
         with:
           pattern: mutants-shard-*
           path: shards
@@ -353,7 +353,7 @@ jobs:
 
       - name: Keep this census's survivor list
         if: steps.shards.outputs.complete == 'true'
-        uses: actions/upload-artifact@v7
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7
         with:
           name: mutation-inflow
           path: inflow/
@@ -380,7 +380,7 @@ jobs:
       contents: write
       pull-requests: write
     steps:
-      - uses: actions/create-github-app-token@v3
+      - uses: actions/create-github-app-token@bcd2ba49218906704ab6c1aa796996da409d3eb1 # v3
         id: app-token
         with:
           app-id: ${{ secrets.AUTOMATION_APP_ID }}
@@ -391,16 +391,16 @@ jobs:
           permission-contents: write
           permission-pull-requests: write
 
-      - uses: actions/checkout@v7
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
           token: ${{ steps.app-token.outputs.token }}
 
-      - uses: actions/download-artifact@v8
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8
         with:
           pattern: mutants-shard-*
           path: shards
 
-      - uses: actions/download-artifact@v8
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8
         with:
           name: mutation-inflow
           path: inflow
