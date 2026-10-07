@@ -220,15 +220,17 @@ fn a_read_only_holder_cannot_send_and_an_ungranted_slot_names_nothing() {
 /// returns the new `PageFrame` with `Rights::ALL`, GRANT included, through the real dispatcher, so a
 /// holder of a non-delegating budget can retype a page and then delegate it. The "rights only
 /// narrow" sentence is true of the region, not of what is carved from it. It is the holder's own
-/// memory, so this is a scope gap rather than a cross-domain reach, and a claim or ruling is owed
-/// (`kernel/src/cap.rs` records it). This asserts the gap at boot so it cannot close unnoticed:
+/// memory, so this is a scope gap rather than a cross-domain reach, and the ruling it was owed has
+/// come (`kernel/src/cap.rs` records it). This asserts the gap at boot so it cannot close unnoticed:
 /// should the retype side ever withhold GRANT, the GRANT assertion below flips and this test is the
 /// thing that says so.
 ///
 /// Falsification: unfalsified. It characterizes behavior the tree has today rather than guarding a
 /// property: a patch that withheld `GRANT` from a retype would turn it red, and that is the change it
-/// exists to announce, not a break. Whether retypes should withhold `GRANT` is an architect's
-/// question carried in milestone 633's block.
+/// exists to announce, not a break. Ruled (a) (calef, 2026-10-07, PR #1798): retypes should
+/// withhold `GRANT`, the intersection rule, so when the fix lands this characterization becomes a
+/// held assertion. The question was carried in milestone 633's block, which records the ruling;
+/// the fix is milestone 824 (a retype mints no right its budget lacks).
 #[test_case]
 fn a_grant_less_budget_mints_a_grant_bearing_frame() {
     let region = crate::memory_region::create(8).expect("no region");

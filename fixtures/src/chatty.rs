@@ -88,6 +88,7 @@ pub extern "C" fn _start(role: u64, _a1: u64, _a2: u64) -> ! {
         swap_protocol::ROLE_USURPER => usurp(),
         swap_protocol::ROLE_CONFUSED => confused_deputy(),
         swap_protocol::ROLE_PRODUCER => produce(),
+        swap_protocol::ROLE_PLANT => plant(),
         _ => converse(),
     }
 }
@@ -217,8 +218,28 @@ fn usurp() -> ! {
         abi::rendezvous::RECEIVE_CAP,
     );
     // Also say so on the operator's channel, so the operator knows the attack has been made and the
-    // run is not simply missing a report.
-    send(NOTE, swap_protocol::NOTE_ATTACK_DONE, 0, 0);
+    // run is not simply missing a report. `w1` carries the verdict, mirroring the report's word:
+    // the operator must tell a stolen plant message from a slow plant before the report is read.
+    send(NOTE, swap_protocol::NOTE_ATTACK_DONE, (-r) as u64, 0);
+    user_mode_runtime::exit()
+}
+
+/// **The plant** (milestone 800 (a non-Anthropic model attacks the confinement claim), fourth pass).
+/// Not an attacker: an instrument for the usurper's. A `RECEIVE_CAP` the kernel fails to refuse has
+/// nothing to take when the endpoint's queue is empty, so it blocks, and the break surfaces as a
+/// watchdog hang instead of a red assertion: the wrong-reason red milestone 202 (every confinement
+/// test is a ritual until somebody breaks the confinement) recorded, and the
+/// reason claim 26's own test could never fail. This role parks a message on the endpoint first,
+/// so a let-open `RECEIVE_CAP` *returns* it (the kernel's `sched::ipc_receive_cap` takes any parked sender's word),
+/// and the usurper's report carries a word nothing honest produces
+/// ([`swap_protocol::PLANT_MARKER`]).
+///
+/// It parks one plain `SEND` and exits when anyone takes it: the usurper, on a kernel that let
+/// one through, or the operator's bounded receive, on one that refused it. Every interleaving
+/// works without any handshake: if the usurper's try has already parked as a receiver, the send
+/// delivers to it directly.
+fn plant() -> ! {
+    send(SVC, swap_protocol::PLANT_MARKER, 0, 0);
     user_mode_runtime::exit()
 }
 
@@ -245,7 +266,7 @@ fn confused_deputy() -> ! {
         swap_protocol::DEPUTY_PROBE,
     );
     send(RPT, swap_protocol::RPT_DEPUTY, d0, d1);
-    send(NOTE, swap_protocol::NOTE_ATTACK_DONE, 0, 0);
+    send(NOTE, swap_protocol::NOTE_ATTACK_DONE, (-r) as u64, 0);
     user_mode_runtime::exit()
 }
 
