@@ -14,7 +14,7 @@ maintainer session on 2026-10-07 (UTC), recording a ruling by calef the same day
 ## The ruling
 
 calef answered "B" on 2026-10-07 (UTC) to the question `design/fatal-risks/multicore-reliability.md`
-asks in its item 4 and milestone 201's Follow-on asks again: how long must a multicore soak run
+asks in its item 4 and milestone 201 (is multicore reliability converging)'s Follow-on asks again: how long must a multicore soak run
 before a board's rows count toward risk 5's verdict.
 
 A board's exposure rows count toward the verdict for an architecture once that architecture has
