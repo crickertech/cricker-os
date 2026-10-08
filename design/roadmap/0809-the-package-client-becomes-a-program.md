@@ -2,7 +2,7 @@
 status: NOT-STARTED
 raised: 2026-10-06
 promoted_from: the-package-client-becomes-a-program
-milestone_dependencies: 198, 205
+milestone_dependencies: 205
 decision_dependencies: unwritten
 machine_requirements: none
 specific_machine: none
@@ -13,6 +13,13 @@ needs_person: no
 *(Promoted from the proposal pile on 2026-10-07 (UTC), calef: "Promote jig to a milestone." The
 number is provisional until the merge queue lands it. `jig` is ratified; the title, slug and verb
 spellings are drafts. Later rulings are in the work list and the forks table.)*
+
+*Dependencies corrected 2026-10-07 (UTC) by this milestone's lane: the block named milestone 198 (a
+package manager), which since the 2026-10-06 split is the umbrella over 801 and 802, and 802 names
+this block, so the three waited on each other forever. What this block uses from 198 is rung 3a,
+complete on 2026-10-05 inside 198 (`package_archive`, `activation_set`, the builtin's install,
+remove and rollback, and the fetch): it is built and has no milestone of its own, so the edge
+blocked nothing true and is gone. `script/roadmap --check` now refuses a cycle.*
 
 calef ruled on 2026-10-06 (UTC) that the package client must be a program, not a shell builtin, and
 named six things it must do. Lane `package-program` wrote this that day and built nothing.
