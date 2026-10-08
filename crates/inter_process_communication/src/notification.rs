@@ -29,7 +29,7 @@
 //!
 //! ```
 //! use core::ptr::NonNull;
-//! use intrusive_fifo::Node;
+//! use intrusive_fifo::{Node, Unqueued};
 //! use inter_process_communication::notification::{Notification, Signal, Wait};
 //!
 //! struct ThreadControlBlock {
@@ -53,14 +53,19 @@
 //! assert_eq!(n.signal(0b01, false), Signal::Counted);
 //! assert_eq!(n.signal(0b10, false), Signal::Counted);
 //!
-//! // A wait takes the whole word and clears it, without blocking.
-//! // SAFETY: `waiter` is a live local declared before `n`, on no queue.
-//! assert_eq!(unsafe { n.wait(NonNull::from(&mut waiter)) }, Wait::Word(0b11));
+//! // SAFETY: `waiter` is a live local declared before `n`, on no queue, minted once.
+//! let token = unsafe { Unqueued::new(NonNull::from(&mut waiter)) };
+//!
+//! // A wait takes the whole word and clears it, without blocking, and hands the token back.
+//! let Wait::Word(word, token) = n.wait(token) else { panic!("blocked on a non-zero word") };
+//! assert_eq!(word, 0b11);
 //!
 //! // The next wait finds nothing and queues; a signal now wakes it with its bits, already dequeued.
-//! // SAFETY: as above.
-//! assert_eq!(unsafe { n.wait(NonNull::from(&mut waiter)) }, Wait::Blocked);
-//! assert_eq!(n.signal(0b100, false), Signal::Woke(NonNull::from(&mut waiter), 0b100));
+//! assert_eq!(n.wait(token), Wait::Blocked);
+//! match n.signal(0b100, false) {
+//!     Signal::Woke(woken, bits) => assert!(woken == NonNull::from(&mut waiter) && bits == 0b100),
+//!     other => panic!("{other:?}"),
+//! }
 //! assert!(n.is_idle());
 //! ```
 //!
@@ -69,7 +74,7 @@
 
 use core::ptr::NonNull;
 
-use intrusive_fifo::{Fifo, Node};
+use intrusive_fifo::{Fifo, Node, Unqueued};
 
 /// One notification object: the accumulated word and the threads waiting for it to become
 /// non-zero.
@@ -84,8 +89,8 @@ pub struct Notification<T: Node> {
 /// What a [`signal`](Notification::signal) decided.
 pub enum Signal<T> {
     /// A thread was waiting on the notification itself: deliver this word to it and wake it. It is
-    /// already off the queue.
-    Woke(NonNull<T>, u64),
+    /// already off the queue, and this is its token.
+    Woke(Unqueued<T>, u64),
     /// Nobody waited here, and the bound thread is parked in a receive on an endpoint: deliver this
     /// word to it there (the kernel unlinks it from that endpoint's queue). The word is cleared.
     ToBound(u64),
@@ -95,13 +100,34 @@ pub enum Signal<T> {
     Empty,
 }
 
-/// What a [`wait`](Notification::wait) decided.
-#[derive(Debug, PartialEq, Eq)]
-pub enum Wait {
-    /// The word was non-zero: here it is, and it is now clear. The caller does not block.
-    Word(u64),
-    /// The word was zero: the caller is now queued and should block.
+/// What a [`wait`](Notification::wait) decided. As for the rendezvous's verdicts, the one that
+/// leaves the caller off the queue hands its token back (milestone 139 (drive the unsafe count
+/// down), round 10).
+pub enum Wait<T> {
+    /// The word was non-zero: here it is, and it is now clear. The caller does not block, and keeps
+    /// its token.
+    Word(u64, Unqueued<T>),
+    /// The word was zero: the caller is now queued, holding its token, and should block.
     Blocked,
+}
+
+impl<T> PartialEq for Wait<T> {
+    fn eq(&self, other: &Self) -> bool {
+        match (self, other) {
+            (Wait::Word(x, a), Wait::Word(y, b)) => x == y && a.as_non_null() == b.as_non_null(),
+            (Wait::Blocked, Wait::Blocked) => true,
+            _ => false,
+        }
+    }
+}
+impl<T> Eq for Wait<T> {}
+impl<T> core::fmt::Debug for Wait<T> {
+    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
+        match self {
+            Wait::Word(w, t) => f.debug_tuple("Word").field(w).field(t).finish(),
+            Wait::Blocked => f.write_str("Blocked"),
+        }
+    }
 }
 
 // Manual impls, for the reason the rendezvous's `Send` gives: only the pointer is compared, and the
@@ -109,7 +135,9 @@ pub enum Wait {
 impl<T> PartialEq for Signal<T> {
     fn eq(&self, other: &Self) -> bool {
         match (self, other) {
-            (Signal::Woke(a, x), Signal::Woke(b, y)) => a == b && x == y,
+            (Signal::Woke(a, x), Signal::Woke(b, y)) => {
+                a.as_non_null() == b.as_non_null() && x == y
+            }
             (Signal::ToBound(x), Signal::ToBound(y)) => x == y,
             (Signal::Counted, Signal::Counted) | (Signal::Empty, Signal::Empty) => true,
             _ => false,
@@ -194,17 +222,14 @@ impl<T: Node> Notification<T> {
     /// **A thread `me` waits.** Take the word if it is non-zero; otherwise queue `me`, and the
     /// caller blocks it.
     ///
-    /// # Safety
-    ///
-    /// `me` must satisfy the intrusive contract: valid, on no queue, and valid for as long as it
-    /// may be queued here (the kernel: `me` is the running thread, and a queued thread is
-    /// `Blocked`, which the reaper never frees).
-    pub unsafe fn wait(&mut self, me: NonNull<T>) -> Wait {
+    /// Safe since milestone 139's round 10: `me` is the waiter's token, which carries what this
+    /// used to ask the caller to promise (the kernel: `me` is the running thread, and a queued
+    /// thread is `Blocked`, which the reaper never frees).
+    pub fn wait(&mut self, me: Unqueued<T>) -> Wait<T> {
         if self.word != 0 {
-            Wait::Word(core::mem::take(&mut self.word))
+            Wait::Word(core::mem::take(&mut self.word), me)
         } else {
-            // SAFETY: the caller's contract is exactly the queue's.
-            unsafe { self.waiters.push_back(me) };
+            self.waiters.push_back(me);
             Wait::Blocked
         }
     }
@@ -216,24 +241,20 @@ impl<T: Node> Notification<T> {
         core::mem::take(&mut self.word)
     }
 
-    /// **Take one specific waiter back off the queue**, returning whether it was there. For a
+    /// **Take one specific waiter back off the queue**, returning its token if it was there. For a
     /// teardown that ends a thread blocked in `WAIT` (`finish_blocked_resident`, from milestone 133 (ending a permanently blocked thread)),
     /// which must unlink it before its page is freed. Drain-and-repush, the rendezvous's own shape
-    /// ([`Rendezvous::remove_receiver`](crate::Rendezvous::remove_receiver)) and for its reason.
-    ///
-    /// # Safety
-    ///
-    /// `victim` is compared by pointer and never dereferenced. Every other waiter is popped and
-    /// pushed again, so each must still satisfy the queue's contract.
-    pub unsafe fn remove_waiter(&mut self, victim: NonNull<T>) -> bool {
+    /// ([`Rendezvous::remove_receiver`](crate::Rendezvous::remove_receiver)) and for its reason,
+    /// and safe for its reason too: `victim` is only compared, and every other waiter goes back
+    /// with the token its own pop handed over.
+    pub fn remove_waiter(&mut self, victim: NonNull<T>) -> Option<Unqueued<T>> {
         let mut kept: Fifo<T> = Fifo::new();
-        let mut found = false;
+        let mut found = None;
         while let Some(node) = self.waiters.pop_front() {
             if node == victim {
-                found = true;
+                found = Some(node);
             } else {
-                // SAFETY: just popped from this queue, so it is valid and on no queue.
-                unsafe { kept.push_back(node) };
+                kept.push_back(node);
             }
         }
         self.waiters = kept;
@@ -241,8 +262,8 @@ impl<T: Node> Notification<T> {
     }
 
     /// **Empty the wait queue, handing every waiter to `f`** (the notification is being destroyed).
-    /// Each is popped before `f` sees it, so `f` may queue it elsewhere.
-    pub fn drain_waiters(&mut self, mut f: impl FnMut(NonNull<T>)) {
+    /// Each is popped before `f` sees it, token and all, so `f` may queue it elsewhere.
+    pub fn drain_waiters(&mut self, mut f: impl FnMut(Unqueued<T>)) {
         while let Some(w) = self.waiters.pop_front() {
             f(w);
         }
@@ -259,9 +280,9 @@ impl<T: Node> Default for Notification<T> {
 /// inductive steps from an arbitrary valid state, with a non-empty queue modelled as one waiter,
 /// because every decision here depends on whether the queue is *empty* and never on its length.
 ///
-/// The obligations every `unsafe` call discharges are the rendezvous harness's, stated there once:
-/// every node is declared before the notification (so it outlives it), and no node is handed to
-/// two calls.
+/// The only `unsafe` left is minting tokens, and its obligations are the rendezvous harness's,
+/// stated there once: every node is declared before the notification (so it outlives it), and no
+/// node is minted twice.
 #[cfg(kani)]
 mod verification {
     use super::*;
@@ -286,17 +307,22 @@ mod verification {
         }
     }
 
-    /// An arbitrary valid state: either a symbolic non-zero word and nobody waiting, or a zero word
-    /// and at most one waiter.
+    /// Mint `n`'s token.
     ///
     /// # Safety
-    /// `waiter` must be valid, unqueued, and outlive `n`.
-    unsafe fn seed(n: &mut Notification<N>, waiter: NonNull<N>) {
+    /// `n` is a harness local declared before the notification, on no queue, and minted only once.
+    unsafe fn mint(n: &mut N) -> Unqueued<N> {
+        // SAFETY: this function's own contract is `Unqueued::new`'s.
+        unsafe { Unqueued::new(NonNull::from(n)) }
+    }
+
+    /// An arbitrary valid state: either a symbolic non-zero word and nobody waiting, or a zero word
+    /// and at most one waiter. Safe: the waiter arrives as a token.
+    fn seed(n: &mut Notification<N>, waiter: Unqueued<N>) {
         if kani::any() {
             n.word = kani::any();
         } else if kani::any() {
-            // SAFETY: this function's own contract.
-            unsafe { n.waiters.push_back(waiter) };
+            n.waiters.push_back(waiter);
         }
     }
 
@@ -310,22 +336,21 @@ mod verification {
         let (mut w, mut me) = (N::new(), N::new());
         let waiter = NonNull::from(&mut w);
         let mut n: Notification<N> = Notification::new();
-        // SAFETY: `w` is a fresh node declared before `n`.
-        unsafe { seed(&mut n, waiter) };
+        // SAFETY: two distinct fresh nodes declared before `n`, each minted once.
+        let (w, me) = unsafe { (mint(&mut w), mint(&mut me)) };
+        seed(&mut n, w);
         match kani::any::<u8>() {
             0 => {
-                n.signal(kani::any(), kani::any());
+                let _ = n.signal(kani::any(), kani::any());
             }
             1 => {
-                // SAFETY: `me` is a second fresh node declared before `n`, never given to `seed`.
-                unsafe { n.wait(NonNull::from(&mut me)) };
+                let _ = n.wait(me);
             }
             2 => {
                 n.poll();
             }
             _ => {
-                // SAFETY: compared by pointer; the only other node the queue can hold is `w`.
-                unsafe { n.remove_waiter(waiter) };
+                let _ = n.remove_waiter(waiter);
             }
         }
         assert!(n.invariant_holds());
@@ -338,8 +363,8 @@ mod verification {
     fn a_signal_loses_no_bit() {
         let mut w = N::new();
         let mut n: Notification<N> = Notification::new();
-        // SAFETY: `w` is a fresh node declared before `n`.
-        unsafe { seed(&mut n, NonNull::from(&mut w)) };
+        // SAFETY: `w` is a fresh node declared before `n`, minted once.
+        seed(&mut n, unsafe { mint(&mut w) });
         let before = n.word;
         let bits: u64 = kani::any();
         let delivered = match n.signal(bits, kani::any()) {
@@ -358,8 +383,8 @@ mod verification {
         let mut w = N::new();
         let waiter = NonNull::from(&mut w);
         let mut n: Notification<N> = Notification::new();
-        // SAFETY: `w` is a fresh node declared before `n`.
-        unsafe { seed(&mut n, waiter) };
+        // SAFETY: `w` is a fresh node declared before `n`, minted once; `waiter` is only compared.
+        seed(&mut n, unsafe { mint(&mut w) });
         let had_waiter = !n.waiters.is_empty();
         let bits: u64 = kani::any();
         kani::assume(bits != 0);
@@ -367,7 +392,7 @@ mod verification {
         match n.signal(bits, bound) {
             Signal::Woke(got, _) => {
                 assert!(had_waiter);
-                assert_eq!(got, waiter);
+                assert!(got == waiter);
             }
             Signal::ToBound(_) => assert!(!had_waiter && bound),
             Signal::Counted => assert!(!had_waiter && !bound),
@@ -383,12 +408,12 @@ mod verification {
     fn a_wait_returns_a_nonzero_word_or_blocks() {
         let (mut w, mut me) = (N::new(), N::new());
         let mut n: Notification<N> = Notification::new();
-        // SAFETY: `w` is a fresh node declared before `n`.
-        unsafe { seed(&mut n, NonNull::from(&mut w)) };
+        // SAFETY: two distinct fresh nodes declared before `n`, each minted once.
+        let (w, me) = unsafe { (mint(&mut w), mint(&mut me)) };
+        seed(&mut n, w);
         let before = n.word;
-        // SAFETY: `me` is a second fresh node declared before `n`, never given to `seed`.
-        match unsafe { n.wait(NonNull::from(&mut me)) } {
-            Wait::Word(word) => {
+        match n.wait(me) {
+            Wait::Word(word, _) => {
                 assert!(word != 0);
                 assert_eq!(word, before);
                 assert_eq!(n.word, 0);
@@ -416,6 +441,13 @@ mod tests {
         }
     }
 
+    /// Mint a boxed node's token. Every test calls this once per node, on a `Box` declared before
+    /// its notification, so the node outlives it and is on no queue yet.
+    fn token(n: &mut Box<N>) -> Unqueued<N> {
+        // SAFETY: as the doc comment says.
+        unsafe { Unqueued::new(NonNull::from(&mut **n)) }
+    }
+
     /// The bound path takes the whole accumulated word, not just the newest bits: a signal that
     /// was counted while the bound thread was elsewhere rides along with the one that finds it
     /// receiving.
@@ -436,15 +468,12 @@ mod tests {
         let mut n: Notification<N> = Notification::default();
         assert!(n.is_idle() && n.invariant_holds());
         assert_eq!(n.debug_counts(), (0, 0));
-        // SAFETY: two live boxed locals declared before `n`, neither on a queue.
-        unsafe {
-            assert_eq!(n.wait(pa), Wait::Blocked);
-            assert_eq!(n.wait(pb), Wait::Blocked);
-        }
+        assert_eq!(n.wait(token(&mut a)), Wait::Blocked);
+        assert_eq!(n.wait(token(&mut b)), Wait::Blocked);
         assert!(!n.is_idle());
         assert_eq!(n.debug_counts(), (2, 0));
         let mut drained = Vec::new();
-        n.drain_waiters(|w| drained.push(w));
+        n.drain_waiters(|w| drained.push(w.as_non_null()));
         assert_eq!(drained, vec![pa, pb]);
         assert!(n.is_idle());
         assert_eq!(
@@ -460,10 +489,13 @@ mod tests {
     /// the kernel's own tests leans on.
     #[test]
     fn outcomes_compare_and_print_by_variant() {
-        let mut a = Box::new(N { next: None });
-        let p = NonNull::from(&mut *a);
+        let (mut a, mut b, mut c) = (
+            Box::new(N { next: None }),
+            Box::new(N { next: None }),
+            Box::new(N { next: None }),
+        );
         let all: [Signal<N>; 4] = [
-            Signal::Woke(p, 1),
+            Signal::Woke(token(&mut a), 1),
             Signal::ToBound(2),
             Signal::Counted,
             Signal::Empty,
@@ -474,13 +506,16 @@ mod tests {
             }
         }
         assert_ne!(Signal::<N>::ToBound(1), Signal::ToBound(2));
-        assert_ne!(Signal::Woke(p, 1), Signal::Woke(p, 2));
+        assert_ne!(
+            Signal::Woke(token(&mut b), 1),
+            Signal::Woke(token(&mut c), 1)
+        );
         let printed: Vec<String> = all.iter().map(|s| format!("{s:?}")).collect();
         assert!(printed[0].starts_with("Woke("));
         assert_eq!(printed[1], "ToBound(2)");
         assert_eq!(printed[2], "Counted");
         assert_eq!(printed[3], "Empty");
-        assert_eq!(format!("{:?}", Wait::Word(3)), "Word(3)");
+        assert_eq!(format!("{:?}", Wait::<N>::Blocked), "Blocked");
     }
 
     /// Waiters leave in arrival order, and removing one from the middle keeps the others.
@@ -497,16 +532,13 @@ mod tests {
             NonNull::from(&mut *c),
         );
         let mut n: Notification<N> = Notification::new();
-        // SAFETY: three live boxed locals declared before `n`, none on a queue.
-        unsafe {
-            assert_eq!(n.wait(pa), Wait::Blocked);
-            assert_eq!(n.wait(pb), Wait::Blocked);
-            assert_eq!(n.wait(pc), Wait::Blocked);
-            assert!(n.remove_waiter(pb));
-            assert!(!n.remove_waiter(pb));
-        }
-        assert_eq!(n.signal(1, false), Signal::Woke(pa, 1));
-        assert_eq!(n.signal(2, false), Signal::Woke(pc, 2));
+        assert_eq!(n.wait(token(&mut a)), Wait::Blocked);
+        assert_eq!(n.wait(token(&mut b)), Wait::Blocked);
+        assert_eq!(n.wait(token(&mut c)), Wait::Blocked);
+        assert!(n.remove_waiter(pb).is_some_and(|t| t == pb));
+        assert!(n.remove_waiter(pb).is_none());
+        assert!(matches!(n.signal(1, false), Signal::Woke(t, 1) if t == pa));
+        assert!(matches!(n.signal(2, false), Signal::Woke(t, 2) if t == pc));
         assert_eq!(n.signal(4, false), Signal::Counted);
         assert_eq!(n.poll(), 4);
         assert_eq!(n.poll(), 0);
@@ -518,16 +550,12 @@ mod tests {
     #[test]
     fn the_invariant_fails_only_for_a_word_with_a_waiter() {
         let mut a = Box::new(N { next: None });
-        let pa = NonNull::from(&mut *a);
         let mut n: Notification<N> = Notification::new();
         assert!(n.invariant_holds(), "empty");
         n.word = 0b1;
         assert!(n.invariant_holds(), "a word, nobody waiting");
         n.word = 0;
-        // SAFETY: one live boxed local declared before `n`, on no queue.
-        unsafe {
-            assert_eq!(n.wait(pa), Wait::Blocked);
-        }
+        assert_eq!(n.wait(token(&mut a)), Wait::Blocked);
         assert!(n.invariant_holds(), "a waiter, no word");
         n.word = 0b1;
         assert!(!n.invariant_holds(), "a word and a waiter");

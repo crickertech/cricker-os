@@ -31,10 +31,15 @@ Re-cut 2026-10-05 (UTC) by milestone 105 (the two forks)'s lane, because `collec
 grew the death message's label hand-over and the first hunk stopped applying. The defect is
 unchanged; replayed red on aarch64 at the receiver-first assertion this record predicts.
 
+Re-cut 2026-10-08 (UTC) by milestone 139 (drive the unsafe count down) round 10's lane, the
+scheduler queue ownership token: `rendezvous.send` now takes the sender's queue token and hands
+back the receiver's, so the receiver line the second hunk matched became `hold_token(receiver)`.
+Same removals, same defect.
+
 diff --git a/kernel/src/sched.rs b/kernel/src/sched.rs
 --- a/kernel/src/sched.rs
 +++ b/kernel/src/sched.rs
-@@ -3872,9 +3872,6 @@
+@@ -4025,9 +4025,6 @@ fn collected_without_serving(sched: &mut IpcTables, sender: ThreadId) {
          corpse.handshake.wait_on = None;
          let label = corpse.fault_label;
          hand_over_label(sched.threads.get(current_thread_id()).unwrap(), label);
@@ -44,8 +49,8 @@ diff --git a/kernel/src/sched.rs b/kernel/src/sched.rs
      }
  }
  
-@@ -4198,12 +4195,6 @@
-                 let receiver = unsafe { (*receiver.as_ptr()).id };
+@@ -4416,12 +4413,6 @@ pub fn ipc_call_badged(ep: RendezvousId, msg: [u64; 2], badge: u64) -> [u64; 3 {
+                 let receiver = hold_token(receiver);
                  // A server is parked in RECEIVE_CAP: hand it the reply cap and the two words now.
                  let (r, caps) = sched.threads.get_mut_with_capabilities(receiver).unwrap();
 -                if !r.receiving_cap {

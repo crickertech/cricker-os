@@ -12,8 +12,12 @@ rendezvous a sender with a sender.
 diff --git a/crates/inter_process_communication/src/lib.rs b/crates/inter_process_communication/src/lib.rs
 --- a/crates/inter_process_communication/src/lib.rs
 +++ b/crates/inter_process_communication/src/lib.rs
-@@ -330,3 +330,3 @@ impl<T: Node> Rendezvous<T> {
-             // SAFETY: the caller's contract is exactly the queue's.
--            unsafe { self.senders.push_back(me) };
-+            unsafe { self.receivers.push_back(me) };
+@@ -404,7 +404,7 @@ impl<T: Node> Rendezvous<T> {
+         } else if let Some(receiver) = self.receivers.pop_front() {
+             Send::Rendezvous(receiver, me)
+         } else {
+-            self.senders.push_back(me);
++            self.receivers.push_back(me);
              Send::Blocked
+         }
+     }

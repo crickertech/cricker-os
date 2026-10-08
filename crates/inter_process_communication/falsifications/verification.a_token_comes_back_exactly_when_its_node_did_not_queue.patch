@@ -1,0 +1,24 @@
+Falsifies `inter_process_communication::verification::a_token_comes_back_exactly_when_its_node_did_not_queue`.
+
+The defect: a receive that collects a sender hands the two tokens back in each other's places.
+Both are `Unqueued<T>`, so the compiler accepts either order, and `FromSender(sender, me)` and
+`FromSender(me, sender)` differ by a transposition a reviewer reads past.
+
+Expected to fail: the harness's `back == me_ptr` assertion, on a seeded rendezvous holding one
+sender, with no pending signal, on the receive branch. In the kernel the receiver would file the
+collected sender's token onto its own TCB (`sched::hold_token`) and the sender's waker would be
+handed the receiver's, so one thread would hold two tokens for the same node: the double-queue the
+token exists to make impossible.
+
+diff --git a/crates/inter_process_communication/src/lib.rs b/crates/inter_process_communication/src/lib.rs
+--- a/crates/inter_process_communication/src/lib.rs
++++ b/crates/inter_process_communication/src/lib.rs
+@@ -417,7 +417,7 @@ impl<T: Node> Rendezvous<T> {
+             self.pending -= 1;
+             Receive::Signal(me)
+         } else if let Some(sender) = self.senders.pop_front() {
+-            Receive::FromSender(sender, me)
++            Receive::FromSender(me, sender)
+         } else {
+             self.receivers.push_back(me);
+             Receive::Blocked

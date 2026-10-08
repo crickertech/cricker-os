@@ -35,6 +35,7 @@
 
 use core::sync::atomic::{AtomicPtr, AtomicU32, AtomicU64, Ordering};
 
+use intrusive_fifo::Unqueued;
 use thread_wake_handshake::{SwitchOutVerdict, WakeVerdict};
 
 use crate::cpu;
@@ -506,6 +507,7 @@ impl Threads {
             return None;
         }
         self.note_peak();
+        self.mint_token(name);
         // A reused slot starts its CPU accounting at zero; see `CPU_TICKS`.
         clear_cpu_ticks(name);
         Some(name)
@@ -532,10 +534,41 @@ impl Threads {
         });
         if let Some(name) = name {
             self.note_peak();
+            self.mint_token(name);
             // A reused slot starts its CPU accounting at zero; see `CPU_TICKS`.
             clear_cpu_ticks(name);
         }
         name
+    }
+
+    /// **Mint a new thread's queue token: the only place in the kernel a token is made**
+    /// (milestone 139 (drive the unsafe count down), round 10). Every thread the table holds was
+    /// inserted through `insert_at` or `insert_at_in_place`, and both call this once, on the name
+    /// they just minted, so every thread has exactly one token for its whole life. From here the
+    /// token moves: onto a queue at a push, back onto [`Thread::own_token`] at a pop or a removal
+    /// (`hold_token`), and nowhere else. See `thread::Thread::own_token` for the three places it
+    /// can be.
+    ///
+    /// The `unsafe` is `Unqueued::new`'s three obligations, discharged once here instead of at
+    /// each of the twenty-one pushes, sends and receives that used to assert them:
+    ///
+    /// - **Valid while reachable.** The token points at the `Thread` on its TCB page, which lives
+    ///   until `Threads::remove`. That is reached only for a `Finished` thread off its CPU
+    ///   (`reap_switched_out`), which is on no queue because a running thread holds its own token,
+    ///   and for a thread region teardown ends (`finish_blocked_resident`), which unlinks it from
+    ///   every wait queue first. Either way the token dies with the page, in `own_token`, or was
+    ///   already dropped by the removal that unlinked it.
+    /// - **On no queue, and the only token.** The name is a moment old and no other token for this
+    ///   page can exist: the previous occupant's died with it.
+    /// - **Links touched only by a queue, with no reference live across a queue operation.** Every
+    ///   queue holding a `Thread` is behind `IPC_TABLES` or an inbox lock, and the `&mut` below
+    ///   ends before this returns.
+    fn mint_token(&mut self, name: ThreadId) {
+        if let Some(t) = self.get_mut(name) {
+            let node = core::ptr::NonNull::from(&mut *t);
+            // SAFETY: the three obligations above.
+            t.own_token = Some(unsafe { Unqueued::new(node) });
+        }
     }
 
     /// Remove and destroy: drop the TCB in place (its stack, address space, and quota token go
@@ -1667,10 +1700,9 @@ pub fn drain_inbox() {
     let mut moved = 0u64;
     let mut inbox = cpu::current().inbox.lock();
     while let Some(thread) = inbox.pop_front() {
-        // SAFETY: the sender pushed a live Ready thread; popping it here is the only removal
-        // path, so it is on no other queue. Nothing is dereferenced: the handoff is pure
-        // pointer movement, which is why this needs no `IPC_TABLES`.
-        cpu::current().with_runq(|q| unsafe { q.push_back(thread) });
+        // The token the inbox hands back goes straight onto the run queue. Nothing is dereferenced:
+        // the handoff is pure token movement, which is why this needs no `IPC_TABLES`.
+        cpu::current().with_runq(|q| q.push_back(thread));
         moved += 1;
     }
     // The inbox is empty now; mirror that under the lock (DECISIONS §28). The threads moved into the
@@ -1712,6 +1744,53 @@ fn thread_control_block_ptr(sched: &mut IpcTables, tid: ThreadId) -> core::ptr::
     )
 }
 
+/// **Take `tid`'s queue token off its own TCB, to put it on a queue** (milestone 139 (drive the
+/// unsafe count down), round 10). Caller holds `IPC_TABLES`.
+///
+/// The token is there exactly when the thread is on no queue (see `thread::Thread::own_token`), so
+/// a `None` here is a thread somebody is about to put on a second queue ([`missing_token`]).
+#[inline(always)]
+fn take_token(sched: &mut IpcTables, tid: ThreadId) -> Unqueued<Thread> {
+    // Two `let`-`else`s rather than a combinator chain: the icount gate measures a debug build,
+    // where each closure is a call.
+    let Some(t) = sched.threads.get_mut(tid) else {
+        missing_token()
+    };
+    let Some(token) = t.own_token.take() else {
+        missing_token()
+    };
+    token
+}
+
+/// **A thread that should hold its token does not**: it is on a queue already (and is about to be
+/// put on a second), or it is a running thread whose token went somewhere it should not. Loud in
+/// every build, because the alternative is the corrupted list the token exists to rule out.
+///
+/// One cold function for every site rather than an `expect` at each, measured rather than assumed:
+/// an `expect` sets up a message and a location inline, and seven of them were the larger part of
+/// what the token added to `script/fastpath-footprint`'s closures.
+#[cold]
+#[inline(never)]
+fn missing_token() -> ! {
+    panic!("a thread without its queue token: on a queue already, or its token was lost")
+}
+
+/// **Give a token a queue just handed back to the thread it names, and say which thread that is.**
+/// Every pop and removal in this file ends here or on another queue, so the thread holds its token
+/// again before anything decides what happens to it. Caller holds `IPC_TABLES`.
+///
+/// This is where the old sites' `(*waiter.as_ptr()).id` went: they read the id through the pointer
+/// a queue returned, and so does this, once.
+#[inline(always)]
+fn hold_token(token: Unqueued<Thread>) -> ThreadId {
+    // SAFETY: a token's thread is live for as long as the token exists (`Threads::mint_token`'s
+    // first obligation), `IPC_TABLES` (held by every caller) serializes access to every `Thread`,
+    // and no other reference to this one is live: the caller has just taken it off a queue.
+    let t = unsafe { &mut *token.as_ptr() };
+    t.own_token = Some(token);
+    t.id
+}
+
 /// Put an already-created thread onto core `target`'s run queue. Caller holds `IPC_TABLES`.
 ///
 /// Local: straight onto our own queue (`IPC_TABLES` masks interrupts, which `with_runq` needs). Remote:
@@ -1747,7 +1826,7 @@ fn thread_control_block_ptr(sched: &mut IpcTables, tid: ThreadId) -> core::ptr::
 /// hung" as evidence that a placement path pokes correctly. See notes/scheduler.md.
 #[must_use = "a remote placement owes a reschedule SGI once IPC_TABLES is released, or the thread \
               sits in an inbox nothing drains"]
-fn place_on(target: usize, thread: core::ptr::NonNull<Thread>) -> Option<usize> {
+fn place_on(target: usize, thread: Unqueued<Thread>) -> Option<usize> {
     // A REMOTE parked cpu's inbox is drained by nothing, so placing there is a thread nothing
     // will ever run: the VisionFive 2 first-silicon hang (notes/visionfive2.md, third stop). The
     // online-set sweep removed every count-as-index chooser, and this is the audit lane's
@@ -1770,19 +1849,18 @@ fn place_on(target: usize, thread: core::ptr::NonNull<Thread>) -> Option<usize> 
         crate::smp::online_harts_mask(),
     );
     if target == cpu::id() {
-        // SAFETY: `thread` is a live Ready thread (see thread_control_block_ptr), on no other queue.
-        cpu::current().with_runq(|q| unsafe { q.push_back(thread) });
+        cpu::current().with_runq(|q| q.push_back(thread));
         None
     } else {
-        // SAFETY: as above; the inbox mutex serializes access to the link.
+        // Read before the push gives the token away. SAFETY: a token's thread is live while the
+        // token exists (`Threads::mint_token`), and IPC_TABLES (held) serializes every `Thread`.
+        let tid = unsafe { (*thread.as_ptr()).id };
+        // The inbox mutex serializes access to the link.
         let mut inbox = cpu::inbox_of(target).lock();
-        // SAFETY: the live Ready thread named in the comment above, on no other queue, and the inbox lock is held across the push.
-        unsafe { inbox.push_back(thread) };
+        inbox.push_back(thread);
         // Mirror the target's inbox depth so it counts as load (DECISIONS §28); under the lock, so
         // the store is serialised with any concurrent drain.
         cpu::of(target).note_inbox_len(inbox.len());
-        // SAFETY: reading the id of a live thread we still hold exclusively (see above).
-        let tid = unsafe { (*thread.as_ptr()).id };
         trace::record(trace::Event::PlaceRemote, tid, target as u8);
         Some(target)
     }
@@ -1821,7 +1899,7 @@ pub fn spawn_on<F: FnOnce() + Send + 'static>(target: usize, f: F) -> Option<Thr
         // the critical section as a value. Re-deriving it below from `target != cpu::id()` is the
         // lost-wakeup bug `place_on` documents: this thread can be stolen onto another core
         // between the two reads.
-        let remote = place_on(target, thread_control_block_ptr(sched, id));
+        let remote = place_on(target, take_token(sched, id));
         (id, remote)
     }; // IPC_TABLES released here, before the SGI, so the target's schedule() can take it
 
@@ -1882,11 +1960,10 @@ pub fn serve_steal_request() {
         // SAFETY: reading the id of the thread we just popped and hold exclusively.
         let tid = unsafe { (*t.as_ptr()).id };
         trace::record(trace::Event::StealServe, tid, requester as u8);
-        // SAFETY: a live Ready thread we just popped, on no other queue; the inbox mutex serialises
-        // the handoff and orders our pop before the requester's drain (the `place_on` discipline).
+        // The token we just popped goes to the requester's inbox; the inbox mutex serialises the
+        // handoff and orders our pop before the requester's drain (the `place_on` discipline).
         let mut inbox = cpu::inbox_of(requester).lock();
-        // SAFETY: the live Ready thread named in the comment above, on no other queue, and the inbox lock is held across the push.
-        unsafe { inbox.push_back(t) };
+        inbox.push_back(t);
         cpu::of(requester).note_inbox_len(inbox.len());
         crate::arch::irq::send_reschedule(requester);
     }
@@ -2018,9 +2095,9 @@ pub fn spawn_with_quota<F: FnOnce() + Send + 'static>(
     if let Some(t) = sched.threads.get_mut(id) {
         t.quota = Some(token); // returned to `budget` when the thread is reaped
     }
-    let ptr = thread_control_block_ptr(sched, id);
-    // SAFETY: freshly inserted, Ready, on no queue; this core's queue, IPC_TABLES held, IRQs masked.
-    cpu::current().with_runq(|q| unsafe { q.push_back(ptr) });
+    let token = take_token(sched, id);
+    // This core's queue: IPC_TABLES held, IRQs masked.
+    cpu::current().with_runq(|q| q.push_back(token));
     Some(id)
 }
 
@@ -2125,17 +2202,16 @@ fn deliver_death(
     msg: [u64; 5],
     label: u64,
 ) {
-    let me = thread_control_block_ptr(sched, corpse);
     let Some(rendezvous) = rendezvous_of(sched, ep) else {
         return;
     };
-    // SAFETY: `me` is the corpse, live in the table (Dead, not yet reaped) and on no queue; if it
-    // joins the sender queue below it stays put, since nothing wakes or reaps a Dead thread until
-    // the supervisor drains it and revokes. Same pointer discipline as ipc_send.
-    match unsafe { rendezvous.send(me) } {
-        inter_process_communication::Send::Rendezvous(receiver) => {
-            // SAFETY: wait-queue entries are live Blocked threads; the id revalidates it.
-            let receiver = unsafe { (*receiver.as_ptr()).id };
+    // The corpse's token: it is still the running thread, on no queue. If it joins the sender queue
+    // below it stays put, since nothing wakes or reaps a Dead thread until the supervisor drains it
+    // and revokes; otherwise its token comes back and goes home to its TCB, where the reap drops it.
+    match rendezvous.send(take_token(sched, corpse)) {
+        inter_process_communication::Send::Rendezvous(receiver, me) => {
+            hold_token(me);
+            let receiver = hold_token(receiver);
             let r = sched.threads.get_mut(receiver).unwrap();
             r.mailbox = msg;
             hand_over_label(r, label);
@@ -2155,7 +2231,9 @@ fn deliver_death(
         // is 1, which a driver would read as its interrupt. Reachable only by configuring an
         // interrupt's endpoint as a fault endpoint, which needs a `Rendezvous` capability to it that
         // no program is granted today.
-        inter_process_communication::Send::Refused => {}
+        inter_process_communication::Send::Refused(me) => {
+            hold_token(me);
+        }
     }
 }
 
@@ -2361,9 +2439,9 @@ pub fn schedule() {
         let idle_tid = cpu::current().idle.load(Ordering::Relaxed);
 
         let next = match cpu::current().with_runq(|q| q.pop_front()) {
-            // SAFETY: only live Ready threads are ever queued; reading the id is the last thing
-            // that happens before the pointer is dropped in favor of the (validated) ThreadId.
-            Some(t) => unsafe { (*t.as_ptr()).id },
+            // The popped token goes home to its thread, which holds it while it runs, and the id is
+            // what everything below uses.
+            Some(t) => hold_token(t),
             None => {
                 if runnable {
                     // Keep it. A thread yielding into an empty run queue simply carries on. (The
@@ -2409,10 +2487,13 @@ pub fn schedule() {
             // queue AND still standing on this core until finish_switch runs, which is the one
             // legal overlap and the reason only this core may pop its own queue (the extracted
             // protocol's steal-vs-switch-out rule; see crates/wake_handshake).
-            sched.threads.get_mut(current).unwrap().handshake.preempt();
-            let ptr = thread_control_block_ptr(sched, current);
-            // SAFETY: just marked Ready, coming off the CPU, on no queue. Round robin: the back.
-            cpu::current().with_runq(|q| unsafe { q.push_back(ptr) });
+            let t = sched.threads.get_mut(current).unwrap();
+            t.handshake.preempt();
+            // The token a running thread holds on its own TCB. Round robin: the back.
+            let Some(token) = t.own_token.take() else {
+                missing_token()
+            };
+            cpu::current().with_runq(|q| q.push_back(token));
         }
 
         // Running, with on_cpu set until ITS successor's finish_switch, one switch from now.
@@ -2699,10 +2780,12 @@ pub(crate) fn finish_switch() {
         SwitchOutVerdict::Reap => reap_switched_out(guard, prev),
         SwitchOutVerdict::WakeCompleted => {
             trace::record(trace::Event::WakeCompleted, prev, 0);
-            let ptr = thread_control_block_ptr(sched, prev);
-            // SAFETY: live, just made Ready, on no queue (a deferred wake was deferred precisely
-            // because the waker did NOT queue it). IRQs are still masked on both callers' paths.
-            cpu::current().with_runq(|q| unsafe { q.push_back(ptr) });
+            // A deferred wake was deferred precisely because the waker did NOT queue it, so the
+            // token is still on the thread. IRQs are still masked on both callers' paths.
+            let Some(token) = t.own_token.take() else {
+                missing_token()
+            };
+            cpu::current().with_runq(|q| q.push_back(token));
         }
         SwitchOutVerdict::Cleared => {}
     }
@@ -2870,9 +2953,7 @@ pub fn irq_notify(ep: RendezvousId) {
             return;
         };
         if let Some(waiter) = rendezvous.signal() {
-            // SAFETY: only live Blocked threads sit on wait queues; reading the id revalidates it
-            // through the table for everything after.
-            let waiter = unsafe { (*waiter.as_ptr()).id };
+            let waiter = hold_token(waiter);
             let t = sched.threads.get_mut(waiter).unwrap();
             t.mailbox = [1, 0, 0, 0, 0];
             t.handshake.serve(); // the signal is the delivery (the boot-8 gate)
@@ -3127,13 +3208,15 @@ fn bound_receiver(sched: &IpcTables, page: &NotificationPage) -> Option<(ThreadI
 /// push in the common case.
 fn deliver_bound(sched: &mut IpcTables, tid: ThreadId, ep: RendezvousId, word: u64) {
     let ptr = thread_control_block_ptr(sched, tid);
-    // SAFETY: `ptr` is compared by pointer and never dereferenced by the remove; every other queued
-    // receiver is popped and pushed again and is a live Blocked thread, which is the contract.
-    let unlinked = rendezvous_of(sched, ep).is_some_and(|r| unsafe { r.remove_receiver(ptr) });
+    // `ptr` is only compared by the remove; the token it hands back goes home to the thread.
+    let unlinked = rendezvous_of(sched, ep).and_then(|r| r.remove_receiver(ptr));
     debug_assert!(
-        unlinked,
+        unlinked.is_some(),
         "a bound receiver was not on the receiver queue it was parked on"
     );
+    if let Some(token) = unlinked {
+        hold_token(token);
+    }
     let t = sched
         .threads
         .get_mut(tid)
@@ -3189,8 +3272,7 @@ fn signal_locked(
     let bound = bound_receiver(sched, page);
     match page.state.signal(bits, bound.is_some()) {
         Signal::Woke(waiter, word) => {
-            // SAFETY: wait-queue entries are live Blocked threads; the id revalidates it.
-            let tid = unsafe { (*waiter.as_ptr()).id };
+            let tid = hold_token(waiter);
             let t = sched
                 .threads
                 .get_mut(tid)
@@ -3252,12 +3334,14 @@ pub fn notification_wait(id: NotificationId) -> Result<u64, abi::Error> {
         let mut guard = IPC_TABLES.lock();
         let sched = guard.as_mut().expect("no scheduler");
         let current = current_thread_id();
-        let me = thread_control_block_ptr(sched, current);
         let page = notification_of(sched, id).ok_or(abi::Error::Gone)?;
-        // SAFETY: `me` is the running thread (live, on no queue), and if queued it stays live: a
-        // thread waiting here is Blocked, which the reaper never frees.
-        match unsafe { page.state.wait(me) } {
-            Waited::Word(word) => Some(word),
+        // The running thread's token: if it queues, it stays live, since a thread waiting here is
+        // Blocked, which the reaper never frees.
+        match page.state.wait(take_token(sched, current)) {
+            Waited::Word(word, me) => {
+                hold_token(me);
+                Some(word)
+            }
             Waited::Blocked => {
                 let t = sched.threads.get_mut(current).expect("running thread");
                 t.handshake.park(Wait::Notification(id)); // only a signal (or an abort) may wake us
@@ -3373,8 +3457,7 @@ fn reap_region_notifications(sched: &mut IpcTables, base: u64, end: u64) {
         let Some(name) = doomed else { break };
         if let Some(page) = notification_of(sched, name) {
             page.state.drain_waiters(|w| {
-                // SAFETY: wait-queue entries are live Blocked threads; the id revalidates it.
-                let tid = unsafe { (*w.as_ptr()).id };
+                let tid = hold_token(w);
                 set_ipc_aborted(sched, tid);
                 wake(sched, tid);
             });
@@ -3605,7 +3688,10 @@ fn wake_load_aware(sched: &mut IpcTables, tid: ThreadId) -> Option<usize> {
         WakeVerdict::Queue => {
             #[cfg(any(test, feature = "system_tests"))]
             crate::testing::note_progress();
-            let ptr = core::ptr::NonNull::from(t);
+            // Blocked -> Ready: whatever unlinked it handed its token back (`hold_token`).
+            let Some(token) = t.own_token.take() else {
+                missing_token()
+            };
             trace::record(trace::Event::Wake, tid, 0);
             // One placement decision, `place_on`'s: onto this core's own run queue, or into the
             // target's inbox with the inbox-len mirror kept under the inbox lock. Its return value
@@ -3613,9 +3699,8 @@ fn wake_load_aware(sched: &mut IpcTables, tid: ThreadId) -> Option<usize> {
             // only thing that may: a second `target == cpu::id()` comparison outside the lock can
             // disagree with the one that placed (see `place_on`).
             //
-            // SAFETY: just Blocked -> Ready, so on no queue; IPC_TABLES masks interrupts, which
-            // `with_runq` needs on the local side.
-            place_on(pick_wake_target(), ptr)
+            // IPC_TABLES masks interrupts, which `with_runq` needs on the local side.
+            place_on(pick_wake_target(), token)
         }
     }
 }
@@ -3651,14 +3736,16 @@ fn wake(sched: &mut IpcTables, tid: ThreadId) {
             WakeVerdict::Queue => {
                 #[cfg(any(test, feature = "system_tests"))]
                 crate::testing::note_progress();
-                let ptr = core::ptr::NonNull::from(t);
+                // Blocked -> Ready: whatever unlinked it handed its token back (`hold_token`), so
+                // it is on the thread; a `None` is a thread still linked into a wait queue.
+                let Some(token) = t.own_token.take() else {
+                    missing_token()
+                };
                 trace::record(trace::Event::Wake, tid, 0);
                 // Onto this core's queue: a rendezvous wake stays local on purpose (§28.2), the
                 // message is in registers and the cache is warm. Every caller (ipc_*, irq_notify)
                 // holds IPC_TABLES, so interrupts are masked.
-                // SAFETY: just transitioned Blocked -> Ready, so it was on no queue and now joins
-                // one.
-                cpu::current().with_runq(|q| unsafe { q.push_back(ptr) });
+                cpu::current().with_runq(|q| q.push_back(token));
             }
         }
     }
@@ -3718,7 +3805,6 @@ pub fn ipc_send_badged(ep: RendezvousId, msg: [u64; 3], badge: u64) {
         let sched = guard.as_mut().expect("no scheduler");
         let current = current_thread_id();
 
-        let me = thread_control_block_ptr(sched, current);
         // A stale rendezvous (its region was revoked): mark this send aborted and do not block. The
         // kernel-side `ipc_send` wrapper never hits this (its endpoints are never revoked); the
         // syscall layer reads the flag and returns an error.
@@ -3726,12 +3812,13 @@ pub fn ipc_send_badged(ep: RendezvousId, msg: [u64; 3], badge: u64) {
             set_ipc_aborted(sched, current);
             return;
         };
-        // SAFETY: `me` is the running thread (live, on no queue), and if queued it stays live:
-        // a thread queued on an rendezvous is Blocked, which the reaper never touches. See thread_control_block_ptr.
-        match unsafe { rendezvous.send(me) } {
-            inter_process_communication::Send::Rendezvous(receiver) => {
-                // SAFETY: wait-queue entries are live Blocked threads; the id revalidates it.
-                let receiver = unsafe { (*receiver.as_ptr()).id };
+        // The running thread's token: if it queues, it stays live, since a thread queued on a
+        // rendezvous is Blocked, which the reaper never touches. Every verdict that did not queue
+        // it hands it back, and it goes home to the thread (`hold_token`).
+        match rendezvous.send(take_token(sched, current)) {
+            inter_process_communication::Send::Rendezvous(receiver, me) => {
+                hold_token(me);
+                let receiver = hold_token(receiver);
                 let r = sched.threads.get_mut(receiver).unwrap();
                 r.mailbox = msg;
                 r.handshake.serve(); // delivered: this wake passes the boot-8 gate
@@ -3748,7 +3835,8 @@ pub fn ipc_send_badged(ep: RendezvousId, msg: [u64; 3], badge: u64) {
                 true
             }
             // The rendezvous carries an interrupt (§101 ruling B): nothing was delivered or queued.
-            inter_process_communication::Send::Refused => {
+            inter_process_communication::Send::Refused(me) => {
+                hold_token(me);
                 set_ipc_refused(sched, current);
                 false
             }
@@ -3775,13 +3863,20 @@ pub fn ipc_receive(ep: RendezvousId) -> [u64; 5] {
         let sched = guard.as_mut().expect("no scheduler");
         let current = current_thread_id();
 
-        let me = thread_control_block_ptr(sched, current);
         // A stale rendezvous (revoked): mark aborted and return a placeholder; the syscall layer sees
         // the flag and errors. (A thread revoked *while blocked* below is handled the same way: the
         // reaper sets the flag and wakes it, and it returns its stale mailbox for the layer to drop.)
         let Some(rendezvous) = rendezvous_of(sched, ep) else {
             set_ipc_aborted(sched, current);
             return [0, 0, 0, 0, 0];
+        };
+        // One lookup serves both things this path needs from the running thread: whether it is
+        // bound, and its token (milestone 139 (drive the unsafe count down), round 10, which also
+        // retired the raw-pointer read the binding test used to make).
+        let me = sched.threads.get_mut(current).expect("running thread");
+        let bound = me.bound_notification.is_some();
+        let Some(token) = me.own_token.take() else {
+            missing_token()
         };
         // **The binding's receive-side half** (milestone 151, DECISIONS §101): a signal counted
         // while this thread was elsewhere ends the receive before it can block. First, as a pending
@@ -3795,19 +3890,20 @@ pub fn ipc_receive(ep: RendezvousId) -> [u64; 5] {
         // and cost `ipc_receive` 138 bytes on riscv64 and 174 on `x86_64`. Joining the other arms
         // shares the one release below.
         //
-        // SAFETY: `me` is the running thread's TCB, live, and nothing else holds a reference to it.
-        if unsafe { (*me.as_ptr()).bound_notification.is_some() }
-            && let Some(word) = take_bound_signal(sched, current)
-        {
+        if bound && let Some(word) = take_bound_signal(sched, current) {
+            hold_token(token);
             Some(bound_delivery(word))
         } else {
-            // SAFETY: as in ipc_send: the running thread, and Blocked-while-queued keeps it live.
-            match unsafe { rendezvous.receive(me) } {
+            // As in ipc_send: the running thread's token, and Blocked-while-queued keeps it live.
+            match rendezvous.receive(token) {
                 // An interrupt already fired while we were not waiting. Take it and do not block.
-                inter_process_communication::Receive::Signal => Some([1, 0, 0, 0, 0]),
-                inter_process_communication::Receive::FromSender(sender) => {
-                    // SAFETY: wait-queue entries are live Blocked threads; the id revalidates it.
-                    let sender = unsafe { (*sender.as_ptr()).id };
+                inter_process_communication::Receive::Signal(me) => {
+                    hold_token(me);
+                    Some([1, 0, 0, 0, 0])
+                }
+                inter_process_communication::Receive::FromSender(sender, me) => {
+                    hold_token(me);
+                    let sender = hold_token(sender);
                     let msg = sched.threads.get(sender).unwrap().mailbox;
                     // A **dead sender** (a §26 corpse) and a **caller** (its outgoing cap is the
                     // one-shot Reply a CALL minted, §12 (call/reply IPC)) get their words delivered
@@ -4045,16 +4141,15 @@ fn ipc_send_cap_from(
         let current = current_thread_id();
         let capability = source(sched, current)?;
 
-        let me = thread_control_block_ptr(sched, current);
         let Some(rendezvous) = rendezvous_of(sched, ep) else {
             set_ipc_aborted(sched, current);
             return Ok(()); // stale rendezvous: aborted, syscall layer errors
         };
-        // SAFETY: as in ipc_send.
-        match unsafe { rendezvous.send(me) } {
-            inter_process_communication::Send::Rendezvous(receiver) => {
-                // SAFETY: wait-queue entries are live Blocked threads; the id revalidates it.
-                let receiver = unsafe { (*receiver.as_ptr()).id };
+        // As in ipc_send.
+        match rendezvous.send(take_token(sched, current)) {
+            inter_process_communication::Send::Rendezvous(receiver, me) => {
+                hold_token(me);
+                let receiver = hold_token(receiver);
                 let (r, caps) = sched.threads.get_mut_with_capabilities(receiver).unwrap();
                 if r.receiving_cap {
                     let slot = deliver_capability(caps, capability);
@@ -4090,7 +4185,8 @@ fn ipc_send_cap_from(
                 true
             }
             // As in `ipc_send`. The capability stays with the sender: it was never moved.
-            inter_process_communication::Send::Refused => {
+            inter_process_communication::Send::Refused(me) => {
+                hold_token(me);
                 set_ipc_refused(sched, current);
                 false
             }
@@ -4140,27 +4236,32 @@ pub fn ipc_receive_cap(ep: RendezvousId) -> [u64; 5] {
         let sched = guard.as_mut().expect("no scheduler");
         let current = current_thread_id();
 
-        let me = thread_control_block_ptr(sched, current);
         let Some(rendezvous) = rendezvous_of(sched, ep) else {
             set_ipc_aborted(sched, current);
             return [0, 0, 0, 0, 0]; // stale rendezvous: aborted, syscall layer errors
         };
+        // One lookup for the binding test and the token, as in `ipc_receive`.
+        let me = sched.threads.get_mut(current).expect("running thread");
+        let bound = me.bound_notification.is_some();
+        let Some(token) = me.own_token.take() else {
+            missing_token()
+        };
         // The binding's receive-side half, exactly as in `ipc_receive`: a server in `RECEIVE_CAP` is the
         // commonest bound thread §101's table names (the FS server, the compositor).
         //
-        // SAFETY: `me` is the running thread's TCB, live, and nothing else holds a reference to it.
-        if unsafe { (*me.as_ptr()).bound_notification.is_some() }
-            && let Some(word) = take_bound_signal(sched, current)
-        {
+        if bound && let Some(word) = take_bound_signal(sched, current) {
+            hold_token(token);
             Some(bound_delivery(word))
         } else {
-            // SAFETY: as in ipc_send.
-            match unsafe { rendezvous.receive(me) } {
+            match rendezvous.receive(token) {
                 // An interrupt signal is not a delegation; it carries no capability and no badge.
-                inter_process_communication::Receive::Signal => Some([1, NO_CAP, 0, 0, 0]),
-                inter_process_communication::Receive::FromSender(sender) => {
-                    // SAFETY: wait-queue entries are live Blocked threads; the id revalidates it.
-                    let sender = unsafe { (*sender.as_ptr()).id };
+                inter_process_communication::Receive::Signal(me) => {
+                    hold_token(me);
+                    Some([1, NO_CAP, 0, 0, 0])
+                }
+                inter_process_communication::Receive::FromSender(sender, me) => {
+                    hold_token(me);
+                    let sender = hold_token(sender);
                     let msg = sched.threads.get(sender).unwrap().mailbox;
                     let capability = sched.threads.get_mut(sender).unwrap().outgoing_cap.take();
                     // A caller's outgoing cap is the one-shot Reply the kernel minted for its CALL (§12); a
@@ -4302,16 +4403,17 @@ pub fn ipc_call_badged(ep: RendezvousId, msg: [u64; 2], badge: u64) -> [u64; 3] 
 
         // `send` decides the rendezvous exactly as a plain SEND: a waiting server, or block. The
         // difference is the caller *always* blocks awaiting the reply, whether or not it met a server.
-        let me = thread_control_block_ptr(sched, current);
         let Some(rendezvous) = rendezvous_of(sched, ep) else {
             set_ipc_aborted(sched, current);
             return [0, 0, 0]; // stale rendezvous: aborted, syscall layer errors
         };
-        // SAFETY: as in ipc_send; a caller queued here is Blocked until its Reply arrives.
-        match unsafe { rendezvous.send(me) } {
-            inter_process_communication::Send::Rendezvous(receiver) => {
-                // SAFETY: wait-queue entries are live Blocked threads; the id revalidates it.
-                let receiver = unsafe { (*receiver.as_ptr()).id };
+        // As in ipc_send; a caller queued here is Blocked until its Reply arrives. A caller that
+        // meets a server is blocked too, but on nothing, so its token goes home to its TCB, where
+        // the reply's wake finds it.
+        match rendezvous.send(take_token(sched, current)) {
+            inter_process_communication::Send::Rendezvous(receiver, me) => {
+                hold_token(me);
+                let receiver = hold_token(receiver);
                 // A server is parked in RECEIVE_CAP: hand it the reply cap and the two words now.
                 let (r, caps) = sched.threads.get_mut_with_capabilities(receiver).unwrap();
                 if !r.receiving_cap {
@@ -4344,7 +4446,8 @@ pub fn ipc_call_badged(ep: RendezvousId, msg: [u64; 2], badge: u64) -> [u64; 3] 
             }
             // The rendezvous carries an interrupt (§101 ruling B). Return before parking: a caller
             // whose request was refused has no reply coming, and would otherwise wait for ever.
-            inter_process_communication::Send::Refused => {
+            inter_process_communication::Send::Refused(me) => {
+                hold_token(me);
                 set_ipc_refused(sched, current);
                 return [0, 0, 0];
             }
@@ -5179,13 +5282,16 @@ fn finish_blocked_resident(sched: &mut IpcTables, tid: ThreadId) {
         Some(Wait::Rendezvous(ep, _role)) => {
             let ptr = thread_control_block_ptr(sched, tid);
             if let Some(rendezvous) = rendezvous_of(sched, ep) {
-                // SAFETY: `ptr` is compared by pointer and never dereferenced. Every other queued
-                // waiter is popped and pushed again and is still live (a blocked thread or a
-                // corpse, neither of which is freed while linked), which is `remove_sender`'s
-                // existing contract on the very same queues.
-                unsafe {
-                    rendezvous.remove_sender(ptr);
-                    rendezvous.remove_receiver(ptr);
+                // `ptr` is only compared. Whichever queue held the thread hands its token back,
+                // and it goes home to the thread, to be freed with it.
+                for token in [
+                    rendezvous.remove_sender(ptr),
+                    rendezvous.remove_receiver(ptr),
+                ]
+                .into_iter()
+                .flatten()
+                {
+                    hold_token(token);
                 }
             }
         }
@@ -5193,10 +5299,10 @@ fn finish_blocked_resident(sched: &mut IpcTables, tid: ThreadId) {
         // notification's queue, and its page may outlive this region.
         Some(Wait::Notification(id)) => {
             let ptr = thread_control_block_ptr(sched, tid);
-            if let Some(page) = notification_of(sched, id) {
-                // SAFETY: as above; `remove_waiter` has the same contract over the same kind of
-                // queue.
-                unsafe { page.state.remove_waiter(ptr) };
+            if let Some(page) = notification_of(sched, id)
+                && let Some(token) = page.state.remove_waiter(ptr)
+            {
+                hold_token(token);
             }
         }
         None => {}
@@ -5283,8 +5389,7 @@ fn reap_region_objects(base: u64, end: u64) -> Result<(), ()> {
         // `sched` borrow the callback needs.
         if let Some(rendezvous) = rendezvous_of(sched, name) {
             rendezvous.drain_waiters(|w| {
-                // SAFETY: wait-queue entries are live Blocked threads; the id revalidates it.
-                let tid = unsafe { (*w.as_ptr()).id };
+                let tid = hold_token(w);
                 set_ipc_aborted(sched, tid);
                 wake(sched, tid);
             });
@@ -5454,10 +5559,11 @@ fn reap_region_objects(base: u64, end: u64) -> Result<(), ()> {
             .and_then(|t| t.fault_ep);
         if let Some(ep) = parked {
             let ptr = thread_control_block_ptr(sched, tid);
-            if let Some(rendezvous) = rendezvous_of(sched, ep) {
-                // SAFETY: `ptr` is compared by pointer, never dereferenced; the other queued
-                // senders are re-pushed and are all still live (blocked threads or corpses).
-                unsafe { rendezvous.remove_sender(ptr) };
+            // `ptr` is only compared; the corpse's token comes home, to be freed with it.
+            if let Some(rendezvous) = rendezvous_of(sched, ep)
+                && let Some(token) = rendezvous.remove_sender(ptr)
+            {
+                hold_token(token);
             }
         }
         // **And the callers this thread will never answer** (milestone 254): a resident reaped
@@ -5993,10 +6099,11 @@ pub fn start_thread_control_block(tid: ThreadId, args: [u64; 3]) -> Result<(), a
     // Record it on the thread, so a supervisor can survey it (`abi::survey::record::PLACEMENT`).
     // This is the path every *user* thread takes, so it is the one a survey actually reads: a
     // supervised thread is always one a `START` put on a core. `t` is still borrowed here, which is
-    // why this is before `thread_control_block_ptr` re-borrows `sched`.
+    // why this is before `take_token` re-borrows `sched`. The token it takes is the one the thread
+    // table minted when this embryo was inserted; `Embryo -> Ready` above happens once, so it is
+    // taken once.
     t.placement = target as u8;
-    let ptr = thread_control_block_ptr(sched, tid);
-    let remote = place_on(target, ptr);
+    let remote = place_on(target, take_token(sched, tid));
     drop(guard);
     if let Some(target) = remote {
         crate::arch::irq::send_reschedule(target);
@@ -6238,12 +6345,11 @@ pub fn conductor_move(ep: RendezvousId, word: u64) -> ConductorMove {
     let Some(rendezvous) = rendezvous_of(sched, ep) else {
         return ConductorMove::None; // a stale name: nobody is parked anywhere
     };
-    // SAFETY: `me` is the running thread (live, on no queue), and if queued it stays live: a
-    // thread queued on a rendezvous is Blocked, which the reaper never touches.
-    match unsafe { rendezvous.send(me) } {
-        inter_process_communication::Send::Rendezvous(receiver) => {
-            // SAFETY: a wait-queue entry is a live Blocked thread; the id revalidates it.
-            let receiver = unsafe { (*receiver.as_ptr()).id };
+    // The running thread's token; `me` is its pointer, for the removes below to compare.
+    match rendezvous.send(take_token(sched, current)) {
+        inter_process_communication::Send::Rendezvous(receiver, token) => {
+            hold_token(token);
+            let receiver = hold_token(receiver);
             let r = sched.threads.get_mut(receiver).unwrap();
             r.mailbox = [word, 0, 0, 0, 0];
             r.handshake.serve(); // delivered: this wake passes the boot-8 gate
@@ -6252,17 +6358,21 @@ pub fn conductor_move(ep: RendezvousId, word: u64) -> ConductorMove {
             ConductorMove::Sent
         }
         // An endpoint bound to an interrupt takes no message from anybody (§101 ruling B).
-        inter_process_communication::Send::Refused => ConductorMove::None,
+        inter_process_communication::Send::Refused(token) => {
+            hold_token(token);
+            ConductorMove::None
+        }
         inter_process_communication::Send::Blocked => {
             // `send` queued `current` as a sender; take that straight back, under the same hold,
-            // so no receiver can match the speculative position. SAFETY: `me` is this running
-            // thread, and the queue position was taken two lines up under this same lock.
-            unsafe { rendezvous.remove_sender(me) };
-            // SAFETY: as for the send above: the running thread, live and otherwise unqueued.
-            match unsafe { rendezvous.receive(me) } {
-                inter_process_communication::Receive::FromSender(sender) => {
-                    // SAFETY: as in `ipc_receive_cap`: a queued sender is live and linked.
-                    let sender = unsafe { (*sender.as_ptr()).id };
+            // so no receiver can match the speculative position. The removal hands back the token
+            // the send took, which is what the receive below needs.
+            let token = rendezvous
+                .remove_sender(me)
+                .expect("the send above queued this thread under this same hold");
+            match rendezvous.receive(token) {
+                inter_process_communication::Receive::FromSender(sender, token) => {
+                    hold_token(token);
+                    let sender = hold_token(sender);
                     let msg = sched.threads.get(sender).unwrap().mailbox;
                     let capability = sched.threads.get_mut(sender).unwrap().outgoing_cap.take();
                     let is_reply = matches!(capability, Some(c) if matches!(c.object, crate::cap::Object::Reply(_)));
@@ -6283,12 +6393,16 @@ pub fn conductor_move(ep: RendezvousId, word: u64) -> ConductorMove {
                     ConductorMove::Took([msg[0], slot, msg[1], msg[3], tag])
                 }
                 // A pending interrupt signal, as `ipc_receive_cap` would report it.
-                inter_process_communication::Receive::Signal => {
+                inter_process_communication::Receive::Signal(token) => {
+                    hold_token(token);
                     ConductorMove::Took([1, NO_CAP, 0, 0, 0])
                 }
                 inter_process_communication::Receive::Blocked => {
-                    // SAFETY: as above: this hold queued `current`; this hold takes it back.
-                    unsafe { rendezvous.remove_receiver(me) };
+                    // This hold queued `current`; this hold takes it back, token and all.
+                    let token = rendezvous
+                        .remove_receiver(me)
+                        .expect("the receive above queued this thread under this same hold");
+                    hold_token(token);
                     ConductorMove::None
                 }
             }

@@ -11,11 +11,22 @@ Expected to fail: the harness's `assert!(e.senders.is_empty() && e.receivers.is_
 a `FromSender`, and the second receive would produce the same caller again, which is a second
 name for a thread that is supposed to be replied to exactly once.
 
+Re-cut at milestone 139 (drive the unsafe count down), round 10, when the queues began taking
+`Unqueued` tokens. The original defect re-pushed a node the code also handed back, and with tokens
+that no longer compiles: one token cannot be both pushed and returned. So the defect is written the
+only way it can be now, by minting a second token with `unsafe`. That this takes an `unsafe` block
+a reviewer has to sign is the token doing its job; the harness is still shown to catch the result.
+
 diff --git a/crates/inter_process_communication/src/lib.rs b/crates/inter_process_communication/src/lib.rs
 --- a/crates/inter_process_communication/src/lib.rs
 +++ b/crates/inter_process_communication/src/lib.rs
-@@ -347,2 +347,4 @@ impl<T: Node> Rendezvous<T> {
+@@ -417,6 +417,9 @@ impl<T: Node> Rendezvous<T> {
+             self.pending -= 1;
+             Receive::Signal(me)
          } else if let Some(sender) = self.senders.pop_front() {
-+            // SAFETY: just popped from this queue, so it is valid and on no queue.
-+            unsafe { self.senders.push_back(sender) };
-             Receive::FromSender(sender)
++            // SAFETY: none. This is the defect: a second token for a node that keeps the first.
++            self.senders
++                .push_back(unsafe { Unqueued::new(sender.as_non_null()) });
+             Receive::FromSender(sender, me)
+         } else {
+             self.receivers.push_back(me);

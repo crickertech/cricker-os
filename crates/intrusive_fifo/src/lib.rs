@@ -18,18 +18,23 @@
 //! a thread is ready on one core's queue, or parked in one inbox, or blocked on one endpoint, or
 //! running, and never two of those at once. The queue makes the state machine physical.
 //!
-//! **And the compiler cannot check it.** A `VecDeque` owns its entries; this queue borrows its
-//! nodes with no lifetime the borrow checker can see. The rules the caller must keep (below) are
-//! enforced by discipline and stated invariants, which is why the mutating half of the API is
-//! `unsafe`. The queue is memory the caller owns, threaded through itself.
+//! **And the compiler checks half of it.** A `VecDeque` owns its entries; this queue borrows its
+//! nodes with no lifetime the borrow checker can see. What it can see is an [`Unqueued`] token:
+//! a non-`Clone` proof that one node is on no queue. A push consumes one and a pop hands one back,
+//! so "on at most one queue" is the compiler's fact rather than the caller's (milestone 139 (drive
+//! the unsafe count down), round 10; calef's ruling C on #1842). The only `unsafe` left to a caller
+//! is minting a token, once per node, which is where rule 2 (the node outlives its time on a queue)
+//! is still argued by hand.
 //!
 //! # The caller's contract
 //!
-//! 1. A node is pushed onto at most one queue, and not pushed again until popped.
+//! 1. A node is pushed onto at most one queue, and not pushed again until popped. **Enforced**:
+//!    a push takes the node's [`Unqueued`] token by value, and only a pop gives it back.
 //! 2. A node outlives its time on the queue (the kernel: a queued thread is `Ready`, and only
-//!    `Finished` threads are ever freed).
+//!    `Finished` threads are ever freed). Stated once, at [`Unqueued::new`].
 //! 3. All access to a queue and its nodes' links is serialized by the caller (the kernel: a run
-//!    queue is single-core with interrupts masked; an inbox is behind its mutex).
+//!    queue is single-core with interrupts masked; an inbox is behind its mutex). Enforced for the
+//!    queue by `&mut self`; for the links, also stated at [`Unqueued::new`].
 //!
 //! # Examples
 //!
@@ -39,7 +44,7 @@
 //!
 //! ```
 //! use core::ptr::NonNull;
-//! use intrusive_fifo::{Fifo, Node};
+//! use intrusive_fifo::{Fifo, Node, Unqueued};
 //!
 //! struct Thread {
 //!     tid: u32,
@@ -62,39 +67,50 @@
 //! let mut b = Thread { tid: 2, next: None };
 //! let mut q: Fifo<Thread> = Fifo::new();
 //!
-//! // SAFETY: both are live locals declared before `q`, and neither is on a queue (rule 1). This
-//! // doctest is the only accessor, which is rule 3.
-//! unsafe {
-//!     q.push_back(NonNull::from(&mut a));
-//!     q.push_back(NonNull::from(&mut b));
-//! }
+//! // The one unsafe step: minting each node's token, once. Both are live locals declared before
+//! // `q`, neither is on a queue and neither has a token yet, and this doctest is the only accessor.
+//! let (ta, tb) = unsafe { (Unqueued::new(NonNull::from(&mut a)), Unqueued::new(NonNull::from(&mut b))) };
+//!
+//! // Pushing is safe: the token is the proof that the node is on no queue, and the push takes it.
+//! q.push_back(ta);
+//! q.push_back(tb);
 //! assert_eq!(q.len(), 2);
 //! assert!(!q.is_empty());
 //!
-//! // Round robin: threads leave in the order they arrived, and a pop hands back the object rather
-//! // than a number somebody has to look up.
-//! // SAFETY: each popped pointer is one of the live locals above, and is no longer linked.
-//! let order: Vec<u32> = core::iter::from_fn(|| q.pop_front())
-//!     .map(|p| unsafe { (*p.as_ptr()).tid })
-//!     .collect();
-//! assert_eq!(order, vec![1, 2]);
-//! assert!(q.is_empty());
+//! // Round robin: threads leave in the order they arrived, and a pop hands back the token, which is
+//! // the object itself rather than a number somebody has to look up.
+//! let first = q.pop_front().unwrap();
+//! // SAFETY: the token's node is one of the live locals above.
+//! assert_eq!(unsafe { (*first.as_ptr()).tid }, 1);
 //!
-//! // A drained queue takes new nodes correctly, which is where the classic tail-pointer bug lives.
-//! // SAFETY: as above; `a` was popped, so it is on no queue again.
-//! unsafe { q.push_back(NonNull::from(&mut a)) };
-//! assert_eq!(q.len(), 1);
+//! // A drained-then-refilled queue takes nodes correctly, which is where the classic tail-pointer
+//! // bug lives; and the popped token is what makes pushing `a` again legal.
+//! q.push_back(first);
+//! let order: Vec<u32> = core::iter::from_fn(|| q.pop_front())
+//!     // SAFETY: each token's node is one of the live locals above.
+//!     .map(|t| unsafe { (*t.as_ptr()).tid })
+//!     .collect();
+//! assert_eq!(order, vec![2, 1]);
+//! assert!(q.is_empty());
 //! ```
 //!
-//! Nothing in the type system stops the next line from being written, and it is the whole reason the
-//! mutating half of this API is `unsafe`:
+//! Rule 1 is no longer something a caller keeps. A node is pushed by giving up its token, and a
+//! token is not `Clone`, so the second push of the same node does not compile:
 //!
-//! ```ignore
-//! // Rule 1 broken. One link per node means `b` is now on both queues and neither is correct;
-//! // the second push silently rewrites the link the first one made. No tool in this tree catches
-//! // it, which is what the section below is honest about.
-//! unsafe { ready.push_back(NonNull::from(&mut b)) };
-//! unsafe { inbox.push_back(NonNull::from(&mut b)) };
+//! ```compile_fail
+//! # use core::ptr::NonNull;
+//! # use intrusive_fifo::{Fifo, Node, Unqueued};
+//! # struct T { next: Option<NonNull<T>> }
+//! # unsafe impl Node for T {
+//! #     fn next(&self) -> Option<NonNull<Self>> { self.next }
+//! #     fn set_next(&mut self, next: Option<NonNull<Self>>) { self.next = next; }
+//! # }
+//! # let mut b = T { next: None };
+//! # let (mut ready, mut inbox) = (Fifo::<T>::new(), Fifo::<T>::new());
+//! // SAFETY: `b` is live, on no queue, and has no token yet.
+//! let token = unsafe { Unqueued::new(NonNull::from(&mut b)) };
+//! ready.push_back(token);
+//! inbox.push_back(token); // error[E0382]: use of moved value: `token`
 //! ```
 //!
 //! # What a static analyser sees here, and why it is right (DECISIONS §35)
@@ -107,15 +123,16 @@
 //! to zero on this change (`/language:rust`: 2 results on `refs/heads/main`, 0 on `refs/pull/5/head`).
 //! The rule was more precise than it looked, and it was pointing at nullness.
 //!
-//! **Nullness is gone from the contract**: the API takes and returns [`NonNull`], and every caller
-//! converts from a reference (`NonNull::from`, never `NonNull::new(..).unwrap()`), so non-nullness is
-//! a fact of construction rather than a promise anyone keeps.
+//! **Nullness is gone from the contract**: the API takes and returns [`NonNull`] (inside an
+//! [`Unqueued`] since milestone 139's round 10), and every caller converts from a reference
+//! (`NonNull::from`, never `NonNull::new(..).unwrap()`), so non-nullness is a fact of construction
+//! rather than a promise anyone keeps.
 //!
 //! **Validity is still not expressible**, and no tool result changes that. Rule 2 above says a node outlives its
 //! time on the queue, and no type available to us can carry that for a structure whose entire purpose
 //! is that the queue does *not* own its nodes. What upholds it is the kernel's state machine: only
-//! `Finished` threads are ever freed, a `Finished` thread is on no queue, and one link per node makes
-//! "on at most one queue" physical rather than remembered.
+//! `Finished` threads are ever freed, a `Finished` thread is on no queue, and one token per node
+//! makes "on at most one queue" a type error rather than a corrupted list.
 //!
 //! So the honest statement is that **this queue is safe because its callers are correct, and nothing
 //! in this crate can check that**. The Kani harness below proves the FIFO's *logic* over a symbolic
@@ -146,6 +163,74 @@ pub unsafe trait Node: Sized {
     fn next(&self) -> Option<NonNull<Self>>;
     /// Store the link. Plain storage only; see the trait's safety section.
     fn set_next(&mut self, next: Option<NonNull<Self>>);
+}
+
+/// **Proof that one node is on no queue**, and the only thing a queue will take.
+///
+/// Milestone 139, round 10 (calef's ruling C on #1842, 2026-10-08 UTC). Before it, every push was an
+/// `unsafe` call whose comment asserted the same sentence, "this node is live and on no other
+/// queue", and the kernel's scheduler carried twenty-one hand-written copies of it. A token turns
+/// that sentence into ownership: it is not `Clone` or `Copy`, [`Fifo::push_back`] consumes it, and
+/// [`Fifo::pop_front`] is the one place a queue hands it back. A node that holds no token cannot be
+/// pushed, so a node can no longer be on two queues at once without someone writing `unsafe`.
+///
+/// `#[repr(transparent)]` over the [`NonNull`] it carries, so it costs nothing at run time: the
+/// same register, the same layout, and `Option<Unqueued<T>>` is still one pointer wide.
+///
+/// What it cannot carry is lifetime (rule 2 in the crate docs). That is the one obligation left,
+/// and it is discharged once, where the token is minted ([`Unqueued::new`]), rather than at every
+/// push.
+///
+/// `#[must_use]`, because dropping a token is safe but strands its node: nothing can queue it again
+/// without minting a second token, which is exactly the `unsafe` this type exists to keep rare.
+///
+/// Name: provisional (milestone 139, round 10, 2026-10-08 UTC). `Unqueued` is the name option C on
+/// #1842 carried when calef chose that option; whether choosing it ratified the name is his to say.
+/// `new`, `as_ptr` and `as_non_null` are this lane's: calef names public items.
+#[repr(transparent)]
+#[must_use = "a dropped token strands its node: nothing can queue it again without minting another"]
+pub struct Unqueued<T>(NonNull<T>);
+
+impl<T> Unqueued<T> {
+    /// **Mint the token for `node`.** The one `unsafe` step in queueing.
+    ///
+    /// # Safety
+    ///
+    /// - `node` is valid to read and write, and stays valid for as long as this token, or any
+    ///   queue it is pushed onto, can still reach it (rule 2).
+    /// - `node` is on no queue, and no other `Unqueued` for it exists or will be minted while this
+    ///   one, or the queue that consumes it, is alive (rule 1: this is what makes the token unique).
+    /// - While a queue holds `node`, nothing but the queue writes its link, and no reference to
+    ///   `node` is live across a queue operation (rule 3).
+    #[inline(always)]
+    pub const unsafe fn new(node: NonNull<T>) -> Self {
+        Self(node)
+    }
+
+    /// The node, as a pointer. Safe to take: holding a pointer grants nothing, and dereferencing it
+    /// is still the caller's `unsafe`.
+    #[inline(always)]
+    pub const fn as_non_null(&self) -> NonNull<T> {
+        self.0
+    }
+
+    /// The node, as a raw pointer. See [`as_non_null`](Self::as_non_null).
+    #[inline(always)]
+    pub const fn as_ptr(&self) -> *mut T {
+        self.0.as_ptr()
+    }
+}
+
+impl<T> PartialEq<NonNull<T>> for Unqueued<T> {
+    fn eq(&self, other: &NonNull<T>) -> bool {
+        self.0 == *other
+    }
+}
+
+impl<T> core::fmt::Debug for Unqueued<T> {
+    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
+        f.debug_tuple("Unqueued").field(&self.0).finish()
+    }
 }
 
 /// The queue: two pointers into nodes it does not own, plus a count.
@@ -182,19 +267,16 @@ impl<T: Node> Fifo<T> {
         self.len
     }
 
-    /// Append a node.
-    ///
-    /// # Safety
-    ///
-    /// `node` must be valid to dereference, not currently on any queue, and must stay valid
-    /// until popped (the contract in the crate docs). Null is no longer part of that contract:
-    /// [`NonNull`] carries it in the type.
-    pub unsafe fn push_back(&mut self, node: NonNull<T>) {
-        // SAFETY: valid and exclusively ours to link, per the caller's contract.
+    /// Append a node, consuming its token. Safe: the token is the proof that the node is valid
+    /// and on no queue, and taking it by value is what stops the same node being pushed twice.
+    pub fn push_back(&mut self, node: Unqueued<T>) {
+        let node = node.0;
+        // SAFETY: valid and on no queue, which is what `Unqueued::new`'s caller promised for this
+        // token; and the token is consumed, so no other push can link this node until a pop.
         unsafe { (*node.as_ptr()).set_next(None) };
 
         match self.tail {
-            // SAFETY: `tail` was pushed earlier under the same contract and not yet popped.
+            // SAFETY: `tail` was pushed earlier with its token and not yet popped, so it is valid.
             Some(tail) => unsafe { (*tail.as_ptr()).set_next(Some(node)) },
             None => self.head = Some(node),
         }
@@ -206,12 +288,13 @@ impl<T: Node> Fifo<T> {
         self.len = self.len.wrapping_add(1);
     }
 
-    /// Detach and return the oldest node. The returned node's link is cleared: it leaves the
-    /// queue carrying no dangling reference into it.
-    pub fn pop_front(&mut self) -> Option<NonNull<T>> {
+    /// Detach and return the oldest node, with its token. The returned node's link is cleared: it
+    /// leaves the queue carrying no dangling reference into it, and the token says it may be
+    /// queued again.
+    pub fn pop_front(&mut self) -> Option<Unqueued<T>> {
         let node = self.head?;
-        // SAFETY: every node between head and tail was pushed under the contract and is still
-        // valid (rule 2); we are the only accessor (rule 3).
+        // SAFETY: every node between head and tail was pushed with a token and is still valid
+        // (rule 2, the token's minting contract); we are the only accessor (rule 3).
         unsafe {
             self.head = (*node.as_ptr()).next();
             if self.head.is_none() {
@@ -223,7 +306,8 @@ impl<T: Node> Fifo<T> {
         // `len >= 1`. `any_push_pop_interleaving_is_fifo_and_lossless` below holds `len` equal to
         // the model's count after every step, so a decrement that wrapped would fail that proof.
         self.len = self.len.wrapping_sub(1);
-        Some(node)
+        // The token that was consumed at the push, handed back: this node is on no queue now.
+        Some(Unqueued(node))
     }
 }
 
@@ -271,12 +355,19 @@ mod verification {
             N { next: None, tag: 1 },
             N { next: None, tag: 2 },
         ];
-        // NonNull, taken from references, so the harness proves the same API the kernel calls.
-        let ptrs: [NonNull<N>; 3] = [
-            NonNull::from(&mut nodes[0]),
-            NonNull::from(&mut nodes[1]),
-            NonNull::from(&mut nodes[2]),
-        ];
+        // One token per node, minted from references, so the harness proves the same API the
+        // kernel calls. A token is in `held` while its node is off the queue and in the queue while
+        // it is on it, exactly as in the kernel.
+        //
+        // SAFETY: three distinct live locals declared before `q`, each on no queue, each minted
+        // once, and the harness is the only accessor.
+        let mut held: [Option<Unqueued<N>>; 3] = unsafe {
+            [
+                Some(Unqueued::new(NonNull::from(&mut nodes[0]))),
+                Some(Unqueued::new(NonNull::from(&mut nodes[1]))),
+                Some(Unqueued::new(NonNull::from(&mut nodes[2]))),
+            ]
+        };
 
         let mut q: Fifo<N> = Fifo::new();
 
@@ -289,13 +380,13 @@ mod verification {
             let choice: usize = kani::any();
             kani::assume(choice <= 3);
             if choice < 3 {
-                if !queued[choice] {
+                // The token is the check now: a node is pushed exactly when its token is held.
+                if let Some(token) = held[choice].take() {
+                    assert!(!queued[choice], "a token was held for a queued node");
                     queued[choice] = true;
                     model[m_tail] = choice;
                     m_tail += 1;
-                    // SAFETY: the node is valid (a stack local), not queued (checked), and
-                    // outlives the harness.
-                    unsafe { q.push_back(ptrs[choice]) };
+                    q.push_back(token);
                 }
             } else {
                 let popped = q.pop_front();
@@ -305,9 +396,11 @@ mod verification {
                     let expect = model[m_head];
                     m_head += 1;
                     queued[expect] = false;
+                    let token = popped.expect("lost a node");
                     // SAFETY: pop returns only nodes we pushed, all still valid.
-                    let got = unsafe { (*popped.expect("lost a node").as_ptr()).tag };
+                    let got = unsafe { (*token.as_ptr()).tag };
                     assert_eq!(got, expect, "not FIFO");
+                    held[expect] = Some(token);
                 }
             }
             assert_eq!(q.len(), m_tail - m_head);
@@ -339,18 +432,28 @@ mod tests {
         Box::new(N { next: None, tag })
     }
 
+    /// Mint `n`'s token. Every test calls this once per node, on a `Box` declared before its
+    /// queue, so the node outlives the queue (locals drop in reverse) and is on no queue yet.
+    fn token(n: &mut Box<N>) -> Unqueued<N> {
+        // SAFETY: a live boxed node on no queue, minted once per test (see above); the test is the
+        // only accessor.
+        unsafe { Unqueued::new(NonNull::from(&mut **n)) }
+    }
+
+    fn tag(t: &Unqueued<N>) -> u32 {
+        // SAFETY: every token in these tests names one of the test's live boxed nodes.
+        unsafe { (*t.as_ptr()).tag }
+    }
+
     #[test]
     fn fifo_order() {
         let (mut a, mut b, mut c) = (node(1), node(2), node(3));
         let mut q: Fifo<N> = Fifo::new();
         assert!(q.is_empty());
 
-        // SAFETY: `a`, `b` and `c` are live `Box`ed locals declared BEFORE `q`, so they outlive it (locals drop in reverse), and none is on a queue yet.
-        unsafe {
-            q.push_back(NonNull::from(&mut *a));
-            q.push_back(NonNull::from(&mut *b));
-            q.push_back(NonNull::from(&mut *c));
-        }
+        q.push_back(token(&mut a));
+        q.push_back(token(&mut b));
+        q.push_back(token(&mut c));
         assert_eq!(q.len(), 3);
 
         // A non-empty queue says so. Milestone 85: every earlier assertion met is_empty only in
@@ -359,14 +462,12 @@ mod tests {
 
         // len falls by exactly one per pop. The push side was asserted above; the pop side was
         // not, and the scheduler trusts this counter for its run-queue accounting.
-        // SAFETY: the popped node is one of the live locals above and is no longer linked.
-        let first = q.pop_front().map(|p| unsafe { (*p.as_ptr()).tag });
+        let first = q.pop_front().map(|t| tag(&t));
         assert_eq!(first, Some(1));
         assert_eq!(q.len(), 2);
 
         let tags: Vec<u32> = core::iter::from_fn(|| q.pop_front())
-            // SAFETY: `p` was just popped, so it is one of the live locals above and is no longer linked.
-            .map(|p| unsafe { (*p.as_ptr()).tag })
+            .map(|t| tag(&t))
             .collect();
         assert_eq!(tags, vec![2, 3]);
         assert!(q.is_empty());
@@ -374,28 +475,32 @@ mod tests {
     }
 
     /// The empty-again transitions: a queue drained to empty accepts new nodes correctly (the
-    /// classic tail-pointer bug), and a popped node can be pushed again.
+    /// classic tail-pointer bug), and a popped node can be pushed again with the token its pop
+    /// handed back.
     #[test]
     fn drain_then_reuse() {
         let (mut a, mut b) = (node(1), node(2));
         let mut q: Fifo<N> = Fifo::new();
 
-        // SAFETY: `a` is a live local declared before `q`, on no queue.
-        unsafe { q.push_back(NonNull::from(&mut *a)) };
-        // SAFETY: `p` was just popped from `q`, so it is `a`, still live.
-        assert_eq!(q.pop_front().map(|p| unsafe { (*p.as_ptr()).tag }), Some(1));
+        q.push_back(token(&mut a));
+        let ta = q.pop_front().unwrap();
+        assert_eq!(tag(&ta), 1);
         assert!(q.pop_front().is_none());
 
-        // SAFETY: `b` has never been queued; `a` was popped above, which is exactly what makes re-pushing it legal.
-        unsafe {
-            q.push_back(NonNull::from(&mut *b));
-            q.push_back(NonNull::from(&mut *a)); // popped above, so it may be queued again
-        }
-        // SAFETY: just popped, so still one of the live locals.
-        assert_eq!(q.pop_front().map(|p| unsafe { (*p.as_ptr()).tag }), Some(2));
-        // SAFETY: as above.
-        assert_eq!(q.pop_front().map(|p| unsafe { (*p.as_ptr()).tag }), Some(1));
+        q.push_back(token(&mut b));
+        q.push_back(ta); // the token the pop handed back is what makes queueing `a` again legal
+        assert_eq!(q.pop_front().map(|t| tag(&t)), Some(2));
+        assert_eq!(q.pop_front().map(|t| tag(&t)), Some(1));
         assert!(q.is_empty());
+    }
+
+    /// The token is the pointer and nothing more: `#[repr(transparent)]` is the zero-cost claim the
+    /// kernel's footprint gate rests on, and `Option` of one is still one word.
+    #[test]
+    fn a_token_is_one_pointer_wide() {
+        use core::mem::size_of;
+        assert_eq!(size_of::<Unqueued<N>>(), size_of::<NonNull<N>>());
+        assert_eq!(size_of::<Option<Unqueued<N>>>(), size_of::<NonNull<N>>());
     }
 
     /// A popped node leaves with a clean link: it does not secretly point back into the queue.
@@ -403,11 +508,8 @@ mod tests {
     fn a_popped_node_carries_no_link() {
         let (mut a, mut b) = (node(1), node(2));
         let mut q: Fifo<N> = Fifo::new();
-        // SAFETY: `a` and `b` are live locals declared before `q`, neither on a queue.
-        unsafe {
-            q.push_back(NonNull::from(&mut *a));
-            q.push_back(NonNull::from(&mut *b));
-        }
+        q.push_back(token(&mut a));
+        q.push_back(token(&mut b));
         let p = q.pop_front().unwrap();
         // SAFETY: `p` was just popped, so it is live and unlinked; that it is unlinked is what this test asserts.
         assert!(unsafe { (*p.as_ptr()).next() }.is_none());

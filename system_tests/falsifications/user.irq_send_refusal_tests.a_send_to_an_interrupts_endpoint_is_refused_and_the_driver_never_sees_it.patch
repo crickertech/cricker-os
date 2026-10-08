@@ -11,14 +11,15 @@ because the send rendezvouses with the driver parked in `Irq::WAIT`. That driver
 diff --git a/crates/inter_process_communication/src/lib.rs b/crates/inter_process_communication/src/lib.rs
 --- a/crates/inter_process_communication/src/lib.rs
 +++ b/crates/inter_process_communication/src/lib.rs
-@@ -376,9 +376,7 @@ impl<T: Node> Rendezvous<T> {
-     /// as long as it may be queued here. (The kernel's discipline: `me` is the running thread,
-     /// and a thread queued here is `Blocked`, which the reaper never touches.)
-     pub unsafe fn send(&mut self, me: NonNull<T>) -> Send<T> {
+@@ -399,10 +399,8 @@ impl<T: Node> Rendezvous<T> {
+     /// kernel's discipline behind the token: `me` is the running thread, its token sits on its own
+     /// TCB (`thread::Thread::own_token`) until this call takes it, and a thread queued here is
+     /// `Blocked`, which the reaper never touches.)
+     pub fn send(&mut self, me: Unqueued<T>) -> Send<T> {
 -        if self.bound_to_interrupt {
--            Send::Refused
+-            Send::Refused(me)
 -        } else if let Some(receiver) = self.receivers.pop_front() {
 +        if let Some(receiver) = self.receivers.pop_front() {
-             Send::Rendezvous(receiver)
+             Send::Rendezvous(receiver, me)
          } else {
-             // SAFETY: the caller's contract is exactly the queue's.
+             self.senders.push_back(me);

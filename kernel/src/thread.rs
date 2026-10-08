@@ -552,6 +552,24 @@ pub struct Thread {
     /// the thread, under that queue's synchronization.
     pub(crate) next: Option<core::ptr::NonNull<Thread>>,
 
+    /// **This thread's queue token, while nothing else holds it** (milestone 139 (drive the unsafe
+    /// count down), round 10; `intrusive_fifo::Unqueued`). Every live thread has exactly one token,
+    /// minted once when the thread table inserts it, and the token is always on a queue (this
+    /// thread is `Ready` on a run queue or inbox, or `Blocked` on a wait queue) or here. Here means
+    /// on no queue: a running thread (the pop that chose it handed the token home through
+    /// `sched::hold_token`, and the requeue in `schedule` takes it from here), an embryo, a thread
+    /// blocked on nothing (a caller awaiting its Reply), a thread whose wake was deferred until its
+    /// core finishes switching it out, a corpse, or an idle thread off its CPU.
+    ///
+    /// A queue push takes the token by value, so a thread can reach a queue only through the token
+    /// its last transition left here. `sched::wake` takes it from here.
+    ///
+    /// Ruling C's letter had the running thread's token in a per-core current slot; this field is
+    /// the deviation round 10's report puts to calef, and this comment describes what is.
+    ///
+    /// Name: provisional (milestone 139, round 10): calef names fields a reader meets.
+    pub(crate) own_token: Option<intrusive_fifo::Unqueued<Thread>>,
+
     /// **Where this thread's EL0 execution begins** (milestone 19c.3), set by `ThreadControlBlock::CONFIGURE`
     /// on an embryo, consumed by `START` to build the entry context. `(0, 0)` for a kernel
     /// thread, which never drops to EL0 and runs its closure instead.
@@ -847,6 +865,7 @@ impl Thread {
             ipc_refused: false,
             being_reaped: false,
             next: None,
+            own_token: None,
             entry: (0, 0), // a kernel thread; never enters EL0 by this path
             start_args: [0; 3],
             thread_control_block_kmem: true,
@@ -898,6 +917,7 @@ impl Thread {
                 ipc_refused: false,
                 being_reaped: false,
                 next: None,
+                own_token: None,
                 entry: (0, 0), // a kernel thread; never enters EL0 by this path
                 start_args: [0; 3],
                 thread_control_block_kmem: true,
@@ -1043,6 +1063,7 @@ impl Thread {
                 ipc_refused: false,
                 being_reaped: false,
                 next: None,
+                own_token: None,
                 entry: (0, 0), // a kernel thread; becomes a user process via exec, not this path
                 start_args: [0; 3],
                 thread_control_block_kmem: true,
@@ -1082,6 +1103,7 @@ impl Thread {
             ipc_refused: false,
             being_reaped: false,
             next: None,
+            own_token: None,
             entry: (0, 0),
             start_args: [0; 3],
             thread_control_block_kmem: false, // a user-retyped TCB page; the region owns it
