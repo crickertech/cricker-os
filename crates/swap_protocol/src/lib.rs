@@ -5,8 +5,9 @@
 //! `c_swappable` the two instances of the swappable component, `chatty` the client and the
 //! attacker), and this is what they share: the wire protocol, the addresses of the pages they pass
 //! between them, the digest both language implementations of the component must compute, and the
-//! serving loop itself. Compiled into each binary with `#[path = "swap.rs"] mod swap;`, the same
-//! way the supervision tree shares `suptree.rs`.
+//! serving loop itself. Each of the four depends on this crate. It began as `swap.rs`, compiled
+//! into each binary with `#[path]`, and became a crate under rule 7 (dated 2026-08-01), as the
+//! supervision tree's `suptree.rs` became the crate now named `supervision_protocol`.
 //!
 //! # The shape
 //!
