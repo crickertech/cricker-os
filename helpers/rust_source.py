@@ -103,6 +103,11 @@ def non_blank(text):
 UNSAFE_BLOCK = re.compile(r'\bunsafe\s*\{')
 UNSAFE_EXTERN = re.compile(r'\bunsafe\s+extern\s+"[^"]*"\s*\{')
 THREAD_SAFETY = re.compile(r'\bunsafe\s+impl\b[^{;]*?\b(?:Send|Sync)\s+for\b')
+# Every `unsafe impl`, so the census can report the OTHER population too: an `unsafe impl` of an
+# unsafe trait (`GlobalAlloc`, `intrusive_fifo::Node`, `ns16550::RegisterSpace`). Counted as all
+# impls minus the thread-safety claims above, so the two numbers partition one population and
+# cannot overlap (milestone 139 (drive the unsafe count down), 2026-10-07 UTC).
+UNSAFE_IMPL = re.compile(r'\bunsafe\s+impl\b')
 
 # What is out of the census, and every exclusion has a reason rather than a convenience.
 #
@@ -129,7 +134,8 @@ HOST_ONLY = ('bench/host/', 'xtask/', 'tools/', 'fuzz/', 'helpers/', 'patches/')
 def unsafe_census(files):
     """Every unsafe number this tree tracks, in one pass over the Rust that runs on nife.
 
-    Returns `outside_arch`, `inside_arch`, `thread_safety`, `code_lines` and `density`.
+    Returns `outside_arch`, `inside_arch`, `thread_safety`, `trait_claims`, `code_lines` and
+    `density`.
 
     **Density rather than a raw count, measured before it was chosen.** Outside
     `kernel/src/arch/` the block count went 171 to 747 between 2026-07-15 and 2026-08-18, almost all
@@ -143,13 +149,16 @@ def unsafe_census(files):
     code. Mixing arch lines in would let assembly-heavy months dilute a number that is deliberately
     not about assembly.
     """
-    out = {'outside_arch': 0, 'inside_arch': 0, 'thread_safety': 0, 'code_lines': 0}
+    out = {'outside_arch': 0, 'inside_arch': 0, 'thread_safety': 0, 'trait_claims': 0,
+           'code_lines': 0}
     for path, text in files:
         if path.startswith(HOST_ONLY):
             continue
         code = strip_non_code(text)
         blocks = len(UNSAFE_BLOCK.findall(code)) - len(UNSAFE_EXTERN.findall(code))
-        out['thread_safety'] += len(THREAD_SAFETY.findall(code))
+        claims = len(THREAD_SAFETY.findall(code))
+        out['thread_safety'] += claims
+        out['trait_claims'] += len(UNSAFE_IMPL.findall(code)) - claims
         if path.startswith('kernel/src/arch/'):
             out['inside_arch'] += blocks
         else:

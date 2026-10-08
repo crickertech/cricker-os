@@ -622,6 +622,13 @@ carries (`unsafe impl Sync for PerCpu`, cpu.rs's own comment: "no two cores ever
 block"), restated for the one architecture whose trap-entry assembly needs a second, smaller
 per-core scratch area beside it rather than folding into `PerCpu`'s existing fields directly.
 
+Other than `Send`/`Sync`, at most 11 <!--count-at-most:unsafe-trait-claims--> `unsafe impl`s of
+an unsafe trait, at the tree's exact value for the reason the line above
+gives (milestone 139 round 9, 2026-10-07 UTC; the marker's name is provisional). The census once
+counted `unsafe impl` as one number and the gate watched only its `Send`/`Sync` half. This is the
+rest (`GlobalAlloc`, `intrusive_fifo::Node`, `ns16550::RegisterSpace`). It read 7, 9, 9, 9 and 11
+at five dates from 2026-08-18 to 2026-10-07: two moves in seven weeks.
+
 No target for `kernel/src/arch/`, which is 139 blocks and rising. Driving that number down means
 either writing assembly wrong or moving it out of `arch/`, and DECISIONS rule 1 says arch code
 belongs there, so a ceiling would be a gate pushing against the architecture. An honest census with
@@ -635,6 +642,12 @@ would be the exact drift this milestone exists to stop, so the register cites th
 33 heading is left standing: its table of eleven `unsafe fn`s with no unsafe operation is still the
 finding, and renumbering a heading to chase a moving count is the maintenance tax the whole
 convention refuses.
+
+And no ceiling on `unsafe fn` either, re-decided with data by milestone 139 round 9 (2026-10-07
+UTC). With `unsafe_op_in_unsafe_fn` on, every call of one is a block the density already counts,
+so a second ceiling would price one hazard twice. And the count is not monotone: per 10,000 lines
+outside `arch/` it read 6.0, 10.1, 11.2 and 8.8 between 2026-08-18 and 2026-10-07, so a ceiling
+written in August would have failed honest work in September.
 
 ### `// SAFETY:` parity is deliberately not a gate
 
