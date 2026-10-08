@@ -75,7 +75,7 @@ call all but a few of 159 files reachable; the check above is the fail-safe half
 the exception, written down as one. Unlisted paths (every other `script/` and `helpers/` file, the
 workflow itself) run everything. The tools and metrics.yml also stop counting as readers of
 prose, which is what lets #1831's note edit skip (the page names itself in both). `script/metrics --selftest` has no gate of its own, so the
-`clippy` job, which never skips, runs it.
+`lint` job, which never skips, runs it.
 
 # BUGS
 
@@ -132,7 +132,7 @@ def path_tokens(line):
 # Host-side report generators that no pull-request job runs. Each was checked on 2026-10-07 (UTC)
 # against every file outside script/ and helpers/: script/metrics and week_digest.py are named only
 # by metrics.yml; baseline_drift.py and interface_stability.py are imported by script/metrics and
-# selftested by script/lint (which `clippy` runs on every pull request). helpers/verify_times.py
+# selftested by script/lint (which the `lint` job runs on every pull request). helpers/verify_times.py
 # looks like the same class and is not: script/verify shards by it.
 HOST_ONLY_TOOLS = (
     "script/metrics",
@@ -274,7 +274,7 @@ def classify(changed, tree):
                 report.append(f"RUN   {f}: a host-only tool, but named by {', '.join(readers[:3])}")
                 prose_only = False
             else:
-                report.append(f"SKIP  {f}: host-only tool; only metrics.yml runs it and clippy selftests it")
+                report.append(f"SKIP  {f}: host-only tool; only metrics.yml runs it and the lint job selftests it")
             continue
         if not is_prose_path(f):
             report.append(f"RUN   {f}: not Markdown under notes/, design/, briefs/ or the root")
