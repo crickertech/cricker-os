@@ -22,27 +22,27 @@ because a real third-party program would then run on nife.
 
 ## What it builds
 
-- **One reference job file.** `randread`, `randwrite`, `read` and `write`; 4 KiB and 128 KiB; queue
+- One reference job file. `randread`, `randwrite`, `read` and `write`; 4 KiB and 128 KiB; queue
   depth 1, 4 and 32; `direct`; a fixed offset and size inside the window the confined driver owns.
-- **Linux side.** `fio` with `io_uring`, polled and interrupt-driven. Also SPDK's `spdk_nvme_perf`,
+- Linux side. `fio` with `io_uring`, polled and interrupt-driven. Also SPDK's `spdk_nvme_perf`,
   the like-for-like design: it is Linux's polled userspace NVMe driver, which is what nife's server is.
-- **nife side.** The same `fio` source, built for nife and run against the confined NVMe server, reading
+- nife side. The same `fio` source, built for nife and run against the confined NVMe server, reading
   the same job file and emitting the same JSON.
-- **A per-I/O latency histogram on each OS.** This is the part that explains the read gap. A mean
+- A per-I/O latency histogram on each OS. This is the part that explains the read gap. A mean
   and a median cannot say whether nife's reads are fast or Linux's are slow in a tail.
 
 ## What the port needs from nife, to be discovered
 
 These are questions the port answers, not assumptions. Each is a dependency found by trying.
 
-- **Threads.** `fio` runs jobs as processes or threads and times them with its own clock threads.
+- Threads. `fio` runs jobs as processes or threads and times them with its own clock threads.
   Whether nife's thread and timer surface covers what fio uses is not known.
-- **Which `ioengine` maps to the confined driver.** `fio` has no engine for a block server reached over
+- Which `ioengine` maps to the confined driver. `fio` has no engine for a block server reached over
   an endpoint. The candidates are `psync` over a file-like layer on `blk`, or a new engine written for
   nife's block contract. Which one measures the driver rather than the layer above it is the open question.
-- **Direct I/O and a block-device view.** `direct=1` and an offset window have to mean the same on
+- Direct I/O and a block-device view. `direct=1` and an offset window have to mean the same on
   both sides, or the two numbers are not comparable.
-- **What std and libc fio's build wants** that nife lacks, found by the first compile.
+- What std and libc fio's build wants that nife lacks, found by the first compile.
 
 ## What it must answer
 
