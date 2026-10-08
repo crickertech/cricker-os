@@ -76,3 +76,13 @@ The caveat. The structural fear is retired. The one published argument that spea
 goes badly: clean-slate kernels have *"significantly fewer features than Linux ... impeding
 adoption"*, risk 8's paper ([`notes/incremental-path.md`](../../notes/incremental-path.md)).
 [Appendix](somebody-elses-software.md).
+
+## Benchmarks that inform this risk
+
+As of 2026-10-08 (UTC), under §262 (nife is measured with the field's standard benchmarks).
+Each is to run unmodified on nife and on Linux, none has produced a number yet, and every nife
+port waits on a C library, which §262 leaves to calef.
+
+- [Milestone 831 (SQLite's speedtest1 on nife and Linux)](../roadmap/0831-sqlite-speedtest1-on-nife-and-linux.md). Needs only a C library.
+- [Milestone 833 (the same storage benchmark on nife and Linux, by porting real fio)](../roadmap/0833-the-same-storage-benchmark-on-nife-and-linux.md). Waits on threads too.
+- [Milestone 834 (ioping on nife and Linux)](../roadmap/0834-ioping-on-nife-and-linux.md). Needs only a C library.

@@ -71,3 +71,17 @@ rather than inherited, and their open problem is risk 5. And `sel4bench` has nev
 so the peer is Linux rather than the state of the art in minimal kernels. It ranks sixth although a
 skeptic expects the project to die here, because this is where the most evidence says it will not.
 [Appendix](the-crossing-cost.md).
+
+## Benchmarks that inform this risk
+
+As of 2026-10-08 (UTC), under §262 (nife is measured with the field's standard benchmarks).
+Each is to run unmodified on nife and on Linux, none has produced a number yet, and every nife
+port waits on a C library, which §262 leaves to calef.
+
+- [Milestone 25 (cross-OS performance comparison)](../roadmap/0025-cross-os-comparison.md), `sel4bench`, the seL4 column. Waits on a PMU on silicon.
+- [Milestone 826 (an lmbench subset on nife and Linux)](../roadmap/0826-an-lmbench-subset-on-nife-and-linux.md). Its `fork` rows never run.
+- [Milestone 827 (hackbench on nife and Linux)](../roadmap/0827-hackbench-on-nife-and-linux.md), a cost per handoff.
+- [Milestone 828 (iperf3 on nife and Linux)](../roadmap/0828-iperf3-on-nife-and-linux.md), copies across driver, stack and client.
+- [Milestone 829 (netperf TCP_RR on nife and Linux)](../roadmap/0829-netperf-tcp-rr-on-nife-and-linux.md), a fixed cost per round trip.
+- [Milestone 831 (SQLite's speedtest1 on nife and Linux)](../roadmap/0831-sqlite-speedtest1-on-nife-and-linux.md), time per file crossing.
+- [Milestone 832 (STREAM on nife and Linux)](../roadmap/0832-stream-on-nife-and-linux.md), the control with no crossings.
