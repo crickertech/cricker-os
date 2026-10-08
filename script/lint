@@ -519,6 +519,23 @@ fi
 rm -f "/tmp/nife-rule-1.$$"
 echo "rule 1: no asm outside kernel/src/arch/"
 
+# Rule 5's interface half (lane lint-arch-parity, 2026-10-08). arch/mod.rs re-exports one port
+# flat, so the interface portable code calls is only the set of names it happens to use, and
+# nothing held the three ports to that set. The clippy passes above catch a missing item only in a
+# configuration they build, and they skip seven boot-mode features on x86_64. This reads every
+# `arch::` path that kernel/src (outside arch/) and system_tests/src name, works out which ports
+# can compile each use from its `target_arch` cfgs, and fails when one of those ports does not
+# define the path. Arch-private extras (x86_64's `segments`, `port`, `rtc`) never trip it, since
+# only a caller makes a name part of the interface.
+#
+# Intended gaps and known real ones are in ALLOWED in the helper, one reason each, and an entry
+# that matches nothing fails, so the list cannot outlive its gap. A compile-time interface (a
+# trait each port implements) would be a higher rung, but it means restructuring every port, which
+# is a design fork and not this check's to make. What the text reading cannot see is the
+# helper's BUGS paragraph.
+echo "==> rule 5 (every arch:: path portable code names exists in every port)"
+python3 helpers/lint_arch_parity.py
+
 # Hand-written assembly carries call-frame information (milestone: CFI in hand-written asm).
 #
 # What this checks: that a `.s` file under kernel/src/arch/ which defines at least one exported
