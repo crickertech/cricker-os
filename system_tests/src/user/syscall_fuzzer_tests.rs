@@ -58,6 +58,13 @@
 //! - **Unexpected wakes are seen late.** An actor the model says is parked is checked for a stray
 //!   answer at every step and at teardown, so a wrong wake is caught, but possibly some steps after
 //!   the operation that caused it.
+//! - **The corpus is tied to the kernel's walk, not only to this generator.** A kernel change that
+//!   alters any answer the model predicts re-rolls every seed's walk, and a corpus seed can rot
+//!   green with its defect still reachable: seed 342 did (2026-10-08, UTC, found by milestone 139
+//!   (drive the unsafe count down) round 10's sweep; re-found at 559 the same day). Milestone 752's
+//!   replay table
+//!   (`design/roadmap/0752-a-seeded-syscall-driver-with-a-shadow-model.md`) still names 342 in its
+//!   revocation-in-flight row, and that block is not a lane's to edit; the integrator updates it.
 
 use core::sync::atomic::{AtomicU64, Ordering};
 
@@ -89,15 +96,17 @@ const SUITE_SEEDS: u64 = 32;
 /// re-found, which the roadmap block's replay table is for. A new finding's seed belongs here with
 /// its reason.
 ///
-/// **Seed 342 is the revocation-in-flight patch's, re-found** after §246 (a plain `RECEIVE` never
-/// takes a capability), a PROVISIONAL number, changed what a `CALL` or `SEND_CAP` at a plain
-/// `RECEIVE` does. The model's walk diverged, and seed 5 no longer reached a frame revoked while
+/// **Seed 559 is the revocation-in-flight patch's, re-found twice now.** §246 (a plain `RECEIVE`
+/// never takes a capability), a PROVISIONAL number, changed what a `CALL` or `SEND_CAP` at a plain
+/// `RECEIVE` does; the model's walk diverged, and seed 5 no longer reached a frame revoked while
 /// staged. A 2,000-seed sweep under that patch on aarch64 found it red first at seed 342, step 64
-/// (2026-10-04, UTC). All six patches were then replayed on this tree under QEMU on aarch64,
-/// riscv64 and x86_64, and each turned the driver red: four at seed 0 (steps 17 and 18), milestone
-/// 633's at seed 19 (step 63, inside the suite range now, so 180 is no longer the first), and
-/// revocation in flight at 342.
-const CORPUS: &[u64] = &[180, 342];
+/// (2026-10-04, UTC). The walk diverged again on main before 2026-10-07 (UTC): with the defect
+/// applied, seed 342 stayed green, verified by hand at a lane's claim commit (milestone 139 round
+/// 10), so a 5,000-seed sweep re-found it at seed 559, step 14, and dead 342 left the corpus. All
+/// six patches were replayed under QEMU on aarch64, riscv64 and x86_64, and each turned the driver
+/// red: four at seed 0 (steps 17 and 18), milestone 633's at seed 19 (step 63, inside the suite
+/// range now, so 180 is no longer the first), and revocation in flight at 559.
+const CORPUS: &[u64] = &[180, 559];
 /// The sweep's guest-time cap: it stops between seeds once this has passed and says how far it
 /// got, so a weekly run with a large count fits under the per-test budget
 /// (`testing.rs`' `DEFAULT_BUDGET_SECS`, 90 s).

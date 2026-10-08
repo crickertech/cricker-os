@@ -13,14 +13,18 @@ waiting must not be overtaken by a sender that arrived later.
 diff --git a/crates/inter_process_communication/src/lib.rs b/crates/inter_process_communication/src/lib.rs
 --- a/crates/inter_process_communication/src/lib.rs
 +++ b/crates/inter_process_communication/src/lib.rs
-@@ -343,7 +343,7 @@ impl<T: Node> Rendezvous<T> {
-     pub unsafe fn receive(&mut self, me: NonNull<T>) -> Receive<T> {
+@@ -413,11 +413,11 @@ impl<T: Node> Rendezvous<T> {
+     /// sender), then collect a queued sender, otherwise `me` joins the receiver queue (and the
+     /// caller should block it). Safe, for [`send`](Self::send)'s reason.
+     pub fn receive(&mut self, me: Unqueued<T>) -> Receive<T> {
 -        if self.pending > 0 {
 +        if let Some(sender) = self.senders.pop_front() {
-+            Receive::FromSender(sender)
++            Receive::FromSender(sender, me)
 +        } else if self.pending > 0 {
              self.pending -= 1;
-             Receive::Signal
+             Receive::Signal(me)
 -        } else if let Some(sender) = self.senders.pop_front() {
--            Receive::FromSender(sender)
+-            Receive::FromSender(sender, me)
          } else {
+             self.receivers.push_back(me);
+             Receive::Blocked

@@ -10,15 +10,25 @@ assertion survives, because one queue is still empty, which is why this harness 
 a remove that reports success while leaving the thread queued is how milestone 133 (ending a
 permanently blocked thread) ends a thread and then finds it again on a wait queue.
 
+Re-cut at milestone 139 (drive the unsafe count down), round 10, when the queues began taking
+`Unqueued` tokens. The original defect re-pushed a node the code also handed back, and with tokens
+that no longer compiles: one token cannot be both pushed and returned. So the defect is written the
+only way it can be now, by minting a second token with `unsafe`. That this takes an `unsafe` block
+a reviewer has to sign is the token doing its job; the harness is still shown to catch the result.
+
 diff --git a/crates/inter_process_communication/src/lib.rs b/crates/inter_process_communication/src/lib.rs
 --- a/crates/inter_process_communication/src/lib.rs
 +++ b/crates/inter_process_communication/src/lib.rs
-@@ -271,6 +271,5 @@ impl<T: Node> Rendezvous<T> {
-                 found = true;
+@@ -345,10 +345,10 @@ impl<T: Node> Rendezvous<T> {
+         let mut kept: Fifo<T> = Fifo::new();
+         let mut found = None;
+         while let Some(node) = self.senders.pop_front() {
++            // SAFETY: none. This is the defect: the victim goes back on the queue it was taken off.
++            kept.push_back(unsafe { Unqueued::new(node.as_non_null()) });
+             if node == victim {
+                 found = Some(node);
 -            } else {
--                // SAFETY: just popped from this queue, so it is valid and on no queue.
--                unsafe { kept.push_back(node) };
+-                kept.push_back(node);
              }
-+            // SAFETY: just popped from this queue, so it is valid and on no queue.
-+            unsafe { kept.push_back(node) };
          }
+         self.senders = kept;

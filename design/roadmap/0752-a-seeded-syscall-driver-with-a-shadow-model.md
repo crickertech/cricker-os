@@ -64,12 +64,16 @@ Replayed on aarch64 with the committed seeds, each patch applied alone. All six 
 | `receive_cap_attack_tests.a_death_message_received_by_receive_cap_delivers_no_cap_whichever_side_parks_first` | 0 | 18 | the same hunk, so the same call |
 | `receive_cap_attack_tests.an_interrupt_signal_received_by_receive_cap_delivers_no_cap_whichever_side_parks_first` | 0 | 18 | the same hunk, so the same call |
 | `receive_cap_attack_tests.a_send_cap_collected_by_a_plain_receive_stages_nothing_for_a_later_plain_send` | 19 | 63 | `RECEIVE_CAP` returned `x1 = 2`, a stale delegation; the model says `NO_CAP` |
-| `revocation_in_flight_tests.a_capability_revoked_while_it_is_in_flight_does_not_reach_the_receiver` | 342 | 64 | `RECEIVE_CAP` returned `x1 = 6`, a revoked frame; the model says `NO_CAP` |
+| `revocation_in_flight_tests.a_capability_revoked_while_it_is_in_flight_does_not_reach_the_receiver` | 559 | 14 | `RECEIVE_CAP` returned `x1 = 6`, a revoked frame; the model says `NO_CAP` |
 
 The last two rows were re-measured on 2026-10-04 (UTC), on aarch64, riscv64 and x86_64, after
 §246 (a plain `RECEIVE` never takes a capability) changed the generated sequence; they were 180
 at step 75 and 5 at step 39. Seed 342 joined the corpus in commit f7dcd3dca, and the recheck
-is commit 134923b38 (PR #1611).
+is commit 134923b38 (PR #1611). Seed 342 rotted between 2026-10-04 and 2026-10-08 (UTC), found by
+milestone 139 (drive the unsafe count down) round 10's sweep: its record survived its own defect on
+the claim commit too. A
+5,000-seed sweep under the same patch re-found the defect at seed 559, step 14, red on aarch64,
+riscv64 and x86_64, and the row above carries 559.
 
 Three patches are byte-for-byte the same hunk (milestone 634 (a plain SEND received by
 RECEIVE_CAP never hands the receiver a sender-chosen slot)), so four defects are distinct.

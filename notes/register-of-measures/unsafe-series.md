@@ -134,6 +134,11 @@ Recommendation: the kernel density is the one worth a ceiling of its own, becaus
 blind spot lives there. But a ceiling set on it starts cold, with no history of it moving
 deliberately. That decision is an architect's to make with these numbers in hand.
 
+Cinched 2026-10-08 (UTC) at the merge of milestone 139 (drive the unsafe count down) round 10: the
+marker lowered 72 to 66 over the merged tree's 59.7 (1,029 blocks over 172,506 lines), keeping the
+milestone's seven points of headroom. The open question above, which population the ceiling should
+measure, is untouched; the cinch moved the number, not the population.
+
 ### The backfill, and its gap
 
 `script/metrics --backfill` restated the whole series with this split. It is the same move milestone

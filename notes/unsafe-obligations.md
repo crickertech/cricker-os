@@ -483,7 +483,7 @@ invariant **96 times** and now asserts it once.
 
 ### What each number is held to, and why the answers differ
 
-At most 72 <!--count-at-most:unsafe-density-outside-arch--> unsafe blocks per 10,000 lines
+At most 66 <!--count-at-most:unsafe-density-outside-arch--> unsafe blocks per 10,000 lines
 outside `kernel/src/arch/`. The direction is down, because unsafe outside `arch/` is not paying
 for hardware access: it is a raw syscall, a shared page, or a hand-rolled data structure, and each
 of those has a safe wrapper somebody could write. The ceiling is written at a threshold the tree
@@ -571,14 +571,16 @@ standing above the tree when this round started.
 
 The gain is more than kept, and the arithmetic is worth stating exactly in a note whose whole
 subject is a measurement: the density fell five points (83 to 78, truncated) and the ceiling
-fell six (94 to 88), so this round cinched one point further than it gained and nobody can
-spend the reduction back up to 94 quietly.
+fell six (94 to 88), one point further than it gained.
 
 Lowered again, 88 to 72, by milestone 139 round 9 (2026-10-07 UTC). Five weeks of lane traffic
-had taken the density from 78 to 66 with no round working it, so the ceiling stood 22 points over
-the tree, a budget rather than a ratchet. The round removed 25 blocks and added 2 (1,147 to 1,124,
-density 66.6 to 65.3, from the diff against base `3dfbf1fd4`). 72 keeps round 1's seven points; the
-density has fallen at every sample since 2026-09-01, so seven points is weeks of headroom.
+had taken the density from 78 to 66 with no round working it; the ceiling stood 22 points over
+the tree. The round removed 25 blocks and added 2 (1,147 to 1,124,
+density 66.6 to 65.3, from the diff against base `3dfbf1fd4`).
+
+Lowered again, 72 to 66, by milestone 139 round 10 (2026-10-08 UTC), the scheduler queue ownership
+token, counted from the merged tree: 1,029 blocks over 172,506 lines, density 59.7. 66
+keeps round 1's seven points.
 
 At most 23 `unsafe impl Send`/`Sync` claims <!--count-at-most:unsafe-thread-safety-claims-->,
 and this one has no headroom at all. Each is a hand-written assertion that the compiler is wrong

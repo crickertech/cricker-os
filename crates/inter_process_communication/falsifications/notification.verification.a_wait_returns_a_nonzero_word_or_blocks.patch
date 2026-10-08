@@ -6,15 +6,14 @@ on every later wait. A copy where a take was meant.
 Expected to fail: `assert_eq!(n.word, 0)` after `Wait::Word`.
 
 diff --git a/crates/inter_process_communication/src/notification.rs b/crates/inter_process_communication/src/notification.rs
-index c20bff922..d70bab7a0 100644
 --- a/crates/inter_process_communication/src/notification.rs
 +++ b/crates/inter_process_communication/src/notification.rs
-@@ -201,7 +201,7 @@ impl<T: Node> Notification<T> {
-     /// `Blocked`, which the reaper never frees).
-     pub unsafe fn wait(&mut self, me: NonNull<T>) -> Wait {
+@@ -224,7 +224,7 @@ impl<T: Node> Notification<T> {
+     /// thread is `Blocked`, which the reaper never frees).
+     pub fn wait(&mut self, me: Unqueued<T>) -> Wait<T> {
          if self.word != 0 {
--            Wait::Word(core::mem::take(&mut self.word))
-+            Wait::Word(self.word)
+-            Wait::Word(core::mem::take(&mut self.word), me)
++            Wait::Word(self.word, me)
          } else {
-             // SAFETY: the caller's contract is exactly the queue's.
-             unsafe { self.waiters.push_back(me) };
+             self.waiters.push_back(me);
+             Wait::Blocked
