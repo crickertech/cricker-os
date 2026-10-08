@@ -1,0 +1,31 @@
+# The file-length ratchet's baseline: milestone 841 (a ratchet on Rust file length, and its
+# dashboard row), for §266 (a Rust source file stays under 2,000 lines).
+# One row per Rust file over the 2,000-line ceiling when it was written: path, then physical
+# lines (wc -l, comments and blank lines counted, which is §266 section 1's measure).
+# A number is a ceiling that may only go DOWN: lower it with
+# `python3 helpers/file_length_ratchet.py --bank`, which never raises and never adds. A row may be
+# removed, in the same change that takes its file to 2,000 lines or below, or deletes it; a row
+# may not be added and a number may not rise (script/lint compares against the merge base). A
+# rename moves its row in the same change, at the same number. A file that must exceed its row
+# needs §266 amended by an architect, not an edit here.
+path	lines
+components/src/login.rs	2287
+components/src/swish.rs	5980
+crates/component_plan/src/lib.rs	2094
+crates/filesystem_protocol/src/lib.rs	5744
+crates/grant_plan/src/lib.rs	7080
+crates/line_editor/src/lib.rs	2290
+crates/machine_discovery/src/acpi.rs	3009
+crates/swish/src/lib.rs	3885
+crates/system_initializer/src/lib.rs	6358
+crates/timetable/src/lib.rs	2468
+crates/video_terminal/src/lib.rs	3242
+kernel/src/arch/x86_64/mmu.rs	2192
+kernel/src/bench.rs	2110
+kernel/src/lib.rs	2984
+kernel/src/sched.rs	8921
+kernel/src/user.rs	3867
+kernel/src/user/fs_service.rs	2407
+redoxfs_server/src/lib.rs	4785
+system_tests/src/user/tests.rs	3533
+xtask/src/swish_check.rs	4576

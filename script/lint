@@ -3194,6 +3194,20 @@ echo "==> the prose ratchet (§212 words, §213 sentences and bold)"
 # make this ratchet cost more than it saves.
 python3 helpers/prose_ratchet.py --selftest
 python3 helpers/prose_ratchet.py --check
+echo "==> the file-length ratchet (§266's 2,000-line ceiling on Rust files)"
+# Milestone 841 (a ratchet on Rust file length, and its dashboard row). calef ruled §266 (a Rust
+# source file stays under 2,000 lines) on 2026-10-08 (UTC): the measure (physical lines, comments
+# and blank lines counted, because a reader loads every line), the 2,000-line ceiling, and option
+# (b) for the gate's matching rule, a list entry that is a ceiling and only falls. Nothing in
+# script/lint read a source file's length before this; the share of Rust lines in files over 2,000
+# sat between 17% and 24% for two months while the tree tripled, because a file got split only when
+# somebody noticed, which is rung zero. The rules, the baseline format and the failure messages
+# live in helpers/file_length_ratchet.py, whose header is the manual, as the prose ratchet's is.
+# Twenty files are over the ceiling today and are held one row each in
+# design/file-length-baseline.tsv; they may only shrink, and an unlisted file meets the ceiling
+# outright.
+python3 helpers/file_length_ratchet.py --selftest
+python3 helpers/file_length_ratchet.py --check
 echo "==> American spelling and metric units (calef, 2026-10-06)"
 # calef ruled on 2026-10-06 (UTC) that the tree's prose and names use American spelling and its
 # measurements are metric. On that day the tree held about 3,900 British forms, so this is a
