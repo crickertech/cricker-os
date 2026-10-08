@@ -74,7 +74,7 @@ no business apt-installing QEMU.
 
 `NIFE_SKIP_LINT_TOOLS=1 script/bootstrap` skips `cargo-machete` and `typos`, the two tools only
 `script/lint` uses. On Linux both compile from source, about 85 s per job on the arm64 runners
-(measured on PR #1778, 2026-10-06 UTC). The CI jobs that never lint set it; the `clippy` job installs
+(measured on PR #1778, 2026-10-06 UTC). The CI jobs that never lint set it; the `lint` job installs
 them itself and a developer's bare `script/bootstrap` still installs everything.
 
 On Linux the package manager cannot finish the job, so bootstrap runs `script/ci-qemu` itself

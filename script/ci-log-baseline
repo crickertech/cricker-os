@@ -34,8 +34,9 @@
 #     run_id,job_id,date,workflow,job_name,attributed_check,branch
 #
 # **Which job types, and why only these five.** `script/lint` runs 47 named checks inside one
-# `clippy` job and exits on the first failure, so the log's last `==>` marker names the check that
-# was running. Three more scripts share that convention over their own sub-items: `script/supply-chain`
+# `lint` job (named `clippy` before 2026-10-08 UTC; both names match below) and exits on the first
+# failure, so the log's last `==>` marker names the check that was running.
+# Three more scripts share that convention over their own sub-items: `script/supply-chain`
 # (one cargo-deny pass per manifest, then script/vendor-verify's per-package pass), `script/verify`
 # (one Kani harness per crate), and `script/cpu-matrix` mostly does NOT: its own last `==>` marker is
 # always "matrix", a section header printed whether every model passed or not, so this script instead
@@ -218,7 +219,7 @@ attribute_job() {
     esac
 
     case "$jname" in
-        clippy)
+        lint|clippy)
             m=$(grep -a '==>' "$logf" | tail -1 | sed -E 's/^[0-9TZ:.-]+Z//; s/^ *//')
             [ -n "$m" ] && printf 'MARKER\t%s\n' "$m" || printf 'UNATTRIBUTABLE\tno ==> marker found\n'
             ;;
@@ -317,8 +318,13 @@ cmd_update() {
         gh api "repos/$REPO/actions/runs/$rid/jobs" \
             --jq '.jobs[] | select(.conclusion=="failure") | [.id, .name] | @tsv' \
             2>/dev/null | while IFS="$(printf '\t')" read -r jid jname; do
+            # From 2026-10-08 (UTC) a job named `clippy` is the transitional alias in ci.yml that
+            # only re-reports `lint`'s verdict; counting it would record each lint failure twice.
+            if [ "$jname" = clippy ] && [ "$(printf '%s\n2026-10-08\n' "$date" | sort | head -1)" = 2026-10-08 ]; then
+                continue
+            fi
             case "$jname" in
-                clippy|"supply chain (advisories, licences, vendored integrity)"| \
+                lint|clippy|"supply chain (advisories, licences, vendored integrity)"| \
                 "cpu matrix (riscv64 across QEMU CPU models)"|"cpu matrix shard ("*| \
                 "bench (icount regression tripwire)"| \
                 "verify (Kani proofs)")
