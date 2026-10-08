@@ -16,29 +16,56 @@ than refused"); without the membership walk the kernel takes a data abort on the
 instead, which is the original finding's own shape. Replayed red on aarch64 on 2026-10-06 (UTC) by
 the lane for milestone 779 (fuzz the surface a confined process can reach).
 
+**Re-cut 2026-10-07 (UTC) by the lane for milestone 139 (drive the unsafe count down)**, when the
+log's walk moved behind `revoke::chain`, whose private cursor only the chain itself can set. The
+defect cannot be written outside that module any more, which is the point of the move, so this
+patch adds the one thing the fix took away, a walk that starts wherever its caller says
+(`LogChain::pages_from`), and has `list_mapping` follow the cursor with it. The build warns that
+`Listing::ForeignCursor` is never constructed; it does not fail. Replayed red on aarch64 the same day: the kernel took the data abort on the named page
+(`exceptions.rs:772`), the original finding's shape.
+
 diff --git a/kernel/src/revoke.rs b/kernel/src/revoke.rs
-index 1324bede5..bb0930bbd 100644
 --- a/kernel/src/revoke.rs
 +++ b/kernel/src/revoke.rs
-@@ -650,20 +650,7 @@ pub fn list_mapping(root: u64, cursor: u64) -> Listing {
-     let (mut page_phys, mut index) = if cursor == 0 {
-         (space.head, 0usize)
-     } else {
--        // The caller's word: find its page on this space's chain before following it. The walk
--        // starts at the head and stops at the wanted page, so a hit also proves every page the
--        // listing walk below will follow is this chain's own.
--        let want = cursor & PAGE_MASK;
--        let mut p = space.head;
--        while p != 0 && p != want {
--            // SAFETY: `p` is this space's own chain, and SPACES is held.
--            let log = unsafe { log_page(p) };
--            p = log.next;
--        }
--        if p == 0 {
--            return Listing::ForeignCursor;
--        }
--        (want, (cursor & !PAGE_MASK) as usize)
-+        (cursor & PAGE_MASK, (cursor & !PAGE_MASK) as usize)
+@@ -266,6 +266,14 @@
+             }
+         }
+ 
++        /// A walk that starts wherever the caller says, chain or not.
++        pub(super) fn pages_from(&mut self, phys: u64) -> Pages<'_> {
++            Pages {
++                next: phys,
++                _chain: core::marker::PhantomData,
++            }
++        }
++
+         /// Every slot this chain has ever written, tombstones included, newest page first.
+         pub(super) fn entries_mut(&mut self) -> impl Iterator<Item = &mut LogEntry> + '_ {
+             self.pages_mut().flat_map(|(_, page)| {
+@@ -693,20 +701,12 @@
      };
  
-     while page_phys != 0 {
+     const PAGE_MASK: u64 = !(page_frames::FRAME_SIZE - 1);
+-    let mut chain = space.log.pages_mut().peekable();
+-    let mut index = 0usize;
+-    if cursor != 0 {
+-        // The caller's word: find its page on this space's chain before following it. The walk
+-        // starts at the head and stops at the wanted page, so a hit also proves every page the
+-        // listing walk below will follow is this chain's own, and it is the same walk: the listing
+-        // resumes from the page the check stopped on.
+-        let want = cursor & PAGE_MASK;
+-        while chain.next_if(|(phys, _)| *phys != want).is_some() {}
+-        if chain.peek().is_none() {
+-            return Listing::ForeignCursor;
+-        }
+-        index = (cursor & !PAGE_MASK) as usize;
+-    }
++    let mut index = (cursor & !PAGE_MASK) as usize;
++    let chain = if cursor == 0 {
++        space.log.pages_mut()
++    } else {
++        space.log.pages_from(cursor & PAGE_MASK)
++    };
+ 
+     for (page_phys, page) in chain {
+         while index < page.used as usize {
