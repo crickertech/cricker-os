@@ -1,5 +1,5 @@
 ---
-status: DECIDED
+status: AMENDED
 raised: 2026-07-30
 decided: 2026-07-30
 ratified_by: calef
@@ -26,6 +26,13 @@ here is enforced by mechanisms that do not know what a language is: page tables,
 capabilities, the DMA validator, the IOMMU.
 
 ## The seam's rules, which are the decision
+
+*Amended 2026-10-08 (UTC) by §265 (a C library started from relibc, whose Rust platform layer holds
+the capabilities), on calef's ruling for a C library. Rule 1 now reads "the C makes no syscalls
+directly; the C library's platform layer, in Rust, holds the capabilities", and rule 3's tier three
+is no longer refused: milestone 478 (tier three: full POSIX behind the foreign-language seam) is
+superseded by milestones 835 to 838. §265 also corrects rule 1's reason: the C is confined by its
+process's capability table, not by what it can name. The text below is the July record.*
 
 1. **The C makes no syscalls and holds no capabilities.** A Rust `user_rt` shell
    (`fixtures/src/c_shim.rs`) holds every capability and performs every IPC; the C is called over the C
