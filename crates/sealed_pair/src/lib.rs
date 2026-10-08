@@ -482,7 +482,9 @@ pub mod test_support {
             ("console", &console),
         ] {
             let digest = measured_boot::sha256(bytes);
-            table.push_str(&format!("{name} {}\n", super::hex_string(&digest)));
+            let text = measured_boot::digest_text(&digest);
+            let text = core::str::from_utf8(&text).expect("a digest's text is ascii");
+            table.push_str(&format!("{name} {text}\n"));
         }
 
         let files: Vec<(&str, &[u8])> = vec![

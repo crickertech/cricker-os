@@ -34,18 +34,7 @@ fn destroy_force_kills_a_runaway_and_reclaims_its_region() {
     let run = crate::testing::RegionRun::of(region);
     let aspace = user_address_space_create(region).expect("no aspace");
 
-    let code_phys = crate::memory_region::retype_page(region).expect("no code frame");
-    // SAFETY: a fresh frame we own, direct-mapped; write the spin loop and make it fetchable.
-    unsafe {
-        let dst = mmu::phys_to_virt(code_phys) as *mut u32;
-        for (i, &insn) in SPIN_STUB.iter().enumerate() {
-            dst.add(i).write(insn);
-        }
-    }
-    sync_icache(
-        mmu::phys_to_virt(code_phys),
-        core::mem::size_of_val(SPIN_STUB),
-    );
+    let code_phys = code_page(region, SPIN_STUB);
     user_address_space_map(
         aspace,
         CODE_VA,
@@ -187,15 +176,7 @@ fn child_blocked_on(
     let region = crate::memory_region::create(16).expect("no region for the blocked child");
     let aspace = user_address_space_create(region).expect("no aspace");
 
-    let code_phys = crate::memory_region::retype_page(region).expect("no code frame");
-    // SAFETY: a fresh frame we own, direct-mapped; write the stub and make it fetchable.
-    unsafe {
-        let dst = mmu::phys_to_virt(code_phys) as *mut u32;
-        for (i, &insn) in code.iter().enumerate() {
-            dst.add(i).write(insn);
-        }
-    }
-    sync_icache(mmu::phys_to_virt(code_phys), core::mem::size_of_val(code));
+    let code_phys = code_page(region, code);
     user_address_space_map(
         aspace,
         CODE_VA,
@@ -269,18 +250,7 @@ fn destroy_reclaims_a_region_whose_resident_is_blocked_in_receive() {
     let ep = sched::create_rendezvous_from(region).expect("no rendezvous in the child's region");
 
     let aspace = user_address_space_create(region).expect("no aspace");
-    let code_phys = crate::memory_region::retype_page(region).expect("no code frame");
-    // SAFETY: a fresh frame we own, direct-mapped; write the stub and make it fetchable.
-    unsafe {
-        let dst = mmu::phys_to_virt(code_phys) as *mut u32;
-        for (i, &insn) in RECEIVE_STUB.iter().enumerate() {
-            dst.add(i).write(insn);
-        }
-    }
-    sync_icache(
-        mmu::phys_to_virt(code_phys),
-        core::mem::size_of_val(RECEIVE_STUB),
-    );
+    let code_phys = code_page(region, RECEIVE_STUB);
     user_address_space_map(
         aspace,
         CODE_VA,

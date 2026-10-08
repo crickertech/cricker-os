@@ -189,28 +189,146 @@ impl PageMapSource {
     }
 }
 
-/// One page of mapping records, retyped from the owning space's region. Exactly one frame.
-#[repr(C)]
-struct LogPage {
-    /// Physical address of the next (older) log page in this space's chain; 0 ends it.
-    next: u64,
-    /// High-water mark of entries ever written here. Slots below it may be tombstones.
-    used: u64,
-    entries: [LogEntry; LOG_ENTRIES],
-}
-
-const _: () = assert!(size_of::<LogPage>() == page_frames::FRAME_SIZE as usize);
-
 /// A live address space, as revocation sees it: where its tables root, which region pays for its
-/// records, and its newest log page.
+/// records, its TLB tag, and its chain of log pages.
 struct SpaceLog {
     root: u64,
     region: u64,
     /// The space's TLB tag, which [`revoke_region`] flushes after cutting a table out of it: a cut
     /// takes a whole span, and only a flush by tag reaches every page and every cached walk in it.
     asid: u16,
-    /// Physical address of the newest log page; 0 until the first record needs one.
-    head: u64,
+    log: chain::LogChain,
+}
+
+impl SpaceLog {
+    /// Tombstone every mapping record whose address lies in `[base, base + span)`: what hung
+    /// beneath a table [`revoke_region`] has just cut, which no longer translates and must not go on
+    /// being listed or revoked. Table records in the span are left alone: one that was beneath the
+    /// cut is unreachable and its own region's destroy drops it, and one above it is still linked
+    /// and still owed its own cut.
+    fn forget_mappings_within(&mut self, base: u64, span: u64) {
+        for (_, page) in self.log.pages_mut() {
+            for e in page.used_mut() {
+                if e.is_mapping() && e.va >= base && e.va - base < span {
+                    e.phys = 0;
+                }
+            }
+        }
+    }
+}
+
+/// **A space's chain of log pages, and the one place in the kernel that turns a physical address
+/// into a log page** (milestone 139 (drive the unsafe count down), 2026-10-07 UTC; names
+/// provisional).
+///
+/// It replaces `log_page`, an `unsafe fn` whose contract (a page this module linked into a chain,
+/// with `SPACES` held) nine call sites restated by hand. Both halves of that contract are now held
+/// by the compiler rather than by a comment:
+///
+/// - **The lock half by a borrow.** Every walk takes `&mut LogChain`, and a `LogChain` lives in a
+///   [`SpaceLog`] in the [`Registry`] inside `SPACES` from [`register_space`] until
+///   [`forget_root`]. Nothing outside this file can name the type and nothing here moves one out,
+///   so a mutable borrow of one is a borrow of the held registry.
+/// - **The membership half by privacy.** `head`, a page's `next`, and [`chain::Pages`]' cursor
+///   are private to this module, and [`chain::LogChain::grow`] is their only writer, always with a
+///   page `retype_page` has just handed this log. No code outside these few lines can make a walk follow
+///   an address the chain does not hold, which is the defect `LIST`'s caller-chosen cursor was
+///   (`list_mapping`, milestone 779 (fuzz the surface a confined process can reach)): it now
+///   has to be found on the chain by walking, because nothing else can produce a page.
+mod chain {
+    use super::{LOG_ENTRIES, LogEntry, mmu};
+
+    /// One page of mapping records, retyped from the owning space's region. Exactly one frame.
+    #[repr(C)]
+    pub(super) struct LogPage {
+        /// Physical address of the next (older) log page in this space's chain; 0 ends it.
+        /// Private: [`LogChain::grow`] is its only writer.
+        next: u64,
+        /// High-water mark of entries ever written here. Slots below it may be tombstones.
+        pub(super) used: u64,
+        pub(super) entries: [LogEntry; LOG_ENTRIES],
+    }
+
+    const _: () = assert!(size_of::<LogPage>() == page_frames::FRAME_SIZE as usize);
+
+    impl LogPage {
+        /// Every slot this page has ever written, tombstones included. A slice rather than an
+        /// iterator chained across pages: callers loop over [`LogChain::pages_mut`] and then this,
+        /// because a `flat_map` over the chain cost `map_el0` 39% and `spawn_el0` 19% on aarch64
+        /// icount against the floor (2026-10-08 UTC; this shape is 16% under `main`'s walk).
+        pub(super) fn used_mut(&mut self) -> &mut [LogEntry] {
+            let used = (self.used as usize).min(LOG_ENTRIES);
+            &mut self.entries[..used]
+        }
+    }
+
+    /// The newest log page's physical address; 0 until the first record needs one. Not `Clone`.
+    pub(super) struct LogChain {
+        head: u64,
+    }
+
+    impl LogChain {
+        /// A chain with no pages, for a space that has recorded nothing yet.
+        pub(super) const EMPTY: Self = Self { head: 0 };
+
+        /// This chain's pages, newest first, each with its physical address.
+        pub(super) fn pages_mut(&mut self) -> Pages<'_> {
+            Pages {
+                next: self.head,
+                _chain: core::marker::PhantomData,
+            }
+        }
+
+        /// **Link a fresh page from `region` as the new head, holding `entry`.** `false` when the
+        /// region is spent: the caller unmaps, and the process pays for its own limit.
+        ///
+        /// The only writer of `head` and of any page's `next`, so the chain's invariant is
+        /// established here and nowhere else: every address on it is a page `retype_page` handed
+        /// this log exclusively, and the chain is acyclic because a page is prepended once, fresh.
+        pub(super) fn grow(&mut self, region: u64, entry: LogEntry) -> bool {
+            let Some(fresh) = crate::memory_region::retype_page(region) else {
+                return false;
+            };
+            let older = self.head;
+            self.head = fresh;
+            // Retyped zeroed, so `used = 0` and `next = 0` need no separate scrub, and the walk
+            // stops at the fresh page until its `next` is set below.
+            let Some((_, page)) = self.pages_mut().next() else {
+                unreachable!("the head was set to a nonzero frame one line up");
+            };
+            page.next = older;
+            page.entries[0] = entry;
+            page.used = 1;
+            true
+        }
+    }
+
+    /// One walk of a chain, from [`LogChain::pages_mut`].
+    pub(super) struct Pages<'a> {
+        next: u64,
+        _chain: core::marker::PhantomData<&'a mut LogChain>,
+    }
+
+    impl<'a> Iterator for Pages<'a> {
+        type Item = (u64, &'a mut LogPage);
+
+        fn next(&mut self) -> Option<Self::Item> {
+            let phys = self.next;
+            if phys == 0 {
+                return None;
+            }
+            // SAFETY: `phys` is `head` or a `next` read from a page on this chain, and only
+            // `LogChain::grow` writes either, always with a page `retype_page` just handed this
+            // log exclusively; the direct map names every RAM page. The `&mut LogChain` this walk
+            // borrows is a borrow of the held `SPACES` registry, so no other walk of this chain
+            // runs at once. Each page is yielded at most once (the chain is acyclic: pages are only
+            // ever prepended fresh), so no two `&mut` this walk yields alias, and `next` is read
+            // here before the page is handed out, so a caller cannot redirect the walk.
+            let page = unsafe { &mut *(mmu::phys_to_virt(phys) as *mut LogPage) };
+            self.next = page.next;
+            Some((phys, page))
+        }
+    }
 }
 
 /// The most concurrently-live address spaces the registry can track: every user thread has one
@@ -258,12 +376,8 @@ impl Registry {
     }
 
     /// Every live space. The `flatten` still skips holes; the bound is what stops the walk from
-    /// visiting slots that have never been occupied at all.
-    fn live(&self) -> impl Iterator<Item = &SpaceLog> + '_ {
-        self.spaces[..self.top].iter().flatten()
-    }
-
-    /// [`live`](Self::live), mutably.
+    /// visiting slots that have never been occupied at all. Mutable only, because every walk of a
+    /// space's log goes through `&mut` ([`chain::LogChain::pages_mut`]), readers included.
     fn live_mut(&mut self) -> impl Iterator<Item = &mut SpaceLog> + '_ {
         self.spaces[..self.top].iter_mut().flatten()
     }
@@ -305,16 +419,6 @@ impl Registry {
     }
 }
 
-/// A log page, by physical address, through the direct map.
-///
-/// # Safety
-/// `phys` must be a page this module linked into some space's chain (retyped exclusively for the
-/// log), and the caller must hold the `SPACES` lock, which serializes every touch of every chain.
-unsafe fn log_page(phys: u64) -> &'static mut LogPage {
-    // SAFETY: per the function's contract; the direct map names every RAM page.
-    unsafe { &mut *(mmu::phys_to_virt(phys) as *mut LogPage) }
-}
-
 /// Enter a newly created address space into the registry, with the TLB tag it runs under.
 /// `false` (and the caller should fail creation) if the registry is full.
 pub fn register_space(root: u64, region: u64, asid: u16) -> bool {
@@ -323,7 +427,7 @@ pub fn register_space(root: u64, region: u64, asid: u16) -> bool {
         root,
         region,
         asid,
-        head: 0,
+        log: chain::LogChain::EMPTY,
     })
 }
 
@@ -457,36 +561,21 @@ impl MappingHold {
         };
 
         // A free slot in the chain: the first tombstone, or headroom in any page.
-        let mut page_phys = space.head;
-        while page_phys != 0 {
-            // SAFETY: pages in the chain are the log's own; SPACES is held.
-            let page = unsafe { log_page(page_phys) };
-            for e in page.entries.iter_mut().take(page.used as usize) {
-                if e.phys == 0 {
-                    *e = entry;
-                    return true;
-                }
+        for (_, page) in space.log.pages_mut() {
+            if let Some(e) = page.used_mut().iter_mut().find(|e| e.phys == 0) {
+                *e = entry;
+                return true;
             }
-            if (page.used as usize) < LOG_ENTRIES {
-                page.entries[page.used as usize] = entry;
+            let used = page.used as usize;
+            if used < LOG_ENTRIES {
+                page.entries[used] = entry;
                 page.used += 1;
                 return true;
             }
-            page_phys = page.next;
         }
 
-        // No room anywhere: a fresh page from the space's own budget becomes the new head. Retyped
-        // zeroed, so `used = 0` and `next = 0` need no separate scrub.
-        let Some(fresh) = crate::memory_region::retype_page(space.region) else {
-            return false; // out of budget: the caller unmaps, the process pays for its own limit
-        };
-        // SAFETY: just retyped exclusively for the log; SPACES is held.
-        let page = unsafe { log_page(fresh) };
-        page.next = space.head;
-        page.entries[0] = entry;
-        page.used = 1;
-        space.head = fresh;
-        true
+        // No room anywhere: a fresh page from the space's own budget becomes the new head.
+        space.log.grow(space.region, entry)
     }
 
     /// **Undo one [`Self::record_mapping`]**: tombstone the record that `root` maps `phys` at `va`, without
@@ -504,17 +593,13 @@ impl MappingHold {
         let Some(space) = self.spaces.live_mut().find(|s| s.root == root) else {
             return;
         };
-        let mut page_phys = space.head;
-        while page_phys != 0 {
-            // SAFETY: pages in the chain are the log's own; SPACES is held.
-            let page = unsafe { log_page(page_phys) };
-            for e in page.entries.iter_mut().take(page.used as usize) {
+        for (_, page) in space.log.pages_mut() {
+            for e in page.used_mut() {
                 if e.is_mapping() && e.phys == phys && e.va == va {
                     e.phys = 0; // tombstone: reusable by the next record, exactly as a revoke leaves it
                     return;
                 }
             }
-            page_phys = page.next;
         }
     }
 
@@ -538,18 +623,14 @@ impl MappingHold {
     /// region paying for them dies (`notes/unmap.md`'s `BUGS`).
     pub fn forget_mapping_at(&mut self, root: u64, va: u64) -> Option<u64> {
         let space = self.spaces.live_mut().find(|s| s.root == root)?;
-        let mut page_phys = space.head;
-        while page_phys != 0 {
-            // SAFETY: pages in the chain are the log's own; SPACES is held.
-            let page = unsafe { log_page(page_phys) };
-            for e in page.entries.iter_mut().take(page.used as usize) {
+        for (_, page) in space.log.pages_mut() {
+            for e in page.used_mut() {
                 if e.is_mapping() && e.va == va {
                     let phys = e.phys;
                     e.phys = 0; // tombstone, exactly as a revoke leaves it
                     return Some(phys);
                 }
             }
-            page_phys = page.next;
         }
         None
     }
@@ -615,35 +696,28 @@ pub enum Listing {
 /// 779 (fuzz the surface a confined process can reach)'s confined fuzzer (seed 0x14, 2026-10-06
 /// UTC), whose `LIST` draws made the cursor a random word.
 pub fn list_mapping(root: u64, cursor: u64) -> Listing {
-    let spaces = SPACES.lock();
-    let Some(space) = spaces.live().find(|s| s.root == root) else {
+    let mut spaces = SPACES.lock();
+    let Some(space) = spaces.live_mut().find(|s| s.root == root) else {
         return Listing::Done;
     };
 
     const PAGE_MASK: u64 = !(page_frames::FRAME_SIZE - 1);
-    let (mut page_phys, mut index) = if cursor == 0 {
-        (space.head, 0usize)
-    } else {
+    let mut chain = space.log.pages_mut().peekable();
+    let mut index = 0usize;
+    if cursor != 0 {
         // The caller's word: find its page on this space's chain before following it. The walk
         // starts at the head and stops at the wanted page, so a hit also proves every page the
-        // listing walk below will follow is this chain's own.
+        // listing walk below will follow is this chain's own, and it is the same walk: the listing
+        // resumes from the page the check stopped on.
         let want = cursor & PAGE_MASK;
-        let mut p = space.head;
-        while p != 0 && p != want {
-            // SAFETY: `p` is this space's own chain, and SPACES is held.
-            let log = unsafe { log_page(p) };
-            p = log.next;
-        }
-        if p == 0 {
+        while chain.next_if(|(phys, _)| *phys != want).is_some() {}
+        if chain.peek().is_none() {
             return Listing::ForeignCursor;
         }
-        (want, (cursor & !PAGE_MASK) as usize)
-    };
+        index = (cursor & !PAGE_MASK) as usize;
+    }
 
-    while page_phys != 0 {
-        // SAFETY: `page_phys` is either this space's own `head` or a cursor this function minted
-        // from a page in this space's chain; SPACES is held.
-        let page = unsafe { log_page(page_phys) };
+    for (page_phys, page) in chain {
         while index < page.used as usize {
             let entry = page.entries[index];
             index += 1;
@@ -661,7 +735,6 @@ pub fn list_mapping(root: u64, cursor: u64) -> Listing {
                 return Listing::Entry(page_phys | index as u64, entry.va);
             }
         }
-        page_phys = page.next;
         index = 0;
     }
     Listing::Done
@@ -710,22 +783,19 @@ fn unmap_under_object(phys: u64, object: u64) {
 /// predicate, and one body is what keeps the locking, the tombstoning and the TLB broadcast the
 /// same for both.
 fn unmap_matching(phys: u64, spare: u64, object: Option<u64>) {
-    let spaces = SPACES.lock();
-    for space in spaces.live() {
-        if space.root == spare {
+    let mut spaces = SPACES.lock();
+    for space in spaces.live_mut() {
+        let root = space.root;
+        if root == spare {
             continue;
         }
-        let mut page_phys = space.head;
-        while page_phys != 0 {
-            // SAFETY: chain pages under the held SPACES lock.
-            let page = unsafe { log_page(page_phys) };
-            for e in page.entries.iter_mut().take(page.used as usize) {
+        for (_, page) in space.log.pages_mut() {
+            for e in page.used_mut() {
                 if e.is_mapping() && e.phys == phys && object.is_none_or(|o| e.object == o) {
-                    mmu::unmap_user_at(space.root, e.va);
+                    mmu::unmap_user_at(root, e.va);
                     e.phys = 0; // tombstone: reusable by the next record
                 }
             }
-            page_phys = page.next;
         }
     }
 }
@@ -935,33 +1005,30 @@ pub fn revoke_region(base: u64, size: u64) {
             let spaces = &mut *SPACES.lock();
             let mut found = None;
             'scan: for space in spaces.live_mut() {
-                let mut page_phys = space.head;
-                while page_phys != 0 {
-                    // SAFETY: chain pages under the held SPACES lock.
-                    let page = unsafe { log_page(page_phys) };
-                    for e in page.entries.iter_mut().take(page.used as usize) {
+                let (root, asid) = (space.root, space.asid);
+                for (_, page) in space.log.pages_mut() {
+                    for e in page.used_mut() {
                         if e.phys < base || e.phys >= base + size {
                             continue;
                         }
                         if e.is_table() {
-                            found = Some(Victim::Table(
-                                space.root, space.asid, space.head, e.va, e.phys,
-                            ));
+                            found = Some(Victim::Table(root, asid, e.va, e.phys));
                             e.phys = 0;
                         } else {
                             found = Some(Victim::Leaf(e.phys));
                         }
                         break 'scan;
                     }
-                    page_phys = page.next;
                 }
             }
             match found {
                 None => break,
                 // Cut under the registry, so no `MAP` is halfway down this walk.
-                Some(Victim::Table(root, asid, head, va, table)) => {
-                    if let Some((cut, span)) = mmu::cut_user_table(root, va, table, asid) {
-                        forget_mappings_within(head, cut, span);
+                Some(Victim::Table(root, asid, va, table)) => {
+                    if let Some((cut, span)) = mmu::cut_user_table(root, va, table, asid)
+                        && let Some(space) = spaces.live_mut().find(|s| s.root == root)
+                    {
+                        space.forget_mappings_within(cut, span);
                     }
                     None
                 }
@@ -978,31 +1045,10 @@ pub fn revoke_region(base: u64, size: u64) {
 }
 
 /// What one pass of [`revoke_region`]'s scan found: a mapped page to unmap everywhere, or a table
-/// record `(root, asid, log head, va, table)` to cut.
+/// record `(root, asid, va, table)` to cut.
 enum Victim {
     Leaf(u64),
-    Table(u64, u16, u64, u64, u64),
-}
-
-/// Tombstone every mapping record in the log chain starting at `head` whose address lies in
-/// `[base, base + span)`: what hung beneath a table [`revoke_region`] has just cut, which no
-/// longer translates and must not go on being listed or revoked. Table records in the span are
-/// left alone: one that was beneath the cut is unreachable and its own region's destroy drops it,
-/// and one above it is still linked and still owed its own cut.
-///
-/// The caller holds `SPACES`.
-fn forget_mappings_within(head: u64, base: u64, span: u64) {
-    let mut page_phys = head;
-    while page_phys != 0 {
-        // SAFETY: chain pages, and the caller holds SPACES.
-        let page = unsafe { log_page(page_phys) };
-        for e in page.entries.iter_mut().take(page.used as usize) {
-            if e.is_mapping() && e.va >= base && e.va - base < span {
-                e.phys = 0;
-            }
-        }
-        page_phys = page.next;
-    }
+    Table(u64, u16, u64, u64),
 }
 
 #[cfg(test)]

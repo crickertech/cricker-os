@@ -309,15 +309,15 @@ pub(crate) const INSTALLED_STD_GREP: &str = "installed/std-grep";
 /// **Unmodified `ripgrep`, if somebody built it** (milestone 595 (the shell runs a `std` program),
 /// 2026-10-07): `helpers/build-ripgrep.sh`'s `rg`, which links the note `cargo xtask foreign-note`
 /// writes, so it runs by path as an unvouched `std` program that hears its words. Written only when
-/// `crate::farm::ripgrep_elf` exists, which no gate arranges: fetching its crates is the §46 (thin
-/// primitives or whole subsystems) decision nobody has made, so CI never types its lines (see
-/// `swish_check_boot`). Provisional. Installing it as a package is milestone 121's, not this.
+/// `crate::farm::ripgrep_elf` exists, which `script/ci-build`'s `swish-check` rows arrange by
+/// running `helpers/build-ripgrep.sh` first (since 2026-10-08 UTC; its crates.io fetch is a §46
+/// (thin primitives or whole subsystems) question asked on that lane's pull request). Provisional. Installing it as a package is milestone 121's, not this.
 pub(crate) const INSTALLED_RIPGREP: &str = "installed/rg";
 
 /// **`std_echo` as large as `ripgrep`** (milestone 595 (the shell runs a `std` program), 2026-09-27,
-/// provisional): its bytes followed by zeros to [`LARGE_IMAGE_BYTES`]. `rg` is never in CI (its
-/// crates are fetched from crates.io, a §46 (thin primitives or whole subsystems) decision nobody has
-/// made), so this is what proves an image of its size travels from the prompt: past the old 64-page
+/// provisional): its bytes followed by zeros to [`LARGE_IMAGE_BYTES`]. `rg` is in CI only in
+/// `swish-check` (since 2026-10-08 UTC; the kernel suite still skips it), and this predates that: it
+/// is what proves an image of its size travels from the prompt: past the old 64-page
 /// cap, across the shell's 2 MiB page-table spans, through both staging copies, and into a region
 /// sized from its length. A loader reads an ELF through its program headers, so bytes past the
 /// last segment are carried, hashed and ignored. What it does not prove is a segment that large;
@@ -685,7 +685,9 @@ fn stage_installed(architecture: &str) -> Result<String, String> {
          unvouched programs; no activation set. The package source at {} serves {greeting_stem} \
          and a lying {stem}",
         package.len(),
-        String::from_utf8_lossy(&measured_boot::hex(&package_archive::sha256(&package))),
+        String::from_utf8_lossy(&measured_boot::digest_text(&package_archive::sha256(
+            &package
+        ))),
         source.display(),
     );
     Ok(tree.display().to_string())

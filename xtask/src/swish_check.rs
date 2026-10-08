@@ -297,7 +297,7 @@ const SWISH_CHECK_AFTER_REBOOT: &[Line] = &[
         0,
         "caps packages/noteless/0.1.0/noteless",
         &[
-            "provenance: unvouched (digest ",
+            "provenance: unvouched (digest sha256:",
             "runs on this session's capability to run unvouched bytes",
         ],
     ),
@@ -662,7 +662,7 @@ const SWISH_CHECK_SCRIPT: &[Line] = &[
         0,
         "caps packages/noteless/0.1.0/noteless",
         &[
-            "provenance: vouched by activation generation 1 (digest ",
+            "provenance: vouched by activation generation 1 (digest sha256:",
             // **No note, the default** (milestone 597 (a program carries its manifest in an ELF
             // note), provisional): `noteless` carries no manifest note, so it is bound and endowed
             // as `grant_plan::NO_NOTE_MANIFEST`, its output alone.
@@ -678,7 +678,7 @@ const SWISH_CHECK_SCRIPT: &[Line] = &[
         &[
             "cap 1  page      clock",
             "cap 2  page      config",
-            "provenance: unvouched (digest ",
+            "provenance: unvouched (digest sha256:",
             "runs on this session's capability to run unvouched bytes (slot 62)",
             // **What the note asks, beside what is granted** (milestone 597, provisional). The
             // witness's note asks for the three authorities it probes, and §219 says an unvouched
@@ -774,7 +774,7 @@ const SWISH_CHECK_SCRIPT: &[Line] = &[
     // directory first, and the PAL refuses that by design for a process holding no directory
     // (`patches/std-nife/overlay/std/src/sys/paths/nife.rs`), so the refusal reaches the person in
     // `rg`'s words, which add a guess ("did your CWD get deleted?") that is wrong here. Typed only
-    // when `helpers/build-ripgrep.sh` has run; never in CI (§46, see `swish_check_boot`).
+    // when `helpers/build-ripgrep.sh` has run, which CI's rows do (see `swish_check_boot`).
     line(0, "echo the needle outside the grant > secret.txt", &[]),
     line(
         0,
@@ -911,7 +911,7 @@ const SWISH_CHECK_SCRIPT: &[Line] = &[
     line(
         0,
         "caps greeting",
-        &["provenance: vouched by activation generation 2 (digest "],
+        &["provenance: vouched by activation generation 2 (digest sha256:"],
     ),
     // **Milestone 614: the second version installs beside the first** (rulings 2 and 3). Rows key
     // on the digest, so installing over a live version appends and moves the default pointer
@@ -1010,7 +1010,7 @@ const SWISH_CHECK_SCRIPT: &[Line] = &[
     line(
         0,
         "caps installed/unvouched",
-        &["provenance: vouched by the owner in activation generation 4 (digest "],
+        &["provenance: vouched by the owner in activation generation 4 (digest sha256:"],
     ),
     // **A vouch claims no name** (§229 B2): the entry is found by the bytes' digest and never by
     // the name it was recorded under, so the bare word reaches nothing.
@@ -1024,7 +1024,7 @@ const SWISH_CHECK_SCRIPT: &[Line] = &[
     line(
         0,
         "caps installed/unvouched",
-        &["provenance: unvouched (digest "],
+        &["provenance: unvouched (digest sha256:"],
     ),
     line(
         1,
@@ -2525,15 +2525,25 @@ fn swish_check_boot(
         );
     }
     // **`rg` is on the disk only if somebody built it** (milestone 595 (the shell runs a `std`
-    // program)): `helpers/build-ripgrep.sh` fetches it from crates.io, which no gate does, because
-    // making one do so is a DECISIONS §46 (thin primitives or whole subsystems) call nobody has
-    // made. So unlike `std_exerciser` its lines skip in CI too, and say so: this is the gate's one
-    // half that runs only on a machine that built `rg`.
+    // program)): `helpers/build-ripgrep.sh` fetches it from crates.io. Since lane
+    // milestone/121-rg-ci (2026-10-08 UTC) every `swish-check` row of `script/ci-build` runs that
+    // first, so in CI a missing `rg` means the build broke and its lines are refused rather than
+    // skipped, exactly as `std_exerciser`'s are. Before that CI skipped them in silence, and fatal
+    // risk 1's claim was re-checked by nothing. A local run without the build still skips and
+    // says so. The crates.io fetch in a gate is a DECISIONS §46 (thin primitives or whole
+    // subsystems) question, asked on that lane's pull request.
     let rg_built = crate::farm::ripgrep_elf(&format!("{arch}-unknown-nife")).exists();
     if fresh && !rg_built {
+        if std::env::var_os("CI").is_some() {
+            eprintln!(
+                "swish-check ({arch}): no `rg` was built for this architecture, and in CI \
+                 `helpers/build-ripgrep.sh` runs first; refusing to skip its lines"
+            );
+            return false;
+        }
         eprintln!(
             "swish-check ({arch}): skipping `{}`'s lines: it is not built here \
-             (`helpers/build-ripgrep.sh` builds it; no gate runs that, §46)",
+             (`helpers/build-ripgrep.sh` builds it, as CI does)",
             crate::disk::INSTALLED_RIPGREP
         );
     }
@@ -3898,7 +3908,7 @@ const RG_WALK_CD: &str = "cd /search";
 /// Ten minutes covers the slowest with room, and a hang still reports inside one CI job. Why the
 /// emulated `x86_64` leg is eight to twenty times the others is not measured; the likeliest cost is
 /// the one [`SWISH_CHECK_X86_LINE_SECS`] names, the screen path painting each of 349 lines through
-/// TCG. CI never types this line (`rg` is not built there), so it binds only a local run.
+/// TCG. CI's legs are measured in milestone 121's block (lane milestone/121-rg-ci).
 const RG_WALK_SECS: u64 = 600;
 
 /// **How long any other line naming `rg` may take** (the three milestone 595 typed, and its `caps`).

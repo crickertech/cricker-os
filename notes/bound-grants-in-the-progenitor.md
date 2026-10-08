@@ -45,7 +45,7 @@ Two questions are calef's, because each is a format two programs agree on.
 | | where the fact lives on the device | what changes |
 |---|---|---|
 | T1. A second note in the server's ELF | `.note.nife.manifest`, a new note type beside milestone 597's manifest, descriptor one flags word | `manifest_note` gains a type; the progenitor reads the file server's image from the initrd and decodes it |
-| T2. A column in the package catalog | `package_catalogue`, a third field on the server's line | `package_archive`'s catalog format; `xtask` writes it from the package declaration |
+| T2. A column in the package catalog | `package_catalog`, a third field on the server's line | `package_archive`'s catalog format; `xtask` writes it from the package declaration |
 | T3. A bit from the kernel | the progenitor's START words, set by the kernel that started the server | the kernel reads the note (T1) and passes the answer on; a new meaning for an argument word |
 
 Recommendation: T1. The fact is about a binary, and it should travel with the binary, measured

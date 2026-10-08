@@ -134,31 +134,27 @@ fn the_page_tables_say_u_mode_cannot_read_the_kernels_memory() {
     let image = program(super::HELLO_ENTRY).expect("no hello program in the initrd archive");
     let (space, _) = load(image, 0).expect("the initrd did not load");
 
-    // SAFETY: nothing is at U-mode; we are a kernel thread mid-test, and the root carries the
-    // kernel half (else this instruction would not retire).
-    unsafe { mmu::activate_user(space.ttbr0()) };
+    space.while_installed(|| {
+        assert!(
+            mmu::translate(kernel_va).is_some(),
+            "the kernel's direct map is not mapped, so this test proves nothing",
+        );
+        assert!(
+            !mmu::user_can_read(kernel_va),
+            "the page tables say U-mode could read the kernel's own memory",
+        );
+        assert!(!mmu::user_can_write(kernel_va));
 
-    assert!(
-        mmu::translate(kernel_va).is_some(),
-        "the kernel's direct map is not mapped, so this test proves nothing",
-    );
-    assert!(
-        !mmu::user_can_read(kernel_va),
-        "the page tables say U-mode could read the kernel's own memory",
-    );
-    assert!(!mmu::user_can_write(kernel_va));
+        // And it says yes to the process's own text, or the check is a rubber stamp.
+        assert!(
+            mmu::user_can_read(address_space_map::IMAGE_BASE),
+            "U-mode cannot read its own .text, so the check refuses everything and proves nothing",
+        );
 
-    // And it says yes to the process's own text, or the check is a rubber stamp.
-    assert!(
-        mmu::user_can_read(address_space_map::IMAGE_BASE),
-        "U-mode cannot read its own .text, so the check refuses everything and proves nothing",
-    );
-
-    // Not an unmapped address in its own half: the stack band's guard page, which the
-    // address-space map promises no loader ever maps.
-    assert!(!mmu::user_can_read(address_space_map::STACK.start));
-
-    mmu::deactivate_user();
+        // Not an unmapped address in its own half: the stack band's guard page, which the
+        // address-space map promises no loader ever maps.
+        assert!(!mmu::user_can_read(address_space_map::STACK.start));
+    });
     drop(space);
 }
 
@@ -530,7 +526,7 @@ fn a_client_echoes_over_tcp_through_the_socket_contract() {
 /// (milestone 198 (a package manager) rung 3a): `uptime 0.1.0 riscv64`, genuine then tampered.
 #[test_case]
 fn a_package_fetched_over_http_is_accepted_only_by_the_image_digest() {
-    let catalogue = program(package_archive::CATALOGUE)
+    let catalogue = program(package_archive::CATALOG)
         .expect("no package catalogue in the initrd archive: the archive build packs one");
     let Some((report, net)) = virtio_service::start_package_fetch(
         net_stack_image(),
