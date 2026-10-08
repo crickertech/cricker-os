@@ -32,6 +32,19 @@ starts `rg` with no arguments, so nothing has yet tried a search. When one is tr
 measured `rg --threads 1 --no-mmap` over this tree peaking at 3.0 MiB on macOS, against a `std`
 heap of about 1 MiB.
 
+Correction, 2026-10-07 (UTC), from milestone 595 (the shell runs a `std` program)'s block and
+`script/swish-check` on aarch64, riscv64 and x86_64 (lane `milestone/595-rg-at-prompt`): `rg` has
+now searched, from the prompt. Unmodified `ripgrep` 14.1.1, run by its path and unvouched, was
+told `rg needle docs ../hay/secret.txt` and printed `docs/n.txt:find the needle here`, the one
+match in the directory the word `docs` granted. It could not open `../hay/secret.txt`, which holds
+the needle too: the caretaker refused the `..`. The transcript is byte-identical on the three
+architectures. The 256 KiB ceiling named above was raised to 4 MiB by milestone 595 on 2026-09-27,
+and the two last steps were a manifest note linked into `rg` and a disk copy without its symbol
+table. Two limits on what this shows: the lines run only where `helpers/build-ripgrep.sh` was run,
+never in CI (§46 (thin primitives or whole subsystems)), and one file in one directory is not the
+walk `ripgrep` was chosen to exercise. That walk is measured in the kernel harness,
+`notes/ripgrep-on-nife.md`.
+
 DECISIONS §105 (`std::thread::spawn` stays declined, until a customer needs it) was never reached,
 and that reverses the premise. `ripgrep` asks `available_parallelism()` rather than assuming it, and
 nife answers `Ok(1)` honestly. A platform answering `Unsupported` there would have failed this

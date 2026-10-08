@@ -1,10 +1,10 @@
 ---
 status: PARTIAL
 raised: 2026-09-02
-milestone_dependencies: none
+milestone_dependencies: 127, 803
 decision_dependencies: none
 machine_requirements: aarch64, riscv64 and x86_64 silicon
-specific_machine: none
+specific_machine: xenon (the soak leg a lane can still reach; argon is not in hand)
 needs_person: yes
 ---
 # 225. Run the soak on radon, argon and xenon, which is the only place its answer means anything

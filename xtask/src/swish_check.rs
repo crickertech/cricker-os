@@ -763,6 +763,43 @@ const SWISH_CHECK_SCRIPT: &[Line] = &[
         "/installed/std-grep needle",
         &["std_grep: .: no directory was granted to search"],
     ),
+    // **Unmodified `ripgrep` searches what its words name, from the prompt** (milestone 595 (the
+    // shell runs a `std` program), fatal risk 1). The same lines `std_grep` answered, typed to
+    // somebody else's program: crates.io's `rg` 14.1.1, unvouched, carrying only the note `cargo
+    // xtask foreign-note` linked in. `docs` is granted read-only because a word named it, and the
+    // match is found there. `../hay/secret.txt` names the same directory's other file by a path
+    // whose first component is not an entry here, so nothing is granted for it and `rg` cannot
+    // open it, though the needle is in it: the caretaker refuses the `..` by name. With no word
+    // naming anything `rg` holds no directory, and searches nothing. It asks for its working
+    // directory first, and the PAL refuses that by design for a process holding no directory
+    // (`patches/std-nife/overlay/std/src/sys/paths/nife.rs`), so the refusal reaches the person in
+    // `rg`'s words, which add a guess ("did your CWD get deleted?") that is wrong here. Typed only
+    // when `helpers/build-ripgrep.sh` has run; never in CI (§46, see `swish_check_boot`).
+    line(0, "echo the needle outside the grant > secret.txt", &[]),
+    line(
+        0,
+        "caps /installed/rg needle docs",
+        &[
+            "cap 4  endpoint  dir",
+            "(only docs in it, named on the line)",
+            "...read-only",
+            "provenance: unvouched",
+        ],
+    ),
+    line(
+        1,
+        "/installed/rg needle docs ../hay/secret.txt",
+        &[
+            "docs/n.txt:find the needle here",
+            "rg: ../hay/secret.txt: IO error for operation on ../hay/secret.txt: `..` would \
+             leave the granted directory, which no capability designates",
+        ],
+    ),
+    line(
+        1,
+        "/installed/rg needle",
+        &["rg: failed to get current working directory: operation not supported on this platform"],
+    ),
     line(0, "cd /", &[]),
     // **A note that asks more than its vouch allows is refused** (milestone 597, provisional).
     // `least_authority_demo`'s note declares an argument, which only a command line designates,
@@ -2476,8 +2513,22 @@ fn swish_check_boot(
              std-exerciser` builds it; `script/test` runs that)"
         );
     }
+    // **`rg` is on the disk only if somebody built it** (milestone 595 (the shell runs a `std`
+    // program)): `helpers/build-ripgrep.sh` fetches it from crates.io, which no gate does, because
+    // making one do so is a DECISIONS §46 (thin primitives or whole subsystems) call nobody has
+    // made. So unlike `std_exerciser` its lines skip in CI too, and say so: this is the gate's one
+    // half that runs only on a machine that built `rg`.
+    let rg_built = crate::farm::ripgrep_elf(&format!("{arch}-unknown-nife")).exists();
+    if fresh && !rg_built {
+        eprintln!(
+            "swish-check ({arch}): skipping `{}`'s lines: it is not built here \
+             (`helpers/build-ripgrep.sh` builds it; no gate runs that, §46)",
+            crate::disk::INSTALLED_RIPGREP
+        );
+    }
     let skipped = |line: &str| {
         swish_check_omits(arch, line).is_some()
+            || (line.contains(crate::disk::INSTALLED_RIPGREP) && !rg_built)
             || ((line.starts_with("std_exerciser")
                 // The line after `std_exerciser redirected > args.txt` reads the file it wrote, so
                 // it goes with it; until 2026-10-03 it stayed and failed every local run that had

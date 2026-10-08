@@ -44,9 +44,15 @@ since milestone 206 (a program image has under 896 KiB) moved the ceiling to 496
 because fetching its crate tree is a DECISIONS §46 (thin primitives or whole subsystems) decision. It
 is never part of the base image: calef ruled on 2026-10-07 (UTC) that `rg` is installed with `jig`
 from a package in nifeos/basalt. `swish` cannot name it, since its program table has no `rg`. So
-`rg pattern dir` at the prompt waits on the packaging milestone pull request #1797 mints, on
-milestone 809 (the package client becomes a program, `jig`) to install it, and on milestone 595
-(the shell runs a `std` program) to start it.
+`rg pattern dir` by name waits on the packaging milestone pull request #1797 mints and on milestone
+809 (the package client becomes a program, `jig`) to install it.
+
+By its path it already runs (milestone 595 (the shell runs a `std` program), 2026-10-07 (UTC)).
+`helpers/build-ripgrep.sh` links a manifest note into `rg` (`cargo xtask foreign-note`), and
+`script/swish-check` copies it to its disk as `installed/rg` without its symbol table, which put it
+over the 4 MiB image cap. Typed `/installed/rg needle docs ../hay/secret.txt`, it finds the needle in
+the granted `docs` and cannot open the path outside it, on all three architectures. The lines skip
+wherever `rg` was not built, which is CI.
 
 ## Parity (DECISIONS §19)
 

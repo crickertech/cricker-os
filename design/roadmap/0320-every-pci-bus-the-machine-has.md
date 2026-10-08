@@ -1,16 +1,14 @@
 ---
-status: PARTIAL
+status: BUILT
 raised: 2026-09-17
-milestone_dependencies: none
-decision_dependencies: none
-machine_requirements: none
-specific_machine: xenon (whether the walk finds its Micron drive is the question)
-needs_person: yes
+built: 2026-10-04
 ---
 # 320. Every PCI bus the machine has, not just bus zero
 
-Partial as of 2026-09-17. Built and gated under QEMU; unconfirmed on xenon, which is the
-machine it exists for and the one nobody can boot from a lane. Minted 2026-09-17 by the maintainer,
+Built 2026-09-17 and gated under QEMU; confirmed on xenon 2026-10-04 (UTC; status corrected
+2026-10-07, when it still read PARTIAL). The first bench boots found the Micron NVMe at `01:00.0`
+behind root port `00:1b.0`, the topology this block predicted: `disk-throughput` preflight 1 names
+it (`bench/xenon-2026-10-04/boot-e-main-clflush-1.log`) and `boot-c-diag.log` names the bridge. Minted 2026-09-17 by the maintainer,
 from `design/roadmap/proposals/a-kernel-that-maps-one-pci-bus.md`, which this block replaces and
 which carries the full argument. *(Number provisional until the merge queue lands it.)*
 
@@ -42,8 +40,9 @@ Transcript: `bench/xenon-2026-09-17/nvme-attempt-2-no-controller-found.log`.
 
 ## What the census found, and what it did not
 
-**The census is built and prints, and it has not run on xenon.** That is the honest state of this
-block and the reason it is PARTIAL rather than BUILT. `pci::survey` prints bus, device, function,
+**The census is built and prints; no transcript of its own lines from xenon is committed.** The
+bench boots found the NVMe through the walk (above), but the photographs relayed only the
+`disk-throughput` lines, so the census's full output on xenon is unrecorded. `pci::survey` prints bus, device, function,
 vendor id, device id and class for every function, and for every bridge the buses behind it. What it
 printed under QEMU, which is the machine a lane can reach:
 
@@ -125,10 +124,10 @@ the floor; `pci::ecam_buses()` is the answer, and all three architectures' `map_
 
 ## Done when
 
-- [x] The census prints every function on every bus the machine describes. **Built; not yet run on
-      xenon**, which is what keeps this block PARTIAL.
-- [ ] `pci::find_nvme_device()` finds the Micron, or the census proves it is not there. Needs a
-      xenon boot. One boot answers it either way now.
+- [x] The census prints every function on every bus the machine describes. **Built;
+      xenon's own census lines were not relayed**, but the walk it feeds found the NVMe there.
+- [x] `pci::find_nvme_device()` finds the Micron, or the census proves it is not there. Found on
+      xenon 2026-10-04 at `01:00.0`, behind `00:1b.0`, and driven from EL0 in three bench boots.
 - [x] `script/test` green on all three architectures; host tests for the bridge arithmetic in
       `crates/pci`, plus a Kani proof that the walk's queue stays inside its array whatever firmware
       wrote in the bridges.
@@ -147,4 +146,5 @@ outstanding.
   (), raised by this lane. A
   device behind a bridge firmware left unconfigured enumerates and does not work, and nothing in the
   boot line says why.
-- **Outstanding.** The xenon boot that closes this block: one boot, reading the census lines.
+- **Done.** (2026-10-04) The xenon boot that closes this block: the bench boots of
+  `bench/xenon-2026-10-04/` found the Micron behind a root port.
