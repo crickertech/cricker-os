@@ -36,6 +36,7 @@ mod disk;
 mod disk_check;
 mod disk_throughput;
 mod farm;
+mod foreign_note;
 mod host;
 mod icount;
 mod inbound;
@@ -243,6 +244,12 @@ fn main() -> ExitCode {
             true
         }
         "std-exerciser" => std_exerciser(),
+        // A manifest note as an object of its own, for a program whose source is somebody else's
+        // (milestone 595 (the shell runs a `std` program)). `helpers/build-ripgrep.sh` links it into
+        // `rg`. Name provisional (2026-10-07). See xtask/src/foreign_note.rs.
+        "foreign-note" => {
+            foreign_note::foreign_note(std::env::args().nth(2), std::env::args().nth(3))
+        }
         // The abort sweep (milestone 64): which std calls kill a nife process instead of refusing
         // it. Runs at the end of `std-exerciser` (and so inside `script/test`); exposed on its own
         // because re-reading the list after a nightly bump should not need a rebuild.
@@ -293,7 +300,7 @@ fn main() -> ExitCode {
                 eprintln!("unknown command: {other}\n");
             }
             eprintln!(
-                "usage: cargo xtask <build|run|shell|swish-check|boot-check|initrd-aarch64|initrd-riscv|initrd-x86|uefi-image|uefi-boot|uefi-test|package|install-boot|rollback-boot|confirm-boot|stick|stick-boot|screen-boot|manual|apropos|std-src|std-stamp|std-exerciser|std-aborts|test|time-summary|undefined-behavior-check|bench|icount|gdb|objdump|image|board-console|soak-test|board-script|card-check> [--hvf]"
+                "usage: cargo xtask <build|run|shell|swish-check|boot-check|initrd-aarch64|initrd-riscv|initrd-x86|uefi-image|uefi-boot|uefi-test|package|install-boot|rollback-boot|confirm-boot|stick|stick-boot|screen-boot|manual|apropos|std-src|std-stamp|std-exerciser|std-aborts|foreign-note|test|time-summary|undefined-behavior-check|bench|icount|gdb|objdump|image|board-console|soak-test|board-script|card-check> [--hvf]"
             );
             eprintln!("       cargo xtask swish-check [--arch aarch64|riscv64]");
             eprintln!(

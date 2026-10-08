@@ -289,6 +289,13 @@ pub(crate) const INSTALLED_STD_ECHO: &str = "installed/std-echo";
 /// `std_grep`, from the same workspace, unvouched, so every word it is granted is read-only.
 /// Written only if it was built, as [`INSTALLED_STD_ECHO`] is. Provisional.
 pub(crate) const INSTALLED_STD_GREP: &str = "installed/std-grep";
+/// **Unmodified `ripgrep`, if somebody built it** (milestone 595 (the shell runs a `std` program),
+/// 2026-10-07): `helpers/build-ripgrep.sh`'s `rg`, which links the note `cargo xtask foreign-note`
+/// writes, so it runs by path as an unvouched `std` program that hears its words. Written only when
+/// `crate::farm::ripgrep_elf` exists, which no gate arranges: fetching its crates is the §46 (thin
+/// primitives or whole subsystems) decision nobody has made, so CI never types its lines (see
+/// `swish_check_boot`). Provisional. Installing it as a package is milestone 121's, not this.
+pub(crate) const INSTALLED_RIPGREP: &str = "installed/rg";
 
 /// **`std_echo` as large as `ripgrep`** (milestone 595 (the shell runs a `std` program), 2026-09-27,
 /// provisional): its bytes followed by zeros to [`LARGE_IMAGE_BYTES`]. `rg` is never in CI (its
@@ -303,6 +310,28 @@ pub(crate) const INSTALLED_STD_ECHO_LARGE: &str = "installed/std-echo-large";
 /// How large [`INSTALLED_STD_ECHO_LARGE`] is: 3 MiB, 768 pages, about `rg` 14.1.1's image
 /// (`notes/ripgrep-on-nife.md`) and under `spawnproto::IMAGE_MAX_PAGES`.
 const LARGE_IMAGE_BYTES: usize = 3 * 1024 * 1024;
+
+/// **A program with no symbol table, for the disk** ([`INSTALLED_RIPGREP`]). `read_stripped` takes
+/// only the debug sections, and keeps the symbols for whoever reads the archive later; `rg` 14.1.1's
+/// are 1.7 MiB of its 4.6, which put it over `spawnproto::IMAGE_MAX_PAGES` (4 MiB) and the shell
+/// refused it as "larger than an image may be" (found 2026-10-07 on aarch64). Run by path, nothing
+/// reads them. Without them it is 2.7 to 2.9 MiB on all three architectures, and `--strip-all`
+/// keeps the `PT_NOTE`, since that is a loaded segment's content and not a section the tool drops.
+fn without_symbols(path: &std::path::Path, architecture: &str) -> Result<Vec<u8>, String> {
+    let objcopy = crate::host::llvm_tool("llvm-objcopy")
+        .ok_or("llvm-objcopy not found; the llvm-tools rustup component provides it")?;
+    let out = workspace_root().join(format!("target/stripped/all-{architecture}-rg"));
+    let ok = std::process::Command::new(&objcopy)
+        .arg("--strip-all")
+        .arg(path)
+        .arg(&out)
+        .status()
+        .is_ok_and(|s| s.success());
+    if !ok {
+        return Err(format!("{objcopy} --strip-all {} failed", path.display()));
+    }
+    std::fs::read(&out).map_err(|e| format!("{}: {e}", out.display()))
+}
 
 /// **`bytes` with its one manifest note's version word replaced by `version`**, for
 /// [`INSTALLED_MALFORMED_NOTE`]. The note is found by its header and owner, which
@@ -413,6 +442,11 @@ fn stage_installed(architecture: &str) -> Result<String, String> {
         .then(|| crate::inspect::read_stripped(&std_grep.display().to_string()))
         .transpose()
         .map_err(|e| format!("could not read std_grep: {e}"))?;
+    let ripgrep = crate::farm::ripgrep_elf(&format!("{architecture}-unknown-nife"));
+    let ripgrep = ripgrep
+        .exists()
+        .then(|| without_symbols(&ripgrep, architecture))
+        .transpose()?;
     let std_echo = crate::farm::std_echo_elf(&format!("{architecture}-unknown-nife"));
     let std_echo = std_echo
         .exists()
@@ -497,6 +531,9 @@ fn stage_installed(architecture: &str) -> Result<String, String> {
     }
     if let Some(bytes) = &std_grep {
         write(tree.join(INSTALLED_STD_GREP), bytes)?;
+    }
+    if let Some(bytes) = &ripgrep {
+        write(tree.join(INSTALLED_RIPGREP), bytes)?;
     }
     write(tree.join(DOWNLOADED_NOTELESS), &noteless)?;
     write(tree.join(DOWNLOADED_GREETING_0_2_0), &greeting_two)?;
