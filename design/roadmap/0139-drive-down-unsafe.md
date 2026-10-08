@@ -16,8 +16,11 @@ ratchet?"*
 Milestone 134's instrument (the census and the ceiling relation in `script/lint`)
 has existed and been live all along; this milestone spent it for its first real reduction below.
 
-<!-- prose-budget: exception. 13,846 words (wc -w, this marker included) against a 3,000-word
-     cap. Ratified by calef on 2026-09-25 (UTC), who ruled that this block is not split. Reason:
+**In brief.** Reduce the hand-written `unsafe` this tree carries outside `kernel/src/arch/`, and lower
+the ceiling after each reduction so the ground gained cannot be given back quietly.
+
+<!-- prose-budget: exception. 14,713 words (wc -w, this marker included; re-counted after round
+     9, 2026-10-07 UTC) against a 3,000-word cap. Ratified by calef on 2026-09-25 (UTC), who ruled that this block is not split. Reason:
      large and rarely referenced; the maintainer counted 2 files linking it that day. Roadmap blocks
      as a class stay under the cap, per §212 (a prose budget), which refused a class exemption.
      Marker syntax is PROVISIONAL until the prose-budget gate exists. -->
@@ -924,69 +927,169 @@ subsystem where a mistake is an intermittent hang rather than a compile error, a
 kind of thing milestone 193's prover should be pointed at first. **An architect's call**, not a
 lane's to invent.
 
+## Round 9 (2026-10-07): the identified work, finished or handed on
+
+calef ruled on 2026-10-07 (UTC): address the remaining identified work, then call the block BUILT.
+This round did the code items, settled the ratchet's scope, and wrote the three questions only calef
+can answer as rulings to make (see "What is still open").
+
+Measured from the diff against base commit `3dfbf1fd4`: 25 `unsafe {` blocks removed, 2 added,
+net -23. Outside `kernel/src/arch/` the census went 1,147 to 1,124 blocks, density 66.6 to 65.3.
+One `unsafe fn` went too (`revoke::log_page`). Proven by `script/test` on aarch64, riscv64 and
+x86_64.
+
+### What collapsed
+
+- The revocation log's page walk, the proposed milestone round 8 named. Nine call sites restated
+  `log_page`'s contract: a page this module linked, with `SPACES` held. Round 8 counted six; the
+  tree had grown three more. `revoke::chain` (new; names provisional) now holds both halves without
+  a comment. A walk borrows `&mut LogChain`, which lives only inside the locked registry, so the
+  lock half is a borrow. `head`, a page's `next` and the walk's cursor are private to that small
+  module, and `LogChain::grow` is their only writer, so the membership half is privacy. One block
+  remains, in the iterator. Ten blocks and the `unsafe fn` became one block. `list_mapping`'s
+  cursor check is now the same walk as the listing. The defect found by milestone 779 (fuzz the
+  surface a confined process can reach), a caller's word followed as a log page, can no longer be
+  written outside that module. The two
+  falsification records over this code were re-cut to the new shape.
+- `AddressSpace::while_installed` (new; name provisional). Five system tests and the RISC-V boot
+  tour each installed a space by hand under their own wording of `mmu::activate_user`'s contract.
+  It is a fact about `AddressSpace`, so it is asserted there once. It takes a closure rather than
+  returning a guard, because `mem::forget` is safe and a forgotten guard could leave a dropped
+  space installed. Six blocks became one.
+- `code_page` in `system_tests::user` (new; name provisional). Nine tests in five files wrote a
+  child's code stub into a fresh page with the same raw-pointer loop. None checked that the stub
+  fit. One block now, and the copy is a bounds-checked slice copy.
+- `system_tests::user::tests`'s shared-memory test kept its capture in a `static mut` buffer. It
+  is now an array of atomics, with `CAPTURED`'s store as the handoff: unsafe that was never needed.
+
+The old `kernel/src/user/tests.rs` is `system_tests/src/user/tests.rs` since milestone 609 (the
+system tests leave the kernel crate). It carried 15 blocks; it carries 7. The seven left are one-offs
+with their own arguments. Two read through a live user translation, which is the point of their
+tests. One installs a space on another core from a `'static` closure, which a borrow cannot
+express. One builds a `Mapper` over a live root, and one writes a fresh frame through the direct
+map.
+
+### The ratchet
+
+Cinched in the same commit, 88 to 72 (`notes/unsafe-obligations.md`, `notes/counted-claims.md`).
+The ceiling had stood 22 points over the tree; 72 keeps round 1's seven.
+
+The opening census counted three things and the gate watched one and a half: blocks, and the
+`Send`/`Sync` half of `unsafe impl`. Measured at five dates from git blobs before deciding:
+
+| Date | `unsafe fn` | per 10,000 lines | `unsafe impl` | of which `Send`/`Sync` |
+|---|---|---|---|---|
+| 2026-08-18 | 48 | 6.0 | 24 | 17 |
+| 2026-09-01 | 91 | 10.1 | 32 | 23 |
+| 2026-09-15 | 95 | 10.1 | 32 | 23 |
+| 2026-09-25 | 129 | 11.2 | 32 | 23 |
+| 2026-10-07 | 152 | 8.8 | 34 | 23 |
+
+The other `unsafe impl`s (11 today) are now gated at the tree's exact value, as
+`unsafe-trait-claims` (provisional), the shape the `Send`/`Sync` claims already had. They moved
+twice in seven weeks, and each is a hand-written claim that a trait's contract holds. `unsafe fn`
+gets no ceiling. Every call of one is already a block the density counts, because
+`unsafe_op_in_unsafe_fn` is on, and its own density rose and fell by half in seven weeks. A ceiling
+would have fired on honest work in September. The `# Safety` contracts check already binds each one.
+
+### Also done
+
+`abi::thread_control_block::START`'s doc comment now says what the kernel does with its three
+arguments: they are the child's first `x0` to `x2` (`a0` to `a2`, `rdi`/`rsi`/`rdx`). Round 7 found
+the stale text.
+
 ## What is still open
 
-**`crates/inter_process_communication`'s unsafe is settled**: read in full, genuinely per-call-site distinct, no further work
-indicated there (see round 2 above).
+Exit criterion, proposed by round 9 for calef's 2026-10-07 (UTC) ruling: this block is BUILT when
+every item under this heading and every Follow-on entry marked Outstanding is done, split out with
+a recorded owner, or refused with a reason. The code items are done. Three questions remain, and
+each is calef's. The block is ready to flip once all three are ruled.
 
-**The broader `user/` survey this milestone's BUGS section calls for is still not complete**, and is
-now a better-informed job than it was after round 1: the `read_volatile`/`write_volatile` grep
-(rather than the round-1 name-based search) is the right net, and round 2's pass through its results
-sorted the non-FS hits into rough categories a follow-on lane can use rather than re-deriving:
+### Question 1: the scheduler's queue handoff: a typestate, or a recorded limitation
 
-- `swish.rs`'s other two windows, `disk_surveyor.rs`'s `ROSTER_VA`, and `net_stack.rs`'s
-  `a_r8`/`a_r16`/`a_w16`/`a_w8` cluster are all done (round 3, see above). Nothing else in these
-  three files' shape remains outstanding.
-- Framebuffer/graphics code is done (round 4, see above): `painter.rs`, `window.rs`,
-  `display.rs` and `display_terminal.rs` are all migrated, and the measured bounds-check cost that
-  round 3 left open (negligible at every volume this cluster sees, on both ISAs) is recorded there.
-  Nothing else in this cluster remains outstanding.
-- `heeder.rs` is done (round 2); nothing else in that shape remains outstanding there.
-- Device register blocks: done for the files that had a fixed layout (round 5), and nothing
-  else in this shape remains outstanding. `console.rs`'s and `input.rs`'s aarch64 (PL011) halves
-  and `jh7110_trng.rs` are migrated onto `tock_registers::register_structs!`/`register_bitfields!`,
-  matching `kernel/src/drivers/pl011.rs`'s own idiom. `console.rs`'s and `input.rs`'s riscv64
-  (NS16550) halves are deliberately NOT migrated: round 3's premise that
-  `kernel/src/drivers/ns16550.rs` already uses this idiom "for the identical hardware" was false
-  (see the correction above), and the real fact it got wrong, that this device family's register
-  stride is a runtime value no compile-time layout macro can express, applies to these two files'
-  riscv64 halves exactly as it applies to the kernel's own NS16550 driver. `clock.rs`'s RTC drivers
-  and `driver.rs` still need nothing, per round 3's reading. See round 5 above for the full
-  per-file, per-architecture reasoning and the measured reduction.
-- Deliberately not migration candidates, named so nobody re-derives them and wastes a look:
-  `hello.rs` (tests `.bss` zeroing and `.data` writability on purpose; the raw access *is* the test),
-  `flaky.rs` and `outlaw.rs` (deliberately touch a bad/unauthorized address to provoke a fault; a
-  bounds-checked wrapper would defeat the point), `memory_grant_depleter.rs` and `swapper.rs` (single one-off
-  writes, not a repeated hand-written invariant -- nothing to collapse).
-- `login_test_client.rs`'s `PAGE_VA` is done (round 6), along with five more files in the
-  identical `core::slice::from_raw_parts[_mut]`-over-a-whole-page shape that reading this one
-  surfaced: `credentialer.rs`, `credentialer_test_client.rs`, `identity_provisioner.rs`,
-  `session_reviver.rs`, `smb_server.rs`. See round 6 above, including the honest note that this
-  migration is a net **increase** in raw block count (+12), unlike every prior round's.
-- **The `invoke` cluster (123 of `user/`'s 284 blocks, the largest single share) is read, resolved,
-  and migrated** (round 7): 22 distinct methods, all found to carry the same Rust-safety shape as
-  the five methods already wrapped (`send`/`receive`/`reap`/`reply`/`map_page_frame`), none of them the
-  exception milestone 134's census flagged `MAP_INTO` as possibly being. 122 of the 123 call sites
-  now go through fourteen new thin wrappers, a new `granted` (the §94 shape, five programs'
-  identical probe), and a new opt-in `user_rt::virtio` module; one call site (`window.rs`'s refusal
-  probe) stays raw, with the reason recorded there. See round 7 above for the full per-method
-  accounting.
+What is being decided. `kernel/src/sched.rs` carries 90 `unsafe {}` blocks today (round 8 counted
+47; the scheduler grew). 21 of them hand a thread pointer to a queue: 6 run-queue pushes, 2 inbox
+pushes, and 13 `Rendezvous` operations (`send`, `receive`, `remove_sender`, `remove_receiver`).
+Every one asserts the same sentence: this thread is live and on no other queue. That invariant is
+established by the caller, by a state transition a few lines up, so a safe `enqueue_ready` would
+move the sentence and not remove it. This block refuses that.
 
-- **The kernel outside `arch/` is read and categorized** (round 8, the per-shape table above), and
-  two of its clusters are collapsed: 37 page-zeroing sites onto `memory::alloc_zeroed`/
-  `alloc_contiguous_zeroed`, and 5 device-tree parses onto `crate::device_tree`. What is
-  deliberately left there, and why, is the "did not take" list in round 8; what is identified and
-  not done is one proposed milestone (`revoke.rs`'s log-page chain) and one recorded limitation
-  (`sched.rs`'s run-queue handoff, a typestate fork for calef), both written up in round 8 above.
+The options:
 
-**This block still sets no target number**, per its own original text -- the ratchet moves by
-measured reduction, not by picking a floor in advance. Round 6's own reading of what a realistic
-floor looks like is above, and it is a range bounded by the `invoke` cluster's unresolved question
-rather than a single number, per this milestone's own BUGS item asking the first lane to report
-rather than pick one.
+- A. Leave it, with the limitation recorded in BUGS. Costs nothing. 21 hand-written copies stay,
+  in the one subsystem where a mistake is an intermittent hang.
+- B. A safe wrapper per call shape. Refused: it relocates the argument, which is this block's own
+  named anti-pattern.
+- C. An ownership token. `intrusive_fifo` and `inter_process_communication` take a non-`Clone`
+  `Unqueued<T>` instead of a `NonNull<T>`. Only a pop, a removal or thread creation mints one, and
+  the running thread's token lives in the core's current slot. A thread can reach a queue only by
+  way of the token its last transition produced. The unsafe moves to the few minting points.
+  `push_back`, `send` and `receive` become safe. Rung one of the ladder.
+- D. Leave the blocks and prove the invariant with Kani. A harness over the queue-membership state
+  machine, in the crates. Rung two: the count stays and the comment gains a proof.
 
-**In brief.** Reduce the hand-written `unsafe` this tree carries outside `kernel/src/arch/`, and lower
-the ceiling after each reduction so the ground gained cannot be given back quietly.
+What each costs, as far as it can be measured without building. C changes 4 `unsafe fn`s in
+`inter_process_communication`, 2 in its notification module and 1 in `intrusive_fifo`, crates that
+carry 15 Kani harnesses between them; and about 21 call sites plus the current-thread slot in
+`sched.rs`. It is representation-neutral (a `#[repr(transparent)]` newtype over `NonNull`), which
+`script/fastpath-footprint` and `script/bench --check` would confirm. D adds harnesses and removes
+nothing. Neither number is measured beyond this.
+
+Prior art, recalled rather than read: the `intrusive-collections` crate makes a push safe for an
+owned `Box` and unsafe only where an `UnsafeRef` is minted, which is option C's shape. seL4 keeps
+the C and proves its queue invariants in Isabelle, which is option D's.
+
+Reversibility. All of it is inside the kernel and two crates; nothing crosses the syscall surface.
+Nobody outside has acted on it.
+
+Recommendation: C, as its own milestone, built in two steps: the token in the crates with their
+harnesses first, on the host, then `sched.rs`, gated by the full suite and the icount benchmarks.
+This is not about effort. C is more work than A or D, and would still be the choice at equal cost,
+because it removes the fact that needs a comment rather than adding a second witness to it. If
+calef says no, option A stands and the BUGS entry below is the record.
+
+### Question 2: round 6's and round 7's provisional names, line by line
+
+Seventeen. Occurrences count call sites and imports in `components/` and `fixtures/` on
+2026-10-07. Two rulings since round 7 bear on them: capability is spelled out (calef, 2026-10-06),
+and §154 (the acronym test is whether the phrase is spoken) spells out "thread control block".
+
+| # | Name | What it is | Where a reader meets it | Alternatives | Recommendation |
+|---|---|---|---|---|---|
+| 1 | `initrd::initrd_bytes` | the initrd the kernel maps for a program, as a byte slice (`unsafe fn`) | 6, in seven programs' startup | `initrd`, `initrd_image` | ratify |
+| 2 | `MappedWindow::as_slice`, `as_mut_slice` | a whole shared window as an ordinary slice (`unsafe fn`s) | 9, six programs | `bytes`, `bytes_mut` | ratify, std's spelling; moot if question 3 reverts them |
+| 3 | `retype_page_frame` | `memory_region::RETYPE` | 39 | `retype` | ratify |
+| 4 | `retype_object` | `memory_region::RETYPE_OBJ` | 16 | `retype_kernel_object` | ratify |
+| 5 | `split_region` | `memory_region::SPLIT` | 8 | `split_memory_region` | `split_memory_region`, the object's name |
+| 6 | `destroy_region` | `memory_region::DESTROY` | 14 | `destroy_memory_region` | `destroy_memory_region` |
+| 7 | `map_region_page` | `memory_region::MAP` | 4 | `map_memory_region_page` | `map_memory_region_page` |
+| 8 | `revoke_frame` | `page_frame::REVOKE` | 5 | `revoke_page_frame` | `revoke_page_frame`, which the kernel already spells |
+| 9 | `map_into` | `address_space::MAP_INTO` | 13 | `address_space_map_into` | ratify, the method's own name |
+| 10 | `tcb_cap_insert` | `thread_control_block::CAP_INSERT` | 3 | `thread_control_block_capability_insert` | that, after both rulings; the kernel's twin is `thread_control_block_cap_insert` |
+| 11 | `tcb_configure` | `thread_control_block::CONFIGURE` | 3 | `thread_control_block_configure` | that |
+| 12 | `tcb_start` | `thread_control_block::START` | 3 | `thread_control_block_start` | that |
+| 13 | `irq_wait` | `irq::WAIT` | 19 | `interrupt_wait` | ratify, matching `abi::irq` |
+| 14 | `irq_ack` | `irq::ACK` | 14 | `irq_acknowledge` | `irq_acknowledge`; `ack` is an abbreviation this tree authored |
+| 15 | `send_cap` | `rendezvous::SEND_CAP` | 35 | `send_capability` | `send_capability`, by the 2026-10-06 ruling |
+| 16 | `is_granted` | is any capability in this slot (renamed from `granted` under the boolean-predicate worklist) | 50 | `holds_capability` | ratify |
+| 17 | the `virtio` module: `virtio_read_reg`, `virtio_write_reg`, `virtio_setup_queue`, `virtio_notify` | the four `virtio` methods, opt-in for the four programs that hold the capability | 34 | `virtio::read_register` and so on | `virtio::read_register`, `write_register`, `setup_queue`, `notify`: the module already says virtio, and `reg` is an abbreviation |
+
+If calef rules, the renames are one mechanical lane; the capability-spelling sweep could carry 10
+and 15. If he does not, every name stays provisional and nothing breaks.
+
+### Question 3: round 6's slice accessors: keep or revert
+
+The question. Round 6 added `MappedWindow::as_slice` and `as_mut_slice` and moved eighteen
+hand-written page-sharing assertions in six programs onto six window declarations. It raised the
+raw block count by 12, because a whole-slice accessor has no runtime check that lets a call site
+drop `unsafe`. Round 6 offered to revert it if calef wanted the raw count to stay the primary
+signal.
+
+Recommendation: keep it. This block's own test is the number of distinct invariants asserted by
+hand, and eighteen became six. The ratchet survived the +12 without strain: the density has fallen
+13 points since. Reverting would bring back eighteen separately worded claims to buy 12 blocks, the
+trade this block's "what counts" section refuses. If calef says revert, it is six programs and two
+methods, and question 2's row 2 goes with it.
 
 ## The measurement it starts from
 
@@ -1082,14 +1185,12 @@ proofs and the type system are standing aside and a person's comment is the whol
   the C ABI shim, deliberate `.bss`/`.data` probes) are unchanged by this round. What was "how much
   of the `invoke` cluster is real" is now answered: essentially none of it, in the sense that
   mattered for whether a safe wrapper could exist.
-- `sched.rs` is the kernel's largest remaining share (47 of 202) and it is a design fork, not a
-  migration. Its run-queue handoff pushes a thread-control-block pointer under eight
-  hand-written copies of one sentence (*live, Ready, on no other queue*), which looks like the §94
-  shape and is not: unlike the allocator's postcondition that round 8 collapsed, this invariant is
-  established by the **caller** two lines earlier, so a safe `enqueue_ready` wrapper would relocate
-  the argument rather than collapse it. The real reduction is rung one of AGENTS.md's ladder, a
-  typestate that only a Ready-transition can mint, in the one subsystem where a mistake is an
-  intermittent hang rather than a compile error. Named here rather than attempted; see round 8.
+- `sched.rs` is the kernel's largest single share (90 blocks on 2026-10-07, up from round 8's 47)
+  and its queue handoff is a design fork, not a migration. 21 blocks hand a thread pointer to a
+  queue under one sentence (*live, and on no other queue*), which the caller establishes, so a safe
+  wrapper would relocate it. The real reduction is an ownership token only a transition can mint.
+  Question 1 under "What is still open" puts the options to calef; until he rules, this entry is
+  the record.
 - **A reduction can be real and still not show in the count**, and round 6 is the sharpest example
   on record of the inverse: a real reduction (eighteen independently worded page-sharing
   invariants collapsed to six canonical declarations) that shows as a raw block-count **increase**
@@ -1097,57 +1198,37 @@ proofs and the type system are standing aside and a person's comment is the whol
   runtime check to add that would let the call site drop `unsafe` the way a bounds check did. Do
   not let the number alone decide which work is worth doing, in either direction: it under-credits
   round 6's collapse and it would over-credit a Kani-proved block that stays exactly where it is.
+
 ## Follow-on
 
-- **Outstanding.** `kernel/src/revoke.rs` still walks its per-space log-page chain in six unsafe
-  blocks, each restating what the helper's own safety comment says. Round 8 named it a proposed
-  milestone and no block has been minted for it. Checked 2026-09-03.
-- **Outstanding.** `kernel/src/sched.rs` is unchanged at 47 blocks, eight of them the run-queue and
-  inbox pushes. The typestate that only a ready transition can mint is an architect's call and there
-  is no file for it under `design/decisions/`. Checked 2026-09-03.
-- **Outstanding.** `kernel/src/user/tests.rs` still carries 14 unsafe blocks, untouched. Round 8
-  skipped it for a scheduling reason, another lane holding the tree's merge hotspot, and said
-  explicitly that nothing makes it irreducible. Checked 2026-09-03.
-- **Outstanding.** Round 7's fifteen provisional names and round 6's two are unratified. Only three
-  entries in `notes/unsafe-obligations.md` carry a ratification; the fourteen wrappers and the two
-  others do not. Checked 2026-09-03.
-- **Outstanding.** Round 6's offer to revert the slice-accessor migration if calef would rather the
-  raw count stay the primary signal is unanswered; both methods are still in
-  `crates/user_rt/src/mapped_window.rs` and the six windows are still in place. Checked 2026-09-03.
-- **Outstanding.** `crates/abi/src/lib.rs` still documents the start invocation as if its three
-  arguments were ignored, which both the kernel's own arm and the builder's call contradict. Round
-  7 found this and left it for whoever next touched the file; nobody has. Checked 2026-09-03.
-- **Outstanding.** The ratchet watches unsafe blocks only. This block's opening census also counted
-  53 unsafe functions and 28 unsafe impls; a grep today gives 76 and 28, and no round has re-taken
-  or gated those two numbers even though rounds 6 and 7 added unsafe functions of their own.
-  Checked 2026-09-03.
+- **Done.** `kernel/src/revoke.rs`'s log-page walk: round 9, onto `revoke::chain`. Ten blocks and
+  an `unsafe fn` became one block.
+- **Done.** `kernel/src/user/tests.rs`, now `system_tests/src/user/tests.rs`: round 9, 15 blocks
+  to 7, with the seven left named and argued in round 9's section.
+- **Done.** `crates/abi`'s `START` doc comment: round 9.
+- **Done.** The ratchet's scope: round 9 gated the other `unsafe impl`s (`unsafe-trait-claims`)
+  and recorded why `unsafe fn` gets no ceiling.
+- **Outstanding.** For calef: the `sched.rs` queue handoff, question 1 under "What is still open".
+  It goes to a proposed milestone if he rules for option C, or to BUGS alone if A.
+- **Outstanding.** For calef: the seventeen provisional names, question 2.
+- **Outstanding.** For calef: round 6's slice accessors, question 3.
 - **Done.** Round 5's caveat that whichever concurrent lane landed second would find the ceiling
-  arithmetic stale was discharged by round 8, which re-measured from the merged tree on 2026-09-01
-  rather than trusting either round's isolated numbers.
-- **Done.** The `tock_registers` follow-on round 3 named was taken in round 5: `user/Cargo.toml`
-  pins it against the kernel's matching pin, and the aarch64 PL011 halves of the console and input
-  programs plus the TRNG driver are migrated.
-- **Done.** The framebuffer and graphics cluster is settled rather than narrowed: round 4 measured
-  the bounds check at 4 aarch64 ticks and about 0.6 riscv64 ticks per access, flat across volumes,
-  then migrated all four sites round 3 named.
-- **Recorded.** `crates/inter_process_communication`'s three production blocks each assert a different fact under a
-  different caller contract, so there is no §94 shape to collapse and nothing further is indicated
-  there.
-- **Recorded.** The NS16550 halves of the console and input programs stay hand-written, because the
-  register stride is a runtime fact no register-layout macro can express, the same reason
-  `kernel/src/drivers/ns16550.rs` gives in its own module doc.
-- **Recorded.** `hello.rs`, `flaky.rs`, `outlaw.rs`, `memory_grant_depleter.rs` and `swapper.rs` are
-  deliberately not candidates: for three of them the raw access is the test, and the other two are
-  one-off writes with nothing repeated to collapse.
-- **Recorded.** No target number, by design. The ceiling stands at 88 in
-  `notes/unsafe-obligations.md` and `notes/counted-claims.md`, ten points over round 8's 78, and
-  there is still no near-miss on record after eight rounds.
+  arithmetic stale was discharged by round 8, which re-measured from the merged tree.
+- **Done.** The `tock_registers` follow-on round 3 named was taken in round 5.
+- **Done.** The framebuffer and graphics cluster is settled: round 4 measured the bounds check and
+  migrated all four sites round 3 named.
+- **Done.** "What is still open" no longer contradicts BUGS about the `user/` survey; round 9
+  rewrote it.
+- **Recorded.** `crates/inter_process_communication`'s three production blocks each assert a
+  different fact under a different caller contract; nothing further is indicated there.
+- **Recorded.** The NS16550 halves of the console and input programs stay hand-written, because
+  the register stride is a runtime fact no register-layout macro can express.
+- **Recorded.** `hello.rs`, `flaky.rs`, `outlaw.rs`, `memory_grant_depleter.rs` and `swapper.rs`
+  are deliberately not candidates.
+- **Recorded.** No target number, by design. The ceiling stands at 72, seven points over round 9's
+  65, and there is still no near-miss on record after nine rounds.
 - **Refused.** `kernel/src/arch/` is not a target and this block will not accept a reduction there.
-  It is 258 blocks today, up with milestone 161's x86_64 port, and driving it down means writing
-  the assembly wrong or moving it out of `arch/`.
-- **Outstanding.** This block's own "What is still open" section opens by saying the broader `user/`
-  survey is incomplete, which its rounds 6 and 7 completed and its own `BUGS` says was closed. The
-  sentence and its refutation are 140 lines apart in one file. Checked 2026-09-03.
+  It is 346 blocks today.
 
 ## Index row
 
