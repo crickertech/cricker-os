@@ -267,6 +267,12 @@ which is the control this whole milestone rests on and which the test asserts on
   skipping the warning costs latency and loses nothing (`ROLE_UNWARNED`). What to do instead of a
   blocking warn is notes/non-cooperative-fallback.md (PROPOSED).
 
+### BUGS: one unexplained riscv64 failure under load
+
+2026-10-07 (UTC), round 9 of milestone 139 (drive the unsafe count down): `a_client_of_the_stable_rendezvous_cannot_become_its_server`
+failed on riscv64 at stage 27 (the operator's reap) with the host load average at 104 on 8 cores.
+It passed 5 of 5 alone. Cause unknown.
+
 ## See also
 
 - DECISIONS §41 (the endpoint is the broker), §12 (a one-shot reply capability), §13 and §16 (revocation),

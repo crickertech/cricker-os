@@ -106,15 +106,7 @@ fn wait_for(secs: u64, mut cond: impl FnMut() -> bool) -> bool {
 /// page and, when `counter` is asked for, a read/write page at [`VA`]. Returns that page's physical
 /// address, or 0.
 fn lay_out(region: u64, name: u64, stub: &[u32], counter: bool) -> u64 {
-    let code = crate::memory_region::retype_page(region).expect("no code frame");
-    // SAFETY: a fresh frame we own, direct-mapped; write the stub and make it fetchable.
-    unsafe {
-        let dst = mmu::phys_to_virt(code) as *mut u32;
-        for (i, &insn) in stub.iter().enumerate() {
-            dst.add(i).write(insn);
-        }
-    }
-    sync_icache(mmu::phys_to_virt(code), core::mem::size_of_val(stub));
+    let code = code_page(region, stub);
     let none = crate::revoke::PageMapSource::NoCapability;
     user_address_space_map(name, CODE_VA, code, Flags::user_code(), none).expect("map code");
     let stack = crate::memory_region::retype_page(region).expect("no stack frame");

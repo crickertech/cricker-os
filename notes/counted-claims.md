@@ -197,7 +197,7 @@ mistake:
 ```markdown
 **124 harnesses** <!--count:kani-harnesses-->                  a census: must EQUAL the tree
 **over 100 harnesses** <!--count-at-least:kani-harnesses-->    a floor: fires when the count DROPS
-**at most 88** <!--count-at-most:unsafe-density-outside-arch--> a ceiling: fires when it RISES
+**at most 72** <!--count-at-most:unsafe-density-outside-arch--> a ceiling: fires when it RISES
 ```
 
 Why the second exists, measured 2026-08-17. `kani-harnesses` was marked at four claim sites and
