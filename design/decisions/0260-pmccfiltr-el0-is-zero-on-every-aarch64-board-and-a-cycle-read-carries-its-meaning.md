@@ -26,7 +26,7 @@ nife's policy. argon's firmware value is still read at first boot, for milestone
 comparison) only. If firmware left `P` set, milestone 25 runs nife a second time with the filter
 matched to seL4's and labels that run as such.
 
-**Decision B: B4, step 1.** One public function in `crates/user_mode_runtime`,
+Decision B: B4, step 1. One public function in `crates/user_mode_runtime`,
 `user_mode_runtime::cycle_reading`, returns `CycleReading { count, meaning }`. The meaning per
 architecture:
 
