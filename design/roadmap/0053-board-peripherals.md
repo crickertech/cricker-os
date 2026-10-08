@@ -140,7 +140,7 @@ and both trees are GPL and were read for hardware facts only.
   notes/designware-mobile-storage.md, read-only first, then the scratch write, then the ordinary
   image back. Passing it lifts the block server's `PROVEN_ON_SILICON`.
 - **Done.** The architect's call on which part of radon's storage the booted system's block server
-  serves: a USB drive (calef, 2026-10-07 UTC; §258 (radon's block server serves a USB drive)). It
+  serves: a USB drive (calef, 2026-10-07 UTC; §260 (radon's block server serves a USB drive)). It
   refused the second microSD partition, the eMMC socket and NVMe for now. It needs milestone 163 (the
   JH7110's PCIe root complex), because radon's USB 3 ports sit behind a VL805 on PCIe. It needs the
   xHCI driver of milestone 242 (USB host and HID, because on commodity hardware the keyboard is not

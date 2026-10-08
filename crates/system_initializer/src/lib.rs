@@ -223,7 +223,7 @@
 //!   the guarantee is that nothing unvouched-for runs, and not spawning it is that guarantee.
 //!
 //! Recording a mismatch and loading anyway was considered and refused. There is no audit log to put
-//! a record in, and a measurement that changes nothing about what runs is theatre; a chain whose
+//! a record in, and a measurement that changes nothing about what runs is theater; a chain whose
 //! second link is advisory is not a chain.
 //!
 //! # BUGS
@@ -263,7 +263,7 @@
 //! the sequence beside it: `measured` filled a `Lookup` that only [`boot`] destructured, `opt_cap`
 //! reads one word out of one `receive_cap`, `archive_name` is `Some(p.name())`. Lifting them
 //! buys 33 reachable mutants and costs a crate of fragments, a wider public surface, and a reader
-//! holding two files to follow one boot. `redoxfs_server` runs the split this would be modelled on
+//! holding two files to follow one boot. `redoxfs_server` runs the split this would be modeled on
 //! and runs it the other way up: there the sans-IO core is most of the package and the EL0 binary
 //! wraps it. Here the sequence *is* the package.
 //!
@@ -403,11 +403,11 @@
 //! `progenitor` (milestone 266), and the obvious next question was whether the crate should follow.
 //! calef: *"init is the issue not initializer."* The refusal is right for a reason that keeps being
 //! got wrong. `init` is a truncated **verb**, which is why it lost; `initializer` is an **agent
-//! noun**, the thing that initialises, which is exactly what *name things with nouns* asks for.
+//! noun**, the thing that initializes, which is exactly what *name things with nouns* asks for.
 //! Milestone 266's own house-style list cites `initializer` beside `builder`, `spawner`,
 //! `supervisor` and `provisioner` as evidence *for* the convention, and then a section later argued
 //! the opposite; that contradiction stood for five days. And the crate is not the process: it is
-//! the initialisation, as distinct from the thing that runs it, and it descends nothing, so
+//! the initialization, as distinct from the thing that runs it, and it descends nothing, so
 //! `progenitor` would fit it worse than it fits the program.
 
 use core::sync::atomic::AtomicU16;
@@ -1052,7 +1052,7 @@ const LOGIN_CONSTRUCTION_PAGES: u64 = 768 + login_protocol::durable::BUDGET_PAGE
 const LOGIN_STACK_PAGES: u64 = 16;
 
 /// `credentialer.rs`'s own readiness sentinel, duplicated here the same way its `PROV_VA`/`VERIFY_VA`
-/// already are: a binary crate cannot be imported, so every wiring site that needs to recognise this
+/// already are: a binary crate cannot be imported, so every wiring site that needs to recognize this
 /// word states it again (`kernel::user::credential_service`'s own `RPT_READY` is the same
 /// duplication one level over). Must match `components/src/credentialer.rs`'s own `RPT_READY`.
 const CRED_RPT_READY: u64 = 0x_c2ed_0000_0000_0001;
@@ -1160,9 +1160,9 @@ pub fn boot(
         .and_then(|b| core::str::from_utf8(b).ok())
         .unwrap_or("");
 
-    // **The image's package catalogue** (milestone 198 (a package manager) rung 3a's installer):
+    // **The image's package catalog** (milestone 198 (a package manager) rung 3a's installer):
     // what `package install` checks a package's digest against. Measured like a program, because
-    // it is an archive entry above the table, and read as the **empty** catalogue when the table
+    // it is an archive entry above the table, and read as the **empty** catalog when the table
     // refuses it or the archive has none, which vouches for no package: the same direction to be
     // wrong in as the table's own rule above.
     let catalogue = fs
@@ -2920,10 +2920,10 @@ struct Channels {
     /// [`grant_plan::REBOOT_SLOT`] and says so. The shell holds none: restarting the machine is not
     /// something a builtin does.
     reboot: Option<u64>,
-    /// **The image's package catalogue**, measured (milestone 198 rung 3a's installer): one
+    /// **The image's package catalog**, measured (milestone 198 rung 3a's installer): one
     /// `<stem> <digest>` line per package the image vouches for (`package_archive::CATALOGUE`).
     /// Empty when the archive carried none or the table refused it, and then every
-    /// `package install` is refused as not catalogued.
+    /// `package install` is refused as not cataloged.
     catalogue: &'static str,
     /// **READ on the run-unvouched endpoint** (DECISIONS §219 gate D2): the only receive right on
     /// it. The boot shell and `login` hold `WRITE` at `spawnproto::RUN_UNVOUCHED_SLOT`, and `login`
@@ -5686,13 +5686,13 @@ struct Activating {
 ///
 /// - **Install**: the package's frames are staged exactly as an image's are ([`take_frames`], [`stage_frames`]), so
 ///   what is checked is this process's copy. `package_archive::installable` decides on the bytes:
-///   the image's catalogue must vouch for the whole file, and the member named after the package
+///   the image's catalog must vouch for the whole file, and the member named after the package
 ///   is the program. Its bytes go to `packages/<stem>/<program>`, a place per package version that
 ///   is never rewritten with other bytes, and a new generation records the program's digest.
 /// - **Remove**: a new generation without the program. Its bytes stay where they are, so a rollback
 ///   can bring it back; nothing collects them yet.
 /// - **Rollback**: `current` names the generation one below the live one. Nothing else is written.
-/// - **Fetch**: the name's stem is looked up in the image's catalogue, the package is fetched over
+/// - **Fetch**: the name's stem is looked up in the image's catalog, the package is fetched over
 ///   the network stack this process built at boot ([`fetch`]), and what arrived is installed as
 ///   **Install** installs a file's bytes, with one more check: it must be the package asked for
 ///   (`package_archive::installable_as`).
@@ -5865,7 +5865,7 @@ fn edit(
             let n = match removed {
                 Ok(n) => n,
                 Err(activation_set::Error::NotInstalled) => return (S::NotInstalled, live),
-                Err(activation_set::Error::Ambiguous) => return (S::Ambiguous, live),
+                Err(activation_set::Error::SeveralVersions) => return (S::Ambiguous, live),
                 Err(_) => return (S::StoreFailed, live),
             };
             let m = next();
@@ -6010,13 +6010,13 @@ const ARCHITECTURE: &str = if cfg!(target_arch = "aarch64") {
 };
 
 /// **Fetch the package `name` over the network**, for [`spawnproto::Activation::Fetch`]
-/// (milestone 198 (a package manager) rung 3a's fetch). Returns the stem the image's catalogue
+/// (milestone 198 (a package manager) rung 3a's fetch). Returns the stem the image's catalog
 /// names it by, with the package staged at [`IMAGE_STAGING_VA`] and its region and length in
 /// `staging`, exactly where [`stage_frames`] leaves a file's bytes; [`edit`] then installs it.
 ///
 /// In order, and the order is the argument:
 ///
-/// 1. **The catalogue first.** A name the image vouches for no package by is refused before a
+/// 1. **The catalog first.** A name the image vouches for no package by is refused before a
 ///    connection is opened, so a person cannot make this process fetch anything the image would
 ///    not install, and the answer to a typo costs no network.
 /// 2. **A socket of its own, and one page shared with the stack.** The socket is a capability the
@@ -6030,7 +6030,7 @@ const ARCHITECTURE: &str = if cfg!(target_arch = "aarch64") {
 ///    [`spawnproto::IMAGE_MAX_PAGES`].
 ///
 /// **Nothing here decides whether the bytes may be installed.** A body that arrived whole is only
-/// bytes; [`edit`] checks them against the catalogue as it checks a file a person pointed at, which
+/// bytes; [`edit`] checks them against the catalog as it checks a file a person pointed at, which
 /// is why plain HTTP is enough on this rung (DECISIONS §195 (a reviewed recipe vouches for a
 /// package)). What this adds to the progenitor is a parser of network input *before* that check:
 /// `http_response`'s head reader, a fixed 2 KiB buffer, host-tested. notes/packages.md weighs it
@@ -6045,13 +6045,13 @@ fn fetch(
     use socket_protocol::*;
     use spawnproto::ActivationStatus as S;
 
-    // A bare name the catalogue vouches for at several versions is refused here, before the
+    // A bare name the catalog vouches for at several versions is refused here, before the
     // network, like a name it vouches for at none: `name@version` picks one (milestone 614).
     let name = core::str::from_utf8(name).map_err(|_| S::NoSuchPackage)?;
     let stem = package_archive::catalogued_stem(a.catalogue, name, ARCHITECTURE).map_err(
         |miss| match miss {
-            package_archive::StemMiss::NoSuchPackage => S::NoSuchPackage,
-            package_archive::StemMiss::SeveralVersions => S::Ambiguous,
+            package_archive::CatalogMiss::NoSuchPackage => S::NoSuchPackage,
+            package_archive::CatalogMiss::SeveralVersions => S::Ambiguous,
         },
     )?;
     let stack = a.network.ok_or(S::NoNetwork)?;

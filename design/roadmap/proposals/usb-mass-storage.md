@@ -9,7 +9,7 @@ needs_person: no
 ---
 # A USB mass-storage driver: bulk-only transport and SCSI, as a confined server
 
-Filed by lane/radon-storage under §258 (radon's block server serves a USB drive), after a search
+Filed by lane/radon-storage under §260 (radon's block server serves a USB drive), after a search
 of `design/roadmap/` for mass storage, UAS and bulk-only found no milestone that owns it.
 Milestone 618 (USB keyboards behind the console) lists mass storage as explicitly out, and
 milestone 242 (USB host and HID) builds the host controller and input only. Name provisional.
@@ -55,5 +55,5 @@ else. On silicon, a read on xenon, then on radon once 163 lands.
 ## Index row
 
 No milestone owned the driver that turns a USB port into a disk. radon's storage target is a USB
-drive (§258), and xenon will want one too. Bulk-only transport and SCSI, as a confined server on all
+drive (§260), and xenon will want one too. Bulk-only transport and SCSI, as a confined server on all
 three architectures.

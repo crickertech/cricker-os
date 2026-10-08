@@ -148,7 +148,7 @@ place instead of moving text between two systems. Numbers 68 to 73 are the six t
 | 29 | DECIDED | [The framebuffer is a bigger grant, not an exemption (milestone 29 (a display terminal), the display ladder's rung one)](0029-framebuffer-grant.md) |
 | 30 | DECIDED | [The DMA boundary is proved for descriptors, and the proof says where it stops (milestone 35 (prove the DMA-confinement boundary))](0030-dma-boundary-proof.md) |
 | 31 | DECIDED | [The foreign-language seam: C holds no capabilities and makes no syscalls (milestone 36 (a foreign-language component, seam first))](0031-foreign-language-seam.md) |
-| 32 | DECIDED | [A supervisor may collect a corpse without being able to build one](0032-reap-without-build.md) |
+| 32 | AMENDED | [A supervisor may collect a corpse without being able to build one](0032-reap-without-build.md) |
 | 33 | DECIDED | [The compositor's authority is memory, not messages (milestone 33 (a compositor), the display ladder's rung two)](0033-compositor-authority.md) |
 | 34 | AMENDED | [RedoxFS is the primary filesystem, on three conditions](0034-redoxfs-primary.md) |
 | 35 | DECIDED | [What a scanner is for here, and how its findings get dispositioned](0035-scanner-findings.md) |
@@ -374,7 +374,8 @@ place instead of moving text between two systems. Numbers 68 to 73 are the six t
 | 255 | DECIDED | [Each socket is its own capability, and a reply carries it](0255-each-socket-is-its-own-capability.md) |
 | 256 | DECIDED | [A server that keeps windows for many clients scopes each by the caller's badge](0256-a-server-that-keeps-windows-for-many-clients-scopes-each-by-the-callers-badge.md) |
 | 257 | DECIDED | [A required review that the App would give is refused](0257-a-required-review-the-app-would-give-is-refused.md) |
-| 258 | DECIDED | [Radon's block server serves a USB drive](0258-radons-block-server-serves-a-usb-drive.md) |
+| 258 | DECIDED | [Names for two installed versions of one program](0258-names-for-two-installed-versions-of-one-program.md) |
+| 260 | DECIDED | [Radon's block server serves a USB drive](0260-radons-block-server-serves-a-usb-drive.md) |
 
 Two blocks that lived among the decisions are not decisions and moved out with the split, the same
 way milestone 76 moved four essays out of the roadmap: [the open design

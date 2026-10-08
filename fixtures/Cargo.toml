@@ -75,13 +75,14 @@ test = false
 bench = false
 
 # The second copy of the package (milestone 614 (two installed versions of one program, each
-# runnable, and a caller granted the one it needs), provisional name): `greeting`'s bytes with
-# different content, so the package at 0.2.0 (`packages/greeting-0.2.0.recipe.toml`, whose `as`
-# key names the member `greeting`) has a digest of its own and two versions can be live at once.
-# Listed in `packaged_only` below, like both.
+# runnable, and a caller granted the one it needs); name ratified 2026-10-07, §258 (names for two
+# installed versions of one program)): `greeting`'s bytes with different content, so the package at
+# 0.2.0 (`packages/greeting-0.2.0.recipe.toml`, whose `as` key names the member `greeting`) has a
+# digest of its own and two versions can be live at once. Listed in `packaged_only` below, like
+# both.
 [[bin]]
-name = "greeting_two"
-path = "src/greeting_two.rs"
+name = "greeting_v2"
+path = "src/greeting_v2.rs"
 test = false
 bench = false
 
@@ -482,7 +483,7 @@ bench = false
 # be a `[[bin]]` above, and must not be a program the shell or the boot needs, and `xtask` refuses
 # the archive otherwise. Key name provisional.
 [package.metadata.nife]
-packaged_only = ["greeting", "noteless", "greeting_two"]
+packaged_only = ["greeting", "noteless", "greeting_v2"]
 
 [dependencies]
 # The user address-space map (milestone 206 (a program image has under 896 KiB)): every fixed window here is checked against its band.
