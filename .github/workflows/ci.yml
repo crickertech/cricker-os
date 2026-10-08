@@ -232,7 +232,7 @@ jobs:
   # 0b72f673 (#1156) landed with verify's run `cancelled` by a non-required falsify job's timeout,
   # and under this rule its push re-proves in full.
   #
-  # **Prose-only: a change that is only Markdown nobody reads skips every job but `clippy`**
+  # **Prose-only: a change that is only Markdown nobody reads skips every job but `lint`**
   # (lane/docs-only-ci, calef approved the lane 2026-10-05 UTC). On 2026-10-05 twelve bold-backlog
   # pull requests took the hosted pool and required jobs on #1708 and #1712 were cancelled with
   # "not acquired by Runner of type hosted". Until then each heavy job ran a step-level "documentation
@@ -253,7 +253,7 @@ jobs:
   # condition, never `paths-ignore:`, and #567 (2026-08-28, mergeable with thirteen skipped checks)
   # is this tree's own record of the first half. In a merge group the diff is the group head against
   # `merge_group.base_sha`, which spans every queued pull request, so one code change anywhere in the
-  # group runs everything. `clippy` (script/lint: roadmap, citations, decisions, prose ratchet) never
+  # group runs everything. `lint` (script/lint: roadmap, citations, decisions, prose ratchet) never
   # skips, and runs the tests of any package whose Rust walks a directory the change touched.
   #
   # **Host-only report tools ride the same skip** (2026-10-07 UTC, after #1831 changed only
@@ -402,7 +402,7 @@ jobs:
       # installed exactly what it needs in its own steps, and a bare `script/ci-build fmt` must not
       # drag an apt install of QEMU onto the rustfmt runner.
       # No lint in this job, so no cargo-machete or typos: NIFE_SKIP_LINT_TOOLS=1 skips the two
-      # source builds (about 85 s on the arm64 runners, #1778). Only the `clippy` job lints, and it
+      # source builds (about 85 s on the arm64 runners, #1778). Only the `lint` job lints, and it
       # installs them itself.
       - run: script/bootstrap
         env:
@@ -500,7 +500,7 @@ jobs:
       # installed exactly what it needs in its own steps, and a bare `script/ci-build fmt` must not
       # drag an apt install of QEMU onto the rustfmt runner.
       # No lint in this job, so no cargo-machete or typos: NIFE_SKIP_LINT_TOOLS=1 skips the two
-      # source builds (about 85 s on the arm64 runners, #1778). Only the `clippy` job lints, and it
+      # source builds (about 85 s on the arm64 runners, #1778). Only the `lint` job lints, and it
       # installs them itself.
       - run: script/bootstrap
         env:
@@ -600,7 +600,7 @@ jobs:
       # installed exactly what it needs in its own steps, and a bare `script/ci-build fmt` must not
       # drag an apt install of QEMU onto the rustfmt runner.
       # No lint in this job, so no cargo-machete or typos: NIFE_SKIP_LINT_TOOLS=1 skips the two
-      # source builds (about 85 s on the arm64 runners, #1778). Only the `clippy` job lints, and it
+      # source builds (about 85 s on the arm64 runners, #1778). Only the `lint` job lints, and it
       # installs them itself.
       - run: script/bootstrap
         env:
@@ -671,7 +671,7 @@ jobs:
       # installed exactly what it needs in its own steps, and a bare `script/ci-build fmt` must not
       # drag an apt install of QEMU onto the rustfmt runner.
       # No lint in this job, so no cargo-machete or typos: NIFE_SKIP_LINT_TOOLS=1 skips the two
-      # source builds (about 85 s on the arm64 runners, #1778). Only the `clippy` job lints, and it
+      # source builds (about 85 s on the arm64 runners, #1778). Only the `lint` job lints, and it
       # installs them itself.
       - run: script/bootstrap
         env:
@@ -765,7 +765,7 @@ jobs:
       #
       # See notes/cpu-models.md, including its BUGS section: a narrower QEMU model is still QEMU.
       # No lint in this job, so no cargo-machete or typos: NIFE_SKIP_LINT_TOOLS=1 skips the two
-      # source builds (about 85 s on the arm64 runners, #1778). Only the `clippy` job lints, and it
+      # source builds (about 85 s on the arm64 runners, #1778). Only the `lint` job lints, and it
       # installs them itself.
       - run: script/bootstrap
         env:
@@ -924,8 +924,12 @@ jobs:
         if: always()
         run: python3 helpers/job-budget.py check "${{ github.job }}" "$JOB_STARTED_AT"
 
-  clippy:
-    name: clippy
+  # **Named `lint`, not `clippy`, since 2026-10-08 (UTC).** It runs `script/ci-build lint`: clippy
+  # plus the citation, decision, roadmap and prose checks, so a red `clippy` read as a clippy
+  # failure when it was usually one of the others. calef: "Should the gate named clippy be renamed?
+  # It seems to cause you some confusion when I cite it", then "Go ahead with lint."
+  lint:
+    name: lint
     runs-on: ubuntu-24.04
     needs: gate
     if: ${{ !cancelled() && needs.gate.outputs.run != 'false' }}
@@ -1011,6 +1015,26 @@ jobs:
       - name: Check the job's wall time against its budget
         if: always()
         run: python3 helpers/job-budget.py check "${{ github.job }}" "$JOB_STARTED_AT"
+
+  # **Transitional: delete this job once ruleset 19596094 requires `lint` instead of `clippy`.**
+  # A required check is matched by name, so renaming the job alone would leave the merge queue
+  # waiting on a `clippy` that never reports, while groups built ahead of the rename never report
+  # `lint`. This job re-reports `lint`'s verdict under the old name, so both names are true at once
+  # and the ruleset swap has no window. The order (merge, swap the ruleset once open pull requests
+  # have run this workflow, then delete this job) is in notes/scripts.md, "CI leverages them".
+  clippy:
+    name: clippy
+    runs-on: ubuntu-24.04
+    needs: lint
+    if: ${{ !cancelled() }}
+    timeout-minutes: 5
+    steps:
+      - name: Report lint's verdict under the old check name
+        env:
+          LINT_RESULT: ${{ needs.lint.result }}
+        run: |
+          echo "==> lint: $LINT_RESULT"
+          case "$LINT_RESULT" in success|skipped) ;; *) exit 1 ;; esac
 
   fastpath-footprint:
     name: fastpath footprint (the IPC path must stay L1i-sized)
@@ -1147,7 +1171,7 @@ jobs:
       # No rust-cache in this job (calef, #1814, 2026-10-07 UTC): a hit gained under half a minute,
       # and without it the time the step spent moves into the first cargo build rather than
       # growing. See notes/actions-cache-budget-2026-10-07.md.
-      # Its own job rather than a step in `clippy`, for `stack-frame-check`'s reason: it builds three
+      # Its own job rather than a step in `lint`, for `stack-frame-check`'s reason: it builds three
       # kernels and no other job builds the riscv64 or x86_64 one at all, so there is nothing to
       # share. Jobs run in parallel, so it costs no wall clock against the 30-minute Kani job.
       #
@@ -1191,7 +1215,7 @@ jobs:
       # No rust-cache here (calef, #1814, 2026-10-07 UTC). This job was measured without it first:
       # 115.7 s against a median 112.8 s with it (range 79.9 to 120.0, 20 runs), because the first
       # build absorbed the time the step had spent. See notes/actions-cache-budget-2026-10-07.md.
-      # Its own job rather than a step in `clippy`: it builds the kernel test binary twice (the flag
+      # Its own job rather than a step in `lint`: it builds the kernel test binary twice (the flag
       # changes the build, so CI's existing kernel artifacts cannot be reused), and jobs run in
       # parallel so a separate one costs no wall clock against the 30-minute Kani job. **Why it is
       # not in the tier a developer runs before pushing is recorded beside its row** in
@@ -1263,7 +1287,7 @@ jobs:
         run: echo "$HOME/.cache/nife-qemu/bin" >> "$GITHUB_PATH"
 
       # No lint in this job, so no cargo-machete or typos: NIFE_SKIP_LINT_TOOLS=1 skips the two
-      # source builds (about 85 s on the arm64 runners, #1778). Only the `clippy` job lints, and it
+      # source builds (about 85 s on the arm64 runners, #1778). Only the `lint` job lints, and it
       # installs them itself.
       - run: script/bootstrap
         env:

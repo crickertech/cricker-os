@@ -1239,6 +1239,17 @@ mod tests {
     fn the_range_limit_is_exactly_where_the_docs_say() {
         assert!(Timestamp::from_unix(UNIX_LIMIT - 1, 0).is_some());
         assert!(Timestamp::from_unix(UNIX_LIMIT, 0).is_none());
+        // Both sides above are read off the constant, so they move with it: a `-` turned `/` or a
+        // `<<` turned `>>` in its definition put the wall in 2038 or 2036 and every line above
+        // still passed (2026-10-07 census triage). The wall is a date, worked by hand: era 0's
+        // 2^32 seconds less the 1900-to-1970 offset, plus the half-era the pivot grants, is
+        // 2104-02-26T09:42:24Z. And a date well inside it has to survive the round trip.
+        assert_eq!(UNIX_LIMIT, 4_233_462_144);
+        const Y2100: u64 = 4_102_444_800; // 2100-01-01T00:00:00Z
+        assert_eq!(
+            Timestamp::from_unix(Y2100, 0).map(|t| t.to_unix()),
+            Some((Y2100, 0))
+        );
     }
 
     /// An interval answers for its own sign and magnitude. `nanos()` was the only accessor any

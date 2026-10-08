@@ -48,7 +48,7 @@ the first row with four jobs pending calef's ruleset edit; later checks have no 
 |---|---|---|---|---|
 | `test`, `swish-check`, `boot-check` | ci | PR, merge queue, push | pending | new |
 | `rustfmt` | ci | PR, merge queue, push | **yes** | green |
-| `clippy` | ci | PR, merge queue, push | **yes** | green |
+| `lint` | ci | PR, merge queue, push | **yes** | green |
 | `cpu matrix (riscv64 across QEMU CPU models)` | ci | PR, merge queue, push | **yes** | green |
 | `bench (icount regression tripwire)` | ci | PR, merge queue, push | **yes** | green |
 | `coverage (host crates)` | ci | PR, merge queue, push | **yes** | green |
@@ -98,7 +98,7 @@ into `script/ci-build`'s table; the measurements are still 2026-09-03's, taken u
 | script | called by | blocks a merge | result 2026-09-03 |
 |---|---|---|---|
 | `fmt --check` | `ci-build` (`local`), ci `rustfmt`, the `pre-push` hook | yes | green |
-| `lint` | `ci-build` (`local`), ci `clippy` | yes | green |
+| `lint` | `ci-build` (`local`), ci `lint` | yes | green |
 | `test` | `ci-build` (`local`), ci `test`, `toolchain-drift` | yes | green |
 | `swish-check` | `ci-build` (`local`), ci `swish-check` | yes | green |
 | `icount` | `ci-build` (`local`), ci `bench` | yes | green |
