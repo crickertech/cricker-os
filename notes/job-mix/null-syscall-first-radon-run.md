@@ -28,8 +28,8 @@ script/board-netboot --root target/board-fix          # boots 1 to 3: the kernel
 script/board-netboot --root target/board-lock-wait    # boots 4 and 5: the same plus lock_wait
 ```
 
-Power-cycle smart plug 2 for each boot, and capture each boot with step 2 of
-[`notes/job-mix.md`](../job-mix.md)'s procedure. Never smart plug 3, never the USB hub. Steps 3 and 5
+Power-cycle radon's own outlet for each boot, and capture each boot with step 2 of
+[`notes/job-mix.md`](../job-mix.md)'s procedure. Never another outlet, never a USB hub. Steps 3 and 5
 apply unchanged. Then read, in this order:
 
 1. `null_syscall`'s `per_job` at 1 and 4 tasks on boots 1 to 3, against 108 and 202 from 2026-10-04

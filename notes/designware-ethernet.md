@@ -115,8 +115,8 @@ while true; do head -c 104857600 /dev/zero | nc -l 9494; done
 
 In a third, the TFTP server, left running: `script/board-netboot`.
 
-Then build, and capture while you power-cycle radon (smart plug 2, or its USB-C lead; never plug 3,
-which is garcia, and never the USB hub):
+Then build, and capture while you power-cycle radon (its own outlet, or its USB-C lead; never another
+outlet, and never a USB hub; which outlet is which is kept off-tree by the maintainers):
 
 ```sh
 git log -1 --format=%h

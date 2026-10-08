@@ -1,17 +1,13 @@
 ---
-status: PARTIAL
+status: BUILT
 raised: 2026-09-05
-milestone_dependencies: none
-decision_dependencies: none
-machine_requirements: x86_64 silicon with VT-d and an NVMe drive
-specific_machine: none
-needs_person: yes
+built: 2026-10-05
 ---
 # 261. The NVMe driver leaves the kernel, on the machine that can finally confine it
 
-Built 2026-09-17: the driver is out of the kernel and a confined EL0 process
-serves the block contract off QEMU's NVMe on all three architectures. What is left is the machine,
-and the machine is what this block's gate always said it was. Minted 2026-09-05 by the maintainer. [§86](../decisions/0086-el0-nvme-driver.md)
+Built 2026-09-17 under QEMU on all three architectures and closed on xenon 2026-10-04 to
+2026-10-05 (status corrected 2026-10-07, when it still read PARTIAL): a confined EL0 process
+serves the block contract off QEMU's NVMe and xenon's real one. Minted 2026-09-05 by the maintainer. [§86](../decisions/0086-el0-nvme-driver.md)
 was DECIDED on 2026-09-03 and the work it authorizes has had no milestone since, which is
 milestone 247's failure class (work identified by a finished piece goes nowhere) applied to a
 decision rather than to a block. *(Number provisional until the merge queue lands it.)*
@@ -200,8 +196,8 @@ weaker, the fourth is partly answered, and two are new.*
   passed on the real table. The unit then failed to read its own tables (above), so confinement
   on silicon is proven only in the negative so far: the unit did fault the device.
 - Measured on xenon on 2026-10-04, but at queue depth 1, polled, one pass per boot. The figures
-  are a lower bound on the device. With no Linux `fio` run on the same disk and shape, "real speed"
-  is still unclaimed.
+  are a lower bound on the device. Linux `fio` ran on the same disk that evening
+  (`bench/xenon-2026-10-04/linux-fio.log`); fatal risk 6 owns the comparison.
 - xenon halts at POST without a keyboard, so every boot here is attended until the two settings
   milestone 260 names are changed. That makes an iteration loop expensive in exactly the way the
   netboot work was meant to fix. Unchanged, and it is now the main cost of the remaining step,

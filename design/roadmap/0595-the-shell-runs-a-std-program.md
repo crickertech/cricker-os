@@ -1,6 +1,7 @@
 ---
-status: PARTIAL
+status: BUILT
 raised: 2026-09-25
+built: 2026-10-07
 promoted_from: the-x86-64-progenitor-serves-entropy-from-rdseed
 milestone_dependencies: 205, 206
 decision_dependencies: none
@@ -18,28 +19,14 @@ names it.)* The progenitor's `std` layout was built on 2026-09-26 by lane
 `the-x86-64-progenitor-serves-entropy-from-rdseed` and built the same day by lane
 `milestone/595-x86-std`. See "What is built" below.
 
-No open fork stops a step between a typed line and a running `rg` any more. §219, §170 (how a
-foreign program is told what to do) and §171 (where a program image starts, and where the stack
-goes) were ruled on 2026-09-26. Milestones 205 and 206 build the last two. "What is left" says
-which step waits on which lane.
+Built 2026-10-07 by lane `milestone/595-rg-at-prompt`, which ran `rg` at the prompt.
 
 ## The gap, checked 2026-09-25
 
-The shell cannot launch a `std` program at all. `swish` resolves a typed name through
-`grant_plan::Prog` and sends its wire id to the progenitor, which indexes a table it filled at boot.
-That enum has 16 variants, ids 0 to 15, and every one is a native program. No `std` binary has a row.
-
-`ripgrep` does run on nife, on all three architectures, but only from the kernel test harness.
-`kernel/src/user/ripgrep_tests.rs` spawns it through `fs_service::start_std_full`, which builds the
-address space `std`'s runtime expects. The progenitor has no equivalent. Its loader,
-`supervision_protocol::build_child`, has never produced a child in that layout. The layout is the
-eight slots `patches/std-nife/overlay/std/src/sys/pal/nife/rt.rs` fixes, plus the file-service page
-at `0x1100_0000`. The harness also maps 32 stack pages where a native child gets 12.
-
-Nothing in `design/roadmap/` owns this. Milestone 121 (`ripgrep` on nife) owes a confined
-demonstration, but its outstanding items are written against the harness. Milestone 198 (a package
-manager) owes running an installed program, which is a different program arriving by a different
-route.
+The shell could not launch a `std` program at all: every program `swish` could name was native.
+`ripgrep` ran only from the kernel test harness, which builds the address space `std` expects
+(the eight slots `patches/std-nife/overlay/std/src/sys/pal/nife/rt.rs` fixes, the file-service page,
+32 stack pages). The progenitor's loader had never built a child in that layout.
 
 ## The goal
 
@@ -132,42 +119,21 @@ The gate now reads the source on every leg: swish-check asserts the progenitor's
 `entropy service up` sentence, naming a virtio-rng on aarch64 and riscv64 and the seed instruction
 on x86_64, with the kernel's refusal as the negative.
 
-### The machines
+### The machines, and the login stack
 
-QEMU's `-cpu max` (both x86_64 runners' default) implements `RDSEED`; the kernel's
-tour prints `rdseed supported (cpuid leaf 7 ebx.18)`. No `-cpu` change was needed. xenon's
-i5-7500T is Kaby Lake, and `RDSEED` arrived with Broadwell, so it has one (from Intel's
-documentation, recalled, not read on xenon today); `design/fatal-risks/the-confined-driver.md`
-already records xenon's entropy source as `rdseed`. A xenon boot is not part of this proof.
+QEMU's `-cpu max` implements `RDSEED`, so no `-cpu` change was needed. xenon's i5-7500T (Kaby Lake)
+has it per Intel's documentation, not read on xenon. With entropy, x86_64 builds the login stack at
+boot for the first time: one more line before the prompt, and a capability-slot peak at hand-over of
+22 of 24 (17 before), read by a temporary instrument, matching aarch64 and riscv64.
 
-### What switching on the login stack changed
+## What it waited on, and what finished it
 
-`have_login_stack` gates on entropy, so x86_64 now
-builds `credentialer`, `identity_provisioner`, `login` and the audit receiver at boot, for the
-first time. What the gate sees: one more line before the prompt, `progenitor: login credentials
-provisioned -- identity 'operator' password '...'`. The prompt is not behind the login, on any leg,
-so no typed line changed. No user thread was killed after the hand-over. The capability-slot peak
-at the hand-over report is 22 of 24, read by a temporary instrument (`capability::highest_seen`
-printed beside the report, not committed), against 17 of 24 before. That is aarch64 and riscv64's
-figure, which is what the proposal predicted. The x86_64 gauge line is still stale for milestone
-182's reason, so this number is not re-read by anything.
-
-## What it waits on
-
-Every fork is ruled, and every step but one is built.
-
-- §219 (how the shell names an installed program to the spawner): option D with gate D2, built in
-  milestone 198 (a package manager). `rg` cannot be an archive row, because fetching its crates in
-  CI is a §46 (thin primitives or whole subsystems) decision nobody has made. So it runs by its
-  path, unvouched, holding only what the line delegates plus the clock and configuration pages.
-- Milestone 205 (how a foreign program is told what to do). Its #1394 gives a file run by its path its
-  words, and runs one whose note declares the `std` runtime in `std`'s layout, which was step 1 of
-  this block's list. What is still 205's is the designation half, which word becomes a directory,
-  and it has a fork that is calef's (`0665-designating-a-foreign-programs-words.md`). Until it
-  lands `rg needle docs` hears its pattern and holds nothing to search.
-- Milestone 206 (a program image has under 896 KiB) built §171's map on 2026-09-27, so an image
-  linked the stock way has 496 MiB of image band, and the relink in `helpers/build-ripgrep.sh` is
-  no longer needed.
+Every fork was ruled by 2026-09-27. §219 (how the shell names an installed program to the
+spawner) option D lets an unvouched `rg` run by its path; installing it with `jig` is milestone 121
+(`ripgrep` and enumeration)'s, on calef's 2026-10-07 ruling. Milestones 205 (how a foreign program
+is told what to do), 665 (designating a foreign program's words) and 206 (a program image has under
+896 KiB) gave it words, a grant from a word, and room. The last two steps were this milestone's:
+see "What is built: `rg` at the prompt".
 
 ## What is built: an image as large as `rg` (2026-09-27, lane `milestone/595-std-image`)
 
@@ -190,6 +156,42 @@ path from the prompt.
   image pool too, since its pages are built through the same scratch window: 4,086 of the 8,192
   pages it allows.
 
+## What is built: `rg` at the prompt (2026-10-07, lane `milestone/595-rg-at-prompt`)
+
+Unmodified `ripgrep` 14.1.1 from crates.io, run by its path at the prompt, searches the directory a
+word on the line granted and nothing else. Proven by `script/swish-check` on aarch64, riscv64 and
+x86_64 under TCG on patagonia, 2026-10-07, after `helpers/build-ripgrep.sh`. The aarch64
+transcript (riscv64's and x86_64's are the same, byte for byte; x86_64 typed 150 lines in 516.9 s):
+
+```
+$ /installed/rg needle docs ../hay/secret.txt
+  rg: ../hay/secret.txt: IO error for operation on ../hay/secret.txt: `..` would leave the granted directory, which no capability designates
+docs/n.txt:find the needle here
+$ /installed/rg needle
+  rg: failed to get current working directory: operation not supported on this platform
+did your CWD get deleted?
+```
+
+`secret.txt` sits beside `docs` in `/hay` and holds the needle too. `caps /installed/rg needle docs`
+previews `cap 4  endpoint  dir  /hay  (only docs in it, named on the line)`, read-only, and
+`provenance: unvouched`.
+
+What it took:
+
+- **A note for a program whose source is somebody else's.** `cargo xtask foreign-note`
+  (provisional) compiles `grant_plan::UNVOUCHED_STD_MANIFEST` into a relocatable object of its
+  own, through `manifest_note::Note::of`, the function `carry!` expands to. It is compiled for
+  the bare-metal target of the same ISA, so the compiler writes the header and riscv64's
+  float-ABI flags. `helpers/build-ripgrep.sh` links it with `-Clink-arg`, and the shared link
+  script keeps it in the `PT_NOTE`. Before this the shell ran `rg` by its path as a native
+  program that hears no words. The source is untouched.
+- **Its symbol table off the disk copy.** With only debug info stripped `rg` was 4.6 MiB on
+  aarch64, and the shell refused it as "larger than an image may be (4 MiB)". `--strip-all`
+  leaves 2.7 to 2.9 MiB on all three architectures (`disk::without_symbols`); nothing that runs
+  a program by path reads its symbols. The archive's copy keeps them.
+- `disk::INSTALLED_RIPGREP` (`installed/rg`, provisional) is written to the swish-check disk when
+  `rg` was built, and swish-check types three lines to it in `/hay`, beside `std_grep`'s.
+
 ## What it unblocks
 
 - Milestone 121's three outstanding items: the confined demonstration, the loud refusal of a
@@ -201,23 +203,27 @@ path from the prompt.
 
 ## Which fatal risks it serves
 
-Risk 1 (only software written for nife runs on nife) is green in the harness and not at the prompt.
-A stranger does not run the kernel test suite, so for them the risk is still open until this lands.
-Risk 7 (the confinement claim is false) gets its most legible test: a search that cannot see outside
-its grant, run by the person making the claim.
+Risk 1 (only software written for nife runs on nife): a stranger's program now does its job at the
+prompt, where a stranger would type it. Risk 7 (the confinement claim is false) gets its most
+legible test: a search that cannot see outside its grant.
 
 ## The gate that proves it
 
-A boot test, `shell_runs_std_tests.rs` (provisional name), drives a scripted shell the way
-`pipeline_tests.rs` does. It has two halves, because `rg` is absent from CI.
+Two halves, because `rg` is absent from CI. Both are `script/swish-check` lines rather than the
+kernel boot test (`shell_runs_std_tests.rs`) this block first proposed, because swish-check types
+at the real prompt through the real `crates/system_initializer`, which a scripted shell in the
+kernel harness would only imitate.
 
-- In every build, on all three architectures: the shell spawns an in-tree `std` program with a
-  string argument and a directory grant. The program prints both back, and the transcript is
-  asserted byte for byte.
-- When `rg` is in the archive: `rg needle docs` prints the expected matches. `rg needle ..` with only
-  `docs` granted finds nothing outside it. A grant without `ENUMERATE` is refused with `EPERM`,
-  never an empty listing. It skips with the same reason `ripgrep_tests.rs` gives when `rg` is
-  absent.
+- In every build, on all three architectures, CI included: `/installed/std-grep needle docs`,
+  an in-tree `std` program run by path with a string argument and a directory grant a word made,
+  prints `docs/n.txt:find the needle here`. With no word naming anything it is granted nothing
+  and says so. `installed/std-echo one 'two words'` prints its argv back.
+- When `rg` was built: the three `/installed/rg` lines above. They skip, and the leg says so,
+  wherever `target/ripgrep/<triple>/rg` is absent, CI included. Making CI build `rg` is the §46 (thin
+  primitives or whole subsystems) decision nobody has made, and nothing in this milestone needed it.
+
+The answers are substrings of the transcript, not the byte-for-byte comparison first proposed.
+That is how every swish-check line is judged.
 
 ## BUGS
 
@@ -262,6 +268,16 @@ A boot test, `shell_runs_std_tests.rs` (provisional name), drives a scripted she
   grants it as a directory or because `rg`'s manifest says a resolved word may be one, never
   because the shell guessed. An unvouched `rg`'s own manifest grants nothing, so a named file
   reaches it read-only and a directory reaches it only as the line's grant.
+- **`rg` with no word naming a directory prints the wrong guess.** It asks for its working
+  directory before anything else. The PAL refuses that by design for a process that holds no
+  directory (`patches/std-nife/overlay/std/src/sys/paths/nife.rs`), so nothing is searched, but
+  the person reads `rg`'s own guess, "did your CWD get deleted?". `std_grep` says "no directory was
+  granted to search". The refusal is right and the sentence is `rg`'s; the gate asserts it, so a
+  change to either side shows.
+- **The `rg` half of the gate never runs in CI**, so a regression on the path only `rg` takes (a
+  linked foreign note, a stripped image near 3 MiB) is found by whoever next builds `rg`. The
+  `std_grep` and `std-echo-large` lines cover most of that path in CI; the foreign note does not
+  have a CI twin.
 
 ## Follow-on
 
@@ -270,19 +286,16 @@ A boot test, `shell_runs_std_tests.rs` (provisional name), drives a scripted she
   milestone. See "What is built on x86_64".
 - **Recorded.** A `std` child's `WRITE` on its own region, the unexercised directory half and the
   unwired network half are in `crates/system_initializer/src/lib.rs`, in `StdLayout`'s BUGS.
-- **Outstanding.** Everything past the layout. A `std` program the shell names by §219's option D,
-  its arguments (§170), and an image over 896 KiB (§171 and milestone 206) are what `rg` needs.
-  Rechecked 2026-09-26 at the §170 and §171 rulings: §170 is decided and milestone 205 builds
-  it, §171 is decided and milestone 206 builds it, and option D and gate D2 are built.
-  Rechecked again the same day by lane `milestone/595-shell-runs-std-program`: see "What is
-  left", which also replaces this list's note on milestone 198's fixed installed manifest.
-
+- **Done.** `rg` at the prompt, 2026-10-07; see "What is built: `rg` at the prompt".
+- **Milestone 121.** Milestone 121 (`ripgrep` and enumeration) keeps three items. The loud refusal of a directory lacking `ENUMERATE` cannot be typed: a
+  word's grant is `READ | ENUMERATE | DESCEND` and the line has no syntax that narrows it, so the
+  refusal stays proven in the kernel harness (`ripgrep_tests.rs`), which is milestone 121's. So
+  do installing `rg` with `jig` and pricing the walk.
 
 ## Index row
 
-The shell cannot launch a `std` program: all 16 programs `swish` can name are native, and `ripgrep`
-runs only from the kernel test harness. This makes `rg needle docs` work at the prompt, confined to
-the granted directories, on all three architectures. It builds on §219's option D for naming and
-waits on milestone 205 for arguments (§170, decided) and milestone 206 (a program image has under
-896 KiB) for image size. It unblocks milestone 121's remaining items and milestone 123's
-demonstration.
+The shell could not launch a `std` program, and `ripgrep` ran only from the kernel test harness.
+Now unmodified `rg` from crates.io runs by its path at the prompt and searches only the directories
+its words granted, on all three architectures, proven by `script/swish-check` wherever `rg` was
+built. It built on §219's option D, milestone 205 (how a foreign program is told what to do) for
+arguments and milestone 206 (a program image has under 896 KiB) for image size. It unblocks milestone 121's remaining items and milestone 123's demonstration.

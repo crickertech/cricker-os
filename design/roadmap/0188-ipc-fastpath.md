@@ -2,10 +2,10 @@
 status: PARTIAL
 raised: 2026-08-28
 milestone_dependencies: none
-decision_dependencies: unwritten
+decision_dependencies: 95
 machine_requirements: none
-specific_machine: none
-needs_person: no
+specific_machine: radon (E3 on radon is the measurement that decides phase 4)
+needs_person: yes
 ---
 # 188. The IPC fastpath: the gate measures a shape userspace does not use, and three cheaper cuts come before a hand-written path
 

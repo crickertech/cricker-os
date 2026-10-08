@@ -1,7 +1,7 @@
 ---
 status: PARTIAL
 raised: 2026-08-31
-milestone_dependencies: none
+milestone_dependencies: 225
 decision_dependencies: none
 machine_requirements: aarch64, riscv64 and x86_64 silicon
 specific_machine: none

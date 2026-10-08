@@ -19,7 +19,7 @@ Whoever finishes an entry moves it off this list in the same pull request.
 
 | rank | board | milestone | procedure | calef's hands |
 |---|---|---|---|---|
-| 1 | radon | milestone 168 (a multi-tasking workload benchmark), fatal risk 4 | `notes/job-mix.md`, "The next bench evening on radon, start to finish" | **one plug-2 power cycle per boot, at least five boots**, until the reset fix below lands |
+| 1 | radon | milestone 168 (a multi-tasking workload benchmark), fatal risk 4 | `notes/job-mix.md`, "The next bench evening on radon, start to finish" | **one power cycle of radon's outlet per boot, at least five boots**, until the reset fix below lands |
 | 2 | xenon | 261, the NVMe driver leaves the kernel, and then the soak on xenon (fatal risks 6, then 5) | `notes/risk-6-bench-evening.md` (pull request #1275); if that has not landed, `design/roadmap/0261-el0-nvme-on-xenon.md`. The first thing the boot reads is xenon's DMAR table, which decides whether the earlier x86 confinement results stand | about 30 minutes at xenon: the one-time firmware **Data Wipe** of the internal NVMe (261's "What calef has to do"), which cannot be undone; a monitor and a USB keyboard (xenon halts at POST without one); the FAT32 stick, staged by the lane with `cargo xtask disk-throughput --stage-only`, copying `target/esp-disk-throughput/EFI/BOOT/BOOTX64.EFI` and **not** `target/esp`; a phone for photos of the screen; optionally a Linux live stick for the `fio` comparison |
 | 3 | argon | awaiting the board (2026-10-06: the seller shipped a TK1, which is going back; `notes/bench-runbook.md`). Then 127, first light, then 225's soak on argon | `design/roadmap/0127-the-sel4-machine.md` and `notes/bench-runbook.md`, "argon, and why it is last" | everything: argon has never booted nife, so cabling, media and power are all his |
 
@@ -30,7 +30,7 @@ every later boot from calef's hands into a command.**
   power register` and never came back (milestone 249 (the boot lottery is sampled by a person
   walking to the board), "The bench answered it, 2026-09-04"). Pull request #1279 re-read that log:
   no reset happened; OpenSBI's reboot is an I2C write to the PMIC, and it hangs because U-Boot gated
-  that bus's clocks before the handoff. Nothing on patagonia can reach plug 2 (milestone 224
+  that bus's clocks before the handoff. Nothing on patagonia can reach radon's outlet (milestone 224
   (nothing can power-cycle radon, so a hung soak needs a person)). Once the lane re-enabling
   those I2C clocks before the reset has landed, the first step on radon is one reset, watched
   through to a second `U-Boot SPL` banner, `payload came from net`, and `soak-test: started`. If it
@@ -52,8 +52,10 @@ risk that has no data yet.
 
 Send the maintainer a one-line message naming the action, and wait for the go, before any of these:
 
-- Power: any request to switch plug 2 (radon). **Plug 3 is garcia: never, under any
-  circumstances.** `tokul` is a drive on the USB hub: never unplug the hub, never ask for it;
+- Power: any request to switch the board's own outlet. **Never any other outlet, under any
+  circumstances, and never a USB hub: drives that must not lose power or their connection share
+  the desk.** The maintainer reads which outlet is which from the lab record kept off-tree, and
+  names it in the go;
 - Media: writing a card, a stick, or a disk, including `script/board-image --card`;
 - The network boot server: starting or stopping `script/board-netboot`, or changing what it
   serves;
@@ -111,7 +113,7 @@ main checkout's (the maintainer may delete it), not a session scratch directory 
 session does), and not `bench/` (the log needs cleaning first, step 6). Start the console before power, so the boot is captured. An empty log
 at this point means the board is off or halted, which is what you want before a power cycle.
 
-Then ask: "power-cycle radon on plug 2 now". calef does it from the Kasa app.
+Then ask: "power-cycle radon now". calef does it from the Kasa app.
 
 ## Step 4: read the first minute before calef leaves
 
@@ -169,8 +171,8 @@ same image under QEMU (step 2) before anyone writes "silicon-only".
 - Every radon power cycle is a person. Milestone 224 records calef's choice to stay manual, and
   249 records that the self-reboot route hangs in firmware. A hung soak therefore holds the board
   until calef is next at the desk.
-- The plug state is invisible to a lane. Nothing reports whether plug 2 is on, so an empty log
-  cannot tell a board that is off from one that died before its UART came up.
+- The plug state is invisible to a lane. Nothing reports whether radon's outlet is on, so an empty
+  log cannot tell a board that is off from one that died before its UART came up.
 - The TFTP address is read off patagonia at card-write time. The card written on 2026-09-16
-  asks for `192.168.8.206`, patagonia's USB ethernet adapter. `en0` moved from `.216` to `.138`
-  since then, and the boot survived only because the adapter's address did not move.
+  asks for the address patagonia's USB ethernet adapter had then. Its Wi-Fi address has moved
+  since, and the boot survived only because the adapter's address did not move.

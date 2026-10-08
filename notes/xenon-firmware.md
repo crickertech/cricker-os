@@ -3,13 +3,12 @@
 *Name provisional. calef names the interfaces (§75), and this note's own filename is one of them;
 `xenon-firmware.md` is what a lane picked, and it is expected to change.*
 
-Dell OptiPlex 7050 Micro, BIOS revision 1.27.0, Service Tag `25XNBM2`, manufactured
-12/22/2017. Every setting below was read off a photograph of the machine's own setup UI, taken by
+Dell OptiPlex 7050 Micro, BIOS revision 1.27.0. Every setting below was read off a photograph of the machine's own setup UI, taken by
 calef on 2026-09-04 during the first light of milestone 87 (the x86_64 bare-metal machine) (`notes/x86-uefi-boot.md`).
 
-The originals are 70 `.HEIC` files held by calef off-tree, named
-`..._o_IMG_40NN.HEIC`. They are **not in this repository**: 120 MB of a format no browser renders.
-This note is the record and the photographs are the negatives, so each entry carries its `IMG_` number.
+The originals are 70 `.HEIC` files, named `..._o_IMG_40NN.HEIC`. They are **not in this
+repository**: 120 MB of a format no browser renders. They and this unit's identifiers are kept
+off-tree. This note is the record and the photographs are the negatives, so each entry carries its `IMG_` number.
 
 Anybody who changes a setting at the bench owes this file an edit; the next lane reads it instead of
 walking to the machine.
@@ -136,12 +135,8 @@ IMG_4025, IMG_4026, System Information (read-only)
 | Field | Value |
 |---|---|
 | Bios version | 1.27.0 |
-| Service Tag | 25XNBM2 |
 | Asset Tag | (none) |
 | Ownership Tag | (blank) |
-| Manufacture Date | 12/22/2017 |
-| Ownership Date | 03/21/2018 |
-| Express Service Code | 4712411018 |
 | | Signed Firmware Update is enabled |
 | Memory Installed | 16384 MB |
 | Memory Available | 16286 MB |
@@ -160,8 +155,7 @@ IMG_4025, IMG_4026, System Information (read-only)
 | 64-Bit Technology | Yes (Intel EM64T) |
 | SATA-0 | (none) |
 | SATA-4 | (none) |
-| M.2 PCIe SSD-0 | 256 GB 2319413C562A |
-| LOM MAC Address | D8-9E-F3-74-B2-A2 |
+| M.2 PCIe SSD-0 | 256 GB |
 | Video Controller | Intel HD Graphics |
 | Audio Controller | RealTek ALC3234 |
 | Wi-Fi Device | Intel Wireless |
@@ -383,7 +377,7 @@ IMG_4086, Wireless Device Enable. `WLAN/WiGig` ticked; `Bluetooth®` ticked.
 
 ### Maintenance
 
-IMG_4087, Service Tag. `25XNBM2`.
+IMG_4087, Service Tag. Set.
 
 IMG_4088, Asset Tag. Empty.
 

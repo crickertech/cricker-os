@@ -4,7 +4,7 @@ raised: 2026-09-21
 milestone_dependencies: none
 decision_dependencies: none
 machine_requirements: an x86_64 CPU reporting invariant TSC
-specific_machine: none
+specific_machine: xenon (milestone 87's machine; the boot that reports the invariant-TSC bit)
 needs_person: yes
 ---
 # 524. The three x86_64 boot gates: NX, SYSCALL, and the invariant TSC

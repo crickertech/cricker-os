@@ -139,8 +139,8 @@ written.
 ### What you need
 
 Everything `notes/visionfive2.md`'s bench runbook already lists: the card, the DIP switches on
-QSPI, the serial chain, and USB-C power. Nothing new. Milestone 224's smart plug is plug 2; **plug
-3 is garcia and must never be switched off.**
+QSPI, the serial chain, and USB-C power. Nothing new. Power-cycle only radon's own outlet (milestone
+224); **never switch any other outlet.** Which is which is kept off-tree by the maintainers.
 
 ### Build and copy
 

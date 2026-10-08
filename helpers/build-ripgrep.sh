@@ -64,25 +64,28 @@ fi
 #
 # The shared script is also how it keeps a manifest note (milestone 597 (a program carries its
 # manifest in an ELF note), provisional): the `PT_NOTE` header and the `.note.nife` section come with
-# it. ripgrep carries no note today, so it runs as a program that asks for nothing but its output; a
-# foreign program carries one by linking an object that holds it (`-Clink-arg=note.o`, measured by
-# #1319), which nothing here writes yet.
+# it. A foreign program carries one by linking an object that holds it (`-Clink-arg=note.o`,
+# measured by #1319), and `cargo xtask foreign-note` writes that object (milestone 595 (the shell runs
+# a `std` program), 2026-10-07): `grant_plan::UNVOUCHED_STD_MANIFEST`, a `std` program that hears its
+# words and reads what they name, read-only. Without it the shell ran `rg` by its path as a native
+# program that hears nothing. The source is still untouched; the note is one more link argument.
 mkdir -p "$OUT"
 
 for TRIPLE in ${NIFE_RIPGREP_TRIPLES:-aarch64-unknown-nife riscv64-unknown-nife x86_64-unknown-nife}; do
+  mkdir -p "$OUT/$TRIPLE"
+  (cd "$ROOT" && cargo xtask foreign-note "$TRIPLE" "$OUT/$TRIPLE/note.o")
   cd "$SRC"
   # Overflow checks as every nife release profile carries them (notes/overflow-checks.md); ripgrep's
   # own profile is upstream's, so the setting comes from the environment, and reaches its `std` too.
   CARGO_PROFILE_RELEASE_OVERFLOW_CHECKS=true \
   RUSTUP_TOOLCHAIN="$ROOT/target/nife-farm" \
-  RUSTFLAGS="-Clink-arg=-T$ROOT/crates/user_mode_runtime/link.ld -Clink-arg=-u_start -Clink-arg=--build-id=none -Cstrip=debuginfo -Copt-level=s" \
+  RUSTFLAGS="-Clink-arg=-T$ROOT/crates/user_mode_runtime/link.ld -Clink-arg=-u_start -Clink-arg=--build-id=none -Clink-arg=$OUT/$TRIPLE/note.o -Cstrip=debuginfo -Copt-level=s" \
     cargo build --release \
       -Zjson-target-spec \
       -Zbuild-std=core,alloc,std,panic_abort \
       -Zbuild-std-features=compiler-builtins-mem \
       --target "$ROOT/targets/$TRIPLE.json"
 
-  mkdir -p "$OUT/$TRIPLE"
   cp "$SRC/target/$TRIPLE/release/rg" "$OUT/$TRIPLE/rg"
   echo "build-ripgrep: $OUT/$TRIPLE/rg ($(wc -c < "$OUT/$TRIPLE/rg") bytes)"
 done
