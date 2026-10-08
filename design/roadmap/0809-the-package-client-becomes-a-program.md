@@ -14,22 +14,16 @@ needs_person: no
 number is provisional until the merge queue lands it. `jig` is ratified; the title, slug and verb
 spellings are drafts. Later rulings are in the work list and the forks table.)*
 
-*Dependencies corrected 2026-10-07 (UTC) by this milestone's lane: the block named milestone 198 (a
-package manager), which since the 2026-10-06 split is the umbrella over 801 and 802, and 802 names
-this block, so the three waited on each other forever. What this block uses from 198 is rung 3a,
-complete on 2026-10-05 inside 198 (`package_archive`, `activation_set`, the builtin's install,
-remove and rollback, and the fetch): it is built and has no milestone of its own, so the edge
-blocked nothing true and is gone. `script/roadmap --check` now refuses a cycle.*
+*Dependencies corrected 2026-10-07 (UTC) by this lane: 198 was dropped. 198 is the umbrella over 802,
+which names this block, so the three waited on each other. What this block uses from 198 is rung 3a,
+built inside 198 by 2026-10-05 with no milestone of its own.*
 
 calef ruled on 2026-10-06 (UTC) that the package client must be a program, not a shell builtin, and
-named six things it must do. Lane `package-program` wrote this that day and built nothing.
+named six things it must do.
 
-The program is `jig`, the basalt package manager, ratified 2026-10-06 by calef. A jig is the
-guide that makes flat-pack assembly come out the same every time.
-Refused: `package` (too generic), `pkg` (FreeBSD's), `bpm` (repeats `rpm`), `knap` (one letter
-from `snap`) and `flatpak` (taken). `dowel`,
-`allen`, `kit` and `cam` were the shortlist; `kit` and `cam` collide with shipped commands, and
-Arch's `extra/jig` is a Puppet module tool. When built, this record becomes the
+The program is `jig`, the basalt package manager, ratified 2026-10-06 by calef: the guide that makes
+flat-pack assembly come out the same every time. Refused: `package`, `pkg`, `bpm`, `knap` and
+`flatpak`; `kit` and `cam` collide with shipped commands. When built, this record becomes the
 `Name:` block in its module doc, where `script/names` reads it.
 
 calef also ruled, the same day: *"We abbreviate on the command line."* The verb spellings below
@@ -137,46 +131,32 @@ idea keyed by a word instead of a flag. The planner already classifies the built
 (`package_verb`), so what moves is the table's home, from the shell's parser into the manifest.
 The cost is one new `Manifest` field and a planner that consults it.
 
-V2 gets V3's least authority under one name (Debian fronted `apt-get` and `dpkg` with one `apt`,
-recalled). One program fits because every verb touches the same two records, the indexes and the
-activation set. V1 is cheaper, so V2 is not about effort, and it is reversible: a lane can build V1
-first with a `BUGS` line.
+V2 gets V3's least authority under one name. V1 is cheaper, so V2 is not about effort, and it is
+reversible: a lane can build V1 first with a `BUGS` line.
 
 ## Who writes the index copy: ruled, `jig`
 
-calef, 2026-10-06 (UTC), choosing I2 below: *"I would think jig."* Today the progenitor checks a package against the image's
-catalog, an archive entry the boot measured. Milestone 801 (packages over the internet)'s first item replaces that with an
-index fetched over the network, listing each package's digest and location (§250). From then on,
-the digests the progenitor checks against come from whoever wrote the index copy. If the program
-fetches it, the program's write decides what the progenitor will install.
+calef, 2026-10-06 (UTC), choosing I2: *"I would think jig."* Once milestone 801 (packages over the internet)'s index replaces
+the image's catalog, whoever writes the index copy decides which digests the progenitor accepts.
 
 | Option | What it is | Cost |
 |---|---|---|
-| I1. The progenitor fetches the index | `jig update` is one more activation request | TLS, `rustls` and its crypto provider (§196 (nife carries TLS)), and an index parser, all in the most trusted process. The opposite direction from moving the fetch out |
-| I2. The program fetches and writes the copy | The progenitor trusts the copy in a directory only the owner's console grants | Any defect in the client's TLS or parser becomes a defect in what runs. The activation set can no longer say "basalt vouched"; only "the owner's client said basalt vouched" |
-| I3. A signature over the index | The progenitor verifies the copy against a key in the image | Someone holds a long-lived key, which §195 clause 4 deferred "for now". An image shipping a public key is the step §195 named irreversible |
+| I1. The progenitor fetches the index | `jig update` is one more activation request | TLS and an index parser in the most trusted process (§196 (nife carries TLS)) |
+| I2. The program fetches and writes the copy | The progenitor trusts the copy in a directory only the owner's console grants | A client defect becomes a defect in what runs; provenance becomes "the owner's client said basalt vouched" |
+| I3. A signature over the index | The progenitor verifies the copy against a key in the image | A long-lived key, which §195 clause 4 deferred and named irreversible |
 
-I2 widens nothing. The owner may already vouch for any bytes (§195 clause
-3, §221), and only the owner's console could grant the program its index directory and its
-installer capability. What I2 loses is provenance, as the table says.
-
-The ruling's cost: until I3, whatever writes the index copy decides which digests may
-run, so `jig` is inside the trusted base for installs. I3, a signed index the progenitor verifies
-itself, is the recorded follow-on that takes `jig` back out; it waits on a key-custody ruling.
-
-None of this touches the image's own catalog, which stays measured in the archive and checked as
-on rung 3a.
+I2 widens nothing, since the owner may already vouch for any bytes (§195 clause 3, §221). Until
+I3, `jig` is inside the trusted base for installs; I3 waits on a key-custody ruling. The image's
+own catalog is untouched.
 
 ## Many indexes per machine: ruled
 
 calef, 2026-10-06 (UTC): *"A machine may write many indexes."* So a machine holds several, as apt's
 `sources.list` does; details below.
 
-§250 (an image names its distribution's package index) rules that an *image*
-carries one fixed name, basalt's. An index the owner adds is the machine's, so §250 is not
-contradicted. §195 clause 2 anticipates it: trust is
-scoped per source the owner opted into, and anyone may stand up a source. §196 clause 4 holds roots
-per source.
+§250 (an image names its distribution's package index) fixes only an image's one index, basalt's;
+an index the owner adds is the machine's. §195 clause 2 scopes trust per source, and §196 clause 4
+holds roots per source.
 
 To settle before `add-index` is built:
 
@@ -215,19 +195,12 @@ calef accepted how managers coexist, 2026-10-06 (UTC): *"Yes."*
   field. If the owner ever grants a second manager the endpoint, `jig` refuses to remove or roll
   back a row it did not install.
 
-PEP 668 made pip refuse Debian's system Python, because coexistence by convention failed
-(recalled, not read).
-
 ## How this splits against milestones 801 and 802
 
-Milestone 801's items 1 and 2 are the index split and the index format crate. They need neither
-name resolution (milestone 384 (in a capability system the resolver is a grant)) nor HTTPS
-(milestone 501 (a TLS client that speaks to one pinned peer)). They are what `list`, `outdated` and
-`update` consume, so the proposal recommended moving them here; the format stays calef's to rule. Promotion did not move them, so item 6
-waits on 801. Moving them later is reversible.
-
-Milestone 802 (the trivial install)'s stranger meets the package client at rung 4, so 802 depends
-on this milestone and the stranger meets a program, not a builtin about to go.
+Milestone 801's items 1 and 2, the index split and the index format crate, need neither name
+resolution nor HTTPS, and are what `list`, `outdated` and `update` consume. Promotion did not move
+them here, so item 6 waits on 801. Milestone 802 (the trivial install) depends on this block so
+its stranger meets a program, not a builtin about to go.
 
 ## The work, in the order it can land
 
@@ -266,6 +239,34 @@ than adapting one is forced: no existing client speaks this capability ABI.
 Outside it, `rustls` arrives through milestone 501 under §196. The verb spellings lean on apt,
 pkg and Homebrew from memory. The building lane owes a read of their manuals under §46
 (thin primitives or whole subsystems).
+
+## Plan, 2026-10-07 (UTC)
+
+Written by this lane, stopped before building. The block has no
+exit section, so this proposes one, on all three architectures under QEMU. `jig install` (both
+forms), `remove` and `rollback` pass `script/swish-check`'s transcripts with the builtin gone.
+`greeting` is fetched by `jig`, and the progenitor has no `http_response` or `Activation::Fetch`.
+A program without the installer grant is refused. That is items 1 to 5 and 8's digest check. Items
+6, 7 and the index half of item 8 need 801's index crate.
+
+Forks not yet ruled, each with a recommendation:
+
+1. The installer endpoint's semantics. A badged endpoint speaking install, remove and rollback is
+   a new method in the capability model, so a `design/decisions/` section is owed before item 1
+   (`decision_dependencies: unwritten`). Recommend the block's design: `spawnproto`'s activation
+   request unchanged, a new slot, no `Vouch`.
+2. V2's verb table is a new `Manifest` field, so its encoding in 597's ELF note is a format the
+   build and the planner agree on. Recommend a list of (verb, grants) pairs; calef rules.
+3. The `Entry` field naming a row's manager changes the persisted activation set. Recommend adding
+   it before item 1 lands; how older rows read back is unmeasured.
+4. Verb spellings under "we abbreviate on the command line". Recommend keeping the full words for
+   the first build and ruling abbreviations separately; nothing else depends on them.
+5. Whether 801 items 1 and 2 move here. Recommend yes, if 810 is the next customer step: its exit
+   reads basalt's index.
+
+Rough size: items 1 to 3 are a large lane (a new grant, a new program, a retired wire format);
+4, 5 and 8 a medium one. 810 needs items 1 to 3 and 8, plus 801's
+HTTPS and name resolution for `basalt.nifeos.org`, which its `milestone_dependencies` does not list.
 
 ## Forks
 
