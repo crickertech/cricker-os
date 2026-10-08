@@ -14,6 +14,7 @@ Part of [the notes index](../README.md), which says how to add a line.
 - [A TLS crypto provider on nife](../cryptography-provider.md): building a `rustls` crypto provider for all three targets.
 - [The `thread::spawn` fork](../thread-spawn-fork.md): what a std thread would cost, and why declined.
 - [Running a foreign language: the C seam](../c-seam.md): a confined, restartable C component under a Rust shell.
+- [A C library for nife: relibc, measured](../c-library.md): relibc against nife's constraints, and why the library is seeded from it and then owned.
 - [The program manifest](../program-manifest.md): a program's declared endowment, checked at spawn.
 - [A shell at EL0](../shell.md): an interactive shell, console input and spawned workers.
 - [The line discipline as a userspace component](../line-discipline.md): the tty line editor as a userspace process.
