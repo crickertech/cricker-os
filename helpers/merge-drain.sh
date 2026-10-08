@@ -676,12 +676,16 @@ Any of these takes the label off."
 		;;
 	surface-no-hold)
 		head=$(printf '%s' "$c" | jq -r '.head')
-		rules=$(printf '%s' "$c" | jq -r '.rules[0:10][] | "- `" + . + "`"')
-		what="AN ARCHITECT'S SURFACE MOVED, UNLABELED: \`helpers/architect-label-rules.py\` fires on this diff at head \`$head\`, and it carries none of \`needs-architect\`, \`architect-ruled\` or \`held-by-lane\`. The labeler that should have caught it runs on push, and GitHub runs no \`pull_request\` workflow while a pull request conflicts with its base (#1745).
+		# Each finding as the question calef answers (the rules file's `--ask`; calef on #1838,
+		# 2026-10-08 UTC: "The label doesn't make sense on its own."), the raw line if that fails.
+		rules=$(printf '%s' "$c" | jq -r '.rules[0:10][]' | python3 "$RULES_PY" --ask 2>/dev/null) ||
+			rules=""
+		[ -n "$rules" ] || rules=$(printf '%s' "$c" | jq -r '.rules[0:10][] | "- `" + . + "`"')
+		what="AN ARCHITECT'S SURFACE MOVED, UNLABELED: \`helpers/architect-label-rules.py\` fires on this diff at head \`$head\`, and it carries none of \`needs-architect\`, \`architect-ruled\` or \`held-by-lane\`. The labeler that should have caught it runs on push, and GitHub runs no \`pull_request\` workflow while a pull request conflicts with its base (#1745). What calef is asked, one question per finding:
 
 $rules
 
-So the drain added \`needs-architect\` (calef's ruling on #1792: the bot adds, and only flags removals). Post the ask under a \`## What I need from you\` heading, or, if calef already ruled on this surface, record it with \`script/record-ruling $1\`; a hold with no ask is flagged \`hold-no-ask\` after $NM_MINUTES minutes."
+So the drain added \`needs-architect\` (calef's ruling on #1792: the bot adds, and only flags removals). An answer is the ruling (\"nothing like that moved\" on a false positive included), and so is one calef already gave on this surface: record it with \`script/record-ruling $1\`. A lane that knows more than the rule does posts its own ask under a \`## What I need from you\` heading; a hold with no ask is flagged \`hold-no-ask\` after $NM_MINUTES minutes."
 		;;
 	missing-check)
 		head=$(printf '%s' "$c" | jq -r '.head')
