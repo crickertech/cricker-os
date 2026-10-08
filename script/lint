@@ -66,8 +66,15 @@ if [ "${1:-}" = "--no-cargo" ]; then
         exec awk -v mode=list -f helpers/lint-no-cargo.awk "$lint_self"
     fi
     echo "==> no-cargo mode (pre-push): every check that does not run cargo; CI and script/lint run the rest"
-    lint_filtered="$(awk -v mode=emit -f helpers/lint-no-cargo.awk "$lint_self")" || exit 1
-    LINT_NO_CARGO=1 exec sh -c "$lint_filtered" "$lint_self"
+    # The filtered text goes through a temp file, never argv: it is about 190 KB, and Linux caps one
+    # argument at 128 KB (MAX_ARG_STRLEN), so `sh -c "$text"` failed there with "Argument list too
+    # long". macOS has no per-argument cap, which is why it went unseen. Not stdin either, since a
+    # section that reads stdin would eat the script. `.` keeps $0 naming this file.
+    lint_tmp="$(mktemp "${TMPDIR:-/tmp}/lint-no-cargo.XXXXXX")" || exit 1
+    trap 'rm -f "$lint_tmp"' EXIT HUP INT TERM
+    awk -v mode=emit -f helpers/lint-no-cargo.awk "$lint_self" > "$lint_tmp" || exit 1
+    LINT_NO_CARGO=1 sh -c 'lint_tmp=$1; shift; . "$lint_tmp"' "$lint_self" "$lint_tmp"
+    exit $?
 fi
 
 echo "==> the pre-push hook's contract with this script"
