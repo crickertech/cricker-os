@@ -34,10 +34,8 @@ looked when the options were written.
 ## Still calef's, and narrowed by this ruling
 
 - Where a program's manifest travels. Ruled 2026-09-26: M2, recorded in the next section.
-- The digest's shape. A plain SHA-256 over the package file, or a Merkle root. The proposal's
-  measurement says a Merkle tree buys verifying part of a file without reading all of it, which
-  matters for a binary paged in on demand and not for one read whole, which is what this loader
-  does, so plain unless something measures otherwise.
+- The digest's shape. Ruled 2026-10-07: C, a plain SHA-256 labeled `sha256:`, recorded in the
+  section after the manifest's.
 - Activation (what installing *does*) is untouched by this and is its own ruling. It has
   since been ruled: §208 (installing a package is granting it), 2026-09-23.
 
@@ -79,6 +77,42 @@ headers only", and "reluctantly" rested on that. So did `notes/component-manifes
 reading a note meant teaching the parser section headers. The premise joined two mechanisms. A
 `PT_NOTE` is a program header, found in the table the crate already walks. A section-header reader
 would in fact lose the note after `--strip-sections`. The row is left as calef ruled on it.
+
+## The digest's shape: C, ruled 2026-10-07
+
+calef, 2026-10-07 (UTC): *"C"*. A package's digest is a plain SHA-256 over the package file,
+written with its algorithm as a label in the container-image convention, `sha256:<hex>`. A Merkle
+root can then be added later under its own label (for example `merkle-sha256-8k:<hex>`), beside
+the plain digest rather than as a migration.
+
+Refused, with the reason for each:
+
+- A, a plain SHA-256 unlabeled. It leaves a format change waiting for the day a demand-paging
+  loader needs a Merkle root, and on that day every catalog and recipe already written is in
+  the old format.
+- B, a Merkle root now. It builds for a loader that does not exist (today's loader reads every
+  binary whole), adds code and proofs to the trusted base, and stops a stranger checking a package
+  with `sha256sum`.
+
+Why it is cheap now: nothing is installed anywhere and no package has left this machine. After
+milestone 801 (packages over the internet), published digests live in other people's catalogs.
+
+What lane/digest-label built on it, 2026-10-07:
+
+- One formatter and one parser, in `crates/measured_boot` beside the hash they label
+  (`digest_text`, `parse_digest`; names provisional). Every text that carries a digest uses them:
+  a recipe's `digest`, a catalog line, the measurement table the trust root is generated from
+  (it shares the catalog's format and parser), an activation-set row and pointer, and the
+  shell's `caps` provenance line. Bare hex is refused as `Unlabeled`, any other label as
+  `UnknownLabel`, so an old line or a newer format is named rather than compared. Two Kani
+  harnesses prove the round trip for every digest and that nothing but `sha256:` and 64 hex
+  characters parses.
+- The in-memory `Digest` stays 32 bytes with no algorithm in it. A Merkle root, when it comes,
+  is a second fact beside the whole-file hash, checked differently, so it gets a type of its own;
+  an enum with one variant now would let one reach a check that only knows how to hash a whole
+  file. `measured_boot`'s `Digest` documentation carries the argument.
+- The kernel's bare-hex diagnostics and `sealed_pair`'s, which a person compares against
+  `shasum -a 256` and nothing parses, are unchanged.
 
 ## The proposal as calef ruled on it
 

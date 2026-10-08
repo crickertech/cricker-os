@@ -44,9 +44,13 @@ repeating here because a reader comparing this against `.hpkg` will ask about th
 
 The encoding is provisional and the crate's name is provisional. §197 ruled the container, not
 these offsets. Its manifest question was ruled 2026-09-26: an ELF note inside the executable, not
-a member. Whether the digest is a Merkle root is still open; this takes the plain SHA-256 §197
-records as the default. §197 says the day somebody outside this repository fetches a package
+a member. §197 says the day somebody outside this repository fetches a package
 is the day the format is fixed; nobody has.
+
+### How a digest is written
+
+As `sha256:<64 hex>`, through `measured_boot` alone (DECISIONS §197 (a package is one archive
+file), 2026-10-07); anything else is refused.
 
 ## The producer
 
@@ -62,9 +66,9 @@ format calef chose, correct by exposure. No target reads a recipe; it reads the 
 $ cargo build -p components --bin uptime --target aarch64-unknown-none-softfloat
 $ cargo xtask package packages/uptime.recipe.toml
 uptime 0.1.0 aarch64, 2 members, 90491 bytes
-  uptime                       89168 bytes  d801cd2b65dbfbd4982226394c8ad5de471d4f782f39eb16c5ee06cd71bcef26
-  uptime.licence                1067 bytes  dba2f854c33606c0a4f028f88baf9d9bcef8d30714e29c8f3314dd5eeebf1c14
-digest d74f8eb3ecc14b43b9f55b2113c830ee856394eee4398b52da2da1614d426cd9  (the recipe records none; review it and add it)
+  uptime                       89168 bytes  sha256:d801cd2b65dbfbd4982226394c8ad5de471d4f782f39eb16c5ee06cd71bcef26
+  uptime.licence                1067 bytes  sha256:dba2f854c33606c0a4f028f88baf9d9bcef8d30714e29c8f3314dd5eeebf1c14
+digest sha256:d74f8eb3ecc14b43b9f55b2113c830ee856394eee4398b52da2da1614d426cd9  (the recipe records none; review it and add it)
 wrote target/packages/uptime-0.1.0-aarch64.nifepkg
 package: PASS
 ```
@@ -87,7 +91,7 @@ tool prints both digests and writes nothing. That ordering costs a rebuild to di
 it: a package nothing accepts, sitting on disk beside a catalog entry vouching for it, would be
 the tool disagreeing with itself.
 
-The catalog line is `measured_boot`'s manifest shape, a name, a space, 64 hex characters,
+The catalog line is `measured_boot`'s manifest shape, a name, a space, a labeled digest,
 which is what the progenitor already reads to decide whether a program may run. §195 makes the
 image's measurement table the first source of trust, so a package's entry looking like an entry in
 that table is the point.
@@ -135,7 +139,7 @@ running 1 of 359 tests (filter: package)
 test kernel::user::tests::a_package_fetched_over_http_is_accepted_only_by_the_image_digest ... ok
 test result: ok. 1 passed
 $ cat target/packages/catalogue
-uptime-0.1.0-aarch64 d74f8eb3ecc14b43b9f55b2113c830ee856394eee4398b52da2da1614d426cd9
+uptime-0.1.0-aarch64 sha256:d74f8eb3ecc14b43b9f55b2113c830ee856394eee4398b52da2da1614d426cd9
 ```
 
 The test fetches twice through one `net_stack`: the genuine package, which must be accepted, then
@@ -211,7 +215,7 @@ $ package remove noteless
 $ caps packages/noteless/0.1.0/noteless
   packages/noteless/0.1.0/noteless would grant the new process, and nothing else:
     ...
-    provenance: unvouched (digest ...)
+    provenance: unvouched (digest sha256:...)
     runs on this session's capability to run unvouched bytes (slot 62)
 $ package rollback
   rolled back; generation 1 is live
