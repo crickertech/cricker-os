@@ -29,7 +29,7 @@ xHCI driver milestone 242 builds and asks it for bulk endpoints; it does not tou
 USB Attached SCSI (UAS) is out of scope until a drive that needs it exists, since BOT works on
 every drive and UAS drives fall back to it.
 
-## Parity (§19)
+## Parity (§19 (architectural parity is a tenet))
 
 The protocol layer (command blocks, status wrapper, SCSI parsing, the error and reset paths) is
 architecture-neutral and goes in a host-tested crate. The driver ships on all three architectures,

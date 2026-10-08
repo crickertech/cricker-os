@@ -47,8 +47,8 @@ driver does not make the booted system start it.
 ## What this supersedes
 
 The storage-ordering half of the 2026-08-15 "NVMe first" ruling. Its reason was the backup
-workload (milestone 55), which was removed on 2026-08-30. The other half of that ruling, that a
-real PCIe root-complex driver compounds into milestone 87's x86 machine, survives: D needs the
+workload (milestone 55 (Time Machine: SMB3 with Apple's extensions, and mDNS)), which was removed on 2026-08-30. The other half of that ruling, that a
+real PCIe root-complex driver compounds into milestone 87 (the x86_64 bare-metal machine), survives: D needs the
 same root complex.
 
 ## Consequences

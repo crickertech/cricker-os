@@ -181,7 +181,7 @@ Needs xenon, its monitor on the display port, a USB keyboard plugged into a rear
 
 §258 (radon's block server serves a USB drive) puts radon's USB 3 ports, which sit behind a VL805
 controller on PCIe, on this milestone's critical path: the booted system's storage on radon
-cannot be read until this milestone's xHCI driver runs on radon too, after milestone 163.
+cannot be read until this milestone's xHCI driver runs on radon too, after milestone 163 (the JH7110's PCIe root complex).
 
 ## Index row
 
