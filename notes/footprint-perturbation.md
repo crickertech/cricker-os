@@ -420,9 +420,8 @@ against a larger denominator, not a weakening of the pad. "Roughly double", whic
 wording, still holds.
 
 x86_64 is not padded on either shape: `kernel/src/arch/x86_64/fastpath_pad.rs` does not exist.
-Recorded in `script/fastpath-footprint`'s own BUGS and unchanged by this lane. This said "xenon has
-no first light, so nothing is waiting on it"; xenon had first light on 2026-09-05
-(notes/x86-uefi-boot.md), so the second clause is the one to re-ask rather than the first.
+The scope note in [notes/x86-port.md](x86-port.md)'s `BUGS` says why, and what would make it a
+plan.
 
 ## What you need at the bench
 
