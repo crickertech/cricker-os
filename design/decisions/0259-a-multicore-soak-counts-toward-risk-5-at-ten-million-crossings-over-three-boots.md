@@ -8,7 +8,7 @@ ratified_by: calef
 # 259. A multicore soak counts toward risk 5 at ten million crossings over three boots
 
 *Section number provisional until the merge queue lands it; 256 was the highest on `main` when this
-was written, and §257 (PR #1841) and §258 (the `lane/614-names` branch) are taken. Minted by the
+was written, and 257 and 258 were taken by #1841 and the `lane/614-names` branch. Minted by the
 maintainer session on 2026-10-07 (UTC), recording a ruling by calef the same day.*
 
 ## The ruling
