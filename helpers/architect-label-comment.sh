@@ -53,20 +53,21 @@ fi
 body_file="$(mktemp)"
 trap 'rm -f "$body_file"' EXIT
 
+# Each finding's question for calef, from the rules file that wrote the finding (its `--ask`), so a
+# hold says what the ruling is about (calef on #1838, 2026-10-08 UTC: "false positive for what? The
+# label doesn't make sense on its own."). If that fails, the raw report still names the rule.
+questions="$(printf '%s\n' "$report" | python3 "$(dirname "$0")/architect-label-rules.py" --ask 2>/dev/null)" ||
+	questions=""
+[ -n "$questions" ] || questions="$(printf '%s\n' "$report" | sed 's/^/- /')"
+
 cat >"$body_file" <<BODY
-This pull request's diff matched \`helpers/architect-label-rules.py\`, so \`needs-architect\` was added:
+\`needs-architect\` was added because this diff matched \`helpers/architect-label-rules.py\`. What calef is asked, one question per finding:
 
-\`\`\`
-$report
-\`\`\`
+$questions
 
-Each line is \`rule: file: what matched\`; \`helpers/architect-label-rules.py\`'s docstring names all
-six rules and their known false positives. This is a best-effort finding, not a verdict: a false
-positive is normal, and a human removes the label if this does not need an architect. Someone still
-needs to add a \`## What I need from you\` comment naming the actual ask (the decisions skill,
-notes/skills/decisions/SKILL.md); a label with no ask under it is flagged \`needs-maintainer\`
-(\`hold-no-ask\`) after 30 minutes. If calef has already ruled, record it with
-\`script/record-ruling\`.
+An answer is the ruling, and "no, nothing like that moved" on a false positive is one too: the maintainer records it with \`script/record-ruling $pr_number --text '<his words>'\`, which swaps the label for \`architect-ruled\`. Removing \`needs-architect\` by hand does not stick, because the merge drain adds it back while a rule still fires. The rules and their known false positives are in that file's docstring.
+
+A lane that knows more than the rule does should post its own ask under a \`## What I need from you\` heading (notes/skills/decisions/SKILL.md); a hold with no such ask is flagged \`needs-maintainer\` (\`hold-no-ask\`) after 30 minutes.
 
 <!-- $marker -->
 BODY

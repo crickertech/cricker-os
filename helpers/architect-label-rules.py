@@ -560,6 +560,72 @@ def rule_syscall_error(fd, out):
 RULES = (rule_abi_surface, rule_format_crate, rule_spawnproto, rule_decisions, rule_syscall_error)
 
 
+# ---- the question each finding puts to calef ------------------------------------------------------
+#
+# calef, 2026-10-08 (UTC), on #1838's hold: "false positive for what? The label doesn't make sense
+# on its own." A hold is released only by his ruling, so the bot's comment has to say what the
+# ruling is about. The question lives here, beside the rule it belongs to, so a new rule cannot be
+# added without one (`question` raises on an unknown rule, and the selftest asks every rule's).
+# helpers/architect-label-comment.sh and helpers/merge-drain.sh's `surface-no-hold` both print it
+# through `--ask`. The dependency question cites §46 (thin primitives or whole subsystems), the
+# decision every new dependency is ruled under.
+
+def _crate(path):
+    parts = path.split('/')
+    return parts[1] if len(parts) > 2 and parts[0] == 'crates' else path
+
+
+def _section(path):
+    m = re.match(r'design/decisions/0*(\d+)-(.*)\.md$', path)
+    return f"§{m.group(1)} ({m.group(2).replace('-', ' ')})" if m else path
+
+
+QUESTIONS = {
+    'abi-surface': lambda p, d: (
+        f"Does this add or change a syscall number, object type or method (`{d}`)?"),
+    'dependency': lambda p, d: (
+        f"Do you approve taking `{d}` as a dependency (§46), in `{p}`?"),
+    'format-crate': lambda p, d: (
+        f"Does this change the bytes of `{_crate(p)}`'s format (a version, magic value or field "
+        "layout) that another program reads?"),
+    'spawnproto': lambda p, d: (
+        f"Does this change a spawn-protocol value another program sends or reads (`{d}`)?"),
+    'decisions': lambda p, d: (
+        "Do you approve this edit to CLAUDE.md?" if p == 'CLAUDE.md'
+        else f"Do you approve this edit to {_section(p)}?"),
+    'syscall-error': lambda p, d: (
+        f"Does this change which error a syscall method can return (`{d}`)?"),
+}
+
+UNEXAMINED_QUESTION = (
+    "The rules could not read this diff. Does any of it need your ruling (the syscall surface, a "
+    "dependency, a wire format or a decision)?")
+
+
+def question(rule, path, detail):
+    return QUESTIONS[rule](path, detail.replace('`', ''))
+
+
+def ask(report):
+    """Report lines (`rule: file: detail`, as `main` prints) -> one markdown list item each, the
+    question first and the match after it. A line this file did not write passes through as is."""
+    items = []
+    for line in report.splitlines():
+        if not line.strip():
+            continue
+        if line.startswith('unexamined:'):
+            items.append(f"- **{UNEXAMINED_QUESTION}**\n  ({line.strip()})")
+            continue
+        rule, _, rest = line.partition(': ')
+        path, _, detail = rest.partition(': ')
+        if rule not in QUESTIONS:
+            items.append(f"- {line.strip()}")
+            continue
+        items.append(f"- **{question(rule, path, detail)}**\n"
+                     f"  ({rule}, `{path}`, matched `{detail.replace('`', '')}`)")
+    return '\n'.join(items)
+
+
 def evaluate(diff_text, known=None):
     """The diff text -> [(rule, path, detail), ...], one entry per file per rule that fired."""
     known = known if known is not None else KnownDeps()
@@ -1068,8 +1134,33 @@ diff --git a/kernel/src/revoke.rs b/kernel/src/revoke.rs
 ]
 
 
+# (report line, a phrase its question must contain): one per rule, plus the unexamined case.
+ASK_FIXTURES = [
+    ("abi-surface: crates/abi/src/lib.rs: pub const NOTIFICATION: u64 = 8;", "syscall number"),
+    ("dependency: fuzz/Cargo.toml: brand_new 1.0", "taking `brand_new 1.0` as a dependency"),
+    ("format-crate: crates/network_time_protocol/src/lib.rs: // the offset",
+     "the bytes of `network_time_protocol`'s format"),
+    ("spawnproto: crates/grant_plan/src/spawnproto.rs: pub const SLOT: u64 = 2;", "spawn-protocol"),
+    ("decisions: design/decisions/0088-needs-architect-as-a-check.md: **What.**",
+     "this edit to §88 (needs architect as a check)"),
+    ("decisions: CLAUDE.md: (CLAUDE.md edited)", "this edit to CLAUDE.md"),
+    ("syscall-error: kernel/src/syscall.rs: return Err(Error::BadPointer);", "which error"),
+    ("unexamined: no base to diff against, so no rule read this pull request", "could not read"),
+]
+
+
 def selftest():
     bad = []
+    asked = {line.split(':')[0] for line, _w in ASK_FIXTURES}
+    for rule in [r.__name__[len('rule_'):].replace('_', '-') for r in RULES] + ['dependency']:
+        if rule not in asked or rule not in QUESTIONS:
+            bad.append(f"rule {rule} has no question, or no ask fixture")
+    for line, want in ASK_FIXTURES:
+        got = ask(line)
+        ok = want in got
+        print(f"  {'ok  ' if ok else 'FAIL'}  ask: {line.split(':')[0]} states its question")
+        if not ok:
+            bad.append(f"ask {line!r}: wanted {want!r} in {got!r}")
     for name, diff_text, want_rule, *rest in FIXTURES:
         got = evaluate(diff_text, rest[0] if rest else None)
         got_rules = {r for r, _p, _d in got}
@@ -1083,7 +1174,7 @@ def selftest():
             print(f"architect-label-rules: selftest: {b}", file=sys.stderr)
         return 1
     print(f"architect-label-rules: {len(FIXTURES)} fixtures, every rule fires and every "
-          "near-miss stays quiet")
+          f"near-miss stays quiet; {len(ASK_FIXTURES)} findings each state their question")
     return 0
 
 
@@ -1091,6 +1182,7 @@ USAGE = (
     "usage: python3 helpers/architect-label-rules.py [--selftest]\n"
     "  --selftest   run the fixtures above; no stdin, no git, no repository\n"
     "  --base-rev REV   with a diff on stdin: rule 2 skips a dependency REV already has\n"
+    "  --ask        read this tool's own report on stdin, print each finding's question for calef\n"
     "  (no args)    read a unified diff on stdin, print each rule that fired, "
     "exit 0 if any did"
 )
@@ -1099,6 +1191,9 @@ USAGE = (
 def main(argv):
     if argv and argv[0] == '--selftest':
         return selftest()
+    if argv == ['--ask']:
+        print(ask(sys.stdin.read()))
+        return 0
     known = None
     if len(argv) == 2 and argv[0] == '--base-rev':
         known = known_deps_from_git(argv[1])
