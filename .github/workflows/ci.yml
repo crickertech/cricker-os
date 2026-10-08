@@ -531,6 +531,16 @@ jobs:
       # console server drive the same UART from two address spaces with nothing arbitrating, so a
       # thread dying while the progenitor prints shuffles the two lines together at byte
       # granularity. Local-only would have kept it invisible.
+      #
+      # **The row builds `rg` and the legs walk a tree with it** (lane milestone/121-rg-ci,
+      # 2026-10-08 UTC, the first gap calef's amber ruling on fatal risk 1 names): before this,
+      # `rg`'s lines skipped here because nothing built it, so nothing re-checked the claim that
+      # a stranger's program runs on nife. `helpers/build-ripgrep.sh` fetches ripgrep 14.1.1 from
+      # crates.io, checked against its SHA-256, and cross-builds it for the two legs plus a host
+      # reference. No cache: a cold build was 81 s for three triples and the host on patagonia,
+      # and notes/actions-cache-budget-2026-10-07.md found that a merge group cannot restore any
+      # entry `main` does not hold, and `main` saves none. The added minutes are measured on that
+      # lane's pull request and recorded in milestone 121 (`ripgrep` on nife)'s block.
       - run: script/ci-build swish-check-aarch64-riscv64
       - name: Check the job's wall time against its budget
         if: always()
@@ -616,6 +626,7 @@ jobs:
           sudo udevadm trigger --name-match=kvm
           ls -l /dev/kvm
 
+      # The row builds `rg` for this leg first; the `swish-check` job above says why.
       - run: script/ci-build swish-check-x86_64
       - name: Check the job's wall time against its budget
         if: always()
