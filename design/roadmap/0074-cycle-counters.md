@@ -1,7 +1,7 @@
 ---
 status: PARTIAL
 raised: 2026-08-03
-milestone_dependencies: 75
+milestone_dependencies: 75, 127
 decision_dependencies: none
 machine_requirements: aarch64 and riscv64 silicon; PMU cycle counter
 specific_machine: none

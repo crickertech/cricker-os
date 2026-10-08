@@ -4,7 +4,7 @@ raised: 2026-07-31
 milestone_dependencies: none
 decision_dependencies: none
 machine_requirements: riscv64 silicon with an NVMe controller and a NIC
-specific_machine: none
+specific_machine: radon (the first runs of both halves)
 needs_person: yes
 ---
 # 53. The board's own peripherals: network and storage on real silicon

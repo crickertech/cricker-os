@@ -4,8 +4,8 @@ raised: 2026-08-18
 milestone_dependencies: none
 decision_dependencies: none
 machine_requirements: none
-specific_machine: none
-needs_person: no
+specific_machine: radon (the radon evening E3 is owed)
+needs_person: yes
 ---
 # 134. The register of measures: every number this kernel owes itself
 

@@ -1,7 +1,7 @@
 ---
 status: PARTIAL
 raised: 2026-09-03
-milestone_dependencies: none
+milestone_dependencies: 592
 decision_dependencies: none
 machine_requirements: none
 specific_machine: radon (the boot lottery being sampled is radon's)

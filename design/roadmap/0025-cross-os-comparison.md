@@ -1,7 +1,7 @@
 ---
 status: PARTIAL
 raised: 2026-07-30
-milestone_dependencies: 74
+milestone_dependencies: 74, 127
 decision_dependencies: none
 machine_requirements: aarch64 silicon; PMU cycle counter
 specific_machine: argon (the Jetson TX1 under seL4's published aarch64 numbers, so the comparison is like for like)
