@@ -1,12 +1,15 @@
 #!/usr/bin/env bash
 # Build **unmodified `ripgrep` from crates.io** for the nife custom target (milestone 121).
 #
-# This is an experiment's apparatus, not part of the build. Nothing in `script/test` runs it and no
-# gate needs it: `xtask initrd-aarch64` packs the resulting ELF only if it is already on disk, and
-# `system_tests/src/user/ripgrep_tests.rs` skips when it is not. That is deliberate, and §46 (thin
-# primitives or whole subsystems) is the reason: making the gate fetch `ripgrep` and its ~40
-# transitive crates would put a crates.io dependency tree in this repository's build, which is
-# an architect's call and not a lane's.
+# This is an experiment's apparatus, not part of the build. Nothing in `script/test` runs it:
+# `xtask initrd-aarch64` packs the resulting ELF only if it is already on disk, and
+# `system_tests/src/user/ripgrep_tests.rs` skips when it is not. **The `swish-check` rows of
+# `script/ci-build` run it** (lane milestone/121-rg-ci, 2026-10-08 UTC), so CI walks a tree with
+# `rg` on every pull request: until then nothing re-checked fatal risk 1's claim. That puts a
+# crates.io fetch of `ripgrep` and its ~40 transitive crates in a gate, which §46 (thin primitives
+# or whole subsystems) makes an architect's call; the pull request that added it asks for the ruling.
+# It is pinned twice so a gate cannot drift: the `.crate` must match the SHA-256 below, and cargo
+# builds with `--locked` against the `Cargo.lock` the crate ships.
 #
 # The whole point of milestone 121 is that the source is somebody else's and is untouched. There is
 # no patch, no vendored copy, and no fork. What differs from a Linux build is entirely on the
@@ -26,21 +29,42 @@
 set -euo pipefail
 
 VERSION="${1:-14.1.1}"
+# The SHA-256 of `ripgrep-14.1.1.crate`, the `cksum` crates.io's index carries for that version
+# (https://index.crates.io/ri/pg/ripgrep, read 2026-10-08 UTC, and equal to a download's). Another
+# version given by hand is fetched unchecked and says so; a gate only ever builds the default.
+SHA256_14_1_1=f77b8032dc584527975f34aa5a897d0ef5a785573fda778771a614ff9da501d9
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 # The source tree is unpacked OUTSIDE this repository on purpose. `ripgrep` carries no
 # `[workspace]` table, so cargo walks up and finds this repo's root manifest, then refuses to
 # build a package that "believes it's in a workspace when it's not". Unpacking under `target/`
 # hits that too. The alternative (a `workspace.exclude` entry) would put ripgrep in this
 # repository's manifest, which is exactly the coupling this experiment is meant not to have.
-BUILD="${TMPDIR:-/tmp}/nife-ripgrep"
+# One build directory per checkout, named by a hash of its path (2026-10-08 UTC). It was one
+# directory for the whole machine, so two lanes building at once shared a cargo target dir while
+# each pointed `RUSTUP_TOOLCHAIN` at its own farm, and each rebuilt `std` over the other's. That
+# mattered little while only a person ran this by hand; `script/ci-build`'s `swish-check` row
+# now runs it on every local gate.
+BUILD="${TMPDIR:-/tmp}/nife-ripgrep-$(printf %s "$ROOT" | shasum -a 256 | cut -c1-12)"
 OUT="$ROOT/target/ripgrep"
 SRC="$BUILD/ripgrep-$VERSION"
 
 mkdir -p "$BUILD"
 if [ ! -f "$SRC/Cargo.toml" ]; then  # a half-unpacked tree from an interrupted run has no manifest
   echo "build-ripgrep: fetching ripgrep $VERSION from crates.io"
-  curl -sSL --max-time 120 -o "$BUILD/ripgrep-$VERSION.crate" \
+  # `--retry`, because a CI job now depends on this fetch and one dropped connection should not
+  # fail a pull request.
+  curl -sSfL --retry 3 --max-time 120 -o "$BUILD/ripgrep-$VERSION.crate" \
     "https://static.crates.io/crates/ripgrep/ripgrep-$VERSION.crate"
+  if [ "$VERSION" = 14.1.1 ]; then
+    got="$(shasum -a 256 "$BUILD/ripgrep-$VERSION.crate" | cut -d' ' -f1)"
+    if [ "$got" != "$SHA256_14_1_1" ]; then
+      echo "build-ripgrep: ripgrep-$VERSION.crate has SHA-256 $got, not $SHA256_14_1_1; refusing it" >&2
+      rm -f "$BUILD/ripgrep-$VERSION.crate"
+      exit 1
+    fi
+  else
+    echo "build-ripgrep: ripgrep $VERSION has no recorded SHA-256 here; it is unchecked" >&2
+  fi
   tar xzf "$BUILD/ripgrep-$VERSION.crate" -C "$BUILD"
 fi
 
@@ -80,7 +104,7 @@ for TRIPLE in ${NIFE_RIPGREP_TRIPLES:-aarch64-unknown-nife riscv64-unknown-nife 
   CARGO_PROFILE_RELEASE_OVERFLOW_CHECKS=true \
   RUSTUP_TOOLCHAIN="$ROOT/target/nife-farm" \
   RUSTFLAGS="-Clink-arg=-T$ROOT/crates/user_mode_runtime/link.ld -Clink-arg=-u_start -Clink-arg=--build-id=none -Clink-arg=$OUT/$TRIPLE/note.o -Cstrip=debuginfo -Copt-level=s" \
-    cargo build --release \
+    cargo build --release --locked \
       -Zjson-target-spec \
       -Zbuild-std=core,alloc,std,panic_abort \
       -Zbuild-std-features=compiler-builtins-mem \
@@ -98,7 +122,7 @@ done
 # reference and not a nife program. `NIFE_RIPGREP_HOST=0` skips it.
 if [ "${NIFE_RIPGREP_HOST:-1}" != 0 ]; then
   cd "$SRC"
-  cargo build --release --target-dir "$SRC/target/host"
+  cargo build --release --locked --target-dir "$SRC/target/host"
   mkdir -p "$OUT/host"
   cp "$SRC/target/host/release/rg" "$OUT/host/rg"
   echo "build-ripgrep: $OUT/host/rg ($("$OUT/host/rg" --version | head -1))"

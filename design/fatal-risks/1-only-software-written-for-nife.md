@@ -56,6 +56,17 @@ riscv64 and 345.8 s on x86_64 (both TCG). The same limits as above still hold: i
 `helpers/build-ripgrep.sh` was run, never in CI, and `rg` sits on the data disk rather than being
 installed by `jig`. Its peak memory at the prompt is unmeasured; it finished within the `std` heap.
 
+Ruled 2026-10-08 (UTC), on the evidence above. calef: *"I would keep it amber and we prioritize
+the path to green."* The verdict stays AMBER. The path to GREEN is three gaps, each with an owner:
+
+1. Nothing re-checked the claim. Owner: lane `milestone/121-rg-ci` (#1853). Its `swish-check` rows
+   build `rg` in CI, type the walk on every pull request, and refuse to skip it there.
+2. One program is one data point. A second foreign program, unrelated to `ripgrep` and ideally not
+   written in Rust, is untested. Open: it waits on calef's choice of program.
+3. Threads were never exercised. nife answers `available_parallelism()` with `Ok(1)`, and §105
+   declines `std::thread::spawn`, so no foreign program here has run a second thread. Open: it
+   waits on a §105 question to calef.
+
 DECISIONS §105 (`std::thread::spawn` stays declined, until a customer needs it) was never reached,
 and that reverses the premise. `ripgrep` asks `available_parallelism()` rather than assuming it, and
 nife answers `Ok(1)` honestly. A platform answering `Unsupported` there would have failed this

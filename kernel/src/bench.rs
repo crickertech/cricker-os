@@ -624,9 +624,9 @@ fn map_new() {
 ///   device tree states: 10 MHz on QEMU `virt`, 4 MHz on radon's JH7110.
 /// - **`aarch64`.** `PMCCNTR_EL0` over ticks of `CNTVCT_EL0`, the generic timer at `CNTFRQ_EL0`
 ///   (62.5 MHz on QEMU `virt`, 19.2 MHz on argon's TX1). **Which exception levels the numerator
-///   counts is `PMCCFILTR_EL0`'s, and that value is provisional** until an architect rules on
-///   design/roadmap/0353-the-aarch64-half-of-74.md, so the meaning line says so and no aarch64
-///   figure is a result yet.
+///   counts is `PMCCFILTR_EL0`'s**: EL0 and EL1, not EL2, on every board, by calef's ruling A1 of
+///   2026-10-07 (UTC) in design/roadmap/0353-the-aarch64-half-of-74.md. That is user plus kernel,
+///   the quantity the other two architectures count, and the meaning line names it.
 /// - **`x86_64`.** Unhalted core cycles (`IA32_PERF_FIXED_CTR1`) over TSC ticks. **The TSC is
 ///   constant-rate and core cycles are not**, so this ratio moves with frequency scaling and turbo
 ///   on a machine that does either. That is information rather than noise, and it is exactly why
@@ -702,11 +702,13 @@ fn cycles_per_tick() {
 const CYCLE_PROBE_MEANING: &str = "core cycles (SBI PMU CPU_CYCLES) per tick of the `time` CSR, a fixed-rate timebase the device \
      tree states";
 
-/// The aarch64 twin. **The filter clause is the one a reader must not drop**: until an architect
-/// rules on `PMCCFILTR_EL0`, what this counts is a provisional choice, and the line that leaves the
-/// machine carries that rather than a note that does not.
+/// The aarch64 twin. **The filter clause is the one a reader must not drop**: which exception levels
+/// are counted is a policy (`arch::pmu::PMCCFILTR_COUNT_EL0_AND_EL1`, calef's ruling A1, 2026-10-07
+/// UTC), and a figure compared against a system that counted differently, such as seL4 on firmware
+/// that left `P` set, is a different quantity. The line that leaves the machine carries that rather
+/// than a note that does not. It no longer says PROVISIONAL because the value no longer is.
 #[cfg(target_arch = "aarch64")]
-const CYCLE_PROBE_MEANING: &str = "cycles (PMCCNTR_EL0, PMCCFILTR_EL0 PROVISIONAL: EL0+EL1 counted, EL2 not) per tick of \
+const CYCLE_PROBE_MEANING: &str = "cycles (PMCCNTR_EL0, PMCCFILTR_EL0 0: EL0+EL1 counted, EL2 not) per tick of \
      CNTVCT_EL0, the generic timer at CNTFRQ_EL0";
 
 /// The `x86_64` twin, and the difference a cross-architecture reader has to know: the denominator

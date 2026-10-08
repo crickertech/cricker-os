@@ -46,6 +46,14 @@ recorded here so the gap has one home rather than two.
   `design/decisions/0139-cycle-counter-authority.md` is DECIDED (calef, 2026-09-02) and milestone
   229 shipped the per-thread grant the same day: `kernel/src/arch/aarch64/timer.rs` opens and
   closes `PMUSERENR_EL0.CR` on the context switch.
+- **Outstanding.** *What argon's firmware left in `PMCCFILTR_EL0` decides whether nife runs
+  twice.* calef ruled on 2026-10-07 (UTC) that nife writes `0` on every aarch64 board, counting
+  EL0 and EL1 (milestone 353 (the aarch64 half of 74)). seL4's published TX1 figures never write the
+  register, so they counted whatever firmware left, and argon's boot line prints it
+  (`firmware left PMCCFILTR_EL0 0x...`). If that value has `P` (bit 31) set, seL4's numbers exclude
+  its kernel, and this milestone runs nife a second time with the filter matched to seL4's and
+  labels that run as matched to seL4's filter, beside the policy run. Not yet checked: argon has
+  not booted.
 - **Milestone 168.** The multi-tasking workload this block's own suite cannot supply, minted from
   DECISIONS §96's text so the gap has one home.
 
