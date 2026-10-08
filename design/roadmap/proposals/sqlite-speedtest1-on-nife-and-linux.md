@@ -24,7 +24,7 @@ than the CPU. A separate in-memory run (`:memory:`) isolates compute and allocat
 ## Which fatal risk it informs
 
 Risk 1 (`design/fatal-risks/1-only-software-written-for-nife.md`): SQLite is the canonical C you
-cannot rewrite (milestone 36, the foreign component, says so). A passing `speedtest1` is a third-party
+cannot rewrite (milestone 36, a foreign-language component, seam first, says so). A passing `speedtest1` is a third-party
 program running unmodified on nife. Risk 4 (the per-crossing cost): each test's file I/O count is
 known, so the time per crossing falls out.
 

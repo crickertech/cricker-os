@@ -3,7 +3,7 @@ status: PROPOSED
 raised: 2026-10-08
 milestone_dependencies: 494, 53
 decision_dependencies: none
-machine_requirements: silicon with a NIC nife drives and a peer on the same wire, xenon (milestone 494) or radon (milestone 53)
+machine_requirements: silicon with a NIC nife drives and a peer on the same wire, xenon or radon
 specific_machine: none
 needs_person: yes
 ---
@@ -30,7 +30,7 @@ risk 4's currency.
 
 ## What nife must supply, as questions
 
-- Does the stack offer a BSD socket surface (milestone 649, shared socket numbers) that iperf3's
+- Does the stack offer a BSD socket surface (milestone 649, every client of a network stack shares its socket numbers) that iperf3's
   C code can use, or does the port need a shim? If a shim, it is part of what is measured.
 - `select` or `poll`, threads (iperf3 3.16+ is multithreaded) and a timer fine enough for its interval reports?
 - Does the stack have window scaling and enough buffer for a gigabit link, or does it cap lower?
