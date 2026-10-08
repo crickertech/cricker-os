@@ -389,7 +389,7 @@ pub(crate) fn initrd_riscv() -> bool {
             return false;
         }
     };
-    files.push((package_archive::CATALOGUE, catalogue.as_bytes()));
+    files.push((package_archive::CATALOG, catalogue.as_bytes()));
     // The measurement table (milestone 104), on the same terms as aarch64's: last, so it measures
     // everything above it, and vouched for by the kernel's trust root so the progenitor's refusals mean
     // something. Parity is the point (§19): the same table, the same parser, the same policy.
@@ -553,7 +553,7 @@ pub(crate) fn initrd_x86() -> bool {
             return false;
         }
     };
-    files.push((package_archive::CATALOGUE, catalogue.as_bytes()));
+    files.push((package_archive::CATALOG, catalogue.as_bytes()));
     // The measurement table (milestone 104), on the same terms as the other two: last, so it
     // measures everything above it, and vouched for by the kernel's trust root so the progenitor's refusals
     // mean something. Parity is the point (§19): the same table, the same parser, the same policy.
@@ -678,7 +678,7 @@ pub(crate) fn initrd_aarch64() -> bool {
     // **The image's package source** (milestone 198 (a package manager) rung 3a): every recipe under `packages/` for
     // this architecture is built, written where the package tests' HTTP peer serves it, and its
     // catalogue line packed here, *above* the measurement table so the kernel's trust root vouches
-    // for it. `package_archive::CATALOGUE`'s doc has why. It also runs the producer end to end on
+    // for it. `package_archive::CATALOG`'s doc has why. It also runs the producer end to end on
     // every archive build, which nothing did before.
     let catalogue = match crate::package::image_catalogue("aarch64") {
         Ok(catalogue) => catalogue,
@@ -687,7 +687,7 @@ pub(crate) fn initrd_aarch64() -> bool {
             return false;
         }
     };
-    files.push((package_archive::CATALOGUE, catalogue.as_bytes()));
+    files.push((package_archive::CATALOG, catalogue.as_bytes()));
     // **The measurement table, last, so it measures everything above it** (milestone 104). The progenitor
     // reads this entry out of the archive it already holds and refuses to load a program whose
     // bytes it does not match. See [`measurement_table`] for why it lives here rather than inside

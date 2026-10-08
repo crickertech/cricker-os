@@ -153,7 +153,7 @@ fn a_client_completes_a_udp_round_trip_through_the_e1000e_nic() {
 /// above; nobody has broken the exchange this test adds to watch it fail.
 #[test_case]
 fn a_package_fetched_over_the_e1000e_nic_is_accepted_only_by_the_image_digest() {
-    let catalogue = program(package_archive::CATALOGUE)
+    let catalogue = program(package_archive::CATALOG)
         .expect("no package catalogue in the initrd archive: the archive build packs one");
     let (report, w) = match e1000e_service::start_package_fetch(
         image(),

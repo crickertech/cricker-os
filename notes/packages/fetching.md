@@ -19,7 +19,7 @@ $ packages/greeting/0.1.0/greeting
 
 The request is `spawnproto::Activation::Fetch` (provisional), and `fetch` in
 `crates/system_initializer` serves it. It asks the image's catalog first
-(`package_archive::catalogued_stem`). A name the image vouches for nothing by costs no network.
+(`package_archive::cataloged_stem`). A name the image vouches for nothing by costs no network.
 
 Then it splits one page from a region of its own and hands it to the stack it built at boot. Over
 that page it sends `GET /<stem>.nifepkg` to the package source and reads the reply with

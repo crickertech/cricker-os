@@ -7,7 +7,7 @@
 use std::process::Command;
 
 use crate::archive::{initrd_path, initrd_riscv, riscv_initrd_path};
-use crate::disk::{disk_path, mkdisk, mkredoxfs, redoxfs_server_build};
+use crate::disk::{SWISH_CHECK_DISK_MIB, disk_path, mkdisk, mkredoxfs_of, redoxfs_server_build};
 use crate::host::{flag_value, workspace_root};
 use crate::scanout::{gpu_mon_socket, scanout_rows, screendump, sendkey};
 use crate::suite::ArchLegs;
@@ -297,7 +297,7 @@ const SWISH_CHECK_AFTER_REBOOT: &[Line] = &[
         0,
         "caps packages/noteless/0.1.0/noteless",
         &[
-            "provenance: unvouched (digest ",
+            "provenance: unvouched (digest sha256:",
             "runs on this session's capability to run unvouched bytes",
         ],
     ),
@@ -662,7 +662,7 @@ const SWISH_CHECK_SCRIPT: &[Line] = &[
         0,
         "caps packages/noteless/0.1.0/noteless",
         &[
-            "provenance: vouched by activation generation 1 (digest ",
+            "provenance: vouched by activation generation 1 (digest sha256:",
             // **No note, the default** (milestone 597 (a program carries its manifest in an ELF
             // note), provisional): `noteless` carries no manifest note, so it is bound and endowed
             // as `grant_plan::NO_NOTE_MANIFEST`, its output alone.
@@ -678,7 +678,7 @@ const SWISH_CHECK_SCRIPT: &[Line] = &[
         &[
             "cap 1  page      clock",
             "cap 2  page      config",
-            "provenance: unvouched (digest ",
+            "provenance: unvouched (digest sha256:",
             "runs on this session's capability to run unvouched bytes (slot 62)",
             // **What the note asks, beside what is granted** (milestone 597, provisional). The
             // witness's note asks for the three authorities it probes, and §219 says an unvouched
@@ -800,6 +800,16 @@ const SWISH_CHECK_SCRIPT: &[Line] = &[
         "/installed/rg needle",
         &["rg: failed to get current working directory: operation not supported on this platform"],
     ),
+    line(0, RG_WALK_CD, &[]),
+    // **Unmodified `ripgrep` walks a real tree from the prompt** (milestone 121 (`ripgrep`:
+    // enumeration as a capability), calef's 2026-10-07 ruling on fatal risk 1). `/search/crates` is
+    // a copy of this repository's `crates/` (`crate::disk::RIPGREP_CORPUS`), hundreds of files in nested
+    // directories, granted read-only because the word named it. No flag narrows the walk: `rg`
+    // lists every directory it meets, opens every file, skips the binary ones itself, and prints
+    // every matching line. The answer is wanted whole, so this line lists nothing here and
+    // [`rg_walk_verdict`] compares it line for line with what the host's `rg` printed over the same
+    // copy. Typed only when `helpers/build-ripgrep.sh` has run, like the lines above.
+    line(1, RG_WALK_LINE, &[]),
     line(0, "cd /", &[]),
     // **A note that asks more than its vouch allows is refused** (milestone 597, provisional).
     // `least_authority_demo`'s note declares an argument, which only a command line designates,
@@ -901,7 +911,7 @@ const SWISH_CHECK_SCRIPT: &[Line] = &[
     line(
         0,
         "caps greeting",
-        &["provenance: vouched by activation generation 2 (digest "],
+        &["provenance: vouched by activation generation 2 (digest sha256:"],
     ),
     // **Milestone 614: the second version installs beside the first** (rulings 2 and 3). Rows key
     // on the digest, so installing over a live version appends and moves the default pointer
@@ -1000,7 +1010,7 @@ const SWISH_CHECK_SCRIPT: &[Line] = &[
     line(
         0,
         "caps installed/unvouched",
-        &["provenance: vouched by the owner in activation generation 4 (digest "],
+        &["provenance: vouched by the owner in activation generation 4 (digest sha256:"],
     ),
     // **A vouch claims no name** (§229 B2): the entry is found by the bytes' digest and never by
     // the name it was recorded under, so the bare word reaches nothing.
@@ -1014,7 +1024,7 @@ const SWISH_CHECK_SCRIPT: &[Line] = &[
     line(
         0,
         "caps installed/unvouched",
-        &["provenance: unvouched (digest "],
+        &["provenance: unvouched (digest sha256:"],
     ),
     line(
         1,
@@ -2362,11 +2372,12 @@ fn usb_keyboard_boot(arch: &str) -> bool {
     let collector = Arc::clone(&seen);
     let reader = std::thread::spawn(move || {
         let mut buf = [0u8; 1024];
+        let mut split = Vec::new();
         while let Ok(n) = stdout.read(&mut buf) {
             if n == 0 {
                 return;
             }
-            let text = String::from_utf8_lossy(&buf[..n]).replace('\r', "");
+            let text = whole_characters(&mut split, &buf[..n]).replace('\r', "");
             collector.lock().expect("transcript lock").push_str(&text);
         }
     });
@@ -2528,7 +2539,7 @@ fn swish_check_boot(
     }
     let skipped = |line: &str| {
         swish_check_omits(arch, line).is_some()
-            || (line.contains(crate::disk::INSTALLED_RIPGREP) && !rg_built)
+            || ((line.contains(crate::disk::INSTALLED_RIPGREP) || line == RG_WALK_CD) && !rg_built)
             || ((line.starts_with("std_exerciser")
                 // The line after `std_exerciser redirected > args.txt` reads the file it wrote, so
                 // it goes with it; until 2026-10-03 it stayed and failed every local run that had
@@ -2561,16 +2572,16 @@ fn swish_check_boot(
         // the FS server has to exist first so the archive carries it.
         redoxfs_server_build(X86_TARGET)
             && mkdisk()
-            && mkredoxfs()
+            && mkredoxfs_of(SWISH_CHECK_DISK_MIB)
             && if probe_features().is_empty() {
                 uefi_image()
             } else {
                 uefi_image_with(Some(probe_features()))
             }
     } else if riscv {
-        redoxfs_server_build(RISCV_TARGET) && mkdisk() && mkredoxfs() && initrd_riscv()
+        redoxfs_server_build(RISCV_TARGET) && mkdisk() && mkredoxfs_of(SWISH_CHECK_DISK_MIB) && initrd_riscv()
     } else {
-        redoxfs_server_build(TARGET) && mkredoxfs() && mkdisk() && user()
+        redoxfs_server_build(TARGET) && mkredoxfs_of(SWISH_CHECK_DISK_MIB) && mkdisk() && user()
     } // After the archive build, whose packages it copies: a package the image's catalog
     // vouches for, a tampered copy, and an unvouched program, on the disk for the installer's
     // lines in the script (milestone 198 rung 3a).
@@ -2724,13 +2735,14 @@ fn swish_check_boot(
         let mut flood_out = String::new();
         let mut flood_lines = Vec::new();
         let mut buf = [0u8; 1024];
+        let mut split = Vec::new();
         while let Ok(n) = stdout.read(&mut buf) {
             if n == 0 {
                 return;
             }
             // The terminal's own carriage returns are the line editor's, not content. Dropped so
             // the checks below can be about what a person reads.
-            let text = String::from_utf8_lossy(&buf[..n]).replace('\r', "");
+            let text = whole_characters(&mut split, &buf[..n]).replace('\r', "");
             raw_collector
                 .lock()
                 .expect("transcript lock")
@@ -2961,7 +2973,16 @@ fn swish_check_boot(
             if skipped(line) {
                 continue;
             }
-            if !wait_for_prompt(line_secs) {
+            // **`rg`'s lines have bounds of their own** ([`RG_LINE_SECS`], [`RG_WALK_SECS`]): the
+            // wait for this prompt is the previous line's run.
+            let bound = match previous {
+                Some((RG_WALK_LINE, _)) => RG_WALK_SECS,
+                Some((prev, _)) if prev.contains(crate::disk::INSTALLED_RIPGREP) => {
+                    line_secs.max(RG_LINE_SECS)
+                }
+                _ => line_secs,
+            };
+            if !wait_for_prompt(bound) {
                 failed.push(format!(
                     "the prompt never came back to take `{line}`; the line before it did not finish"
                 ));
@@ -3000,7 +3021,12 @@ fn swish_check_boot(
                 failed.push(format!("could not type `{line:?}` at the prompt"));
                 break;
             }
-            if !wait_after(at, &format!("{echoed}\n"), line_secs) {
+            let echo_bound = if line.contains(crate::disk::INSTALLED_RIPGREP) {
+                line_secs.max(RG_LINE_SECS)
+            } else {
+                line_secs
+            };
+            if !wait_after(at, &format!("{echoed}\n"), echo_bound) {
                 failed.push(format!("the prompt never echoed `{echoed}` for {line:?}"));
                 break;
             }
@@ -3190,6 +3216,22 @@ fn swish_check_boot(
                 }
                 None => failed.push(format!("`{line}` produced no answer at all")),
             }
+        }
+    }
+    // **And `rg`'s walk found exactly what the host's found** (milestone 121), which no list of
+    // wanted phrases can say: a phrase list passes an answer that dropped a directory.
+    if failed.is_empty()
+        && rg_built
+        && !skipped(RG_WALK_LINE)
+        && let Some((answer, _)) = swish_check_answer(&transcript, 0, RG_WALK_LINE)
+    {
+        let expected = crate::disk::ripgrep_walk_expected();
+        match std::fs::read_to_string(&expected)
+            .map_err(|e| format!("{}: {e}", expected.display()))
+            .and_then(|want| rg_walk_verdict(answer, &want))
+        {
+            Ok(said) => eprintln!("swish-check ({arch}): {said}"),
+            Err(why) => failed.push(why),
         }
     }
 
@@ -3815,6 +3857,107 @@ fn launch_graphical_terminal(
     }
 }
 
+/// **`bytes` as text, holding back a character the read cut in two.** A pipe read ends wherever the
+/// 1024-byte buffer fills, so a multi-byte character can straddle two reads, and decoding each read
+/// alone turned the halves into two replacement characters: `§` arrived as `��` in one line of
+/// `rg`'s walk on 2026-10-07 (milestone 121), the only one of 349 that differed from the host's.
+/// An incomplete sequence at the end waits in `split` for the next read; bytes that are invalid
+/// anywhere else are still replaced, as before.
+fn whole_characters(split: &mut Vec<u8>, bytes: &[u8]) -> String {
+    split.extend_from_slice(bytes);
+    let keep = match std::str::from_utf8(split) {
+        Ok(_) => 0,
+        // `error_len() == None` is exactly "the input ended inside a character".
+        Err(e) if e.error_len().is_none() => split.len() - e.valid_up_to(),
+        Err(_) => 0,
+    };
+    let tail = split.split_off(split.len() - keep);
+    let text = String::from_utf8_lossy(split).into_owned();
+    *split = tail;
+    text
+}
+
+/// **The line that walks [`crate::disk::RIPGREP_CORPUS`]**, typed in `/search`: `rg`, by its path, looking for
+/// [`crate::disk::RIPGREP_WALK_PATTERN`]. Spelled out because a `Line` wants a `&'static str`; a
+/// test holds it to the two constants the disk is staged from.
+const RG_WALK_LINE: &str = "/installed/rg BUGS crates";
+
+/// **Where [`RG_WALK_LINE`] is typed**, [`crate::disk::RIPGREP_WALK_HOME`]; skipped with it, since
+/// the directory is on the disk only beside `rg`.
+const RG_WALK_CD: &str = "cd /search";
+
+/// **How long [`RG_WALK_LINE`] may take**, typed to prompt-back, on every leg (milestone 121,
+/// 2026-10-07 UTC). Measured on patagonia with other lanes building (load 15 to 60):
+///
+/// | leg | the walk | load average |
+/// |---|---:|---:|
+/// | aarch64, HVF | 14.9 s, 54.1 s | 24, 38 |
+/// | riscv64, TCG | 40.8 s | about 20 |
+/// | `x86_64`, TCG | 345.8 s, 432.1 s | 15 to 20 |
+///
+/// Ten minutes covers the slowest with room, and a hang still reports inside one CI job. Why the
+/// emulated `x86_64` leg is eight to twenty times the others is not measured; the likeliest cost is
+/// the one [`SWISH_CHECK_X86_LINE_SECS`] names, the screen path painting each of 349 lines through
+/// TCG. CI never types this line (`rg` is not built there), so it binds only a local run.
+const RG_WALK_SECS: u64 = 600;
+
+/// **How long any other line naming `rg` may take** (the three milestone 595 typed, and its `caps`).
+/// Loading a 2.8 MiB image is most of it: under the same load those lines took 3.8 to 30.1 s on
+/// aarch64 and up to 38.7 s on `x86_64`, so the shared 30 s bound failed them on two legs before
+/// this. Where the time goes inside a spawn of that size is not measured (milestone 121's BUGS).
+const RG_LINE_SECS: u64 = 90;
+
+/// **Whether `rg`'s answer at the prompt is the host's answer**, as a set of lines: every line the
+/// host's `rg` printed must appear exactly as often in `answer`, and nothing else may. A set and
+/// not a sequence, because the order `rg` walks a directory in is the order the filesystem lists
+/// it, and RedoxFS and APFS list differently; nothing about the order is a claim this line makes.
+/// `Ok` carries a sentence for the log, `Err` the failure with the first differences.
+fn rg_walk_verdict(answer: &str, expected: &str) -> Result<String, String> {
+    use std::collections::BTreeMap;
+    let count = |text: &str| {
+        let mut lines: BTreeMap<String, usize> = BTreeMap::new();
+        // The shell indents the first line of an answer (`  crates/abi/...`, every leg), and every
+        // line `rg` prints here starts with the path, so leading blanks are never `rg`'s.
+        for line in text.lines().map(|l| l.trim_end_matches('\r').trim_start()) {
+            *lines.entry(line.to_string()).or_default() += 1;
+        }
+        lines
+    };
+    let (got, want) = (count(answer), count(expected));
+    let wanted: usize = want.values().sum();
+    if wanted == 0 {
+        return Err(
+            "the host's `rg` found nothing in the corpus, so there is nothing to compare".into(),
+        );
+    }
+    let differ = |a: &BTreeMap<String, usize>, b: &BTreeMap<String, usize>| {
+        a.iter()
+            .filter(|(line, n)| b.get(*line).copied().unwrap_or(0) < **n)
+            .map(|(line, _)| line.clone())
+            .collect::<Vec<_>>()
+    };
+    let (missing, extra) = (differ(&want, &got), differ(&got, &want));
+    let files = want
+        .keys()
+        .filter_map(|l| l.split_once(':').map(|(f, _)| f))
+        .collect::<std::collections::BTreeSet<_>>()
+        .len();
+    if missing.is_empty() && extra.is_empty() {
+        Ok(format!(
+            "`{RG_WALK_LINE}` printed the host's {wanted} lines from {files} files, no more and no fewer"
+        ))
+    } else {
+        Err(format!(
+            "`{RG_WALK_LINE}` differs from the host's `rg` over the same corpus ({wanted} lines from \
+             {files} files): {} missing, {} extra; first missing {:?}, first extra {:?}",
+            missing.len(),
+            extra.len(),
+            &missing[..missing.len().min(3)],
+            &extra[..extra.len().min(3)],
+        ))
+    }
+}
+
 /// **What the prompt printed in response to the first `line` at or after `from`**, plus where to
 /// resume looking. `None` when that line is not in the transcript at all.
 ///
@@ -3843,6 +3986,52 @@ fn swish_check_answer<'a>(
 
 #[cfg(test)]
 mod tests {
+
+    #[test]
+    fn a_character_split_across_two_reads_arrives_whole() {
+        // `§` is C2 A7: the first read ends after C2.
+        let mut split = Vec::new();
+        let first = super::whole_characters(&mut split, b"BUGS \xC2");
+        let second = super::whole_characters(&mut split, b"\xA7134\n");
+        assert_eq!(format!("{first}{second}"), "BUGS \u{a7}134\n");
+        // A byte that can never start a character is still replaced rather than held forever.
+        assert_eq!(super::whole_characters(&mut split, b"\xFFx"), "\u{fffd}x");
+        assert!(split.is_empty());
+    }
+
+    #[test]
+    fn the_rg_walk_line_types_what_the_disk_was_staged_for() {
+        assert_eq!(
+            super::RG_WALK_CD,
+            format!("cd /{}", crate::disk::RIPGREP_WALK_HOME)
+        );
+        assert_eq!(
+            super::RG_WALK_LINE,
+            format!(
+                "/{} {} {}",
+                crate::disk::INSTALLED_RIPGREP,
+                crate::disk::RIPGREP_WALK_PATTERN,
+                crate::disk::RIPGREP_CORPUS
+            )
+        );
+    }
+
+    #[test]
+    fn the_rg_walk_verdict_ignores_order_and_catches_a_dropped_or_doubled_match() {
+        let host = "crates/a/x.rs:// BUGS\ncrates/b/c/y.rs:## BUGS\ncrates/b/c/y.rs:## BUGS\n";
+        // RedoxFS lists `b` before `a`: the same answer.
+        let guest = "crates/b/c/y.rs:## BUGS\ncrates/a/x.rs:// BUGS\ncrates/b/c/y.rs:## BUGS\n";
+        assert!(super::rg_walk_verdict(guest, host).is_ok());
+        // A walk that never descended into `b/c` is the failure this line exists for.
+        assert!(super::rg_walk_verdict("crates/a/x.rs:// BUGS\n", host).is_err());
+        // One of two identical lines lost: a set without counts would pass this.
+        let short = "crates/a/x.rs:// BUGS\ncrates/b/c/y.rs:## BUGS\n";
+        assert!(super::rg_walk_verdict(short, host).is_err());
+        // Something the host never printed, such as an error in the middle of the walk.
+        let noisy = format!("{guest}rg: crates/b: permission denied\n");
+        assert!(super::rg_walk_verdict(&noisy, host).is_err());
+        assert!(super::rg_walk_verdict("", "").is_err());
+    }
 
     #[test]
     fn a_leg_thirty_times_its_baseline_fails_and_one_at_twice_it_does_not() {

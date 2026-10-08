@@ -1166,9 +1166,9 @@ pub fn boot(
     // refuses it or the archive has none, which vouches for no package: the same direction to be
     // wrong in as the table's own rule above.
     let catalogue = fs
-        .read(package_archive::CATALOGUE)
+        .read(package_archive::CATALOG)
         .filter(|bytes| {
-            measured_boot::verify_in_manifest(table, package_archive::CATALOGUE, bytes).is_ok()
+            measured_boot::verify_in_manifest(table, package_archive::CATALOG, bytes).is_ok()
         })
         .and_then(|b| core::str::from_utf8(b).ok())
         .unwrap_or("");
@@ -2921,7 +2921,7 @@ struct Channels {
     /// something a builtin does.
     reboot: Option<u64>,
     /// **The image's package catalog**, measured (milestone 198 rung 3a's installer): one
-    /// `<stem> <digest>` line per package the image vouches for (`package_archive::CATALOGUE`).
+    /// `<stem> <digest>` line per package the image vouches for (`package_archive::CATALOG`).
     /// Empty when the archive carried none or the table refused it, and then every
     /// `package install` is refused as not cataloged.
     catalogue: &'static str,
@@ -5922,10 +5922,10 @@ fn edit(
             let got = match decided {
                 Ok(got) => got,
                 Err(package_archive::Refusal::NoProgram) => return (S::NoProgram, live),
-                Err(_) => return (S::NotCatalogued, live),
+                Err(_) => return (S::NotCataloged, live),
             };
             let Ok(package) = package_archive::Package::parse(bytes) else {
-                return (S::NotCatalogued, live);
+                return (S::NotCataloged, live);
             };
             // The program's bytes, where a person can run them (DECISIONS §219 option D hashes
             // whatever they run, so where they live is a convenience, not a trust decision).
@@ -6048,7 +6048,7 @@ fn fetch(
     // A bare name the catalog vouches for at several versions is refused here, before the
     // network, like a name it vouches for at none: `name@version` picks one (milestone 614).
     let name = core::str::from_utf8(name).map_err(|_| S::NoSuchPackage)?;
-    let stem = package_archive::catalogued_stem(a.catalogue, name, ARCHITECTURE).map_err(
+    let stem = package_archive::cataloged_stem(a.catalogue, name, ARCHITECTURE).map_err(
         |miss| match miss {
             package_archive::CatalogMiss::NoSuchPackage => S::NoSuchPackage,
             package_archive::CatalogMiss::SeveralVersions => S::Ambiguous,
