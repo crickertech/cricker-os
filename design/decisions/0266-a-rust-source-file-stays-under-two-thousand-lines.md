@@ -1,6 +1,8 @@
 ---
-status: PROPOSED
+status: DECIDED
 raised: 2026-10-08
+decided: 2026-10-08
+ratified_by: calef
 ---
 
 # 266. A Rust source file stays under 2,000 lines, held by a ratchet that only falls
@@ -13,7 +15,18 @@ queue lands it. Every script and file name below is provisional too.)*
 The build is [milestone 841 (a ratchet on Rust file length, and its dashboard row)](../roadmap/0841-a-ratchet-on-rust-file-length-and-its-dashboard-row.md).
 Nothing is built on this section yet.
 
-## What is being decided
+## The ruling
+
+calef ruled on 2026-10-08 at 21:20 (UTC), in the maintainer session, and the maintainer recorded it
+on [PR #1867](https://github.com/nifeos/nife/pull/1867#issuecomment-6070003952) the same evening.
+Two questions, two answers:
+
+| Question | calef's words | What it decides |
+|---|---|---|
+| The measure, the 2,000-line ceiling, and the goals with their dates | *"Yes."* | Sections 1, 2 and 4 hold as written. |
+| The gate's matching rule, (a) or (b) | *"B"* | Option (b): a list entry is a ceiling that only falls, as the prose ratchet works. Option (a) is refused; section 3 gives the reason. |
+
+## What this decides
 
 1. The measure: what counts as the size of a file.
 2. The ceiling: 2,000 lines.
@@ -133,17 +146,17 @@ A file of 2,000 lines is allowed. A file of 2,001 is over.
 - Exceptions are not provided for. A file that must stay over 2,000 lines needs this section
   amended, by an architect.
 
-What "matches" means is the one part of the gate this section does not settle, because the
-measurement below argues against the simplest reading. Two options:
+What "matches" means was put to calef as two options, because the measurement below argues
+against the simplest reading. He ruled (b).
 
-(a) Exact match. Each entry records the file's current size, and any difference fails. The list
+(a) Exact match, refused. Each entry records the file's current size, and any difference fails. The list
 is always the truth. The cost is that every change to a listed file edits the list too. In the 14
 days to 2026-10-08, 164 of the 664 first-parent merges to `main` touched at least one of the
 twenty files, and 47 touched `kernel/src/sched.rs`. Two such pull requests in one merge group
 (the queue builds groups of up to five, per `notes/merge-queue.md`) each write a different number
 on the same line. The group then fails even when the Rust merged cleanly, and one is ejected.
 
-(b) A ceiling that only falls. Each entry is a ceiling. A listed file may not grow against the
+(b) A ceiling that only falls, decided. Each entry is a ceiling. A listed file may not grow against the
 merge base and may not exceed its entry. An entry fails if its file is gone, renamed, or at or under
 2,000 lines, so dead rows cannot accumulate. A banking command lowers entries to the tree and never
 raises one. This is how `helpers/prose_ratchet.py` and `design/prose-baseline.tsv` already work for
@@ -151,9 +164,10 @@ raises one. This is how `helpers/prose_ratchet.py` and `design/prose-baseline.ts
 file's real size until someone banks it. The dashboard row reads the tree, not the list, so that
 staleness reaches no number anyone quotes.
 
-Recommended: (b). The reason is the merge-group failure, which holds at equal cost, so this is not
-a recommendation about effort. The request this section was written from said (a), so this is a
-deliberate departure and the pull request names it.
+The decision is (b), and (a) is refused. The reason is the merge-group failure under (a), which
+holds at equal cost, so the choice is not about effort. The request this section was written from
+said (a); the proposal departed from it on purpose, the pull request named that, and calef ruled
+(b) on 2026-10-08.
 
 ## 4. The goals
 
@@ -214,10 +228,10 @@ moves at all.
 7. Would we choose this at equal cost. Yes. Option (b) over (a) is about merge-group failures, not
    effort.
 
-## What is blocked until this is answered
+## What this unblocks
 
-Milestone 841 (a ratchet on Rust file length, and its dashboard row). Milestone 840 is not blocked;
-it splits one file whatever the ceiling is.
+Milestone 841 (a ratchet on Rust file length, and its dashboard row) waited on this ruling and can
+now start. Milestone 840 never waited on it; it splits one file whatever the ceiling is.
 
 ## BUGS
 

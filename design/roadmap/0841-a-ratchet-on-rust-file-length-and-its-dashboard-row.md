@@ -12,13 +12,14 @@ needs_person: no
 *(Minted 2026-10-08 (UTC) by lane file-size-budget, filed at calef's approval the same day; number
 provisional until the merge queue lands it. Title and slug are drafts.)*
 
-§266 (a Rust source file stays under 2,000 lines) proposes a 2,000-line ceiling on every tracked
+§266 (a Rust source file stays under 2,000 lines) sets a 2,000-line ceiling on every tracked
 Rust file outside `vendor/`, held by a ratchet. This milestone builds the ratchet in `script/lint`
 and puts the number on `notes/project-metrics.md`. It does not split any file. Milestone 840 (the
 scheduler file is split along its seams) splits the largest.
 
-§266 is `PROPOSED`. Do not start until calef rules on it, because the ceiling, the measure and the
-gate's matching rule all come from that ruling.
+calef ruled §266 on 2026-10-08 (UTC): the measure, the ceiling and the goals as written, and
+option (b) for the gate's matching rule, a list entry that is a ceiling and only falls. This block
+builds what that ruling says.
 
 Reuse: `helpers/prose_ratchet.py` and `design/prose-baseline.tsv` are §212 (a prose budget)'s
 ratchet, and this copies their pattern: a committed list that only falls, a comparison against the
@@ -50,10 +51,10 @@ Every name here is provisional.
 
 - A file not on the list fails at 2,001 lines or more. A new file is not on the list.
 - A listed file fails if it grew against the merge base.
-- A list entry fails when it no longer matches its file. Which reading of "matches" is §266's open
-  question. Under (a), an entry must equal its file's size. Under (b), the recommendation, an entry
-  is a ceiling that `--bank` lowers, and it fails when its file is gone, renamed, at or under
-  2,000 lines, or larger than the entry.
+- A list entry is a ceiling that `--bank` lowers and nothing raises (§266's option (b)). It fails
+  when its file is gone, renamed, at or under 2,000 lines, or larger than the entry. §266 refused
+  exact match, option (a), because two shrinking changes to one file in a merge group would each
+  write a different number on the same row.
 - A row may not be added and an entry may not rise, against the merge base. A rename moves its row
   in the same change, at the same number.
 - The failure message names the file, its size and the ceiling. It says the remedy is to split the
@@ -103,4 +104,4 @@ longer than a caption. That entry says the measure counts comments on purpose an
 No Rust file may cross 2,000 lines, and the twenty already over it may only shrink, held by a
 ratchet in `script/lint` copied from §212's prose ratchet. The share of Rust lines in files over
 2,000 goes on the metrics deck as a weekly series. The ceiling, the measure and the gate's matching
-rule wait on §266.
+rule come from §266.
