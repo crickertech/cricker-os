@@ -43,8 +43,8 @@ The bench also prints the namespace's exact size, which is the cross-check step 
 ## Before the evening, on patagonia
 
 Build on current `main` and note the commit for the Results rows. Each build takes about 20 seconds
-warm. Prebuilt copies from `a08efc8dc` were at `xenon-bench-images-2026-10-04/` in the worktree root (`nife-worktrees` beside the main checkout)
-with a `SHA256SUMS` file, for an evening where building is not convenient; a fresh build is
+warm. Prebuilt copies from `a08efc8dc`, with a `SHA256SUMS` file, are kept off-tree by the
+maintainers for an evening where building is not convenient; a fresh build is
 preferred because `main` moves.
 
 ```sh

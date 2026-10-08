@@ -49,3 +49,11 @@ census, 472 survivor keys are blamed to merged pull requests since: 162 have a t
 do not.
 
 Fact, 2026-10-04: of the last 60 merged pull requests, 4 merged with the per-pull-request falsification replay red, because it was not a required check; milestone 742 (every test is falsified as routine) made it part of `verify (Kani proofs)` ([coverage](../../notes/falsification-coverage.md)).
+
+Fact, 2026-10-07: every one of run 37108924347's 1,004 missed survivors has a disposition: 621 killed
+by a test, 359 equivalent with a written reason and 24 recorded gaps, with none left untriaged
+(milestone 637 (triage the crates the 2026-09-21 mutation census measured for the first time),
+provisional; [part five](../../notes/mutation-testing/census-2026-10-03-triage-part-5.md)). The census
+runs on Linux and lane re-runs on macOS, and one function's `cfg!` branch made three mutants read
+caught locally and missed in every census. A per-crate re-run of the last 39 crates also found 35
+missed survivors in code merged after that census, with no triage row.

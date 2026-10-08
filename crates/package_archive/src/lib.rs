@@ -51,7 +51,7 @@
 //! the reviewed bytes"; a per-member digest answers "is *this* member the one that was reviewed",
 //! which is the question a spawner asks when it is handed one program out of a package. The
 //! measurement table the progenitor already enforces (`crates/measured_boot`) is exactly a
-//! name-to-digest map, so a package's table of contents is that table travelling with its bytes.
+//! name-to-digest map, so a package's table of contents is that table traveling with its bytes.
 //!
 //! Member bytes are **8-byte aligned** because the largest member is an ELF and the cheapest way to
 //! be wrong later is to hand a parser an odd address. It costs at most seven bytes per member.
@@ -70,7 +70,7 @@
 //!
 //! ```
 //! # use package_archive::{Attributes, Package, package_size, write_package};
-//! let members: [(&str, &[u8]); 2] = [("uptime", b"\x7fELF..."), ("uptime.licence", b"MIT")];
+//! let members: [(&str, &[u8]); 2] = [("uptime", b"\x7fELF..."), ("uptime.license", b"MIT")];
 //! let attributes = Attributes { name: "uptime", version: "0.1.0", architecture: "aarch64" };
 //!
 //! let mut file = vec![0u8; package_size(&members)];
@@ -147,7 +147,7 @@
 
 pub use measured_boot::{DIGEST_LEN, Digest, sha256};
 
-/// **The archive entry an image carries its own package source's catalogue under** (milestone 198
+/// **The archive entry an image carries its own package source's catalog under** (milestone 198
 /// rung 3a). One `<name>-<version>-<architecture> <64 hex>` line per package, which is
 /// [`measured_boot`]'s manifest shape, so [`measured_boot::expected_in_manifest`] reads it. It is
 /// packed *before* the measurement table, so the kernel's trust root vouches for it and a package
@@ -183,8 +183,8 @@ pub const MEMBER_ALIGN: usize = 8;
 /// The most members a package may hold.
 ///
 /// **A ceiling exists so that a header claiming four billion members is refused before anything is
-/// multiplied by it**, which is the arithmetic a hostile file reaches for first. 64 is a judgement:
-/// the largest thing anyone has proposed packaging is one program, its licence, its manifest and
+/// multiplied by it**, which is the arithmetic a hostile file reaches for first. 64 is a judgment:
+/// the largest thing anyone has proposed packaging is one program, its license, its manifest and
 /// its documentation bundle, which is four. Raising it costs nothing but the bound in this line.
 pub const MAX_MEMBERS: usize = 64;
 
@@ -416,18 +416,18 @@ pub struct Installable<'a> {
 pub enum Refusal {
     /// The bytes are not a package this parser can read.
     Unreadable,
-    /// The catalogue has no line for this package's stem, or has one and these bytes do not hash to
+    /// The catalog has no line for this package's stem, or has one and these bytes do not hash to
     /// it. One refusal for both, because to the installer they are one fact: the image does not
     /// vouch for these bytes (DECISIONS §195 (a reviewed recipe vouches for a package)).
     NotCatalogued,
     /// The package carries no member named after itself, so there is no program to install.
     NoProgram,
     /// The program member does not hash to the digest its own table of contents claims. Only a
-    /// catalogued package can reach this, so it means the catalogue vouched for a file the producer
+    /// cataloged package can reach this, so it means the catalog vouched for a file the producer
     /// would never have written.
     MemberMismatch,
     /// A package fetched by name ([`installable_as`]) is not the package that was asked for, though
-    /// the catalogue may vouch for it: a source serving `uptime` when asked for `greeting`.
+    /// the catalog may vouch for it: a source serving `uptime` when asked for `greeting`.
     NotRequested,
 }
 
@@ -436,10 +436,10 @@ pub enum Refusal {
 ///
 /// In order, and the order is the argument:
 ///
-/// 1. The header is parsed, because the stem the catalogue is keyed by is written in it. That is
+/// 1. The header is parsed, because the stem the catalog is keyed by is written in it. That is
 ///    hostile input reaching [`Package::parse`] before any digest is checked, which is what that
 ///    function's fuzz target and Kani harnesses exist for.
-/// 2. **The whole file's SHA-256 must be the catalogue's line for that stem.** The catalogue is the
+/// 2. **The whole file's SHA-256 must be the catalog's line for that stem.** The catalog is the
 ///    image's own ([`CATALOGUE`]), measured with every other archive entry, so this is DECISIONS §195's
 ///    "the image's measured table becomes the first source" taken literally: a person cannot install
 ///    what the image does not vouch for, whatever file they point at.
@@ -476,36 +476,36 @@ pub fn installable<'a>(catalogue: &str, bytes: &'a [u8]) -> Result<Installable<'
     })
 }
 
-/// **The catalogue's stem for a package asked for by name** (milestone 198 (a package manager)
+/// **The catalog's stem for a package asked for by name** (milestone 198 (a package manager)
 /// rung 3a's fetch): the line whose stem is `<name>-<version>-<architecture>`, for a version with
-/// no hyphen in it. [`StemMiss::NoSuchPackage`] when the image vouches for no package of that name
+/// no hyphen in it. [`CatalogMiss::NoSuchPackage`] when the image vouches for no package of that name
 /// on this architecture, which is the refusal a fetch gives before it opens a connection.
 ///
 /// **`name@version` asks for one version; a bare name must mean exactly one** (milestone 614 (two
 /// installed versions of one program, each runnable, and a caller granted the one it needs)). The
 /// qualified spelling is ruling 5's, given for `package remove`, used here for the same reason: a
-/// word with `@` in it is never a package name. A bare name the catalogue vouches for at two
-/// versions is [`StemMiss::SeveralVersions`]. Before this, the first matching line won, so which
+/// word with `@` in it is never a package name. A bare name the catalog vouches for at two
+/// versions is [`CatalogMiss::SeveralVersions`]. Before this, the first matching line won, so which
 /// version a bare fetch asked for was decided by the order recipe *filenames* sort in
 /// (`greeting-0.2.0.recipe.toml` before `greeting.recipe.toml`, because `-` sorts before `.`),
 /// and the source, serving only 0.1.0, answered 404. Refusing is the reversible answer: ruling 3
 /// says a bare *run* means the newest install, and nothing here orders versions to say which
-/// catalogued one is newest.
+/// cataloged one is newest.
 ///
-/// The catalogue is the image's own ([`CATALOGUE`]), so the answer is what the image vouches for
+/// The catalog is the image's own ([`CATALOGUE`]), so the answer is what the image vouches for
 /// and never what a package source offers. A name with a hyphen in it is looked up the same way;
 /// a *version* with one cannot be told from the name before it and is not matched.
 pub fn catalogued_stem<'c>(
     catalogue: &'c str,
     name: &str,
     architecture: &str,
-) -> Result<&'c str, StemMiss> {
+) -> Result<&'c str, CatalogMiss> {
     let (name, wanted) = match name.split_once('@') {
         Some((name, version)) => (name, Some(version)),
         None => (name, None),
     };
     if name.is_empty() || wanted == Some("") {
-        return Err(StemMiss::NoSuchPackage);
+        return Err(CatalogMiss::NoSuchPackage);
     }
     let mut found: Option<&'c str> = None;
     for stem in measured_boot::manifest_entries(catalogue)
@@ -524,28 +524,30 @@ pub fn catalogued_stem<'c>(
         }
         match found {
             // The same stem twice is one package written twice, not two versions.
-            Some(earlier) if earlier != stem => return Err(StemMiss::SeveralVersions),
+            Some(earlier) if earlier != stem => return Err(CatalogMiss::SeveralVersions),
             _ => found = Some(stem),
         }
     }
-    found.ok_or(StemMiss::NoSuchPackage)
+    found.ok_or(CatalogMiss::NoSuchPackage)
 }
 
 /// Why [`catalogued_stem`] found no one stem.
 ///
-/// Name: provisional, milestone 614 (two installed versions of one program, each runnable)'s lane,
-/// 2026-10-02. Not covered by calef's 2026-10-03 ruling on #1443.
+/// Name: ratified 2026-10-07 (calef, §258 (names for two installed versions of one program)).
+/// Refused `StemMiss` ("stem" is internal jargon; calef: "`StemMiss` is horrible"). Minted as
+/// `StemMiss` by milestone 614 (two installed versions of one program, each runnable)'s lane,
+/// 2026-10-02.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub enum StemMiss {
+pub enum CatalogMiss {
     /// No line names a package of that name (at that version, if one was asked for) on this
     /// architecture.
     NoSuchPackage,
-    /// A bare name, and the catalogue vouches for more than one version of it.
+    /// A bare name, and the catalog vouches for more than one version of it.
     SeveralVersions,
 }
 
 /// **[`installable`], for bytes fetched by name**: the package must also be the one whose stem was
-/// asked for. A source can serve a *different* package the catalogue vouches for, and
+/// asked for. A source can serve a *different* package the catalog vouches for, and
 /// [`installable`] alone would install it; the stem is checked first, so such a package is refused
 /// before it is hashed.
 pub fn installable_as<'a>(
@@ -562,7 +564,7 @@ pub fn installable_as<'a>(
 }
 
 impl<'a> Package<'a> {
-    /// **The package's `name-version-architecture` stem**, the key its catalogue line and its file
+    /// **The package's `name-version-architecture` stem**, the key its catalog line and its file
     /// name share, composed into `out`.
     pub fn stem<'b>(&self, out: &'b mut [u8; STEM_LEN]) -> &'b str {
         let mut at = 0;
@@ -827,7 +829,7 @@ mod tests {
         )
     }
 
-    /// **The installer installs the program a catalogue vouches for, and nothing else** (milestone
+    /// **The installer installs the program a catalog vouches for, and nothing else** (milestone
     /// 198 rung 3a). The accepted case first, so each refusal below is a change of one thing.
     #[test]
     fn a_catalogued_package_yields_its_program_and_that_programs_digest() {
@@ -844,8 +846,8 @@ mod tests {
         );
     }
 
-    /// **One flipped byte anywhere is refused by the catalogue**, before the member is looked at:
-    /// the flip is in the licence, which no member check of the program would ever read.
+    /// **One flipped byte anywhere is refused by the catalog**, before the member is looked at:
+    /// the flip is in the license, which no member check of the program would ever read.
     #[test]
     fn a_byte_the_catalogue_did_not_vouch_for_is_refused() {
         let members: [(&str, &[u8]); 2] = [("uptime", b"\x7fELF"), ("uptime.licence", b"MIT")];
@@ -858,7 +860,7 @@ mod tests {
             installable(&catalogue, &tampered),
             Err(Refusal::NotCatalogued)
         );
-        // And a catalogue without the stem vouches for nothing, however good the bytes are.
+        // And a catalog without the stem vouches for nothing, however good the bytes are.
         assert_eq!(
             installable("uptime-0.2.0-aarch64 00", &file),
             Err(Refusal::NotCatalogued)
@@ -897,15 +899,15 @@ mod tests {
             catalogued_stem(&catalogue, "uptime", "aarch64"),
             Ok("uptime-0.1.0-aarch64")
         );
-        let none = Err(StemMiss::NoSuchPackage);
+        let none = Err(CatalogMiss::NoSuchPackage);
         assert_eq!(catalogued_stem(&catalogue, "uptime", "riscv64"), none);
         assert_eq!(catalogued_stem(&catalogue, "greet", "aarch64"), none);
         assert_eq!(catalogued_stem(&catalogue, "", "aarch64"), none);
         assert_eq!(catalogued_stem(&catalogue, "nosuch", "aarch64"), none);
     }
 
-    /// **Two catalogued versions: a bare name is refused, and `name@version` picks one**
-    /// (milestone 614). The 0.2.0 line comes first, as it does in the image's own catalogue,
+    /// **Two cataloged versions: a bare name is refused, and `name@version` picks one**
+    /// (milestone 614). The 0.2.0 line comes first, as it does in the image's own catalog,
     /// because its recipe's filename sorts first; the order must not decide what is fetched.
     #[test]
     fn a_bare_name_with_two_catalogued_versions_is_refused_and_a_qualified_one_is_not() {
@@ -915,7 +917,7 @@ mod tests {
         );
         assert_eq!(
             catalogued_stem(&catalogue, "greeting", "aarch64"),
-            Err(StemMiss::SeveralVersions)
+            Err(CatalogMiss::SeveralVersions)
         );
         assert_eq!(
             catalogued_stem(&catalogue, "greeting@0.1.0", "aarch64"),
@@ -930,7 +932,7 @@ mod tests {
             catalogued_stem(&catalogue, "greeting", "riscv64"),
             Ok("greeting-0.1.0-riscv64")
         );
-        let none = Err(StemMiss::NoSuchPackage);
+        let none = Err(CatalogMiss::NoSuchPackage);
         assert_eq!(
             catalogued_stem(&catalogue, "greeting@0.3.0", "aarch64"),
             none
@@ -945,7 +947,7 @@ mod tests {
         );
     }
 
-    /// **Bytes fetched by name must be the package asked for**, even when the catalogue vouches
+    /// **Bytes fetched by name must be the package asked for**, even when the catalog vouches
     /// for them: the source answered `greeting` with a genuine `uptime`.
     #[test]
     fn a_vouched_package_that_was_not_asked_for_is_refused() {
@@ -1066,11 +1068,11 @@ mod tests {
     }
 
     /// **A stem names one version**: an empty version and a version with a hyphen in it are not
-    /// versions, and an empty name is not a package, whatever a catalogue line says.
+    /// versions, and an empty name is not a package, whatever a catalog line says.
     #[test]
     fn a_stem_with_an_empty_or_hyphenated_version_or_an_empty_name_is_never_found() {
         let d = "0".repeat(64);
-        let none = Err(StemMiss::NoSuchPackage);
+        let none = Err(CatalogMiss::NoSuchPackage);
         let empty_version = std::format!("foo--aarch64 {d}\n");
         assert_eq!(catalogued_stem(&empty_version, "foo", "aarch64"), none);
         let hyphenated = std::format!("foo-1.0-rc1-aarch64 {d}\n");

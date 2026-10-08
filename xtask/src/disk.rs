@@ -239,7 +239,7 @@ pub(crate) const DOWNLOADED_NOTELESS: &str = "downloads/noteless.nifepkg";
 
 /// **`greeting` at 0.2.0, the second version, on the disk for every leg** (milestone 614 (two
 /// installed versions of one program, each runnable, and a caller granted the one it needs)): the
-/// recipe-built package whose member is `greeting_two`'s bytes under the name `greeting`, so its
+/// recipe-built package whose member is `greeting_v2`'s bytes under the name `greeting`, so its
 /// digest differs from 0.1.0's and the table can hold both. Provisional name (the constant's and
 /// the path's).
 ///
@@ -474,12 +474,12 @@ fn stage_installed(architecture: &str) -> Result<String, String> {
     })?;
     // The second version, whose member bytes differ from 0.1.0's (milestone 614): the row it
     // makes is a second digest, which is the whole point.
-    let greeting_two_stem = format!("greeting-0.2.0-{architecture}");
-    let greeting_two_built = root.join(format!("target/packages/{greeting_two_stem}.nifepkg"));
-    let greeting_two = std::fs::read(&greeting_two_built).map_err(|e| {
+    let greeting_v2_stem = format!("greeting-0.2.0-{architecture}");
+    let greeting_v2_built = root.join(format!("target/packages/{greeting_v2_stem}.nifepkg"));
+    let greeting_v2 = std::fs::read(&greeting_v2_built).map_err(|e| {
         format!(
             "could not read {} (the archive build writes it): {e}",
-            greeting_two_built.display()
+            greeting_v2_built.display()
         )
     })?;
     // **The claim the prompt cannot check: the image does not carry them.** Neither is a
@@ -536,11 +536,11 @@ fn stage_installed(architecture: &str) -> Result<String, String> {
         write(tree.join(INSTALLED_RIPGREP), bytes)?;
     }
     write(tree.join(DOWNLOADED_NOTELESS), &noteless)?;
-    write(tree.join(DOWNLOADED_GREETING_0_2_0), &greeting_two)?;
+    write(tree.join(DOWNLOADED_GREETING_0_2_0), &greeting_v2)?;
     eprintln!(
         "seed_installed ({architecture}): {stem} ({} bytes, digest {}) at {DOWNLOADED_PACKAGE}, \
          a tampered copy, {noteless_stem} at \
-         {DOWNLOADED_NOTELESS}, {greeting_two_stem} at {DOWNLOADED_GREETING_0_2_0}, and three \
+         {DOWNLOADED_NOTELESS}, {greeting_v2_stem} at {DOWNLOADED_GREETING_0_2_0}, and three \
          unvouched programs; no activation set. The package source at {} serves {greeting_stem} \
          and a lying {stem}",
         package.len(),

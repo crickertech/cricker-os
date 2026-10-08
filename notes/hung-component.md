@@ -6,6 +6,14 @@ read those first if you want the swap itself. `crates/swap_protocol`, `component
 `ROLE_HUNG`, and `a_component_that_stops_answering_without_dying_is_invisible_to_its_supervisor` in
 `system_tests/src/user/live_swap_tests.rs`.*
 
+Corrected 2026-10-08 (UTC). Case (c) and question 3's stranded caller describe the kernel before
+2026-09-04. Milestone 133 (ending a permanently blocked thread, and deciding who may), ruled by calef
+on 2026-09-03, made the region holder's `DESTROY` finish a `Blocked` resident in place. Milestone
+254 (a caller stranded by a server that died) wakes its stranded callers with `abi::Error::Gone`.
+Only a holder of the supervision endpoint alone still cannot end a child (133's refused proposal B).
+The two halves are tested apart, not together; milestone 23 (a capability-routed component OS with
+live replacement) records that task. notes/blocked-thread-teardown.md has the decision.
+
 ## The problem, stated so the precision is usable
 
 Every failure this system handles is a death. A component faults or exits; the kernel is the
@@ -43,7 +51,7 @@ makes "add a watchdog" sound like a single task.
 |---|---|---|
 | (a) livelocked, spinning in userspace | `READY` / `RUNNING`, always | yes. `Untyped::DESTROY` arms §16's kill and the scheduler converts the thread to a corpse at its next preemption |
 | (b) blocked on an endpoint whose region the supervisor can destroy | `BLOCKED` | yes, with collateral. Destroying that region drains the endpoint's wait queues, aborts the blocked IPC with `abi::Error::Gone`, and the armed kill then lands |
-| (c) blocked on an endpoint the supervisor cannot reach | `BLOCKED` | no. Nothing in the kernel can end it |
+| (c) blocked on an endpoint the supervisor cannot reach | `BLOCKED` | no, when written. Yes since 2026-09-04: the region holder's `DESTROY` finishes it in place (milestone 133) |
 
 Case (c) is not speculation and it is not a gap somebody should close casually. `reap_region_objects`
 says it in its own words, in the comment added on 2026-08-16 that fixed the (b) case:
@@ -60,9 +68,7 @@ is `Running`. A thread that is `Blocked` forever never reaches `schedule()` agai
 armed and never lands, the refusal is permanent, and the retry loop the shell's escalation performs
 runs forever.
 
-Which means the "stronger right" §32 points at is not merely large for the purpose. For case (c) it
-is insufficient. A supervisor holding full construction authority over a hung child's region cannot
-tear it down. There is no privilege that fixes this; it is a scheduler property.
+Which is why the "stronger right" §32 points at was, when written, insufficient for case (c).
 
 ## The four questions
 
@@ -220,10 +226,8 @@ the two happened.
 
 Consequences a design has to carry, not a footnote:
 
-- A caller stranded by a hung server holds a region that `Untyped::DESTROY` will refuse forever, for
-  case (c)'s reason applied to the *caller*: it is `Blocked` and never reaches `schedule()`.
-- So one hang can cost two unreclaimable regions, its own and its caller's, and a service with
-  many concurrent callers costs one per caller in flight.
+- ~~A stranded caller's region was unreclaimable too, so one hang cost two.~~ Untrue since
+  2026-09-04 (see the correction at the top).
 - This is not new with hangs. It is true of any server killed mid-`CALL`, including §24's forcible
   `^C` tier applied to a server. Nothing in the tree records that today. It is the most transferable
   finding in this note and it wants its own lane (see below).
@@ -392,11 +396,8 @@ change to a method milestone 126's lane landed hours ago**, and it is arguably `
 rather than `READ`-shaped, so it is a decision and not a task. Recorded here rather than attempted.
 The cost of not having it: every liveness verdict in this system is a heuristic with a knob.
 
-**A hang can cost two unreclaimable regions, and nothing else in the tree records this.** The hung
-component's, and the caller's if a request was in flight. Both are `Blocked` and neither ever reaches
-`schedule()` to spend the kill `Untyped::DESTROY` arms, so the refusal is permanent, and the retry
-loop in the shell's `^C` escalation would run forever. This is **not specific to hangs**: it is true
-of any server torn down mid-`CALL`. It wants its own lane.
+~~A hang can cost two unreclaimable regions.~~ Closed 2026-09-04 by milestones 133 and 254 (see
+the correction at the top), and struck here 2026-10-08.
 
 **The shared witness page cannot be taken back from a hung holder.** `Frame::REVOKE` on a
 `DeviceFrame` is take-back and spares the invoker; on an ordinary `Frame` it is symmetric and takes

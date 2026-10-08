@@ -235,7 +235,7 @@ $ launchctl list | grep nife          # expect nothing yet
 Then install the one watch that stays per developer, because retiring `com.nife.trunk-health`
 retires the at-risk check with it (it was folded into that script's loop) and that is the watch
 AGENTS.md calls the more valuable of the two. Write `~/Library/LaunchAgents/com.nife.at-risk.plist`,
-substituting the path to your own main checkout:
+substituting your own paths:
 
 ```xml
 <?xml version="1.0" encoding="UTF-8"?>
@@ -250,8 +250,8 @@ substituting the path to your own main checkout:
   </array>
   <key>WorkingDirectory</key><string>/path/to/nife</string>
   <key>StartInterval</key><integer>300</integer>
-  <key>StandardOutPath</key><string>/Users/calef/Library/Logs/nife/at-risk.log</string>
-  <key>StandardErrorPath</key><string>/Users/calef/Library/Logs/nife/at-risk.log</string>
+  <key>StandardOutPath</key><string>/Users/you/Library/Logs/nife/at-risk.log</string>
+  <key>StandardErrorPath</key><string>/Users/you/Library/Logs/nife/at-risk.log</string>
 </dict>
 </plist>
 ```
@@ -373,7 +373,7 @@ outright.
 
 ```console
 $ helpers/at-risk-check.sh
-at-risk-check: UNCOMMITTED. /Users/calef/projects/nife-worktrees/atrisk (maintainer/work-one-prune-from-gone) has 2 changed file(s), newest touched 41 minutes ago. One prune away from gone; commit and push.
+at-risk-check: UNCOMMITTED. /path/to/nife-worktrees/atrisk (maintainer/work-one-prune-from-gone) has 2 changed file(s), newest touched 41 minutes ago. One prune away from gone; commit and push.
 ```
 
 It reads every worktree but the main checkout (`git worktree list --porcelain`), skips any

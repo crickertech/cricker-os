@@ -172,12 +172,29 @@ four, recorded where somebody about to run a gate is already reading.
 
 ## CI leverages them
 
-Every job in `.github/workflows/ci.yml` names one check out of `script/ci-build`'s table
-(milestone 286): the format job runs `script/ci-build fmt`, the clippy job `script/ci-build lint`,
-the suite job `script/ci-build test`, the swish job `script/ci-build swish-check`, the bench job
+Every job in `.github/workflows/ci.yml` names one check out of `script/ci-build`'s table,
+from milestone 286 (one enumeration of the checks that gate a pull request). The format job runs
+`script/ci-build fmt`, the lint job `script/ci-build lint`, the suite job `script/ci-build test`, the swish job `script/ci-build swish-check`, the bench job
 `script/ci-build bench` and `script/ci-build icount`, and so on. CI executes the same commands a
 developer does, from the same list, and a job without a row is the defect that list prevents. `verify.yml` is the exception and says so: Kani is sharded
 across jobs with its own scope predicate, and the table does not claim it.
+
+The lint job was named `clippy` until 2026-10-08 (UTC). It runs every check in `script/lint`, and
+a red `clippy` was usually a citation, decision or roadmap check. calef asked "Should the gate named
+clippy be renamed? It seems to cause you some confusion when I cite it", then said "Go ahead with
+lint". A required check is matched by name, so the rename goes in three steps, each safe
+alone. First, `ci.yml` gains `lint` and keeps a `clippy` job that only re-reports `lint`'s verdict.
+Second, once every open pull request has run that workflow, ruleset 19596094 requires `lint` in
+place of `clippy`. Third, the `clippy` job is deleted. The second step, by the maintainer:
+
+```sh
+gh pr list --state open --json number,isDraft,statusCheckRollup --jq '.[] | select(.isDraft | not)
+  | select([.statusCheckRollup[].name] | index("lint") | not) | .number'  # must print nothing
+gh api repos/nifeos/nife/rulesets/19596094 --jq '{rules: [.rules[]
+  | if .type == "required_status_checks" then .parameters.required_status_checks
+    |= map(if .context == "clippy" then {context: "lint"} else . end) else . end]}' \
+  | gh api -X PUT repos/nifeos/nife/rulesets/19596094 --input -
+```
 
 Before that milestone the set was written twice, here and in `script/gates`, and nothing compared
 them. All three places explaining the difference were stale by 2026-09-13:

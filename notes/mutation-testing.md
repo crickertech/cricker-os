@@ -289,4 +289,5 @@ architect's.
 | [census-2026-10-03-triage-part-2](mutation-testing/census-2026-10-03-triage-part-2.md) | the same, continued | 2026-10-03: `documentation`, `filesystem_protocol`, `timetable`, `video_terminal`, `machine_discovery` |
 | [census-2026-10-03-triage-part-3](mutation-testing/census-2026-10-03-triage-part-3.md) | the same, continued | 2026-10-03: `grant_plan` onward |
 | [census-2026-10-03-triage-part-4](mutation-testing/census-2026-10-03-triage-part-4.md) | the same, continued | 2026-10-03: `swish`, `line_editor`, `package_archive`, `pci`, `manifest_note` |
+| [census-2026-10-03-triage-part-5](mutation-testing/census-2026-10-03-triage-part-5.md) | the same, finished: the last 201 | 2026-10-07: 39 crates, from `abi` to `stick_maker` |
 | [inflow-2026-10-03](mutation-testing/inflow-2026-10-03.md) | survivors merged pull requests added on their own lines, and whether anything triages them | 2026-10-03: 600 since 09-21; no weekly report exists |

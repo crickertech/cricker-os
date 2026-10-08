@@ -1,6 +1,6 @@
 //! **The version set** (milestone 614 (two installed versions of one program, each runnable, and a
-//! caller granted the one it needs), ruling 4; the module's name is provisional, as the ruling says
-//! the capability's is): a committed file of `<program> <version>` lines a project carries, which
+//! caller granted the one it needs), ruling 4; the capability's name is provisional, as the ruling
+//! says): a committed file of `<program> <version>` lines a project carries, named [`FILE`], which
 //! selects, for each program it names, among the versions already installed.
 //!
 //! The file holds version strings, because people write it; it is resolved to digests through the
@@ -16,8 +16,8 @@
 //!
 //! ```
 //! const SET: &str = "# this project pins\nuptime 0.1.0\n\nwc 2.4\n";
-//! assert_eq!(swish::versions::entry(SET, "uptime"), Some("0.1.0"));
-//! assert_eq!(swish::versions::entry(SET, "date"), None);
+//! assert_eq!(swish::jig_versions::entry(SET, "uptime"), Some("0.1.0"));
+//! assert_eq!(swish::jig_versions::entry(SET, "date"), None);
 //! ```
 //!
 //! # BUGS
@@ -29,11 +29,18 @@
 //! - **The dev tool that installs what a set asks for is not built** (ruling 4's follow-on): a
 //!   set naming an uninstalled version can only ever produce the divergence notice.
 //!
-//! Name: provisional, milestone 614's build lane, 2026-09-29.
+//! Name: ratified 2026-10-07 (calef, §258 (names for two installed versions of one program)),
+//! following the file it reads. Refused `versions` (the file's refused name). Minted as
+//! `swish::versions` by milestone 614's build lane, 2026-09-29.
 
-/// **The file a version set lives in**, found at or above the working directory. Provisional, as
-/// the capability and the module are.
-pub const FILE: &str = "versions";
+/// **The file a version set lives in**, found at or above the working directory. A dotfile, so a
+/// project's listing is not cluttered by it, and qualified by `jig` (the basalt package manager's
+/// ratified name), because a bare common word collides with whatever else a project keeps.
+///
+/// Name: ratified 2026-10-07 (calef, §258 (names for two installed versions of one program)).
+/// Refused `versions` (a common word, so it collides), `.package-versions`, `.basalt-versions`,
+/// `.nife-versions`, `.catalog-versions` (calef chose the package manager's name).
+pub const FILE: &str = ".jig-versions";
 
 /// **The version the set asks for `program`**: its first `<program> <version>` line. Blank lines
 /// and `#` comments are skipped, as in the activation set; a line that is not two words is skipped,

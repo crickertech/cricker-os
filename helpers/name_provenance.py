@@ -54,7 +54,10 @@ PAREN = re.compile(r"\([^()]*\)")
 # `script/repeat-under-load` as refusals: those are places a thing was refused, not names anybody
 # proposed, and `script/names <name>` is asked about names. A `script/` entry point is recorded
 # under its bare command (`board-console`), never under its path, so nothing real is lost.
-NAMEISH = re.compile(r"[A-Za-z][A-Za-z0-9_-]*$")
+# One leading dot is the exception: a dotfile is a name somebody proposed (§258 (names for two
+# installed versions of one program) refused `.nife-versions`), and a citation never starts with
+# one.
+NAMEISH = re.compile(r"\.?[A-Za-z][A-Za-z0-9_-]*$")
 
 # A line that RECORDS a refusal, as against one that mentions the word: `Refused` followed by a
 # backticked candidate name. Used only by `refusals_outside`, which is asked whether a record

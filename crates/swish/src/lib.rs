@@ -79,7 +79,7 @@
 //! rather than a name: `bash`, `zsh`, `fish` and `rc` are identities), `capsh` (Linux's libcap
 //! ships `capsh(1)`) and `sheesh` (it carries a 2020-21 timestamp where `bash` and `fish` are
 //! era-neutral, and it is an interjection of exasperation, while this shell's most characteristic
-//! behaviour is refusing things by design). A swish is the shot that goes through the net touching
+//! behavior is refusing things by design). A swish is the shot that goes through the net touching
 //! nothing, which is least authority in one word. The crate takes the program's name because the
 //! crate is that program's logic (DECISIONS §63); it was lifted out on 2026-08-02 by milestone 70.
 
@@ -87,8 +87,8 @@
 
 pub mod bare;
 pub mod complete;
+pub mod jig_versions;
 pub mod sequence;
-pub mod versions;
 
 use environment_protocol::ConfigPage;
 use filesystem_protocol::dir;
@@ -227,7 +227,7 @@ impl Status {
 
     /// The number as bytes, which is `'static` because there are three of them.
     ///
-    /// That is not a micro-optimisation: a substituted word has to be a slice with the line's
+    /// That is not a micro-optimization: a substituted word has to be a slice with the line's
     /// lifetime, and a `'static` slice unifies with any of them. The shell has had a capped heap
     /// since 2026-09-26, so a value that needs a buffer could now have one; what keeps it one word
     /// is [`pieces`], not the absence of an allocator.
@@ -240,7 +240,7 @@ impl Status {
     }
 }
 
-/// **The word that reads the last command's status.** Recognised where words are expanded, which
+/// **The word that reads the last command's status.** Recognized where words are expanded, which
 /// today is [`echo`].
 ///
 /// It is spelled `$?` because that is the spelling every shell user already knows, and this project
@@ -1268,7 +1268,7 @@ pub fn write_activation(
         (S::Done, V::Vouch(_)) => b"  vouched",
         (S::Done, _) => b"  rolled back",
         (S::NotCatalogued, _) => {
-            b"  refused: this image's catalogue does not vouch for those bytes"
+            b"  refused: this image's catalog does not vouch for those bytes"
         }
         (S::NoProgram, _) => b"  refused: that package carries no program named after it",
         (S::NotInstalled, _) => b"  refused: no program of that name is in the live generation",
@@ -1276,7 +1276,7 @@ pub fn write_activation(
         (S::StoreFailed, _) => b"  could not write the activation set",
         (S::Unknown, _) => b"  the progenitor could not take that request",
         (S::NoSuchPackage, _) => {
-            b"  refused: this image's catalogue names no such package, so nothing was fetched"
+            b"  refused: this image's catalog names no such package, so nothing was fetched"
         }
         (S::NoNetwork, _) => b"  this boot has no network to fetch a package over",
         (S::FetchFailed, _) => b"  the package source did not send a whole package",
@@ -1291,10 +1291,10 @@ pub fn write_activation(
         // text on this wire, and the shell can read what it is being told to name (milestone 614
         // (two installed versions of one program, each runnable, and a caller granted the one it
         // needs), ruling 5). Provisional wording.
-        // A fetch's ambiguity is the catalogue's, not the live table's (milestone 614).
+        // A fetch's ambiguity is the catalog's, not the live table's (milestone 614).
         // Provisional wording.
         (S::Ambiguous, V::Fetch(_)) => {
-            b"  refused: this image's catalogue vouches for several versions of that package; name one with <package>@<version>"
+            b"  refused: this image's catalog vouches for several versions of that package; name one with <package>@<version>"
         }
         (S::Ambiguous, _) => {
             b"  refused: several versions of that program are live and one holds the default; name one with <program>@<version>"
@@ -2205,7 +2205,7 @@ mod tests {
         );
         assert_eq!(
             shown(|o| write_activation(V::Install(b"x"), S::NotCatalogued, 0, o)),
-            "  refused: this image's catalogue does not vouch for those bytes; nothing is installed\n"
+            "  refused: this image's catalog does not vouch for those bytes; nothing is installed\n"
         );
         assert_eq!(
             shown(|o| write_activation(V::Fetch(b"greeting"), S::Done, 2, o)),
@@ -2213,7 +2213,7 @@ mod tests {
         );
         assert_eq!(
             shown(|o| write_activation(V::Fetch(b"nosuch"), S::NoSuchPackage, 2, o)),
-            "  refused: this image's catalogue names no such package, so nothing was fetched; \
+            "  refused: this image's catalog names no such package, so nothing was fetched; \
              generation 2 is live\n"
         );
         assert_eq!(
@@ -2234,10 +2234,10 @@ mod tests {
             "  refused: several versions of that program are live and one holds the default; \
              name one with <program>@<version>; generation 3 is live\n"
         );
-        // A fetch's ambiguity is the catalogue's (milestone 614); `script/swish-check` asserts it.
+        // A fetch's ambiguity is the catalog's (milestone 614); `script/swish-check` asserts it.
         assert_eq!(
             shown(|o| write_activation(V::Fetch(b"greeting"), S::Ambiguous, 1, o)),
-            "  refused: this image's catalogue vouches for several versions of that package; \
+            "  refused: this image's catalog vouches for several versions of that package; \
              name one with <package>@<version>; generation 1 is live\n"
         );
     }
@@ -2849,7 +2849,7 @@ mod tests {
         e.mem_pages = 16;
         let s = shown(|o| write_outcome(&e, 14, o));
         // Both numbers, because the gap between them is the page tables the grant paid for, and a
-        // reader who sees only one of them cannot tell that the grant was honoured.
+        // reader who sees only one of them cannot tell that the grant was honored.
         assert!(s.contains("mapped 14 pages"), "{s}");
         assert!(s.contains("16-page budget"), "{s}");
     }

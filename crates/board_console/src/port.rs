@@ -478,6 +478,14 @@ mod tests {
             let warning = dial_in_warning(Path::new("/dev/tty.usbmodemDEADBEEF")).unwrap();
             assert!(warning.contains("carrier detect"));
             assert!(warning.contains("cu.*"));
+        } else {
+            // Off macOS there is no dial-in twin, so even a `tty.` name gets no warning. The weekly
+            // census runs on Linux, where only this branch runs, and a deleted `!` on the `cfg!`
+            // guard survived it (2026-10-07 census triage).
+            assert_eq!(
+                dial_in_warning(Path::new("/dev/tty.usbmodemDEADBEEF")),
+                None
+            );
         }
     }
 

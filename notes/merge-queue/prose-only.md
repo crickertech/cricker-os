@@ -1,7 +1,7 @@
 # A prose-only change skips the heavy jobs
 
 A pull request or merge group whose every changed file is Markdown that no code reads skips every
-job in `ci.yml` except `clippy`, and every job in `verify.yml` after its gate. The required checks
+job in `ci.yml` except `lint`, and every job in `verify.yml` after its gate. The required checks
 still report success, because a job skipped by its own `if:` posts Success. Lint still runs, and
 with it the roadmap, citation, decision and prose-ratchet checks.
 
@@ -34,7 +34,7 @@ the same diff is seen. Two shapes count, outside comments:
   makes that file an input. The same path inside a sentence-shaped string, a panic message for
   instance, is a mention and does not;
 - a quoted prose directory or a glob under one (`"notes"`, `"design/roadmap/*.md"`) is a walk. If
-  the walker is Rust, the prose-only run tests its package in the `clippy` job: today that is
+  the walker is Rust, the prose-only run tests its package in the `lint` job: today that is
   `crates/documentation`'s corpus test and xtask.
 
 The compiler's dep-info would be exact for `include_str!`, but it exists only after a build, and

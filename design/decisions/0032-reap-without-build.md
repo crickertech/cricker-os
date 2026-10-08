@@ -1,5 +1,5 @@
 ---
-status: DECIDED
+status: AMENDED
 raised: 2026-07-29
 decided: 2026-07-29
 ratified_by: calef
@@ -66,6 +66,15 @@ Four consequences, each deliberate:
    a permanently blocked thread at all", which is a fork nobody has opened. notes/hung-component.md
    carries the taxonomy (three hang shapes, three answers), the evidence, and the options. The
    SUSPEND tracker is still where the resumable half lives.
+
+   Amended 2026-10-08 (UTC): the fork was opened and answered, and the two paragraphs above are
+   history. Milestone 133 (ending a permanently blocked thread, and deciding who may) opened it on
+   2026-08-17. calef chose its proposal A on 2026-09-03, and it was built 2026-09-04. `DESTROY` now
+   finishes a `Blocked` resident in place without waking it, so the construction authority *is*
+   sufficient for the worst shape. Milestone 254 (a caller stranded by a server that died) wakes
+   the callers such a server held with `abi::Error::Gone`. This decision's own line is unchanged.
+   A holder of only the supervision endpoint may collect a corpse and nothing more, and a terminate
+   right for it is 133's proposal B, refused for want of a customer.
 3. It settles the queued tid-to-handle question for this case, and only this case. The second
    fork raised alongside this one was how a supervisor names a child: a `Tcb::NAME` method,
    per-child fault endpoints, or a builder-reported tid. None is needed here, because the tid is

@@ -927,6 +927,16 @@ mod tests {
     /// erroring. A panic inside the credential service is a login outage, so [`Cost::new`] checks
     /// the bound first. Swept across the boundary and up to the top of the range, because the
     /// failure is arithmetic and the interesting values are the ones next to a power of two.
+    /// **The restated bounds are the library's bounds.** They exist so [`Cost::new`] can refuse
+    /// first, which is only right while they equal what `argon2` itself enforces; the sweep below
+    /// pairs a hostile `p_cost` with an oversized `m_kib`, so it cannot see the `p` bound move
+    /// (2026-10-07 census triage: `(1 << 24) - 1` as `/` or `+` survived it).
+    #[test]
+    fn the_restated_bounds_are_argon2s_own() {
+        assert_eq!(MAX_P_COST, argon2::Params::MAX_P_COST);
+        assert_eq!(MIN_M_COST, argon2::Params::MIN_M_COST);
+    }
+
     #[test]
     fn a_hostile_cost_is_refused_and_never_overflows_the_library() {
         for p in [
