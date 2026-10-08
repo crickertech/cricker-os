@@ -1053,6 +1053,53 @@ for num, dep in modelled.items():
         waiting.append("PERSON")
     gates[num] = waiting or ["NONE"]
 
+# ---- a dependency graph has no cycles ----------------------------------------
+# §207 calls the roadmap a graph that a script can walk, and a cycle makes every milestone on it
+# wait forever while each block reads, alone, as a sensible thing to wait on. One stood unnoticed
+# from 2026-10-06 to 2026-10-07 (UTC): 809 (the package client becomes a program) named 198 (a
+# package manager), 198 the umbrella named 802 (the trivial install), and 802 named 809. Each edge
+# was written by a different lane on a different day, so no reader of one block could see it; only
+# a walk of the whole graph can. Every edge counts, BUILT or not, because a BUILT milestone on a
+# cycle claims to have waited on something that waited on it, which is a record that is wrong.
+def dependency_cycles(edges):
+    """Each cycle once, as the list of milestones on it in edge order, from {n: [deps]}."""
+    found, seen, state = [], set(), {}
+
+    def walk(n, path):
+        state[n] = "open"
+        path.append(n)
+        for m in edges.get(n, ()):
+            if state.get(m) == "open":
+                cyc = path[path.index(m):]
+                key = frozenset(cyc)
+                if key not in seen:
+                    seen.add(key)
+                    found.append(cyc[:])
+            elif m not in state:
+                walk(m, path)
+        path.pop()
+        state[n] = "done"
+
+    for n in sorted(edges):
+        if n not in state:
+            walk(n, [])
+    return found
+
+
+assert dependency_cycles({809: [198, 205], 198: [801, 802], 802: [809]}) == [[198, 802, 809]]
+assert dependency_cycles({1: [2], 2: [3], 3: []}) == []
+
+dep_edges = {}
+for num, _fname, role, tok in field_refs:
+    if (role == "milestone_dependencies" and num is not None and tok.isdigit()
+            and int(tok) in milestones and int(tok) != num):
+        dep_edges.setdefault(num, []).append(int(tok))
+for cyc in dependency_cycles(dep_edges):
+    loop = " -> ".join(str(n) for n in cyc + cyc[:1])
+    problems.append(f"design/roadmap: milestone_dependencies has a cycle, {loop}. Every milestone "
+                    f"on it waits forever; find the edge that names more than it needs (usually "
+                    f"an umbrella, where the part needed is its own milestone or already built)")
+
 # ---- the five-column rendering, for `--index` --------------------------------
 # Two escapes, and they are markdown's rather than this script's. A literal `|` inside a cell would
 # end it, so it is written `\|` here and stored unescaped in the block, where it is ordinary prose.

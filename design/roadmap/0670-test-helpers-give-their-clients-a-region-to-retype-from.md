@@ -2,7 +2,7 @@
 status: NOT-STARTED
 raised: 2026-09-26
 promoted_from: test-helpers-give-their-clients-a-region-to-retype-from
-milestone_dependencies: 608
+milestone_dependencies: none
 decision_dependencies: none
 machine_requirements: none
 specific_machine: none
@@ -11,6 +11,11 @@ needs_person: no
 # 670. Test helpers give their clients a region to retype their rendezvous from
 
 Promoted from `design/roadmap/proposals/test-helpers-give-their-clients-a-region-to-retype-from.md` on 2026-10-03 (UTC). The number 670 was minted by the maintainer in a batch promotion of the proposal pile and is provisional until the queue lands it. *(Title and slug are drafts.)*
+
+*Dependencies corrected 2026-10-07 (UTC) by lane `milestone/809-package-client`, when
+`script/roadmap --check` learned to refuse a cycle: this block named 608 and 608 names this block
+as the work that finishes it. What this block uses from 608 is the pattern 608 already built
+(retyping a rendezvous from a reclaimed region), so the edge blocked nothing true and is gone.*
 
 Filed by the lane of milestone 608 (kernel tests give back their rendezvous points), from the
 rendezvous ledger at `sched::PEAK_RENDEZVOUS`, built by milestone 601 (the region table prints its
