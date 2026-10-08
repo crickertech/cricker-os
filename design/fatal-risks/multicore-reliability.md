@@ -174,9 +174,11 @@ that makes a red result possible at all, and the running order carries it rather
    that converts x86_64 from no evidence to some. It is a lane, not a bench evening.
 3. Milestone 201's three seed data points re-derived from the record, since one is retracted and two
    have moved. A curve seeded from a retracted defect is worse than an unseeded one.
-4. A stated duration. radon's 8 hours was chosen before the run against a crossing count, which
-   is a choice rather than a standard. Neither 201 nor 225 prescribes one, both because nobody knows what would
-   persuade, and a number chosen after the run is not a number.
+4. **Done 2026-10-07**, a stated duration. calef ruled in §259 (a multicore soak counts toward
+   risk 5 at ten million crossings over three boots): at least 10 million crossings per
+   architecture across at least 3 boots, stated before the run. radon's 4.1 million is almost all
+   one boot, so it needs about 6 million more over at least 2 more boots; xenon needs the full 10
+   million. Defects found do not reset the count.
 5. argon, which has never booted nife at all and sits behind milestone 127 (the seL4 machine).
 
 ### What none of that would return is a green

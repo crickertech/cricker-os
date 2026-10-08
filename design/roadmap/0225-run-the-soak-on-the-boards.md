@@ -60,6 +60,12 @@ rather than 221's, and the difference is invisible afterwards.
 
 Record `rounds`, `rate`, `wakes` and `crossings` for every run, in `notes/soak.md`'s table.
 
+The target, ruled by calef on 2026-10-07 (UTC) in §259 (a multicore soak counts toward risk 5 at ten
+million crossings over three boots): at least 10 million crossings per architecture across at least
+3 boots, stated before the run. A bench evening aims at the remainder: radon needs about 6 million
+more over at least 2 more boots, xenon the full 10 million over 3. Defects found do not reset the
+count.
+
 ## What an answer would and would not be
 
 A clean run licenses one sentence, which milestone 219's tooling prints on every green result:
@@ -149,9 +155,9 @@ Eight hours, for radon's reason. Red is `soak-test: FAILED`, a `[PANIC]`, three 
 
 ## BUGS
 
-- **No duration is prescribed**, because nobody knows what would be persuasive, and milestone 219's
-  block says the same thing for the same reason. The radon run chose 8 hours against a crossing
-  count and says why above; that is a choice, not a standard.
+- **The duration is now stated**: §259 (a multicore soak counts toward risk 5 at ten million crossings over three boots), ruled 2026-10-07 UTC, sets at least 10 million crossings
+  per architecture across at least 3 boots. The radon run's 8 hours, chosen before the standard,
+  gave 4.1 million in one boot.
 - One radon boot is one draw. It drew the fastest arrangement seen so far, and a slow draw
   crosses about 275 times less often, so the clean result says little about slow arrangements.
 - A hung board needs a person, since nothing can power-cycle radon remotely (milestone 224) and
