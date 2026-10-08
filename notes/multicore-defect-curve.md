@@ -31,9 +31,12 @@ records it. Hours and boots are still recorded in every row, so a later question
 without re-running anything:
 
 - **hours**, which is what milestone 201 names;
-- **crossings**, the judged unit: the soak's `crossings=` counter at the last beat (cross-core migrations, from
-  `sched::migrations()`), which [`soak.md`](soak.md) argues is the honest unit because clock time
-  on a saturated machine mostly repeats one interleaving;
+- **crossings**, the judged unit: the soak's `crossings=` counter at the last beat (cross-core
+  migrations, from `sched::migrations()`), which [`soak.md`](soak.md) argues is the honest unit
+  because clock time on a saturated machine mostly repeats one interleaving. A board's rows count
+  toward risk 5's verdict once the architecture reaches 10 million crossings across at least 3
+  boots, stated before the run (§259 (a multicore soak counts toward risk 5 at ten million
+  crossings over three boots)); a defect found does not reset the total;
 - **boots**, since each boot is a fresh draw of the placement lottery and PCT's model says
   independent starts multiply the chance of finding a shallow bug where a long run does not.
 

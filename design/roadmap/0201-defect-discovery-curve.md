@@ -156,9 +156,10 @@ this risk names.
   exposure row per boot to `notes/multicore-defect-curve.md`, and this milestone reads the slope per
   architecture. Checked 2026-09-24: the note has three radon rows, all riscv64, and none for argon or
   xenon.
-- **Outstanding.** The stated duration `design/fatal-risks/multicore-reliability.md` asks for. It is
-  an architect's; checked 2026-09-24 that it is not decided anywhere in the tree. Its sibling question is
-  answered: calef ruled on 2026-09-25 (UTC) that the curve is judged on crossings, with hours and
+- **Done.** The stated duration `design/fatal-risks/multicore-reliability.md` asks for: calef ruled
+  on 2026-10-07 (UTC), recorded in §259 (a multicore soak counts toward risk 5 at ten million
+  crossings over three boots), at least 10 million crossings per architecture across at least 3
+  boots, stated before the run. Its sibling question was answered earlier: calef ruled on 2026-09-25 (UTC) that the curve is judged on crossings, with hours and
   boots still recorded, carried by pull request #1282 into the run section above and
   `notes/multicore-defect-curve.md`'s *Which denominator*.
 - **Recorded.** The history table is one lane's sweep rather than a census, D5's instrument is
