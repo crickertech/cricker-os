@@ -54,3 +54,8 @@ The caveat. The structural fear is retired. The one published argument that spea
 goes badly: clean-slate kernels have *"significantly fewer features than Linux ... impeding
 adoption"*, risk 8's paper ([`notes/incremental-path.md`](../../notes/incremental-path.md)).
 [Appendix](somebody-elses-software.md).
+
+2026-10-08 (UTC): threads are to be built (§263 (threads are built), milestone 812
+(`std::thread::spawn` runs real threads in one address space)), so `ripgrep`'s threads become
+reachable; `fork` is refused and spawn supported (§264 (`fork` is declined for good), milestone 172
+(a capability-native subprocess primitive)).

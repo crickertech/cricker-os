@@ -221,7 +221,7 @@ place instead of moving text between two systems. Numbers 68 to 73 are the six t
 | 102 | DECIDED | [A Frame names a run of pages](0102-frame-names-a-run.md) |
 | 103 | SUPERSEDED BY 102 | [What a `Frame` names](0103-what-a-frame-names.md) |
 | 104 | DECIDED | [The rich-text font is DejaVu Sans Mono, and the palette is Solarized](0104-the-font-and-the-palette.md) |
-| 105 | AMENDED | [`std::thread::spawn` stays declined, until a customer needs it](0105-thread-spawn-decline-for-now.md) |
+| 105 | SUPERSEDED BY 263 | [`std::thread::spawn` stays declined, until a customer needs it](0105-thread-spawn-decline-for-now.md) |
 | 106 | DECIDED | [Take the `terminal_sink_caretaker` narrowing: an unredirected tail stage's output goes to the screen, not the shell](0106-tail-output-narrowing.md) |
 | 107 | DECIDED | [`missing_docs` moves to `workspace.lints.rust`, opt-out rather than opt-in](0107-missing-docs-workspace-wide.md) |
 | 108 | AMENDED | [Disabling a user's login credentials kills their durable session](0108-credential-revocation-kills-durable-session.md) |
@@ -376,6 +376,8 @@ place instead of moving text between two systems. Numbers 68 to 73 are the six t
 | 257 | DECIDED | [A required review that the App would give is refused](0257-a-required-review-the-app-would-give-is-refused.md) |
 | 258 | DECIDED | [Names for two installed versions of one program](0258-names-for-two-installed-versions-of-one-program.md) |
 | 260 | DECIDED | [Radon's block server serves a USB drive](0260-radons-block-server-serves-a-usb-drive.md) |
+| 263 | DECIDED | [Threads are built: more than one thread in an address space](0263-threads-are-built.md) |
+| 264 | DECIDED | [`fork` is declined for good, and spawn is the supported way to start a program](0264-fork-is-declined-and-spawn-is-supported.md) |
 
 Two blocks that lived among the decisions are not decisions and moved out with the split, the same
 way milestone 76 moved four essays out of the roadmap: [the open design
