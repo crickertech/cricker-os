@@ -188,6 +188,38 @@ part of milestone 161 (the x86_64 kernel port). None of them is needed to build,
 - `rdtsc` is readable from ring 3 by inheritance, not by decision. Closing it needs a coarse time
   source first. See [user-mode-runtime.md](x86-port/user-mode-runtime.md).
 
+### Two boot-mode features that do not compile here
+
+These are the scope notes §19 (architectural parity is a tenet) asks for, one for each gap
+`helpers/lint_arch_parity.py` allowlists, written 2026-10-08 (UTC). Neither is planned. Under §71 (a limitation is promoted when it becomes a plan),
+each stays a `BUGS` entry until one of that section's triggers fires, and each names the one that
+would.
+
+- `--features fastpath_pad` does not compile, because this port has no padding sled.
+  `kernel/src/fastpath_pad.rs` calls `arch::fastpath_pad_body`. aarch64 and riscv64 each define it
+  as a `global_asm!` run of `nop`s, and their linker scripts place its section first in `.text`;
+  `kernel/link-x86_64.ld` has no such line. The sled exists for E3 in milestone 134 (the register
+  of measures), a footprint experiment aimed at radon's 32 KB L1i (notes/footprint-perturbation.md). x86_64 joined
+  `script/fastpath-footprint` on 2026-08-27, after the sled was written, and no x86 measurement has
+  asked for one since. What the gap costs: milestone 796 (pin the hot trap path's placement) gets
+  only its containment check on this ISA, not the shift check, and `script/lint` cannot clippy the
+  feature here. The port is small, a third `fastpath_pad.rs` of about 50 lines sized against
+  `bench/fastpath-x86_64.txt`, plus one linker-script line. It becomes a plan when someone proposes
+  an E3 run on xenon, or wants 796's shift check on x86_64.
+- `--features icount` does not compile, because nobody wrote the x86_64 timer half of the
+  instrument from milestone 78 (the load-sensitive assertions). `kernel/src/icount.rs` reads `arch::timer::{ARRIVAL_BOUND,
+  HANDLER_BOUND, calibration_loop, deadline, missed_ticks}`, and this port has none of the five.
+  The cause is the timer. The instrument checks every tick against the deadline the kernel armed
+  (notes/instruction-clock.md). Here the local APIC timer is a periodic hardware reload
+  (`irq::arm_periodic_timer`), so there is no armed deadline to read and no missed tick to count.
+  Porting it means first changing how this port ticks, to the APIC's one-shot or TSC-deadline mode.
+  That is a timer redesign rather than a port, and neither mode has been tried under TCG here. A
+  partial port to the periodic tick would have to redefine claim 2, whose span starts at the armed
+  deadline. Nothing waits on it: `cargo xtask bench --x86` already gates instruction counts on this
+  ISA, and milestone 161 found that `CR4.PGE`, the one question that wanted an icount leg here, does
+  not move under icount at all. It becomes a plan if the tick moves to a deadline mode for its own
+  reasons, or if a milestone needs an instruction-denominated bound on this port's handler.
+
 ### What a userspace still does not have here
 
 The bound on everything above, listed because it is the next lane's brief rather than a caveat.
