@@ -1,6 +1,7 @@
 ---
-status: NOT-STARTED
+status: BUILT
 raised: 2026-10-08
+built: 2026-10-08
 milestone_dependencies: none
 decision_dependencies: 266
 machine_requirements: none
@@ -98,6 +99,14 @@ longer than a caption. That entry says the measure counts comments on purpose an
 - The ratchet slows feature work in the twenty listed files, which took a quarter of the merges to
   `main` in the two weeks before this was filed. That is intended, and §266 records the number.
 - The check cannot tell a split from a deleted comment. §266 makes that a review question.
+
+## Follow-on
+
+- **None.** The splits this gate exists to force are filed where the number is. Milestone 840 (the
+  scheduler file is split along its seams) covers the largest file. §266 section 4 records that the
+  2026-12-31 goals need a split milestone for each of the other six files over 4,000 lines, plus
+  three of the thirteen between 2,000 and 4,000. Filing them is an architect's call each, not this
+  block's.
 
 ## Index row
 

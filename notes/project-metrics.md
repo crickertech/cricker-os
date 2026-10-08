@@ -43,9 +43,9 @@ not a caption, it is a register entry.
 
 ![unsafe density](project-metrics/unsafe.svg)
 
-Blocks per 10,000 code lines outside `kernel/src/arch/`, which is `script/lint`'s gated census; the
-dashed line is the ceiling. The absolute count rose from 171 to 704 over the same period while the
-density fell by two thirds, and only the ratio is about soundness.
+Blocks per 10,000 code lines outside `kernel/src/arch/`, `script/lint`'s gated census; the dashed
+line is the ceiling. The absolute count rose from 171 to 704 while the density fell by two thirds,
+and only the ratio is about soundness.
 
 ## The same unsafe blocks, by trust boundary
 
@@ -53,7 +53,15 @@ density fell by two thirds, and only the ratio is about soundness.
 
 The same census split by what confines the code: kernel privilege, userspace confinement, both, and
 the pre-kernel boot chain. Before 2026W38 the `unclassified` band is crates whose names have since
-changed, so read the kernel and userspace bars in those weeks as undercounts of both sides.
+changed, so read those weeks as undercounts of both sides.
+
+## Rust file size
+
+![Share of Rust lines in files over 2,000](project-metrics/file-size.svg)
+
+<!-- file-size: script/metrics writes this -->
+**File size:** 20 Rust files over 2,000 lines, holding 21.6% of all Rust lines; largest kernel/src/sched.rs (8,921); 95th percentile 1,511.
+<!-- /file-size -->
 
 ## Milestones built each week
 
@@ -94,7 +102,7 @@ Queue began 2026-08-15; W31 and W32 predate it.
 Record began 2026-10-06 (`helpers/ci_job_times.py`).
 
 
-Job minutes, medians of up to twelve green runs a day (`helpers/verify_times.py`). Before
+Medians of up to twelve green runs a day (`helpers/verify_times.py`). Before
 2026-10-05 the re-falsify bar is the one replay job it then was.
 
 ## Which model wrote it
@@ -125,8 +133,8 @@ Added plus removed, not net, and volume rather than effort. Merges carry no line
 ![Machine effort per milestone built](project-metrics/effort.svg)
 
 Millions of lane tokens per milestone built. 2026W29 through 2026W33 are absent, not zero: those
-records were never in git and were already gone when the capture started, and the current week is
-always understated because its tokens accumulate all week.
+records were never in git. The current week is always understated because its tokens accumulate
+all week.
 
 ## What a turn costs
 
@@ -134,7 +142,7 @@ always understated because its tokens accumulate all week.
 
 Mean prompt per request, from session records that are not in git. A turn costs the size
 of its context, not the size of its thought: cache reads are about 98% of every token
-spent and output about 0.1%. 2026W29 through 2026W33 are absent, not zero.
+spent. 2026W29 through 2026W33 are absent, not zero.
 
 ## Architecture decisions by status
 

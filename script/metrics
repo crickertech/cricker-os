@@ -432,6 +432,13 @@ MEASURES = [
     ('names', [_col('names', s) for s in NAME_STATUSES] + ['names_total']),
     ('lines', ['kernel_code_lines', 'kernel_comment_lines',
                'other_code_lines', 'other_comment_lines']),
+    # Milestone 841 (a ratchet on Rust file length, and its dashboard row), provisional: the
+    # §266 (a Rust source file stays under 2,000 lines) series, one row per week from that week's
+    # tree. The gate that holds the ceiling is `helpers/file_length_ratchet.py` in `script/lint`,
+    # against a committed baseline; this reads the tree, never the list, so an unbanked entry
+    # reaches no number anyone quotes (§266 section 3, option (b)'s one cost).
+    ('file-size', ['files_over_2000', 'lines_share_over_2000_pct', 'largest_file',
+                   'largest_file_lines', 'file_lines_p95', 'lines_share_over_1000_pct']),
     ('bugs', ['bugs_markdown', 'bugs_rust']),
     ('harnesses', ['harnesses_falsified', 'harnesses_unfalsifiable', 'harnesses_unfalsified',
                    'harnesses_total']),
@@ -1350,6 +1357,37 @@ def lines(tree):
     return out
 
 
+# Milestone 841 (provisional): the size of Rust files, per §266 (a Rust source file stays under
+# 2,000 lines). The measure is physical lines, `wc -l`, comments and blank lines included, which
+# is that section's own ruling (section 1): a reader loads every line of a file, and comments are
+# 41% of the non-blank Rust here. The share of lines in files over 2,000 is the headline because
+# one split moves it; the count moves only when a file crosses the line, and the percentile barely
+# moves at all (§266 section 4). Percentiles are nearest-rank, as §266 measured them: the 95th of
+# 710 files is the 675th, not the 674th.
+FILE_CEILING = 2000
+
+
+def file_size(tree):
+    sizes = {path: text.count('\n') for path, text in tree.rust()}
+    if not sizes:
+        return {}
+    ordered = sorted(sizes.values())
+    total = sum(ordered)
+
+    def share(limit):
+        held = sum(n for n in ordered if n > limit)
+        return '%.1f' % (100.0 * held / total)
+
+    largest = max(sizes, key=sizes.get)
+    rank = math.ceil(0.95 * len(ordered))
+    return {'files_over_2000': sum(1 for n in ordered if n > FILE_CEILING),
+            'lines_share_over_2000_pct': share(FILE_CEILING),
+            'largest_file': largest,
+            'largest_file_lines': sizes[largest],
+            'file_lines_p95': ordered[rank - 1],
+            'lines_share_over_1000_pct': share(1000)}
+
+
 # A `BUGS` section is a markdown heading in a note, a decision or a milestone block, or the same
 # heading inside a Rust doc comment beside the feature it limits. Rising is GOOD: AGENTS.md calls
 # these "not modesty, they are the mechanism", and a tree that grows features without growing
@@ -1495,6 +1533,40 @@ DRIFT_REPORT = DATA_DIR / 'baseline-drift.md'
 # what a consumer of the interface would plan around.
 INTERFACE_BEGIN = '<!-- interface-stability: script/metrics writes this -->'
 INTERFACE_END = '<!-- /interface-stability -->'
+
+# Milestone 841's generated line, between these markers, from the latest week the series measured.
+# The form is the block's own example: the share first (the headline), then the count's context,
+# the largest file and the percentile.
+FILE_SIZE_BEGIN = '<!-- file-size: script/metrics writes this -->'
+FILE_SIZE_END = '<!-- /file-size -->'
+
+
+def file_size_line(rows):
+    measured = [w for w in sorted(rows) if rows[w].get('files_over_2000', '') not in ('', None)]
+    if not measured:
+        return None
+    row = rows[measured[-1]]
+    return ('**File size:** %d Rust files over 2,000 lines, holding %s%% of all Rust lines; '
+            'largest %s (%s); 95th percentile %s.'
+            % (int(row['files_over_2000']), row['lines_share_over_2000_pct'],
+               row['largest_file'], f"{int(row['largest_file_lines']):,}",
+               f"{int(row['file_lines_p95']):,}"))
+
+
+def write_file_size_line(rows):
+    path = pathlib.Path(PAGE)
+    text = path.read_text()
+    if text.count(FILE_SIZE_BEGIN) != 1 or text.count(FILE_SIZE_END) != 1:
+        raise SystemExit('metrics: %s must carry exactly one %r and one %r'
+                         % (PAGE, FILE_SIZE_BEGIN, FILE_SIZE_END))
+    line = file_size_line(rows)
+    if line is None:
+        return
+    before, rest = text.split(FILE_SIZE_BEGIN)
+    _old, after = rest.split(FILE_SIZE_END)
+    new = before + FILE_SIZE_BEGIN + '\n' + line + '\n' + FILE_SIZE_END + after
+    if new != text:
+        path.write_text(new)
 
 
 def interface_line(rows):
@@ -1755,7 +1827,7 @@ def row_for(rev, week, coverage='', person_weeks='', coverage_min=''):
     for status in NAME_STATUSES:
         row[_col('names', status)] = nm[status]
     row['names_total'] = named
-    for part in (proposals(tree), lines(tree), bugs(tree), harnesses(tree),
+    for part in (proposals(tree), lines(tree), file_size(tree), bugs(tree), harnesses(tree),
                  unsafe_census(tree), unsafe_trust_census(tree),
                  fatal_risks_colors(tree), coe_action_counts(tree), prose_budget(tree),
                  homes(tree)):
@@ -2346,6 +2418,15 @@ CHARTS = [
       ('shared (both, unresolved)', 'unsafe_trust_shared'),
       ('boot chain (uefi_loader)', 'unsafe_trust_boot_chain'),
       ('unclassified', 'unsafe_trust_unclassified')], 1.0, None, None),
+    # Milestone 841 (provisional). One series, the share, because it is the headline: one split
+    # moves it, where the count of files moves only at a crossing and the percentile barely at
+    # all. The other columns stay in the CSV and on the page's generated line; the ceiling itself
+    # is `script/lint`'s ratchet, not a line here.
+    ('file-size.svg', 'Share of Rust lines in files over 2,000, per cent',
+     'physical lines, comments counted: the reader loads every line. the ratchet holding the '
+     'ceiling is script/lint\'s; the share is the headline because one split moves it',
+     [('share of lines in files over 2,000', 'lines_share_over_2000_pct')], 1.0, None,
+     'lines_share_over_2000_pct'),
     # The verdict colours, stacked green then amber then red in their own hues (the
     # fatal-risk-colors-by-week proposal, 2026-09-29; chart name provisional). Grey is a risk with
     # no verdict rendered: five of nine today, which is the number a bar of four has to be read
@@ -2778,6 +2859,7 @@ def draw_charts(rows, only=None):
     if only is None:
         write_drift_report()
         write_interface_line(rows)
+        write_file_size_line(rows)
         write_week_notes_bullets()
     weeks = sorted(rows)[-CHART_WEEKS:]
     DATA_DIR.mkdir(parents=True, exist_ok=True)

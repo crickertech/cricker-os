@@ -5,16 +5,14 @@ naming is an architect's, and a lane ships a provisional one and says so.)*
 
 This tree measures a great deal and remembers almost none of it. A number gets taken once, written
 beside the reasoning that needed it, and stays true only on the day it was written. `notes/counted-claims.md` found three such numbers on 2026-08-14 and all three were wrong.
-Every one had been right when somebody typed it.
 
 That convention fixed the class of number a `grep` can re-derive. This register is the other half:
 the numbers that need an instrument, a boot, or a walk over the source. It says which ones this
-kernel holds itself to, which ones it merely knows, and which ones it has defined and cannot yet
-take.
+kernel holds itself to, which it merely knows, and which it has defined and cannot yet take.
 
 [`notes/project-metrics.md`](project-metrics.md) is the half that moves: one row per ISO week,
-recomputed from git history by `script/metrics`. Since 2026-09-24 it is a deck, and the argument
-behind each chart is routed from [The weekly series](#the-weekly-series) below.
+recomputed from git history by `script/metrics`. Since 2026-09-24 it is a deck, and each chart's
+argument is routed from [The weekly series](#the-weekly-series) below.
 
 Each row's argument and history are in an appendix under
 [`notes/register-of-measures/`](register-of-measures/), [listed at the end](#appendices).
@@ -77,9 +75,9 @@ Row 1 is a two-sided drift band and row 9 is a floor.
 | `unsafe impl Send`/`Sync` claims | `script/lint` | over the ceiling in the same file: 23 on 2026-09-24 (corrected from 17) |
 | per-file line coverage | `script/coverage` | any file under the 80% floor |
 
-The six ceilings hold six different kinds of number, and only the density ceiling expresses a
-direction rather than a limit. It also mixes kernel and userspace unsafe into one population; the
-split is plotted weekly with no ceiling of its own. The thresholds read together,
+Only the density ceiling expresses a direction rather than a limit, and it mixes kernel and
+userspace unsafe into one population; the split is plotted weekly with no ceiling of its own. The
+thresholds read together,
 and the density's lowering history, are in [the rows appendix](register-of-measures/gated-dated-and-owed-rows.md#gated).
 
 ## Dated
@@ -104,7 +102,7 @@ Three rows need a sentence before anyone quotes them.
 
 - **E3 has no attributable number at either date.** On radon the padded build ran faster on one
   benchmark, which resident dead code cannot cause. The control, milestone 370 (a layout control),
-  was built on 2026-09-19 and has not been run.
+  has not been run.
 - The milestone 168 row's date belongs to an instrument that changed on 2026-09-19. Risk 4 in
   `design/fatal-risks/README.md` and §96 (process kernel or event kernel) wait on the next radon evening.
 - The cross-OS row's date was recovered from git, not from a recorded run. It is the number a
@@ -132,12 +130,11 @@ Eight measures, M5 to M12 ("Tier B"). As of 2026-09-19 they no longer share one 
 
 Each measure's prediction, and what its outcome settles, is in
 design/roadmap/0134-the-measurements-that-decide.md rather than duplicated here. Which rows the
-`PMCCFILTR_EL0` ruling touches, and why §95 (a hand-written IPC fastpath) and §96 over-gated on
-silicon, are in [the rows appendix](register-of-measures/gated-dated-and-owed-rows.md#owed).
+`PMCCFILTR_EL0` ruling touches is in [the rows appendix](register-of-measures/gated-dated-and-owed-rows.md#owed).
 
 ## Deliberately not in this register
 
-Each was considered, and each names the half of the test it failed, so the next person does not add
+Each names the half of the test it failed, so the next person does not add
 it back.
 
 | number | why it is out |
@@ -168,6 +165,7 @@ time.
 | Kani proof harnesses | harnesses, and how many carry a falsification record | [proofs and coverage](register-of-measures/code-proofs-and-coverage.md) |
 | unsafe outside `arch/` | blocks per 10,000 code lines, against the gated ceiling | [the unsafe series](register-of-measures/unsafe-series.md) |
 | unsafe by trust boundary | the same blocks split kernel, userspace, shared and boot chain | [the unsafe series](register-of-measures/unsafe-series.md) |
+| Rust file size | files over 2,000 lines, their share of all Rust lines, the largest file, the 95th percentile, the share over 1,000 | [file size](register-of-measures/file-size.md) |
 | milestones built each week | a flow, read from each block's `Built` date in today's tree | [landed each week](register-of-measures/landed-each-week.md) |
 | pull requests merged each week | merge commits on `main` with GitHub's merge subject | [landed each week](register-of-measures/landed-each-week.md) |
 | commits and lines by model | commits and lines touched per week, bucketed by the `Co-Authored-By` trailer | [which model wrote it](register-of-measures/which-model-wrote-it.md) |
@@ -231,7 +229,7 @@ script/bench --real --smp
 ```
 
 If the number moved, the finding is the movement, not the new value. Say what moved and against
-what in notes/benchmarks.md, where the series lives, and leave this register holding only the date.
+what in notes/benchmarks.md, and leave this register holding only the date.
 
 ## BUGS
 
@@ -267,6 +265,7 @@ provisional names.
 | [records-by-status](register-of-measures/records-by-status.md) | fatal risks, decisions, names, proposals and milestones by status |
 | [fatal-risk-colors](register-of-measures/fatal-risk-colours.md) | verdict colors by week and the backfill's limits |
 | [unsafe-series](register-of-measures/unsafe-series.md) | the unsafe census by week and by trust boundary, and its BUGS |
+| [file-size](register-of-measures/file-size.md) | the §266 (a Rust source file stays under 2,000 lines) series: physical lines, comments counted |
 | [landed-each-week](register-of-measures/landed-each-week.md) | milestones built and pull requests merged each week, and the 2026-09-23 reconciliation |
 | [which-model-wrote-it](register-of-measures/which-model-wrote-it.md) | the commits-and-lines-by-model series: why the trailer, the checked three-way sum, and what it cannot say |
 | [project-cost](register-of-measures/project-cost.md) | the cost units, the capture deadline, the two dollars, and what a turn costs |
