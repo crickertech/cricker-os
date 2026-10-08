@@ -1,16 +1,23 @@
 ---
-status: PROPOSED
+status: NOT-STARTED
 raised: 2026-10-08
+promoted_from: sqlite-speedtest1-on-nife-and-linux
 milestone_dependencies: none
-decision_dependencies: none
+decision_dependencies: 262, unwritten
 machine_requirements: silicon for wall-clock rows, radon first, then xenon
 specific_machine: none
 needs_person: yes
 ---
-# SQLite's speedtest1 on nife and Linux, a real database workload
+# 831. SQLite's speedtest1 on nife and Linux, a real database workload
+
+*(Minted 2026-10-08 (UTC) by lane/standard-benchmarks from the proposal
+`sqlite-speedtest1-on-nife-and-linux`, under §262 (nife is measured with the field's standard
+benchmarks). The number is provisional until the merge queue lands it; the title and slug are
+drafts.)*
 
 Written by an agent, 2026-10-08 (UTC), at calef's request ("Yes" to one proposal per benchmark,
-2026-10-07/08). Model: the fio proposal (`the-same-storage-benchmark-on-nife-and-linux`).
+2026-10-07/08). Model: milestone 833 (the same storage benchmark on nife and Linux, by porting real
+fio).
 
 **In brief.** Port SQLite's `speedtest1` (one C file beside the amalgamation) and run it on nife and
 Linux with identical parameters. It is the cheapest real database workload there is.
@@ -24,7 +31,8 @@ than the CPU. A separate in-memory run (`:memory:`) isolates compute and allocat
 ## Which fatal risk it informs
 
 Risk 1 (`design/fatal-risks/1-only-software-written-for-nife.md`): SQLite is the canonical C you
-cannot rewrite (milestone 36 (a foreign-language component, seam first) says so). A passing `speedtest1` is a third-party
+cannot rewrite (milestone 36 (a foreign-language component, seam first) says so). A passing
+`speedtest1` is a third-party
 program running unmodified on nife. Risk 4 (the per-crossing cost): each test's file I/O count is
 known, so the time per crossing falls out.
 
@@ -47,6 +55,18 @@ asked (see `notes/benchmarks.md`, "What is not apples to apples").
 
 Reuse: SQLite itself is taken unmodified; no benchmark program is written.
 
+## What it waits on
+
+Every program in this family is POSIX C, and nife has no C library that runs one unmodified. §31
+(the foreign-language seam) lets C make no syscalls, and full POSIX is milestone 478 (tier three:
+full POSIX behind the foreign-language seam), refused until a component needs it. Whether §262 makes
+these programs that component is calef's call, and nobody has written that question up, so this
+block carries `decision_dependencies: unwritten`.
+
+Neither threads nor fork. SQLite builds single-threaded (`SQLITE_THREADSAFE=0`), and `speedtest1`
+runs in one process. Of the C programs here, this is the one the most people would run for its own
+sake.
+
 ## How it runs continuously
 
 QEMU TCG wall-clock timings are meaningless, so nothing here gates on them. Where a host-side
@@ -55,3 +75,8 @@ icount baseline per workload step, `--check` failing on drift). The wall-clock r
 silicon on a schedule, as the runbook does for the soak, and write dated rows to
 `notes/benchmarks.md` with the Linux row beside them. A run that cannot reach the board writes
 nothing rather than a TCG number.
+
+## Index row
+
+SQLite's speedtest1, the cheapest real database workload, unmodified on nife and Linux. Needs only a
+C library: no threads, no fork.

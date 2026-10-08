@@ -23,12 +23,12 @@ original 955,223 bytes/s has no committed transcript, corrected 2026-10-03 per �
 1. **Real speed has a reference.** Linux `fio` on the same disk and window, 4 KiB, queue depth 1 (`bench/xenon-2026-10-04/linux-fio.log`, hand-transcribed from photographs). Writes: nife 458 MB/s against Linux's best, 425 MB/s (`io_uring`, polled), 1.08x. Reads: nife 272 MB/s against Linux's 126 MB/s, 2.16x. The condition was within about 0.8x of Linux for both.
 2. **Confined is attacked.** The out-of-region DMA test, `a_confined_el0_server_cannot_dma_outside_its_region`, was done 2026-10-04 (milestone 261 (the NVMe driver leaves the kernel)) and its falsification replayed red 2026-10-05.
 
-**The caveat, plainly.** A read 2.2x faster than Linux on the same disk is suspicious and unexplained. Polling does not explain it, since polled Linux reads were no faster. But nife's read would have to be overstated by more than 2.7x to fall below 0.8x. The rest: one pass per boot, figures hand-transcribed from photographs, read varied 16% across boots, and "real speed" is claimed at queue depth 1 only. The follow-up is the proposed milestone `design/roadmap/proposals/the-same-storage-benchmark-on-nife-and-linux.md`: port real fio and run one job file on both systems, queue depths 1, 4 and 32, with a per-I/O latency histogram on each.
+**The caveat, plainly.** A read 2.2x faster than Linux on the same disk is suspicious and unexplained. Polling does not explain it, since polled Linux reads were no faster. But nife's read would have to be overstated by more than 2.7x to fall below 0.8x. The rest: one pass per boot, figures hand-transcribed from photographs, read varied 16% across boots, and "real speed" is claimed at queue depth 1 only. The follow-up is milestone 833 (the same storage benchmark on nife and Linux, by porting real fio): port real fio and run one job file on both systems, queue depths 1, 4 and 32, with a per-I/O latency histogram on each.
 
 **The path back to GREEN (proposed 2026-10-08, not ruled).**
 
 1. The same unmodified storage benchmark, run on nife and on Linux on xenon, with real logs (not photographs), repeated passes and per-request latency, so the 2.16x read is either explained or corrected. calef is leaning to `ioping` for this; that choice is proposed, not ruled.
-2. `fio` at queue depths 1, 4 and 32, one job file on both systems, per `design/roadmap/proposals/the-same-storage-benchmark-on-nife-and-linux.md`. It waits on threads, §105 (`std::thread::spawn` stays declined until a customer needs it).
+2. `fio` at queue depths 1, 4 and 32, one job file on both systems, per milestone 833 (the same storage benchmark on nife and Linux, by porting real fio). It waits on threads, §105 (`std::thread::spawn` stays declined until a customer needs it).
 3. Still open from the caveats: one device, one board (xenon).
 
 GREEN needs 1 and 2; whether 3 does is the architect's call.
@@ -37,3 +37,14 @@ Caveats. Every figure is one command in flight, polled completion, and one pass 
 
 2026-10-08 (UTC): `fio` needs threads, which §263 (threads are built) schedules as milestone 812
 (`std::thread::spawn` runs real threads in one address space).
+
+## Benchmarks that inform this risk
+
+As of 2026-10-08 (UTC), under §262 (nife is measured with the field's standard benchmarks).
+Each is to run unmodified on nife and on Linux, none has produced a number yet, and every nife
+port waits on a C library, which §262 leaves to calef.
+
+- [Milestone 828 (iperf3 on nife and Linux)](../roadmap/0828-iperf3-on-nife-and-linux.md), the NIC half.
+- [Milestone 829 (netperf TCP_RR on nife and Linux)](../roadmap/0829-netperf-tcp-rr-on-nife-and-linux.md), a driver's fixed delay.
+- [Milestone 833 (the same storage benchmark on nife and Linux, by porting real fio)](../roadmap/0833-the-same-storage-benchmark-on-nife-and-linux.md), at queue depths 1, 4 and 32. Waits on threads.
+- [Milestone 834 (ioping on nife and Linux)](../roadmap/0834-ioping-on-nife-and-linux.md), one request at a time. Needs only a C library.
