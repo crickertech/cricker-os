@@ -147,7 +147,7 @@ place instead of moving text between two systems. Numbers 68 to 73 are the six t
 | 28 | AMENDED | [SMP placement: two random choices at spawn, message-shaped stealing, local wakes](0028-smp-placement.md) |
 | 29 | DECIDED | [The framebuffer is a bigger grant, not an exemption (milestone 29 (a display terminal), the display ladder's rung one)](0029-framebuffer-grant.md) |
 | 30 | DECIDED | [The DMA boundary is proved for descriptors, and the proof says where it stops (milestone 35 (prove the DMA-confinement boundary))](0030-dma-boundary-proof.md) |
-| 31 | DECIDED | [The foreign-language seam: C holds no capabilities and makes no syscalls (milestone 36 (a foreign-language component, seam first))](0031-foreign-language-seam.md) |
+| 31 | AMENDED | [The foreign-language seam: C holds no capabilities and makes no syscalls (milestone 36 (a foreign-language component, seam first))](0031-foreign-language-seam.md) |
 | 32 | AMENDED | [A supervisor may collect a corpse without being able to build one](0032-reap-without-build.md) |
 | 33 | DECIDED | [The compositor's authority is memory, not messages (milestone 33 (a compositor), the display ladder's rung two)](0033-compositor-authority.md) |
 | 34 | AMENDED | [RedoxFS is the primary filesystem, on three conditions](0034-redoxfs-primary.md) |
@@ -381,6 +381,7 @@ place instead of moving text between two systems. Numbers 68 to 73 are the six t
 | 262 | DECIDED | [nife is measured with the field's standard benchmarks, run unmodified, against Linux](0262-nife-is-measured-with-the-fields-standard-benchmarks.md) |
 | 263 | DECIDED | [Threads are built: more than one thread in an address space](0263-threads-are-built.md) |
 | 264 | DECIDED | [`fork` is declined for good, and spawn is the supported way to start a program](0264-fork-is-declined-and-spawn-is-supported.md) |
+| 265 | DECIDED | [A C library started from relibc, whose Rust platform layer holds the capabilities](0265-a-c-library-started-from-relibc.md) |
 
 Two blocks that lived among the decisions are not decisions and moved out with the split, the same
 way milestone 76 moved four essays out of the roadmap: [the open design
