@@ -948,9 +948,13 @@ pub mod thread_control_block {
     /// first-free happened to fall. `OutOfMemory` if the chosen slot is occupied or out of range.
     pub const CAP_INSERT: u64 = 1;
 
-    /// `invoke(cap, START, _, _, _)` -> 0. Make the thread runnable: it gets a kernel stack and
-    /// an entry context and joins the run queue. **Refuses a half-built thread** (no bound
-    /// address space, or no entry): a TCB must be whole before it runs. Needs `WRITE`.
+    /// `invoke(cap, START, x0, x1, x2)` -> 0. Make the thread runnable: it gets a kernel stack and
+    /// an entry context and joins the run queue. **The three arguments are the child's first
+    /// `x0`, `x1` and `x2`** (`a0` to `a2` on RISC-V, `rdi`, `rsi` and `rdx` on `x86_64`), passed
+    /// through unconditionally, which is how a builder hands a worker its input
+    /// (milestone 19 (run a real workload), phases d and e). A caller with nothing to pass sends
+    /// zeros. **Refuses a half-built thread** (no bound address space, or no entry): a TCB must be
+    /// whole before it runs. Needs `WRITE`.
     pub const START: u64 = 2;
 }
 
