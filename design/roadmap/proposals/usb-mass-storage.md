@@ -47,8 +47,8 @@ xHCI controller.
 
 ## What proves it
 
-A drive's sector read and write round-trip under QEMU on all three ISAs, a hostile or short device
-(wrong tag, short data stage, stall) refused without wedging the server, and the confinement claim
+A drive's sector read and write round-trip under QEMU on all three ISAs. A hostile or short device
+(wrong tag, short data stage, stall) is refused without wedging the server. The confinement claim is
 tested as the NVMe driver's is: the driver can reach its endpoints and its DMA window and nothing
 else. On silicon, a read on xenon, then on radon once 163 lands.
 
