@@ -47,8 +47,11 @@
 
 use user_mode_runtime::{call, reply, send};
 
-// A source file shared by several binaries through `#[path]`, and each uses a different slice of it,
-// so the unused halves are expected (§38).
+// This is its own binary. What it shares with the other hot-swap programs comes from the
+// `swap_protocol` crate.
+// Shared code was a `#[path]` module compiled into each binary until rule 7 (2026-08-01) made it
+// a crate, so this file needs no dead-code allow under §38 (a suppression is scoped to an item
+// and carries a reason).
 
 /// What `swapper` endowed us with, in order. No budget, no device, no way to build anything: a
 /// compromised broker can reorder or drop the one channel it was placed on, and nothing else.

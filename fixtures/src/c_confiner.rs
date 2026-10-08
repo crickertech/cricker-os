@@ -47,9 +47,11 @@
 #![allow(missing_docs)]
 #![no_main]
 
-// A source file shared by several binaries through `#[path]`, and each uses a different slice of it,
-// so the unused halves are expected. This is the one shape where a blanket allow is the honest one:
-// the module is compiled once per binary and no single binary is meant to use all of it (§38).
+// This is its own binary. What it shares with `c_shim` and the supervision tree comes from the
+// `c_seam` and `supervision_protocol` crates.
+// Shared code was a `#[path]` module compiled into each binary until rule 7 (2026-08-01) made it
+// a crate, so this file needs no dead-code allow under §38 (a suppression is scoped to an item
+// and carries a reason).
 
 // The loader, shared with the milestone-22 supervision tree. `ChildEndowment.maps` and `ChildEndowment.fault` are the
 // two parts this milestone leans on: a child born with shared pages and born supervised.
