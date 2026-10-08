@@ -375,6 +375,7 @@ place instead of moving text between two systems. Numbers 68 to 73 are the six t
 | 256 | DECIDED | [A server that keeps windows for many clients scopes each by the caller's badge](0256-a-server-that-keeps-windows-for-many-clients-scopes-each-by-the-callers-badge.md) |
 | 257 | DECIDED | [A required review that the App would give is refused](0257-a-required-review-the-app-would-give-is-refused.md) |
 | 258 | DECIDED | [Names for two installed versions of one program](0258-names-for-two-installed-versions-of-one-program.md) |
+| 259 | DECIDED | [A multicore soak counts toward risk 5 at ten million crossings over three boots](0259-a-multicore-soak-counts-toward-risk-5-at-ten-million-crossings-over-three-boots.md) |
 | 260 | DECIDED | [Radon's block server serves a USB drive](0260-radons-block-server-serves-a-usb-drive.md) |
 | 262 | DECIDED | [nife is measured with the field's standard benchmarks, run unmodified, against Linux](0262-nife-is-measured-with-the-fields-standard-benchmarks.md) |
 

@@ -22,12 +22,12 @@ $ vouch installed/unvouched
 $ caps installed/unvouched
   installed/unvouched would grant the new process, and nothing else:
     cap 0  endpoint  result   report its answer back
-    provenance: vouched by the owner in activation generation 3 (digest e6fd81d1...)
+    provenance: vouched by the owner in activation generation 3 (digest sha256:e6fd81d1...)
 $ package rollback
   rolled back; generation 2 is live
 $ caps installed/unvouched
   ...
-    provenance: unvouched (digest e6fd81d1...)
+    provenance: unvouched (digest sha256:e6fd81d1...)
 ```
 
 The shell sends the file as frames, the way it sends an image to run, and then the name to record

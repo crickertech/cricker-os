@@ -45,6 +45,17 @@ never in CI (§46 (thin primitives or whole subsystems)), and one file in one di
 walk `ripgrep` was chosen to exercise. That walk is measured in the kernel harness,
 `notes/ripgrep-on-nife.md`.
 
+Added 2026-10-07 (UTC), from milestone 121 (`ripgrep`: enumeration as a capability)'s block and
+`script/swish-check` on aarch64, riscv64 and x86_64 (lane `milestone/121-rg-walk`, #1845): `rg` has
+now walked a real tree at the prompt. In `/search`, holding a copy of this repository's `crates/`
+(661 files, 275 directories, 8,202,706 bytes, nested five deep), the gate typed
+`/installed/rg BUGS crates` with no flags. On each architecture `rg` printed 349 lines from 136
+files, and the gate compared them line for line with what `rg` 14.1.1 built for the host printed
+over the same copy: no line missing, none extra. The walk took 14.9 s on aarch64 (HVF), 40.8 s on
+riscv64 and 345.8 s on x86_64 (both TCG). The same limits as above still hold: it runs only where
+`helpers/build-ripgrep.sh` was run, never in CI, and `rg` sits on the data disk rather than being
+installed by `jig`. Its peak memory at the prompt is unmeasured; it finished within the `std` heap.
+
 DECISIONS §105 (`std::thread::spawn` stays declined, until a customer needs it) was never reached,
 and that reverses the premise. `ripgrep` asks `available_parallelism()` rather than assuming it, and
 nife answers `Ok(1)` honestly. A platform answering `Unsupported` there would have failed this

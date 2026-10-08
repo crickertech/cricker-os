@@ -152,10 +152,12 @@ fn generate_trust_root(manifest_dir: &str, arch: &str) {
     // deliberate: at build time we can still stop, and a manifest we cannot read means the build
     // wrote something we cannot read.
     for entry in measured_boot::manifest_entries(&text) {
-        let (name, digest) = entry.unwrap_or_else(|line| {
+        let (name, digest) = entry.unwrap_or_else(|bad| {
             panic!(
-                "malformed measurement line in {}: {line:?}",
-                manifest.display()
+                "malformed measurement line in {}: {:?} ({:?}; a digest is written sha256:<hex>)",
+                manifest.display(),
+                bad.line,
+                bad.why,
             )
         });
         let bytes: Vec<String> = digest.iter().map(|b| format!("{b:#04x}")).collect();

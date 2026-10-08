@@ -3570,11 +3570,11 @@ fn caps_image(nav: &mut Nav, spec: RunSpec) {
         return print(b"  this shell could not read the whole file, so it cannot say what it is\n");
     }
     let digest = hash.finalize();
-    let hex = measured_boot::hex(&digest);
+    let text = measured_boot::digest_text(&digest);
     let vouched_by = live_generation_listing(nav, &digest);
     swish::write_image_caps(
         spec.prog,
-        &hex,
+        &text,
         vouched_by,
         HOLDS_RUN_UNVOUCHED.load(core::sync::atomic::Ordering::Relaxed),
         declared,

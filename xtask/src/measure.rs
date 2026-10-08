@@ -58,7 +58,7 @@ fn measure_manifest_path(arch: &str) -> PathBuf {
 /// **The table the progenitor measures its own loads against** (milestone 104), packed as an ordinary archive
 /// entry under [`measured_boot::PROGRAM_MEASUREMENTS`].
 ///
-/// One line per program, in the same `name <sha256>` format the kernel's manifest uses, because
+/// One line per program, in the same `name sha256:<hex>` format the kernel's manifest uses, because
 /// there is one format and one parser (`measured_boot::manifest_entries`). Every entry in the
 /// archive is measured except the table itself, which cannot contain its own digest; that includes
 /// the boot programs the kernel already measures, which costs nothing and means a reader does not
@@ -80,8 +80,8 @@ pub(crate) fn measurement_table(files: &[(&str, &[u8])]) -> String {
         .iter()
         .filter(|(name, _)| *name != measured_boot::PROGRAM_MEASUREMENTS)
         .map(|(name, bytes)| {
-            let hex = measured_boot::hex(&measured_boot::sha256(bytes));
-            let hex = std::str::from_utf8(&hex).expect("hex is ascii");
+            let hex = measured_boot::digest_text(&measured_boot::sha256(bytes));
+            let hex = std::str::from_utf8(&hex).expect("a digest's text is ascii");
             format!("{name} {hex}\n")
         })
         .collect();
@@ -131,8 +131,8 @@ pub(crate) fn write_measure_manifest(arch: &str, image: &[u8]) -> bool {
             continue;
         };
         let digest = measured_boot::sha256(bytes);
-        let hex = measured_boot::hex(&digest);
-        let hex = std::str::from_utf8(&hex).expect("hex is ascii");
+        let hex = measured_boot::digest_text(&digest);
+        let hex = std::str::from_utf8(&hex).expect("a digest's text is ascii");
         text.push_str(&format!("{name} {hex}\n"));
     }
     let path = measure_manifest_path(arch);
