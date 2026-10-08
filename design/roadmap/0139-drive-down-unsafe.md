@@ -83,20 +83,13 @@ shared primitive means they now pass an explicit `0`, a strict tightening rather
 change. Measured from the diff: 14 `unsafe {` blocks removed, 9 added, net -5, entirely inside
 `crates/user_rt/src/lib.rs`.
 
-`crates/inter_process_communication` read in full: no reduction found, and that is the milestone's own predicted outcome
-for at least one target. Production code carries exactly three `unsafe` blocks, one each inside
-`send`, `receive` and `remove_sender`, and each already asserts a genuinely different fact (which of
-two queues, which node, under what caller contract) rather than the same fact copied three times --
-there is no §94 shape to collapse here. The other 41 sites the crate's `unsafe {` count includes
-(baseline "44 blocks") are doc examples, `#[cfg(kani)]` proof harnesses and `#[cfg(test)]` unit
-tests, each deliberately exercising a distinct state-machine transition; collapsing those would
-either be impossible (a test suite's whole value is that each call is a different scenario) or would
-be exactly the "hides it behind a macro" anti-pattern this block refuses. The crate's own doc
-comments already do the milestone's other job for comments rather than code: the shared proof
-obligations are stated once, at the module and section level ("stated once here rather than
-re-derived at each of the eleven/twenty-odd sites"), with each call site's own comment adding only
-what is particular to it. Nothing to migrate; reported honestly rather than forcing a relocation to
-move a number.
+`crates/inter_process_communication` read in full: no reduction found, and that is the milestone's
+own predicted outcome for at least one target. Production code carried exactly three `unsafe`
+blocks (`send`, `receive`, `remove_sender`), each asserting a genuinely different fact (which of
+two queues, which node, under what caller contract); no §94 shape. The other 41 sites of the
+baseline "44 blocks" were doc examples, harnesses and unit tests, each a distinct scenario. The
+crate's doc comments already stated the shared proof obligations once at module level. Nothing to
+migrate; reported honestly rather than forcing a relocation to move a number.
 
 The broader `read_volatile`/`write_volatile` sweep round 1's own BUGS section asked for, run for
 real this time. Grepping directly for `read_volatile`/`write_volatile` across `user/src/` (rather
@@ -455,14 +448,11 @@ checkable against base commit `757562a3`, and `notes/unsafe-obligations.md` spel
 The ratchet, cinched a fourth time: `<!--count-at-most:unsafe-density-outside-arch-->` lowered
 from 95 to 94 (`notes/unsafe-obligations.md`, `notes/counted-claims.md`,
 `notes/register-of-measures.md`), keeping the same 7-point headroom every ceiling in this milestone
-has carried, now above the 87 this round reached. One honest caveat this round's own report
-should carry rather than let a merge discover: a separate, concurrently-running round-4 lane
-(`milestone/139-round4-graphics`) is measuring and migrating a different candidate set from the
-same base commit at the same time. Whichever of the two rounds' pull requests lands second will
-find this ceiling arithmetic stale (both rounds subtracted from the same starting density) and
-needs to re-measure from the merged tree rather than trust either round's own before/after numbers
-in isolation, the same discipline round 2's own report names for tree-wide census under concurrent
-growth.
+has carried, now above the 87 this round reached. One caveat rather than let a merge discover it:
+a concurrent round-4 lane (`milestone/139-round4-graphics`) worked a different candidate set from
+the same base commit, so whichever pull request landed second had to re-measure from the merged
+tree rather than trust either round's before/after numbers in isolation, the discipline round 2
+names for tree-wide census under concurrent growth. Round 8 did that re-measure.
 
 ## Round 6 (2026-08-25): the `user/` survey this milestone's BUGS section asked the first lane
 for, finished, plus two more migrations and one honest count-regression
@@ -607,33 +597,18 @@ A realistic floor for `user/`, as this milestone's own BUGS section asked the fi
 report rather than pick a target here. The `invoke` cluster is the whole question: it is 123 of
 284 blocks, and the achievable reduction ranges from near zero (if most of the 18-plus methods
 turn out to carry the real, per-call obligation `MAP_INTO` does) to on the order of 100 (if most
-turn out to be the same non-obligation `send`/`receive`/`reap` already were). No number in that range
-is more than a guess without the method-by-method reading above. Setting the `invoke` cluster
-aside, the rest of `user/` (roughly 161 blocks: the `read_volatile`/`write_volatile`, `asm!`,
-`from_raw_parts` and "everything else" rows above) is close to its practical floor already. Six
-rounds have read essentially all of it: the `asm!` entries are ABI entry stubs and traps with no
-further collapse available; the remaining `read_volatile`/`write_volatile` sites are device
-registers this milestone investigated and deliberately left unmigrated (the NS16550 halves of
-`console.rs`/`input.rs`, whose register stride is a runtime fact no compile-time layout can
-express; `clock.rs` and `driver.rs`, each already collapsed to one function apiece); the remaining
-`from_raw_parts` sites are deliberate-fault test programs (`flaky.rs`, `outlaw.rs`) and one-off
-writes (`memory_grant_depleter.rs`, `swapper.rs`) this milestone's own text already names as not having a §94
-shape to collapse; and `crates/inter_process_communication`'s three call sites are DECIDED as genuinely distinct (round 2).
-So: no single number, but a bounded one -- somewhere between roughly 160 (if the `invoke`
-cluster turns out to need no wrapper at all) and roughly 260 (if it turns out nearly all of it is
-real per-call obligation and stays exactly as it is), and the only way to narrow that range further
-is the method-by-method reading named above, not more reading of the kind this round and its five
-predecessors already did.
+turn out to be the same non-obligation `send`/`receive`/`reap` already were). Setting the
+`invoke` cluster aside, the rest of `user/` (roughly 161 blocks) is close to its practical floor
+already: six rounds read it, and what is left is `asm!` entry stubs, deliberately unmigrated
+device registers (round 5 names them), deliberate-fault test programs and one-off writes. So: no
+single number, but a bounded one, roughly 160 to 260, narrowed only by the method-by-method
+reading above. Round 7 did that reading; the bound closed at 162.
 
-The ceiling's own open question, answered as far as it can be from five weeks of data. BUGS
-item 1 (below) asks whether the density ceiling fires on honest work. It has not: the density has
-moved from 93.4 (this milestone's own start) through 90.8, 89, 88, 87, 87 (unchanged), and now 89
-again after this round's own count-regression, always 5 to 7 points under whatever the ceiling was
-at the time, across five weeks and both growth and reduction. That is not proof it never will, but
-it is the honest answer available today: no evidence yet that 94 is too tight, and this
-round's own +13 is the first commit in the milestone's history to spend headroom rather than widen
-it, which is worth calef seeing plainly rather than folded into a paragraph that reads like every
-other round's.
+The ceiling's own open question, answered as far as it can be from five weeks of data. It has
+not fired: the density moved from 93.4 through 90.8, 89, 88, 87, 87, and back to 89 after this
+round's own count-regression, always 5 to 7 points under the ceiling (the full series is in
+`notes/unsafe-obligations.md`'s table). This round's own +13 is the first commit in the
+milestone's history to spend headroom rather than widen it, which is worth calef seeing plainly.
 
 ## Round 7 (2026-08-26): the `invoke` cluster, read method by method and mostly resolved
 
@@ -854,12 +829,10 @@ round 2 has used.
 from 94 to 88 (`notes/unsafe-obligations.md`, `notes/counted-claims.md`), **ratified by calef
 2026-09-01**, ten points of headroom over the 78 this round reached.
 
-An earlier draft of this paragraph called that a departure from a "seven-point convention". There is
-no such convention, and the correction is worth carrying because it makes the case simpler rather
-than weaker: the headroom actually on record is six points at round 1 (100 against 90.8) and
-seventeen at round 7 (94 against 77). What every round has really held to is this block's own rule,
-that the ceiling falls when a real reduction lands and the headroom is argued beside the marker. So
-this is that argument.
+An earlier draft called that a departure from a "seven-point convention". There is no such
+convention: the headroom on record runs from six points (round 1) to seventeen (round 7). What
+every round holds to is this block's own rule, that the ceiling falls when a real reduction
+lands and the headroom is argued beside the marker. So this is that argument.
 
 It rests on a measurement none of the earlier rounds had: round 7 reached 77 on 2026-08-26 and this
 round found 83 on 2026-09-01, **six points of unrelated growth in six days**, the steepest stretch
@@ -999,6 +972,64 @@ would have fired on honest work in September. The `# Safety` contracts check alr
 arguments: they are the child's first `x0` to `x2` (`a0` to `a2`, `rdi`/`rsi`/`rdx`). Round 7 found
 the stale text.
 
+## Round 10 (2026-10-08): the scheduler queue ownership token, ruling C
+
+Ruling C's item 1 under "What remains", built in the ruling's order: the crates first on the
+host, then `sched.rs` under the full suite and the icount gates.
+
+`intrusive_fifo::Unqueued<T>` (name provisional, in calef's queue) is the token:
+`#[repr(transparent)]` over `NonNull<T>`, so `Option<Unqueued<T>>` is still one word (a host
+test pins that). It is not `Clone` or `Copy`. `Fifo::push_back` consumes it; `pop_front` is the
+one place a queue hands it back. A node cannot reach a second queue without minting a second
+token. Minting is the one `unsafe` step left in queueing, and it carries rule 2 (the node
+outlives its time on a queue), which no type here can express; stated once at
+`Unqueued::new`.
+
+`inter_process_communication`'s `send`, `receive` and `Notification::wait` are safe now.
+`remove_sender`, `remove_receiver` and `remove_waiter` return the victim's token instead of a
+bool. The verdict enums carry the caller's token back on every verdict that did not queue it,
+which created one obligation the old API did not have: the token handed back must be the
+caller's own. The new harness `a_token_comes_back_exactly_when_its_node_did_not_queue` proves
+that over every seeded state for both `send` and `receive`; its record's defect is a collect's
+two tokens handed back transposed. The crate's production code carries no `unsafe` at
+all: the six `unsafe fn`s round 9 counted went with the signatures that carried them.
+
+`sched.rs` went 90 to 54 `unsafe {` blocks. The twenty-one sites round 9 counted (6 run-queue
+pushes, 2 inbox pushes, 13 rendezvous operations) pass a token where they passed a pointer,
+bracketed by `take_token` and `hold_token`, which absorbed the old `(*waiter.as_ptr()).id`
+reads. `Threads::mint_token`, at table insertion, is the kernel's only minter. `ctx_switch`
+measured about 5% fewer instructions (icount).
+`script/fastpath-footprint`'s closures stayed inside their band once the seven inline `expect`s
+became one cold `missing_token`. Proven by `script/test` on aarch64, riscv64 and x86_64.
+
+### Where the running thread's token lives
+
+The ruling's letter says "its core's current slot". It lives on `Thread::own_token`: a thread
+holds its own token while it runs, the requeue takes it from there, and the choosing pop hands
+it home before the switch. Two measured costs forced the deviation. The slot is written by the
+core that pops and read by whichever core wakes the thread next, so the token crosses cores
+inside it. That wants either a new `unsafe impl Sync` for the slot, a hand-written claim in the
+one subsystem this milestone exists to make such claims rare in, or about 5% of the fastpath's
+band. On the TCB the token follows the thread it names, `IPC_TABLES` already serializes every
+access, and `hold_token`'s write lands in the TCB the switch touches anyway. Pending calef
+(#1852): confirm the TCB over the slot, and ratify `Unqueued`.
+
+### The falsification records
+
+Eight `inter_process_communication` records and one `system_tests` record were re-cut to the
+token API; §134 (a harness carries a machine-replayable falsification record) says a moved
+record is redone, not trusted. The two `receive_cap_attack_tests` records that rot against
+`sched.rs` were re-cut and replayed red by `script/falsifications --sweep system_tests`
+(2026-10-08 UTC), each at its predicted assertion. The sweep's one finding was not
+the token's: the syscall fuzzer's revocation-in-flight corpus seed (342) rotted on main before
+this lane's cut, verified by hand at the claim commit with the defect applied, and a 5,000-seed
+sweep under the record's patch re-found the defect at seed 559, green on the clean tree.
+Milestone 752 (a seeded syscall driver with a shadow model)'s replay table still names 342; that
+block is the integrator's to edit, and the fuzzer module's BUGS names it.
+
+No ceiling was cinched in this round's commits. The number is taken at merge, from the merged
+tree; the integrator's cinch is one line in the three notes files.
+
 ## What is still open
 
 Exit criterion, ratified by calef on 2026-10-08 (UTC) on #1842: this block is BUILT when every
@@ -1053,7 +1084,9 @@ are the price of one invariant at six declarations instead of eighteen call site
 
 ### What remains, under this milestone
 
-1. The ownership token, as question 1 rules it.
+1. The ownership token, as question 1 rules it. **Built by round 10** (2026-10-08 UTC, #1852),
+   with one deviation for calef to confirm: the token on `Thread::own_token`, not a per-core
+   current slot.
 2. The renames, as question 2 rules them: the fifteen renamed names at their definitions and
    every call site, the program-side `initial_ramdisk` sweep, `abi::interrupt`, the two
    `abi::virtio` constants, and the `design/naming.md` line about the foreign spelling.
@@ -1125,33 +1158,16 @@ proofs and the type system are standing aside and a person's comment is the whol
 
 ## BUGS
 
-- This block sets no target number. `script/lint` has already had three checks deleted for the
-  signature "only ever rejects legitimate work", and a ceiling cinched past what the tree can
-  sustain would be the fourth. **Round 6 answered the "does it fire on honest work" half**: across
-  five weeks and six rounds of both growth and reduction, the density has stayed 5 to 7 points
-  under whatever the ceiling was at the time (93.4 down to 87, back up to 89), with no near-miss on
-  record. **Round 7 widened that margin to 17 points** (89 down to 77) by resolving the `invoke`
-  cluster (below), the largest single reduction of the milestone's seven rounds. No evidence yet
-  that 94 is too tight, and rather more evidence now that it has real headroom. **The "what floor"
-  half is answered too, as far as `user/` is concerned**: round 7's reading found the `invoke`
-  cluster's achievable reduction was not the 0-to-100 range round 6 could only bound, it was
-  essentially all of it (122 of 123 sites), because the "real per-call obligation" round 6 held open
-  turned out, on reading, not to distinguish any of the 22 methods from the five already-wrapped
-  ones. `user/` now stands at 162 blocks; whether that is close to a practical floor for the
-  *rest* of `user/` (the `asm!`, device-register and deliberate-fault categories) is still the
-  reading rounds 1-6 already did, recorded below.
-- `user/`'s 285 (then 284, now 162) is explained, closing this milestone's own original BUGS
-  item and, as of round 7, resolving the one piece of the breakdown round 6 left open. The
-  breakdown (round 6's own table, updated by round 7): 122 of the 123 raw `invoke(...)` calls (43%
-  of the original total) are now behind fourteen new thin wrappers, `granted`, or the existing
-  `send`/`reply`/`map_page_frame`, and one stays raw with its reason recorded at the call site (see
-  round 7 above); 36 `read_volatile`/`write_volatile` (device registers and shared frames already
-  investigated and either migrated or deliberately left, per rounds 1-5), 16 `asm!` (entry stubs and
-  traps, no further collapse available), 12 `from_raw_parts[_mut]` (deliberate-fault test programs
-  and one-off writes with no §94 shape to collapse), and 97 everything else (window constructors,
-  the C ABI shim, deliberate `.bss`/`.data` probes) are unchanged by this round. What was "how much
-  of the `invoke` cluster is real" is now answered: essentially none of it, in the sense that
-  mattered for whether a safe wrapper could exist.
+- This block sets no target number, and no ceiling has ever fired on honest work: across ten
+  rounds the density has stayed 5 to 17 points under whatever the ceiling was (93.4 down to 77 at
+  the widest, round 7). `script/lint` has had three checks deleted for only ever rejecting
+  legitimate work, and a too-tight ceiling would be the fourth. Round 6 bounded `user/`'s floor
+  at 160 to 260 blocks depending on the `invoke` cluster; round 7 resolved it to 162, essentially
+  all of the cluster being wrappable.
+- `user/`'s 285 (now 162) is explained: 122 of the 123 raw `invoke(...)` calls are behind thin
+  wrappers (round 7), one stays raw with its reason at the call site, and the rest is device
+  registers, `asm!` entry stubs, deliberate-fault test programs and one-off writes, each
+  investigated and either migrated or deliberately left in rounds 1-6.
 - `sched.rs` is the kernel's largest single share (90 blocks on 2026-10-07, up from round 8's 47).
   21 of them hand a thread pointer to a queue under one sentence (*live, and on no other queue*),
   which the caller establishes, so a safe wrapper would only relocate it. calef ruled the real
