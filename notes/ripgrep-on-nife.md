@@ -106,6 +106,35 @@ carries six rights) chose a refusal over an empty listing, and it survives the c
 `READ | DESCEND` grant and is told `rg 'walk entry' narrow/n000`, and finds its line, so the
 refusal is about enumeration alone.
 
+## The walk at the prompt
+
+`script/swish-check` stages a copy of `crates/` at `/search/crates` when `rg` was built, and types
+this in `/search` (2026-10-07, milestone 121):
+
+```
+$ /installed/rg BUGS crates
+  crates/abi/src/lib.rs:    /// # BUGS
+crates/abi/src/lib.rs:    /// # BUGS
+...
+```
+
+The gate holds no list of matches. `helpers/build-ripgrep.sh` also builds 14.1.1 for the host, and
+staging runs it over the same copy (`--no-config --no-ignore-parent`, so the host sees what the
+guest sees) into `target/ripgrep-walk-expected.txt`. The answer must hold every line of that, as
+often, and nothing else, in any order, since RedoxFS and APFS list a directory differently. On
+2026-10-07 that was 349 lines from 136 files, matched on all three architectures, in 14.9 s
+(aarch64, HVF), 40.8 s (riscv64) and 345.8 s (`x86_64`, both TCG). The bounds and their table are
+beside `RG_WALK_SECS` in `xtask/src/swish_check.rs`.
+
+The walk exposed three faults, each fixed in the same change:
+
+- The 16 MiB image could not hold the copy: RedoxFS spends a 4 KiB node on each of 936 entries.
+  swish-check's image is now 32 MiB (`SWISH_CHECK_DISK_MIB`); every other image stays 16.
+- The shell grants a word only below `/`, so the line runs after `cd /search`.
+- The gate's transcript reader decoded each pipe read alone, so a `§` split across two reads
+  became two replacement characters, the one line of 349 that differed. `whole_characters` holds
+  the partial character for the next read, and a test splits one.
+
 ## The heap and `--no-mmap`, decided by measurement
 
 - The 256-page heap is enough. Every `rg` run retyped 65 pages of its budget, on all three
@@ -166,6 +195,20 @@ sh bench/host/run_linux_rg.sh         # needs rustup target add aarch64-unknown-
 ```
 
 ## BUGS
+
+- Spawning `rg` at the prompt is slow, and where the time goes is unmeasured. Lines that stop at
+  argument parsing took 3.8 to 30.1 s on aarch64 under HVF, and the `caps` line that hashes the
+  2.8 MiB image up to 38.7 s on `x86_64`, with other lanes loading the host (2026-10-07). The
+  image passes through the shell's staging and the progenitor's hash; which dominates is open.
+  These lines get a 90 s bound of their own (`RG_LINE_SECS`) rather than the shared 30 s.
+- The walk costs 345.8 to 432.1 s on `x86_64` under TCG, against 14.9 to 54.1 s on aarch64 under
+  HVF. Why is unmeasured; the screen path through TCG is the suspect `SWISH_CHECK_X86_LINE_SECS`
+  already documents.
+- The walk's peak memory at the prompt is unmeasured, since the shell reports no per-job heap. It
+  finished inside the `std` heap on all three legs. The host's `rg` with `--threads 1 --no-mmap`
+  over the same copy peaks at a 1.42 MiB footprint (2.7 MiB resident) on macOS.
+- The corpus is whatever `crates/` holds when the gate runs, and it carries no ignore files, so
+  gitignore semantics are still untested at the prompt.
 
 - **No gate runs any of this.** CI skips every `rg` test because nothing builds `rg` there. The
   numbers above are from one machine on one evening, and the tests are proven only where somebody
