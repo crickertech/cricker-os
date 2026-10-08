@@ -122,8 +122,7 @@ this ceiling has had to account for.
 
 The ratchet, cinched again: `<!--count-at-most:unsafe-density-outside-arch-->` lowered from 97 to
 96 in the same commit (`notes/unsafe-obligations.md`, `notes/counted-claims.md`,
-`notes/register-of-measures.md`), keeping the same 7-point headroom the 100-vs-93 and 97-vs-90
-ceilings both carried, now above the 89 this round reached.
+`notes/register-of-measures.md`), 7 points above the 89 this round reached.
 
 ## Round 3 (2026-08-24): `swish`'s remaining windows, `disk_surveyor`'s flag, `net_stack`'s cluster,
 and two investigations that ended in a recommendation rather than a migration
@@ -187,8 +186,7 @@ explaining the new windows, so the denominator barely moved this round, unlike r
 
 The ratchet, cinched a third time: `<!--count-at-most:unsafe-density-outside-arch-->` lowered
 from 96 to 95 in the same commit (`notes/unsafe-obligations.md`, `notes/counted-claims.md`,
-`notes/register-of-measures.md`), keeping the same 7-point headroom every ceiling in this milestone
-has carried, now above the 88 this round reached.
+`notes/register-of-measures.md`), 7 points above the 88 this round reached.
 
 Investigation: device-register blocks (`console.rs`, `input.rs`, `driver.rs`, `clock.rs`,
 `jh7110_trng.rs`) -- genuinely per-driver distinct, and `MappedWindow` is the wrong fit; a stronger
@@ -369,8 +367,7 @@ invariant), so the denominator barely moved this round, like round 3's.
 
 The ratchet, cinched a fourth time: `<!--count-at-most:unsafe-density-outside-arch-->` lowered
 from 95 to 94 in the same commit (`notes/unsafe-obligations.md`, `notes/counted-claims.md`,
-`notes/register-of-measures.md`), keeping the same 7-point headroom every ceiling in this milestone
-has carried, now above the 87 this round reached.
+`notes/register-of-measures.md`), 7 points above the 87 this round reached.
 
 The framebuffer/graphics investigation is now settled, not just narrowed. `compositor.rs`'s
 per-frame hot path still carries no per-pixel `unsafe` at all (round 3's finding, unchanged); the
@@ -447,8 +444,7 @@ checkable against base commit `757562a3`, and `notes/unsafe-obligations.md` spel
 
 The ratchet, cinched a fourth time: `<!--count-at-most:unsafe-density-outside-arch-->` lowered
 from 95 to 94 (`notes/unsafe-obligations.md`, `notes/counted-claims.md`,
-`notes/register-of-measures.md`), keeping the same 7-point headroom every ceiling in this milestone
-has carried, now above the 87 this round reached. One caveat rather than let a merge discover it:
+`notes/register-of-measures.md`), 7 points above the 87 this round reached. One caveat rather than let a merge discover it:
 a concurrent round-4 lane (`milestone/139-round4-graphics`) worked a different candidate set from
 the same base commit, so whichever pull request landed second had to re-measure from the merged
 tree rather than trust either round's before/after numbers in isolation, the discipline round 2
@@ -1002,6 +998,11 @@ measured about 5% fewer instructions (icount).
 `script/fastpath-footprint`'s closures stayed inside their band once the seven inline `expect`s
 became one cold `missing_token`. Proven by `script/test` on aarch64, riscv64 and x86_64.
 
+The ratchet, cinched at merge: `<!--count-at-most:unsafe-density-outside-arch-->` lowered from
+72 to 66 in the merge's integrator commit (`notes/unsafe-obligations.md`,
+`notes/counted-claims.md`, `notes/register-of-measures/unsafe-series.md`), the count taken from
+the merged tree: 1,029 blocks over 172,506 lines, density 59.7, 7 points of headroom.
+
 ### Where the running thread's token lives
 
 The ruling's letter says "its core's current slot". It lives on `Thread::own_token`: a thread
@@ -1209,8 +1210,8 @@ proofs and the type system are standing aside and a person's comment is the whol
   the register stride is a runtime fact no register-layout macro can express.
 - **Recorded.** `hello.rs`, `flaky.rs`, `outlaw.rs`, `memory_grant_depleter.rs` and `swapper.rs`
   are deliberately not candidates.
-- **Recorded.** No target number, by design. The ceiling stands at 72, seven points over round 9's
-  65, and there is still no near-miss on record after nine rounds.
+- **Recorded.** No target number, by design. The ceiling stands at 66, seven points over round 10's
+  59, and there is still no near-miss on record after ten rounds.
 - **Refused.** `kernel/src/arch/` is not a target and this block will not accept a reduction there.
   It is 346 blocks today.
 
