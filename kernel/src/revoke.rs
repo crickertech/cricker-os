@@ -207,9 +207,11 @@ impl SpaceLog {
     /// cut is unreachable and its own region's destroy drops it, and one above it is still linked
     /// and still owed its own cut.
     fn forget_mappings_within(&mut self, base: u64, span: u64) {
-        for e in self.log.entries_mut() {
-            if e.is_mapping() && e.va >= base && e.va - base < span {
-                e.phys = 0;
+        for (_, page) in self.log.pages_mut() {
+            for e in page.used_mut() {
+                if e.is_mapping() && e.va >= base && e.va - base < span {
+                    e.phys = 0;
+                }
             }
         }
     }
@@ -249,6 +251,17 @@ mod chain {
 
     const _: () = assert!(size_of::<LogPage>() == page_frames::FRAME_SIZE as usize);
 
+    impl LogPage {
+        /// Every slot this page has ever written, tombstones included. A slice rather than an
+        /// iterator chained across pages: callers loop over [`LogChain::pages_mut`] and then this,
+        /// because a `flat_map` over the chain cost `map_el0` 39% and `spawn_el0` 19% on aarch64
+        /// icount against the floor (2026-10-08 UTC; this shape is 16% under `main`'s walk).
+        pub(super) fn used_mut(&mut self) -> &mut [LogEntry] {
+            let used = (self.used as usize).min(LOG_ENTRIES);
+            &mut self.entries[..used]
+        }
+    }
+
     /// The newest log page's physical address; 0 until the first record needs one. Not `Clone`.
     pub(super) struct LogChain {
         head: u64,
@@ -264,14 +277,6 @@ mod chain {
                 next: self.head,
                 _chain: core::marker::PhantomData,
             }
-        }
-
-        /// Every slot this chain has ever written, tombstones included, newest page first.
-        pub(super) fn entries_mut(&mut self) -> impl Iterator<Item = &mut LogEntry> + '_ {
-            self.pages_mut().flat_map(|(_, page)| {
-                let used = page.used as usize;
-                page.entries.iter_mut().take(used)
-            })
         }
 
         /// **Link a fresh page from `region` as the new head, holding `entry`.** `false` when the
@@ -557,11 +562,11 @@ impl MappingHold {
 
         // A free slot in the chain: the first tombstone, or headroom in any page.
         for (_, page) in space.log.pages_mut() {
-            let used = page.used as usize;
-            if let Some(e) = page.entries.iter_mut().take(used).find(|e| e.phys == 0) {
+            if let Some(e) = page.used_mut().iter_mut().find(|e| e.phys == 0) {
                 *e = entry;
                 return true;
             }
+            let used = page.used as usize;
             if used < LOG_ENTRIES {
                 page.entries[used] = entry;
                 page.used += 1;
@@ -588,12 +593,13 @@ impl MappingHold {
         let Some(space) = self.spaces.live_mut().find(|s| s.root == root) else {
             return;
         };
-        if let Some(e) = space
-            .log
-            .entries_mut()
-            .find(|e| e.is_mapping() && e.phys == phys && e.va == va)
-        {
-            e.phys = 0; // tombstone: reusable by the next record, exactly as a revoke leaves it
+        for (_, page) in space.log.pages_mut() {
+            for e in page.used_mut() {
+                if e.is_mapping() && e.phys == phys && e.va == va {
+                    e.phys = 0; // tombstone: reusable by the next record, exactly as a revoke leaves it
+                    return;
+                }
+            }
         }
     }
 
@@ -617,13 +623,16 @@ impl MappingHold {
     /// region paying for them dies (`notes/unmap.md`'s `BUGS`).
     pub fn forget_mapping_at(&mut self, root: u64, va: u64) -> Option<u64> {
         let space = self.spaces.live_mut().find(|s| s.root == root)?;
-        let e = space
-            .log
-            .entries_mut()
-            .find(|e| e.is_mapping() && e.va == va)?;
-        let phys = e.phys;
-        e.phys = 0; // tombstone, exactly as a revoke leaves it
-        Some(phys)
+        for (_, page) in space.log.pages_mut() {
+            for e in page.used_mut() {
+                if e.is_mapping() && e.va == va {
+                    let phys = e.phys;
+                    e.phys = 0; // tombstone, exactly as a revoke leaves it
+                    return Some(phys);
+                }
+            }
+        }
+        None
     }
 }
 
@@ -780,10 +789,12 @@ fn unmap_matching(phys: u64, spare: u64, object: Option<u64>) {
         if root == spare {
             continue;
         }
-        for e in space.log.entries_mut() {
-            if e.is_mapping() && e.phys == phys && object.is_none_or(|o| e.object == o) {
-                mmu::unmap_user_at(root, e.va);
-                e.phys = 0; // tombstone: reusable by the next record
+        for (_, page) in space.log.pages_mut() {
+            for e in page.used_mut() {
+                if e.is_mapping() && e.phys == phys && object.is_none_or(|o| e.object == o) {
+                    mmu::unmap_user_at(root, e.va);
+                    e.phys = 0; // tombstone: reusable by the next record
+                }
             }
         }
     }
@@ -995,17 +1006,19 @@ pub fn revoke_region(base: u64, size: u64) {
             let mut found = None;
             'scan: for space in spaces.live_mut() {
                 let (root, asid) = (space.root, space.asid);
-                for e in space.log.entries_mut() {
-                    if e.phys < base || e.phys >= base + size {
-                        continue;
+                for (_, page) in space.log.pages_mut() {
+                    for e in page.used_mut() {
+                        if e.phys < base || e.phys >= base + size {
+                            continue;
+                        }
+                        if e.is_table() {
+                            found = Some(Victim::Table(root, asid, e.va, e.phys));
+                            e.phys = 0;
+                        } else {
+                            found = Some(Victim::Leaf(e.phys));
+                        }
+                        break 'scan;
                     }
-                    if e.is_table() {
-                        found = Some(Victim::Table(root, asid, e.va, e.phys));
-                        e.phys = 0;
-                    } else {
-                        found = Some(Victim::Leaf(e.phys));
-                    }
-                    break 'scan;
                 }
             }
             match found {
