@@ -115,7 +115,7 @@ Built 2026-09-24 by the rung 3a consumer lane. Three pieces, each doing one thin
 - The image carries its own package source. Every archive build (`cargo xtask initrd-aarch64`
   and `initrd-riscv`) runs every recipe under `packages/` for its architecture, writes the package
   to `target/packages/`, and packs the catalog lines as the archive entry
-  `package_archive::CATALOGUE` (provisional name), above the measurement table. So the kernel's
+  `package_archive::CATALOG` (provisional name), above the measurement table. So the kernel's
   trust root vouches for the catalog, and the catalog vouches for the package. That is §195's
   "the image's measured table becomes the first source" taken literally, and it is why plain HTTP
   is enough on this rung: the digest the client checks against never crossed the network. It also
@@ -138,7 +138,7 @@ $ script/test --arch aarch64 --test package
 running 1 of 359 tests (filter: package)
 test kernel::user::tests::a_package_fetched_over_http_is_accepted_only_by_the_image_digest ... ok
 test result: ok. 1 passed
-$ cat target/packages/catalogue
+$ cat target/packages/catalog
 uptime-0.1.0-aarch64 sha256:d74f8eb3ecc14b43b9f55b2113c830ee856394eee4398b52da2da1614d426cd9
 ```
 

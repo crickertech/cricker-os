@@ -266,7 +266,7 @@ fn write_out(root: &std::path::Path, built: &Built) -> Result<PathBuf, String> {
     // which is the format the progenitor already reads to decide whether a program may run. §195
     // makes the image's measurement table the first source of trust, so a package's entry looking
     // like an entry in that table is the point rather than a coincidence.
-    let catalogue = output.join("catalogue");
+    let catalogue = output.join("catalog");
     append(&catalogue, &format!("{} {}\n", built.stem, built.digest))
         .map_err(|e| format!("could not write {}: {e}", catalogue.display()))?;
     Ok(written)

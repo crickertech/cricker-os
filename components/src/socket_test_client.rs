@@ -852,7 +852,7 @@ fn udp_bind_half() {
     let _ = close(CONNECTION);
 }
 
-/// Where the spawner maps the image's package catalogue (`package_archive::CATALOGUE`) for
+/// Where the spawner maps the image's package catalogue (`package_archive::CATALOG`) for
 /// [`TEST_HTTP_PACKAGE`], read-only. The kernel test and this file must agree; see
 /// `kernel/src/user/virtio_service.rs`'s `NET_CLIENT_CATALOGUE_VA`.
 const CATALOGUE_VA: u64 = address_space_map::pair_page(0x0000_0000_00C0_0000);

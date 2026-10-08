@@ -1267,7 +1267,7 @@ pub fn write_activation(
         (S::Done, V::Remove(_)) => b"  removed",
         (S::Done, V::Vouch(_)) => b"  vouched",
         (S::Done, _) => b"  rolled back",
-        (S::NotCatalogued, _) => {
+        (S::NotCataloged, _) => {
             b"  refused: this image's catalog does not vouch for those bytes"
         }
         (S::NoProgram, _) => b"  refused: that package carries no program named after it",
@@ -2204,7 +2204,7 @@ mod tests {
             "  rolled back; generation 1 is live\n"
         );
         assert_eq!(
-            shown(|o| write_activation(V::Install(b"x"), S::NotCatalogued, 0, o)),
+            shown(|o| write_activation(V::Install(b"x"), S::NotCataloged, 0, o)),
             "  refused: this image's catalog does not vouch for those bytes; nothing is installed\n"
         );
         assert_eq!(

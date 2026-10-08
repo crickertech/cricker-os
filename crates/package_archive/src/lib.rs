@@ -155,7 +155,7 @@ pub use measured_boot::{DIGEST_LEN, Digest, sha256};
 /// §195 (a reviewed recipe vouches for a package)'s "the image's measured table becomes the first
 /// source". The host writer is `cargo xtask`'s archive build; the readers are the kernel's package
 /// tests. Name: provisional 2026-09-24.
-pub const CATALOGUE: &str = "package_catalogue";
+pub const CATALOG: &str = "package_catalog";
 
 /// The magic, with the format version in the last byte, so a reader meeting a later package says
 /// [`Error::BadMagic`] rather than striding a table whose entries have moved. `nifefs` records the
@@ -419,7 +419,7 @@ pub enum Refusal {
     /// The catalog has no line for this package's stem, or has one and these bytes do not hash to
     /// it. One refusal for both, because to the installer they are one fact: the image does not
     /// vouch for these bytes (DECISIONS §195 (a reviewed recipe vouches for a package)).
-    NotCatalogued,
+    NotCataloged,
     /// The package carries no member named after itself, so there is no program to install.
     NoProgram,
     /// The program member does not hash to the digest its own table of contents claims. Only a
@@ -440,7 +440,7 @@ pub enum Refusal {
 ///    hostile input reaching [`Package::parse`] before any digest is checked, which is what that
 ///    function's fuzz target and Kani harnesses exist for.
 /// 2. **The whole file's SHA-256 must be the catalog's line for that stem.** The catalog is the
-///    image's own ([`CATALOGUE`]), measured with every other archive entry, so this is DECISIONS §195's
+///    image's own ([`CATALOG`]), measured with every other archive entry, so this is DECISIONS §195's
 ///    "the image's measured table becomes the first source" taken literally: a person cannot install
 ///    what the image does not vouch for, whatever file they point at.
 /// 3. The member named after the package is the program. **That convention is this function's and
@@ -457,9 +457,9 @@ pub fn installable<'a>(catalogue: &str, bytes: &'a [u8]) -> Result<Installable<'
     let package = Package::parse(bytes).map_err(|_| Refusal::Unreadable)?;
     let mut stem = [0u8; STEM_LEN];
     let expected = measured_boot::expected_in_manifest(catalogue, package.stem(&mut stem))
-        .ok_or(Refusal::NotCatalogued)?;
+        .ok_or(Refusal::NotCataloged)?;
     if sha256(bytes) != expected {
-        return Err(Refusal::NotCatalogued);
+        return Err(Refusal::NotCataloged);
     }
     let program = package.name();
     let index = package.index_of(program).ok_or(Refusal::NoProgram)?;
@@ -492,10 +492,10 @@ pub fn installable<'a>(catalogue: &str, bytes: &'a [u8]) -> Result<Installable<'
 /// says a bare *run* means the newest install, and nothing here orders versions to say which
 /// cataloged one is newest.
 ///
-/// The catalog is the image's own ([`CATALOGUE`]), so the answer is what the image vouches for
+/// The catalog is the image's own ([`CATALOG`]), so the answer is what the image vouches for
 /// and never what a package source offers. A name with a hyphen in it is looked up the same way;
 /// a *version* with one cannot be told from the name before it and is not matched.
-pub fn catalogued_stem<'c>(
+pub fn cataloged_stem<'c>(
     catalogue: &'c str,
     name: &str,
     architecture: &str,
@@ -531,7 +531,7 @@ pub fn catalogued_stem<'c>(
     found.ok_or(CatalogMiss::NoSuchPackage)
 }
 
-/// Why [`catalogued_stem`] found no one stem.
+/// Why [`cataloged_stem`] found no one stem.
 ///
 /// Name: ratified 2026-10-07 (calef, §258 (names for two installed versions of one program)).
 /// Refused `StemMiss` ("stem" is internal jargon; calef: "`StemMiss` is horrible"). Minted as
@@ -858,12 +858,12 @@ mod tests {
         tampered[last] ^= 1;
         assert_eq!(
             installable(&catalogue, &tampered),
-            Err(Refusal::NotCatalogued)
+            Err(Refusal::NotCataloged)
         );
         // And a catalog without the stem vouches for nothing, however good the bytes are.
         assert_eq!(
             installable("uptime-0.2.0-aarch64 00", &file),
-            Err(Refusal::NotCatalogued)
+            Err(Refusal::NotCataloged)
         );
         assert_eq!(
             installable(&catalogue, b"garbage"),
@@ -892,18 +892,18 @@ mod tests {
             "uptime-0.1.0-aarch64 {d}\ngreeting-0.1.0-riscv64 {d}\ngreeting-0.1.0-aarch64 {d}\n"
         );
         assert_eq!(
-            catalogued_stem(&catalogue, "greeting", "aarch64"),
+            cataloged_stem(&catalogue, "greeting", "aarch64"),
             Ok("greeting-0.1.0-aarch64")
         );
         assert_eq!(
-            catalogued_stem(&catalogue, "uptime", "aarch64"),
+            cataloged_stem(&catalogue, "uptime", "aarch64"),
             Ok("uptime-0.1.0-aarch64")
         );
         let none = Err(CatalogMiss::NoSuchPackage);
-        assert_eq!(catalogued_stem(&catalogue, "uptime", "riscv64"), none);
-        assert_eq!(catalogued_stem(&catalogue, "greet", "aarch64"), none);
-        assert_eq!(catalogued_stem(&catalogue, "", "aarch64"), none);
-        assert_eq!(catalogued_stem(&catalogue, "nosuch", "aarch64"), none);
+        assert_eq!(cataloged_stem(&catalogue, "uptime", "riscv64"), none);
+        assert_eq!(cataloged_stem(&catalogue, "greet", "aarch64"), none);
+        assert_eq!(cataloged_stem(&catalogue, "", "aarch64"), none);
+        assert_eq!(cataloged_stem(&catalogue, "nosuch", "aarch64"), none);
     }
 
     /// **Two cataloged versions: a bare name is refused, and `name@version` picks one**
@@ -916,33 +916,33 @@ mod tests {
             "greeting-0.2.0-aarch64 {d}\ngreeting-0.1.0-aarch64 {d}\ngreeting-0.1.0-riscv64 {d}\n"
         );
         assert_eq!(
-            catalogued_stem(&catalogue, "greeting", "aarch64"),
+            cataloged_stem(&catalogue, "greeting", "aarch64"),
             Err(CatalogMiss::SeveralVersions)
         );
         assert_eq!(
-            catalogued_stem(&catalogue, "greeting@0.1.0", "aarch64"),
+            cataloged_stem(&catalogue, "greeting@0.1.0", "aarch64"),
             Ok("greeting-0.1.0-aarch64")
         );
         assert_eq!(
-            catalogued_stem(&catalogue, "greeting@0.2.0", "aarch64"),
+            cataloged_stem(&catalogue, "greeting@0.2.0", "aarch64"),
             Ok("greeting-0.2.0-aarch64")
         );
         // One version on this architecture is not ambiguous, whatever another one carries.
         assert_eq!(
-            catalogued_stem(&catalogue, "greeting", "riscv64"),
+            cataloged_stem(&catalogue, "greeting", "riscv64"),
             Ok("greeting-0.1.0-riscv64")
         );
         let none = Err(CatalogMiss::NoSuchPackage);
         assert_eq!(
-            catalogued_stem(&catalogue, "greeting@0.3.0", "aarch64"),
+            cataloged_stem(&catalogue, "greeting@0.3.0", "aarch64"),
             none
         );
-        assert_eq!(catalogued_stem(&catalogue, "greeting@", "aarch64"), none);
-        assert_eq!(catalogued_stem(&catalogue, "@0.1.0", "aarch64"), none);
+        assert_eq!(cataloged_stem(&catalogue, "greeting@", "aarch64"), none);
+        assert_eq!(cataloged_stem(&catalogue, "@0.1.0", "aarch64"), none);
         // A line written twice is one package.
         let twice = std::format!("greeting-0.1.0-aarch64 {d}\ngreeting-0.1.0-aarch64 {d}\n");
         assert_eq!(
-            catalogued_stem(&twice, "greeting", "aarch64"),
+            cataloged_stem(&twice, "greeting", "aarch64"),
             Ok("greeting-0.1.0-aarch64")
         );
     }
@@ -964,7 +964,7 @@ mod tests {
         tampered[last] ^= 1;
         assert_eq!(
             installable_as(&catalogue, "uptime-0.1.0-aarch64", &tampered),
-            Err(Refusal::NotCatalogued)
+            Err(Refusal::NotCataloged)
         );
     }
 
@@ -1074,12 +1074,12 @@ mod tests {
         let d = std::format!("sha256:{}", "0".repeat(64));
         let none = Err(CatalogMiss::NoSuchPackage);
         let empty_version = std::format!("foo--aarch64 {d}\n");
-        assert_eq!(catalogued_stem(&empty_version, "foo", "aarch64"), none);
+        assert_eq!(cataloged_stem(&empty_version, "foo", "aarch64"), none);
         let hyphenated = std::format!("foo-1.0-rc1-aarch64 {d}\n");
-        assert_eq!(catalogued_stem(&hyphenated, "foo", "aarch64"), none);
+        assert_eq!(cataloged_stem(&hyphenated, "foo", "aarch64"), none);
         let nameless = std::format!("-1.0-aarch64 {d}\n");
-        assert_eq!(catalogued_stem(&nameless, "", "aarch64"), none);
-        assert_eq!(catalogued_stem(&nameless, "@1.0", "aarch64"), none);
+        assert_eq!(cataloged_stem(&nameless, "", "aarch64"), none);
+        assert_eq!(cataloged_stem(&nameless, "@1.0", "aarch64"), none);
     }
 
     #[test]

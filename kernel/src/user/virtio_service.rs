@@ -320,7 +320,8 @@ const NET_CLIENT_BUDGET_PAGES: u64 = 16;
 const NET_CLIENT_STACK_PAGES: u64 = 6;
 
 /// The most pages of read-only blob a stack client can be handed (see
-/// `NET_CLIENT_CATALOGUE_VA`). One catalogue line is 86 bytes, so one page is some forty packages.
+/// `NET_CLIENT_CATALOGUE_VA`). One catalog line is about 93 bytes with its `sha256:` label, so one
+/// page is some forty packages.
 const NET_CLIENT_BLOB_PAGES: u64 = 1;
 
 /// **Spawn the net server and a client of its socket contract** (milestone 30, piece 3 phase B).
@@ -348,7 +349,7 @@ pub fn start_net_stack(
 
 /// Where a stack client finds a read-only blob its spawner handed it, when there is one. Must match
 /// `components/src/socket_test_client.rs`'s `CATALOGUE_VA`: the one blob today is the image's
-/// package catalogue (`package_archive::CATALOGUE`), and this is the kernel test harness playing
+/// package catalogue (`package_archive::CATALOG`), and this is the kernel test harness playing
 /// the part the progenitor's `ChildEndowment::blobs` plays for `login` (milestone 233 (`login` dies on every boot)).
 const NET_CLIENT_CATALOGUE_VA: u64 = address_space_map::pair_page(0x0000_0000_00C0_0000);
 
