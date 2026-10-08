@@ -96,7 +96,7 @@
 //! ships `capsh(1)`, a capability shell wrapper, so a reader from Linux would assume ours is that
 //! tool) and `sheesh` (it carries a 2020-21 timestamp where `bash` and `fish` are era-neutral, and
 //! it is an interjection of exasperation, while refusing things is this shell's most characteristic
-//! behaviour by design). A swish is the shot that goes through the net touching nothing, which is
+//! behavior by design). A swish is the shot that goes through the net touching nothing, which is
 //! least authority in one word.
 
 #![no_std]
@@ -1839,7 +1839,7 @@ fn dispatch(nav: &mut Nav, cmd: &[u8]) {
 /// run" a property of this code rather than a claim about it.
 ///
 /// **The clock is this shell's, and the command is told nothing.** `time wc report.txt` times a
-/// program whose whole endowment is one rendezvous and no clock at all, which is the Unix behaviour and
+/// program whose whole endowment is one rendezvous and no clock at all, which is the Unix behavior and
 /// the capability-model answer at the same time: a duration is observable to anyone who can watch a
 /// thing start and stop, so measuring it needs the observer's authority and not the subject's.
 /// Delegating a clock to the child instead would change what the child can do, and that is a
@@ -2423,7 +2423,7 @@ static IMAGE_TABLES: core::sync::atomic::AtomicU64 = core::sync::atomic::AtomicU
 /// sent, or against `grant_plan::NO_NOTE_MANIFEST` when it carries none. So an argument the note
 /// does not declare is refused here, exactly as `uptime 3` is, and a note that cannot be read or
 /// asks for what an image cannot be given is refused with nothing sent. Whether the note is
-/// honoured is the progenitor's call, on its own copy (`grant_plan::image_manifest`).
+/// honored is the progenitor's call, on its own copy (`grant_plan::image_manifest`).
 ///
 /// One frame is held at a time: retyped, filled, delegated narrowed to `READ`, deleted. The staging
 /// region is destroyed once the answer is in, which revokes the frames from both address spaces.
@@ -2801,7 +2801,7 @@ fn send_frames(dir: u64, handle: u64, pages: u64, staging: u64) -> bool {
 }
 
 /// **`package install`, `remove` and `rollback`** (milestone 198 (a package manager) rung 3a's
-/// installer): one request to the progenitor, which holds the image's catalogue and the only copy
+/// installer): one request to the progenitor, which holds the image's catalog and the only copy
 /// of the activation set it trusts, and one reply saying what is live afterwards
 /// (`grant_plan::Command::Package` has why this is a request and not a program).
 ///
@@ -3589,13 +3589,13 @@ fn caps_image(nav: &mut Nav, spec: RunSpec) {
 /// `script/stack-frame-check` holds every frame to; [`RANKED`] is here for the same reason.
 static mut GENERATION_TABLE: [u8; filesystem_protocol::PAGE] = [0; filesystem_protocol::PAGE];
 
-/// One page for the nearest version set, a static for [`GENERATION_TABLE`]'s reason. Provisional,
-/// like the file it holds.
+/// One page for the nearest version set, a static for [`GENERATION_TABLE`]'s reason. Provisional;
+/// the file it holds (`.jig-versions`) was ratified 2026-10-07, and this static's name was not.
 static mut VERSION_SET: [u8; filesystem_protocol::PAGE] = [0; filesystem_protocol::PAGE];
 
 /// **The nearest version set at or above where this shell stands** (milestone 614 (two installed
 /// versions of one program, each runnable, and a caller granted the one it needs), ruling 4):
-/// `swish::versions::FILE` here, then in each parent up to the root, read with the directory
+/// `swish::jig_versions::FILE` here, then in each parent up to the root, read with the directory
 /// handles this shell already holds. asdf walks the same way, on calef's usability ruling; the walk
 /// is over directories for one file name and not over program names, so §229 stands. `None` when
 /// there is none, or one that is not text, or one that fills a page.
@@ -3608,8 +3608,13 @@ fn nearest_version_set(nav: &Nav) -> Option<&'static str> {
     // the next read of the static, because [`bare`] resolves inside this one's scope.
     let set = unsafe { &mut *core::ptr::addr_of_mut!(VERSION_SET) };
     for level in (0..=pos.depth()).rev() {
-        if let Some(n) = read_named(nav, t, nav.at(level), swish::versions::FILE.as_bytes(), set)
-            && n < set.len()
+        if let Some(n) = read_named(
+            nav,
+            t,
+            nav.at(level),
+            swish::jig_versions::FILE.as_bytes(),
+            set,
+        ) && n < set.len()
         {
             return core::str::from_utf8(&set[..n]).ok();
         }

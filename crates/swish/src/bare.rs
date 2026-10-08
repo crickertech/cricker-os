@@ -16,11 +16,11 @@
 //! **Two words select a version** (milestone 614, ruling 4). `program@version` is an explicit ask:
 //! the table's row for that program at that version, or nothing, and the image's claim on the bare
 //! name does not reach it, because the word is not the contested name. And a **version set**
-//! (`swish::versions`, a provisional name) selects among the live versions for the bare word: the
-//! nearest `versions` file at or above the working directory, asdf-style, read by the caller and
+//! ([`crate::jig_versions`]) selects among the live versions for the bare word: the nearest
+//! `.jig-versions` file at or above the working directory, asdf-style, read by the caller and
 //! handed in. A set can only select among installed versions, so when it names a version that is
 //! not live, the default runs and the result carries a [`Notice`], which the spawn line prints:
-//! `uptime 0.2.0 (repo specifies 0.1.0)`.
+//! `uptime 0.2.0 (.jig-versions asks for 0.1.0)`.
 //!
 //! The shell reads the live table on each line that needs it, rather than caching it. It is two
 //! small file reads, against a spawn that builds a whole process, and a table the shell never
@@ -57,7 +57,7 @@
 //!
 //! Name: provisional, milestone 47's bare-name lane, 2026-09-26.
 
-use crate::versions;
+use crate::jig_versions;
 
 /// The longest installed path this builds: `/packages/` and three fields of at most
 /// `package_archive::NAME_LEN` (32) bytes each, with their slashes. A path is walked a component at
@@ -142,7 +142,8 @@ impl Label {
 }
 
 /// **Why the spawn line says both**: what ran is not what a version set specified (milestone 614,
-/// ruling 4). Provisional, like its wording.
+/// ruling 4). Provisional; the wording [`write_divergence`] prints was ratified, this struct's
+/// name was not.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub struct Notice {
     /// The version label of the row that runs.
@@ -151,14 +152,23 @@ pub struct Notice {
     pub asked: Label,
 }
 
-/// **The spawn-line divergence notice**, `uptime 0.2.0 (repo specifies 0.1.0)`, as ruling 4 spells
-/// it. Provisional wording.
+/// **The spawn-line divergence notice**, `uptime 0.2.0 (.jig-versions asks for 0.1.0)`: what
+/// ran, then the file that asked for something else and what it asked for, so the reader knows
+/// which file to fix. The file's name is [`jig_versions::FILE`], printed from the constant so the
+/// two cannot drift.
+///
+/// Wording ratified 2026-10-07 by calef (§258 (names for two installed versions of one program)).
+/// Refused `(repo specifies <v>)`, ruling 4's first spelling ("repo" assumes a repository and does
+/// not name the file to fix), and the file's full path (too long on every spawn; the shell finds
+/// the file by walking up from the working directory).
 pub fn write_divergence(word: &[u8], notice: &Notice, out: &mut dyn FnMut(&[u8])) {
     out(b"  ");
     out(word);
     out(b" ");
     out(notice.ran.as_bytes());
-    out(b" (repo specifies ");
+    out(b" (");
+    out(jig_versions::FILE.as_bytes());
+    out(b" asks for ");
     out(notice.asked.as_bytes());
     out(b")\n");
 }
@@ -210,7 +220,7 @@ pub fn resolve(word: &[u8], image: bool, table: Option<&str>, set: Option<&str>)
     // that says both, because a cloned repository can ask but cannot run uninstalled bytes.
     if let Some(name) = name
         && let Some(set) = set
-        && let Some(asked) = versions::entry(set, name)
+        && let Some(asked) = jig_versions::entry(set, name)
     {
         let selected = table
             .and_then(|t| {
@@ -327,7 +337,7 @@ mod tests {
         let mut said = Vec::new();
         write_divergence(b"uptime", &notice, &mut |b| said.extend_from_slice(b));
         let said = std::string::String::from_utf8(said).unwrap();
-        assert_eq!(said, "  uptime 0.2.0 (repo specifies 9.9.9)\n");
+        assert_eq!(said, "  uptime 0.2.0 (.jig-versions asks for 9.9.9)\n");
 
         // A set that does not name the program changes nothing.
         let set = "date 1.0.0\n";

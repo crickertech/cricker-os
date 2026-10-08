@@ -1,5 +1,5 @@
 //! **The second copy of the package** (milestone 614 (two installed versions of one program, each
-//! runnable, and a caller granted the one it needs), provisional name): a program whose bytes
+//! runnable, and a caller granted the one it needs)): a program whose bytes
 //! differ from `greeting`'s, packaged as `greeting` at 0.2.0 by `packages/greeting-0.2.0.recipe.toml`
 //! (the `as` key renames the member; the program keeps its own name here so the two ELFs cannot be
 //! confused on the host).
@@ -25,8 +25,11 @@
 //!
 //! It proves the second row and nothing about the program.
 //!
-//! Name: provisional (2026-09-29). It is `greeting` at 0.2.0 as far as any machine that installs
-//! the package is concerned; the name says what it is on the host.
+//! Name: ratified 2026-10-07 (calef, §258 (names for two installed versions of one program)).
+//! Refused `greeting_two` (says "second", not what differs), `greeting_0_2_0` (noisy, and stale if
+//! the test version changes). It is `greeting` at 0.2.0 as far as any machine that installs the
+//! package is concerned; the name says what it is on the host. Minted as `greeting_two` on
+//! 2026-09-29.
 
 #![no_std]
 #![allow(missing_docs)]

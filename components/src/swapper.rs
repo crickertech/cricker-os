@@ -1116,8 +1116,13 @@ fn hung(fs: &nifefs::Fs, w: &Wiring) -> ! {
     //     queue is the buffer (§41).
     //
     // What still needs the stronger right is **reclaiming the hung component's memory**, which is a
-    // different thing from restarting its service and is not attempted here. notes/hung-component.md
-    // has the argument and the reason it is a decision rather than a task.
+    // different thing from restarting its service and is not attempted here. That is a task now, not
+    // a decision (corrected 2026-10-08): since milestone 133 (ending a permanently blocked thread,
+    // and deciding who may) the region holder's `DESTROY` finishes a `Blocked` incumbent in place,
+    // and milestone 254 (a caller stranded by a server that died) then answers its stranded caller
+    // `Gone`. This operator deleted the incumbent's region capability in `start_child`, so it
+    // cannot; milestone 23 (a capability-routed component OS with live replacement)'s block records
+    // the change that would demonstrate it.
     // ------------------------------------------------------------------------------------------
 
     if revoke_frame(DEVICE) != 0 {
