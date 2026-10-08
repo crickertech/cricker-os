@@ -89,3 +89,17 @@ for TRIPLE in ${NIFE_RIPGREP_TRIPLES:-aarch64-unknown-nife riscv64-unknown-nife 
   cp "$SRC/target/$TRIPLE/release/rg" "$OUT/$TRIPLE/rg"
   echo "build-ripgrep: $OUT/$TRIPLE/rg ($(wc -c < "$OUT/$TRIPLE/rg") bytes)"
 done
+
+# The same source for the host, for the expected answer (milestone 121 (`ripgrep`: enumeration as a
+# capability), 2026-10-07). `script/swish-check` types `rg` over a copy of `crates/` at the prompt
+# and compares what it prints against what this `rg` prints over the same copy, so the two must be
+# one version: a Homebrew `rg` is whatever Homebrew last shipped, and its output need not be
+# 14.1.1's. Upstream's own profile and the host's default toolchain, because this one is a
+# reference and not a nife program. `NIFE_RIPGREP_HOST=0` skips it.
+if [ "${NIFE_RIPGREP_HOST:-1}" != 0 ]; then
+  cd "$SRC"
+  cargo build --release --target-dir "$SRC/target/host"
+  mkdir -p "$OUT/host"
+  cp "$SRC/target/host/release/rg" "$OUT/host/rg"
+  echo "build-ripgrep: $OUT/host/rg ($("$OUT/host/rg" --version | head -1))"
+fi

@@ -42,6 +42,12 @@ index needs), which installs it. calef, 2026-10-07: "With a functional jig, ripg
 part of the base image. It isn't base." Until both land, this stays PARTIAL with that one clause
 outstanding.
 
+Walked 2026-10-07 (UTC) at the prompt (lane `milestone/121-rg-walk`). In `/search`, holding a copy
+of `crates/` (661 files, 275 directories, 8.2 MB), `script/swish-check` types `/installed/rg BUGS
+crates` with no flag. All three legs printed exactly the 349 lines the host's `rg` 14.1.1 prints
+over the same copy. notes/ripgrep-on-nife.md has the three faults it exposed, fixed here, and the
+timings. `rg` is not yet installed by `jig`, so exit clause 4 stays open.
+
 Built 2026-08-31 (lane `milestone/121-ripgrep`; notes/ripgrep-on-nife.md). Unmodified
 `ripgrep` 14.1.1 builds for all three `*-unknown-nife` triples with zero source changes, loads,
 resolves its own directory through a granted capability, and stops at its own "requires at least one
@@ -227,6 +233,9 @@ ripgrep working beautifully and confinement being decorative.
   (thin primitives or whole subsystems)), so CI skips all four `rg` tests and only a local run proves
   them. The packaging milestone #1797 mints is what would let a gate fetch a pinned `rg`.
 
+- Spawning `rg` at the prompt takes up to 39 s under load, the walk up to 432 s on `x86_64` under
+  TCG, and neither is explained; its peak memory there is unmeasured (notes/ripgrep-on-nife.md).
+
 ## Follow-on
 
 - **Milestone 205.** The ABI has no argument vector, which is what stops `rg` after it loads and
@@ -235,10 +244,10 @@ ripgrep working beautifully and confinement being decorative.
 - **Milestone 206.** The 896 KiB image ceiling this lane found became
   `design/roadmap/0206-user-image-ceiling.md`, which also owns the mapping error that names an
   overlap rather than a size.
-- **Outstanding.** Gated on the packaging milestone #1797 mints, milestone 809 (`jig`) and milestone
-  595. Exit clause 4: `rg pattern dir` at the swish prompt, holding `ENUMERATE | READ | DESCEND`
-  over `dir` and nothing else, with `rg` installed by `jig` and never in the base image. The search
-  and the refusal it will show are proven in the harness. Checked 2026-10-07.
+- **Outstanding.** Exit clause 4, `rg` installed by `jig` (809) from the package #1797 mints.
+  Checked 2026-10-07.
+- **Done.** 2026-10-07: `rg BUGS crates` at the swish prompt walks a copy of `crates/` on all
+  three architectures and prints exactly the host's 349 lines.
 - **Done.** 2026-10-07: `rg` searches the priced tree and its counts match the fixture, on all
   three architectures (`ripgrep_tests::ripgrep_searches_the_tree_it_was_granted`).
 - **Done.** 2026-10-07: the same refusal with `rg` as the walker, and a named-file control
@@ -256,12 +265,6 @@ ripgrep working beautifully and confinement being decorative.
 - **Outstanding.** Directory reading still reads a listing whole rather than streaming it, and the
   memory cost of a deep walk over large directories is unmeasured. Checked 2026-09-03 against the
   filesystem shim under `patches/std-nife/overlay/std/src/sys/`.
-- **Recorded.** `mmap` is absent, `memmap2` compiles its stub, and the searcher falls back to reads
-  on its own. Since 2026-10-07 a search has run without `--no-mmap` and found its line, so the flag
-  is not needed; this block's `BUGS` has it.
-- **Recorded.** A process is single-threaded, so any published number must say so and pin the Linux
-  side to one thread. `ripgrep` never reaches DECISIONS §105 because the parallelism query answers
-  one and it picks its own serial walker.
 
 ## Index row
 
@@ -270,6 +273,8 @@ and `rg pattern src/` that provably cannot see outside its grant is the confinem
 has typed a search understands. Unmodified `ripgrep` 14.1.1 searches a granted tree on all three
 architectures with zero source changes, finds exactly the fixture's 138 matches in 141 files, and
 through a grant lacking `ENUMERATE` says so and searches nothing. On the same HVF machine the search
-takes 1.24 to 1.33 ms against Linux's 0.82 to 0.87 ms, single-threaded on both. What is left is
-`rg pattern dir` at the swish prompt, which waits on `rg` being packaged and installed with `jig`
+takes 1.24 to 1.33 ms against Linux's 0.82 to 0.87 ms, single-threaded on both. At the swish
+prompt it walks a copy of `crates/`, 661 files in 275 directories, and prints exactly the host's
+349 matching lines on all three. What is left is `rg` installed rather than on the data disk, which
+waits on `rg` being packaged and installed with `jig`
 (milestone 809 and the packaging milestone #1797 mints), never on the base image.
