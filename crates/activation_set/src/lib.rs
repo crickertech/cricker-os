@@ -131,9 +131,13 @@ pub enum Error {
     ImageName,
     /// [`without_version`] refused: the version asked for holds the default pointer and more than
     /// one other version remains, so no ordering among live versions exists to pick a new default
-    /// with. The caller names the candidates with [`versions_of`]. Nothing is written. Name:
-    /// provisional, milestone 614's build lane, 2026-09-29.
-    Ambiguous,
+    /// with. The caller names the candidates with [`versions_of`]. Nothing is written. The same
+    /// word as `package_archive::CatalogMiss::SeveralVersions`, for the same condition.
+    ///
+    /// Name: ratified 2026-10-07 (calef, §258 (names for two installed versions of one program)).
+    /// Refused `Ambiguous` (calef: "ambiguous"), `AmbiguousName` (the name is not ambiguous; the
+    /// version is). Minted as `Ambiguous` by milestone 614's build lane, 2026-09-29.
+    SeveralVersions,
 }
 
 /// One installed program: its name at the prompt, the version its upstream claims, the package it
@@ -160,7 +164,9 @@ pub struct Entry<'a> {
 }
 
 /// **A default pointer line**: the row the bare word for `program` runs ([`lookup`]). Read with
-/// [`defaults`], written by [`with_entry`] and [`without_entry`]. Provisional, like the line kind.
+/// [`defaults`], written by [`with_entry`] and [`without_entry`]. The `default` line kind was
+/// ratified 2026-10-07 by calef (§258 (names for two installed versions of one program)); this
+/// struct's own name was not ruled on.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct Pointer<'a> {
     /// The program whose bare word this pointer answers.
@@ -331,7 +337,9 @@ pub fn lookup_version<'a>(
 
 /// **The version labels live for `program`**, in file order, duplicates included: what a refusal
 /// that may not pick among versions names instead. Owner's vouches claim no version and are not
-/// listed. Name: provisional, milestone 614's build lane, 2026-09-29.
+/// listed.
+///
+/// Name: ratified 2026-10-07 (calef, §258 (names for two installed versions of one program)).
 pub fn versions_of<'a>(
     table: &'a str,
     program: &str,
@@ -460,9 +468,11 @@ pub fn without_entry(table: &str, program: &str, out: &mut [u8]) -> Result<usize
 /// The next generation: `table` without the one row for `program` at `version`, first in file
 /// order (milestone 614, ruling 5). Removing a version that is not the default leaves the pointer
 /// alone. Removing **the default's version** moves the pointer to the sole remaining version, and
-/// is [`Error::Ambiguous`] when several remain, because no ordering among live versions exists to
+/// is [`Error::SeveralVersions`] when several remain, because no ordering among live versions exists to
 /// pick with: the caller names the candidates with [`versions_of`]. Nothing is written on a
-/// refusal. Name: provisional, milestone 614's build lane, 2026-09-29.
+/// refusal.
+///
+/// Name: ratified 2026-10-07 (calef, §258 (names for two installed versions of one program)).
 pub fn without_version(
     table: &str,
     program: &str,
@@ -498,7 +508,7 @@ pub fn without_version(
     };
     let move_pointer = default_of(table, program)?.is_some_and(|d| d == target.digest);
     if move_pointer && !uniform {
-        return Err(Error::Ambiguous);
+        return Err(Error::SeveralVersions);
     }
     let mut writer = Writer { out, at: 0 };
     let mut skipped = false;
@@ -588,7 +598,7 @@ pub const OWNER: &str = "owner";
 
 /// **What a vouch row's version column carries**: the owner vouches for bytes, and claims no
 /// version string, so the column holds a word no version set selects and no install writes.
-/// Provisional, milestone 614's build lane, 2026-09-29.
+/// Name: ratified 2026-10-07 (calef, §258 (names for two installed versions of one program)).
 pub const NO_VERSION: &str = "-";
 
 /// The file name of generation `number` in [`DIRECTORY`]: its decimal digits, no padding.
@@ -956,7 +966,7 @@ mod tests {
         let mut out = [0u8; 4096];
         assert_eq!(
             without_version(store.table(), "uptime", "0.4.0", &mut out),
-            Err(Error::Ambiguous)
+            Err(Error::SeveralVersions)
         );
         assert_eq!(store.newest(), newest, "a refusal writes no generation");
         assert_eq!(

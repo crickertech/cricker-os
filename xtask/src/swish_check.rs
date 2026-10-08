@@ -134,7 +134,7 @@ pub(crate) fn swish_check() -> bool {
         );
         return false;
     }
-    // `--release` builds and boots the optimised kernel and programs, which is what a customer's
+    // `--release` builds and boots the optimized kernel and programs, which is what a customer's
     // stick carries (`xtask stick` is release-only). Added for the progenitor stack's measurement
     // (milestone progenitor-stack (provisional)): the gauge's numbers differ by profile, and the
     // debug build is the deeper one. Not in CI. Flag name provisional.
@@ -250,7 +250,7 @@ fn interrupted_at_prompt(typed: &str) -> bool {
 ///
 /// `greeting` rides along (milestone 198 rung 3a's fetch): it was installed as generation 2, it
 /// runs after the reboot, and removing `noteless` leaves it running, because a generation drops
-/// one program and not its neighbours. Its 0.2.0 rides beside it (milestone 614): generation 3,
+/// one program and not its neighbors. Its 0.2.0 rides beside it (milestone 614): generation 3,
 /// which lists both versions of `greeting` and `noteless`. `noteless` took `uptime`'s place here
 /// when DECISIONS §229 (calef, 2026-09-27) refused installing a package named after an image
 /// program.
@@ -620,15 +620,15 @@ const SWISH_CHECK_SCRIPT: &[Line] = &[
     // **The installer** (milestone 198 (a package manager) rung 3a, DECISIONS §208 (installing a
     // package is granting it, and the activation set is versioned)). A package with one byte of
     // its program flipped, and its table of contents rewritten to agree, is refused by the image's
-    // catalogue before anything is written: the catalogue is the only thing that can tell
+    // catalog before anything is written: the catalog is the only thing that can tell
     // (`disk::stage_installed`). Nothing is installed afterwards: the line after says generation 1.
     line(
         0,
         "package install downloads/tampered.nifepkg",
-        &["refused: this image's catalogue does not vouch for those bytes; nothing is installed"],
+        &["refused: this image's catalog does not vouch for those bytes; nothing is installed"],
     ),
     // **A package cannot take a name the image carries** (DECISIONS §229, calef's ruling of
-    // 2026-09-27). `uptime`'s package is genuine and catalogued, and the image carries `uptime`, so
+    // 2026-09-27). `uptime`'s package is genuine and cataloged, and the image carries `uptime`, so
     // it is refused and nothing is written. Under §235 (the OS is built and updated from packages)
     // a base program is updated through the boot slot, never by install, so this blocks no update.
     line(
@@ -639,7 +639,7 @@ const SWISH_CHECK_SCRIPT: &[Line] = &[
              install; nothing is installed",
         ],
     ),
-    // A genuine package the image lacks, whose digest the image's catalogue carries: the
+    // A genuine package the image lacks, whose digest the image's catalog carries: the
     // progenitor writes the program under `packages/<stem>/`, writes generation 1, and renames
     // `current` onto it.
     line(
@@ -824,40 +824,40 @@ const SWISH_CHECK_SCRIPT: &[Line] = &[
         crate::disk::INSTALLED_MALFORMED_NOTE,
         &["carries a manifest note that cannot be read"],
     ),
-    // **Fetching, refused before the network is touched**: the catalogue names no such package,
+    // **Fetching, refused before the network is touched**: the catalog names no such package,
     // so nothing is asked of the package source.
     line(
         0,
         "package install nosuch",
         &[
-            "refused: this image's catalogue names no such package, so nothing was fetched; \
+            "refused: this image's catalog names no such package, so nothing was fetched; \
              generation 1 is live",
         ],
     ),
     // **A lying package source.** The gate serves this leg a copy of `uptime` whose program has one
     // byte flipped and whose table of contents agrees (`disk::stage_installed`), under the genuine
     // name: a whole, well-formed HTTP exchange of a well-formed package. Only the image's
-    // catalogue can refuse it, and nothing is written.
+    // catalog can refuse it, and nothing is written.
     line(
         0,
         "package install uptime",
-        &["refused: this image's catalogue does not vouch for those bytes; generation 1 is live"],
+        &["refused: this image's catalog does not vouch for those bytes; generation 1 is live"],
     ),
     // **Fetched over the booted system's network and installed** (rung 3a's first gap): the
-    // progenitor finds `greeting`'s stem in the catalogue, fetches it from the gate's package
+    // progenitor finds `greeting`'s stem in the catalog, fetches it from the gate's package
     // source through the stack it built at boot, and installs what arrived as it installs a file.
-    // **Two versions catalogued, so a bare name is refused** (milestone 614 (two installed
+    // **Two versions cataloged, so a bare name is refused** (milestone 614 (two installed
     // versions of one program, each runnable, and a caller granted the one it needs)). The image
     // vouches for `greeting` at 0.1.0 and at 0.2.0 (every archive build builds every recipe), and
     // nothing orders versions, so a bare fetch names no one package. Before this refusal the first
-    // catalogue line won, which recipe filenames ordered as 0.2.0; the source serves only 0.1.0,
+    // catalog line won, which recipe filenames ordered as 0.2.0; the source serves only 0.1.0,
     // and every leg that fetched answered "the package source did not send a whole package". The
-    // catalogue refuses before the network is asked.
+    // catalog refuses before the network is asked.
     line(
         0,
         "package install greeting",
         &[
-            "refused: this image's catalogue vouches for several versions of that package; \
+            "refused: this image's catalog vouches for several versions of that package; \
              name one with <package>@<version>; generation 1 is live",
         ],
     ),
@@ -880,7 +880,7 @@ const SWISH_CHECK_SCRIPT: &[Line] = &[
         ],
     ),
     // **And the manifest it runs with is the one it carries** (milestone 597, provisional): a
-    // vouched note is honoured, which the `clock: held` line above proves at the child, and `caps`
+    // vouched note is honored, which the `clock: held` line above proves at the child, and `caps`
     // shows here at the prompt.
     line(
         0,
@@ -905,10 +905,10 @@ const SWISH_CHECK_SCRIPT: &[Line] = &[
     ),
     // **Milestone 614: the second version installs beside the first** (rulings 2 and 3). Rows key
     // on the digest, so installing over a live version appends and moves the default pointer
-    // instead of replacing. The package is `greeting` at 0.2.0, whose member is `greeting_two`'s
+    // instead of replacing. The package is `greeting` at 0.2.0, whose member is `greeting_v2`'s
     // bytes under the name `greeting` (`as` in the recipe), so its digest differs from 0.1.0's and
     // the table holds both. The gate installs from the disk on all three legs; the image's
-    // catalogue carries the stem because every archive build builds every recipe for its
+    // catalog carries the stem because every archive build builds every recipe for its
     // architecture.
     line(
         0,
@@ -930,11 +930,11 @@ const SWISH_CHECK_SCRIPT: &[Line] = &[
         "packages/greeting/0.1.0/greeting",
         &["hello from a package this image never carried"],
     ),
-    // **The version set, the ruled selection** (ruling 4). The nearest `versions` file at or above
-    // the working directory (here the root's) says `greeting 0.1.0`, and the bare word runs that
-    // version, although the default pointer names 0.2.0. The set only selects among live versions;
-    // a cloned repository can ask, and cannot run uninstalled bytes.
-    line(0, "echo greeting 0.1.0 > versions", &[]),
+    // **The version set, the ruled selection** (ruling 4). The nearest `.jig-versions` file at or
+    // above the working directory (here the root's) says `greeting 0.1.0`, and the bare word runs
+    // that version, although the default pointer names 0.2.0. The set only selects among live
+    // versions; a cloned repository can ask, and cannot run uninstalled bytes.
+    line(0, "echo greeting 0.1.0 > .jig-versions", &[]),
     line(
         1,
         "greeting",
@@ -948,14 +948,14 @@ const SWISH_CHECK_SCRIPT: &[Line] = &[
         &["hello from a package this image never carried"],
     ),
     // **And the divergence notice**, the guard on the whole mechanism: the set now names a version
-    // nobody installed, so the default runs and the spawn line says both (`uptime 0.2.0 (repo
-    // specifies 0.1.0)` is the ruling's own example). Wording provisional.
-    line(0, "echo greeting 0.9.9 > versions", &[]),
+    // nobody installed, so the default runs and the spawn line says both, naming the file to fix
+    // (wording ratified 2026-10-07, §258 (names for two installed versions of one program)).
+    line(0, "echo greeting 0.9.9 > .jig-versions", &[]),
     line(
         1,
         "greeting",
         &[
-            "greeting 0.2.0 (repo specifies 0.9.9)",
+            "greeting 0.2.0 (.jig-versions asks for 0.9.9)",
             "hello from the second copy of the package",
         ],
     ),
@@ -1233,7 +1233,7 @@ const SWISH_CHECK_SCRIPT: &[Line] = &[
     // grant, and it is therefore the first thing in this script that would fail if
     // `job_undertaker`'s retry did not collect both. Six distinct arguments rather than one
     // repeated, because the transcript is walked with a moving cursor and six identical answers
-    // would let a missed line pass as its neighbour.
+    // would let a missed line pass as its neighbor.
     line(1, "least_authority_demo 3", &["3*3 = 9"]),
     line(1, "least_authority_demo 4", &["4*4 = 16"]),
     line(1, "least_authority_demo 5", &["5*5 = 25"]),
@@ -1888,7 +1888,7 @@ fn strip_one_gauge(text: &str) -> Option<String> {
 /// are not known ahead of time) has no false positives worth the name. Unlike `find_marker`, which
 /// only answers "is it there", this deletes just the matched characters and hands back everything
 /// else exactly where it was, because the caller needs the *rest* of the stream back in a shape its
-/// own exact-match waits can still recognise.
+/// own exact-match waits can still recognize.
 ///
 /// Remove once §175 is built: a kernel that no longer writes the UART directly once userspace owns
 /// it has nothing left here to splice.
@@ -2141,7 +2141,7 @@ fn transcript_now(seen: &std::sync::Arc<std::sync::Mutex<String>>) -> String {
 /// this whole mechanism exists because of.
 ///
 /// `subject` is what the progenitor reports on, in words a reader can act on. It describes the **program's**
-/// behaviour, which this function can honestly assert. It never describes the machine's state,
+/// behavior, which this function can honestly assert. It never describes the machine's state,
 /// which it cannot: the diagnostic this replaced said a missing string meant the progenitor "still holds the
 /// kernel's root untyped, or the delete did not take", about a boot where the progenitor had dropped the
 /// budget and said so, and sent a maintainer hunting a capability bug that does not exist.
@@ -2571,7 +2571,7 @@ fn swish_check_boot(
         redoxfs_server_build(RISCV_TARGET) && mkdisk() && mkredoxfs() && initrd_riscv()
     } else {
         redoxfs_server_build(TARGET) && mkredoxfs() && mkdisk() && user()
-    } // After the archive build, whose packages it copies: a package the image's catalogue
+    } // After the archive build, whose packages it copies: a package the image's catalog
     // vouches for, a tampered copy, and an unvouched program, on the disk for the installer's
     // lines in the script (milestone 198 rung 3a).
     && crate::disk::seed_installed(arch)
