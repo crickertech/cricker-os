@@ -434,8 +434,8 @@ jobs:
     # **The job keeps its name, "three architectures", while it runs two**, because the name is a
     # required check in the merge queue ruleset and renaming one is an admin act (the header's
     # 2026-09-30 paragraph). The third leg is `swish-check-x86_64` below since milestone 628
-    # (provisional); until the ruleset names that job too, its leg does not hold a merge. That
-    # is a foot gun, and the ruleset edit is calef's.
+    # (provisional). The ruleset names that job too (read 2026-10-08 UTC, ruleset 19596094), so
+    # all three legs hold a merge.
     name: swish-check (the interactive shell, three architectures)
     runs-on: ubuntu-24.04-arm
     needs: gate
