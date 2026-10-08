@@ -19,8 +19,9 @@ has existed and been live all along; this milestone spent it for its first real 
 **In brief.** Reduce the hand-written `unsafe` this tree carries outside `kernel/src/arch/`, and lower
 the ceiling after each reduction so the ground gained cannot be given back quietly.
 
-<!-- prose-budget: exception. 14,713 words (wc -w, this marker included; re-counted after round
-     9, 2026-10-07 UTC) against a 3,000-word cap. Ratified by calef on 2026-09-25 (UTC), who ruled that this block is not split. Reason:
+<!-- prose-budget: exception. 14,195 words (wc -w, this marker included; re-counted after round
+     9's rulings, 2026-10-08 UTC) against a 3,000-word cap. Ratified by calef on 2026-09-25
+     (UTC), who ruled that this block is not split. Reason:
      large and rarely referenced; the maintainer counted 2 files linking it that day. Roadmap blocks
      as a class stay under the cap, per §212 (a prose budget), which refused a class exemption.
      Marker syntax is PROVISIONAL until the prose-budget gate exists. -->
@@ -1000,96 +1001,62 @@ the stale text.
 
 ## What is still open
 
-Exit criterion, proposed by round 9 for calef's 2026-10-07 (UTC) ruling: this block is BUILT when
-every item under this heading and every Follow-on entry marked Outstanding is done, split out with
-a recorded owner, or refused with a reason. The code items are done. Three questions remain, and
-each is calef's. The block is ready to flip once all three are ruled.
+Exit criterion, ratified by calef on 2026-10-08 (UTC) on #1842: this block is BUILT when every
+item under this heading and every Follow-on entry marked Outstanding is done, split out with a
+recorded owner, or refused with a reason. His words: "Yes, although my thought we would do those
+things rather than create new milestones." So the two items left are built under milestone 139
+itself, in follow-up lanes, and the block stays PARTIAL until both land.
 
-### Question 1: the scheduler's queue handoff: a typestate, or a recorded limitation
+### The rulings on round 9's three questions (calef, 2026-10-08 UTC, #1842)
 
-What is being decided. `kernel/src/sched.rs` carries 90 `unsafe {}` blocks today (round 8 counted
-47; the scheduler grew). 21 of them hand a thread pointer to a queue: 6 run-queue pushes, 2 inbox
-pushes, and 13 `Rendezvous` operations (`send`, `receive`, `remove_sender`, `remove_receiver`).
-Every one asserts the same sentence: this thread is live and on no other queue. That invariant is
-established by the caller, by a state transition a few lines up, so a safe `enqueue_ready` would
-move the sentence and not remove it. This block refuses that.
+Question 1, the scheduler's queue handoff: "C". An ownership token, `Unqueued<T>` (non-`Clone`),
+replaces `NonNull<T>` in `intrusive_fifo` and `inter_process_communication`. Only a pop, a removal
+or thread creation mints one, and the running thread's token lives in its core's current slot. The
+crates and their harnesses go first, on the host; then `sched.rs`, under the full suite and the
+icount benchmarks. Round 9's measurement of the surface: 21 blocks in `sched.rs` hand a thread
+pointer to a queue (6 run-queue pushes, 2 inbox pushes, 13 `Rendezvous` operations); the crates
+carry 7 `unsafe fn`s and 15 Kani harnesses between them. Options A (record it), B (a safe wrapper,
+which this block refuses) and D (Kani over the unchanged blocks) were not chosen.
 
-The options:
+Question 2, the seventeen provisional names from rounds 6 and 7:
 
-- A. Leave it, with the limitation recorded in BUGS. Costs nothing. 21 hand-written copies stay,
-  in the one subsystem where a mistake is an intermittent hang.
-- B. A safe wrapper per call shape. Refused: it relocates the argument, which is this block's own
-  named anti-pattern.
-- C. An ownership token. `intrusive_fifo` and `inter_process_communication` take a non-`Clone`
-  `Unqueued<T>` instead of a `NonNull<T>`. Only a pop, a removal or thread creation mints one, and
-  the running thread's token lives in the core's current slot. A thread can reach a queue only by
-  way of the token its last transition produced. The unsafe moves to the few minting points.
-  `push_back`, `send` and `receive` become safe. Rung one of the ladder.
-- D. Leave the blocks and prove the invariant with Kani. A harness over the queue-membership state
-  machine, in the crates. Rung two: the count stays and the comment gains a proof.
+| Was | Ruling | calef's words |
+|---|---|---|
+| `initrd::initrd_bytes` | `user_mode_runtime::initial_ramdisk`, with `initial_ramdisk::bytes(len)` | "Yes" |
+| `MappedWindow::as_slice`, `as_mut_slice` | ratified as is | "as_slice / as_mut_slice" |
+| `retype_page_frame` | `retype_into_page_frame` | "retype_into_page_frame and retype_into_kernel_object" |
+| `retype_object` | `retype_into_kernel_object` | as above, superseding a same-day `retype_kernel_object` |
+| `split_region` | `split_memory_region` | "Ratify split_memory_region, ..." |
+| `destroy_region` | `destroy_memory_region` | same ruling |
+| `map_region_page` | `map_memory_region_page` | same ruling |
+| `revoke_frame` | `revoke_page_frame` | same ruling |
+| `map_into` | `address_space_map_into` | "Ratify retype_kernel_object address_space_map_into." |
+| `tcb_cap_insert` | `thread_control_block_capability_insert` | first ruling |
+| `tcb_configure` | `thread_control_block_configure` | first ruling |
+| `tcb_start` | `thread_control_block_start` | first ruling |
+| `irq_wait` | `interrupt_wait`, and `abi::irq` becomes `abi::interrupt` | "Ratify those three." |
+| `irq_ack` | `interrupt_acknowledge` | same ruling |
+| `send_cap` | `send_capability` | first ruling |
+| `is_granted` | ratified as is | first ruling |
+| the `virtio` module's four wrappers | `virtio::read_register`, `write_register`, `setup_queue`, `notify`; `abi::virtio::READ_REG`/`WRITE_REG` become `READ_REGISTER`/`WRITE_REGISTER` | "Yes" |
 
-What each costs, as far as it can be measured without building. C changes 4 `unsafe fn`s in
-`inter_process_communication`, 2 in its notification module and 1 in `intrusive_fifo`, crates that
-carry 15 Kani harnesses between them; and about 21 call sites plus the current-thread slot in
-`sched.rs`. It is representation-neutral (a `#[repr(transparent)]` newtype over `NonNull`), which
-`script/fastpath-footprint` and `script/bench --check` would confirm. D adds harnesses and removes
-nothing. Neither number is measured beyond this.
+Two reasons came with them. `initrd` is a ramdisk (a nifefs image left in RAM), so the foreign
+spelling stays only where it arrives: the device tree's `linux,initrd-start` and QEMU's `-initrd`.
+The program side is swept, and `design/naming.md` gains a line saying the foreign spelling stops at
+the boundary. And "IRQ" is said aloud only among kernel and embedded developers; a newcomer says
+"interrupt", per §154 (the acronym test is whether the phrase is spoken). Hardware-owned spellings at the
+boundary keep theirs. The three names ratified as is carry their `Name: ratified` lines at the
+definition since round 9's records commit; the rest stay provisional until the rename lane.
 
-Prior art, recalled rather than read: the `intrusive-collections` crate makes a push safe for an
-owned `Box` and unsafe only where an `UnsafeRef` is minted, which is option C's shape. seL4 keeps
-the C and proves its queue invariants in Isabelle, which is option D's.
+Question 3, round 6's slice accessors: "Keep. We don't want to penalize reuse." The +12 raw blocks
+are the price of one invariant at six declarations instead of eighteen call sites.
 
-Reversibility. All of it is inside the kernel and two crates; nothing crosses the syscall surface.
-Nobody outside has acted on it.
+### What remains, under this milestone
 
-Recommendation: C, as its own milestone, built in two steps: the token in the crates with their
-harnesses first, on the host, then `sched.rs`, gated by the full suite and the icount benchmarks.
-This is not about effort. C is more work than A or D, and would still be the choice at equal cost,
-because it removes the fact that needs a comment rather than adding a second witness to it. If
-calef says no, option A stands and the BUGS entry below is the record.
-
-### Question 2: round 6's and round 7's provisional names, line by line
-
-Seventeen. Occurrences count call sites and imports in `components/` and `fixtures/` on
-2026-10-07. Two rulings since round 7 bear on them: capability is spelled out (calef, 2026-10-06),
-and §154 (the acronym test is whether the phrase is spoken) spells out "thread control block".
-
-| # | Name | What it is | Where a reader meets it | Alternatives | Recommendation |
-|---|---|---|---|---|---|
-| 1 | `initrd::initrd_bytes` | the initrd the kernel maps for a program, as a byte slice (`unsafe fn`) | 6, in seven programs' startup | `initrd`, `initrd_image` | ratify |
-| 2 | `MappedWindow::as_slice`, `as_mut_slice` | a whole shared window as an ordinary slice (`unsafe fn`s) | 9, six programs | `bytes`, `bytes_mut` | ratify, std's spelling; moot if question 3 reverts them |
-| 3 | `retype_page_frame` | `memory_region::RETYPE` | 39 | `retype` | ratify |
-| 4 | `retype_object` | `memory_region::RETYPE_OBJ` | 16 | `retype_kernel_object` | ratify |
-| 5 | `split_region` | `memory_region::SPLIT` | 8 | `split_memory_region` | `split_memory_region`, the object's name |
-| 6 | `destroy_region` | `memory_region::DESTROY` | 14 | `destroy_memory_region` | `destroy_memory_region` |
-| 7 | `map_region_page` | `memory_region::MAP` | 4 | `map_memory_region_page` | `map_memory_region_page` |
-| 8 | `revoke_frame` | `page_frame::REVOKE` | 5 | `revoke_page_frame` | `revoke_page_frame`, which the kernel already spells |
-| 9 | `map_into` | `address_space::MAP_INTO` | 13 | `address_space_map_into` | ratify, the method's own name |
-| 10 | `tcb_cap_insert` | `thread_control_block::CAP_INSERT` | 3 | `thread_control_block_capability_insert` | that, after both rulings; the kernel's twin is `thread_control_block_cap_insert` |
-| 11 | `tcb_configure` | `thread_control_block::CONFIGURE` | 3 | `thread_control_block_configure` | that |
-| 12 | `tcb_start` | `thread_control_block::START` | 3 | `thread_control_block_start` | that |
-| 13 | `irq_wait` | `irq::WAIT` | 19 | `interrupt_wait` | ratify, matching `abi::irq` |
-| 14 | `irq_ack` | `irq::ACK` | 14 | `irq_acknowledge` | `irq_acknowledge`; `ack` is an abbreviation this tree authored |
-| 15 | `send_cap` | `rendezvous::SEND_CAP` | 35 | `send_capability` | `send_capability`, by the 2026-10-06 ruling |
-| 16 | `is_granted` | is any capability in this slot (renamed from `granted` under the boolean-predicate worklist) | 50 | `holds_capability` | ratify |
-| 17 | the `virtio` module: `virtio_read_reg`, `virtio_write_reg`, `virtio_setup_queue`, `virtio_notify` | the four `virtio` methods, opt-in for the four programs that hold the capability | 34 | `virtio::read_register` and so on | `virtio::read_register`, `write_register`, `setup_queue`, `notify`: the module already says virtio, and `reg` is an abbreviation |
-
-If calef rules, the renames are one mechanical lane; the capability-spelling sweep could carry 10
-and 15. If he does not, every name stays provisional and nothing breaks.
-
-### Question 3: round 6's slice accessors: keep or revert
-
-The question. Round 6 added `MappedWindow::as_slice` and `as_mut_slice` and moved eighteen
-hand-written page-sharing assertions in six programs onto six window declarations. It raised the
-raw block count by 12, because a whole-slice accessor has no runtime check that lets a call site
-drop `unsafe`. Round 6 offered to revert it if calef wanted the raw count to stay the primary
-signal.
-
-Recommendation: keep it. This block's own test is the number of distinct invariants asserted by
-hand, and eighteen became six. The ratchet survived the +12 without strain: the density has fallen
-13 points since. Reverting would bring back eighteen separately worded claims to buy 12 blocks, the
-trade this block's "what counts" section refuses. If calef says revert, it is six programs and two
-methods, and question 2's row 2 goes with it.
+1. The ownership token, as question 1 rules it.
+2. The renames, as question 2 rules them: the fifteen renamed names at their definitions and
+   every call site, the program-side `initial_ramdisk` sweep, `abi::interrupt`, the two
+   `abi::virtio` constants, and the `design/naming.md` line about the foreign spelling.
 
 ## The measurement it starts from
 
@@ -1185,12 +1152,11 @@ proofs and the type system are standing aside and a person's comment is the whol
   the C ABI shim, deliberate `.bss`/`.data` probes) are unchanged by this round. What was "how much
   of the `invoke` cluster is real" is now answered: essentially none of it, in the sense that
   mattered for whether a safe wrapper could exist.
-- `sched.rs` is the kernel's largest single share (90 blocks on 2026-10-07, up from round 8's 47)
-  and its queue handoff is a design fork, not a migration. 21 blocks hand a thread pointer to a
-  queue under one sentence (*live, and on no other queue*), which the caller establishes, so a safe
-  wrapper would relocate it. The real reduction is an ownership token only a transition can mint.
-  Question 1 under "What is still open" puts the options to calef; until he rules, this entry is
-  the record.
+- `sched.rs` is the kernel's largest single share (90 blocks on 2026-10-07, up from round 8's 47).
+  21 of them hand a thread pointer to a queue under one sentence (*live, and on no other queue*),
+  which the caller establishes, so a safe wrapper would only relocate it. calef ruled the real
+  reduction on 2026-10-08 (UTC): an ownership token only a transition can mint (option C, "What is
+  still open"). Until that lands, this entry is the record.
 - **A reduction can be real and still not show in the count**, and round 6 is the sharpest example
   on record of the inverse: a real reduction (eighteen independently worded page-sharing
   invariants collapsed to six canonical declarations) that shows as a raw block-count **increase**
@@ -1208,10 +1174,12 @@ proofs and the type system are standing aside and a person's comment is the whol
 - **Done.** `crates/abi`'s `START` doc comment: round 9.
 - **Done.** The ratchet's scope: round 9 gated the other `unsafe impl`s (`unsafe-trait-claims`)
   and recorded why `unsafe fn` gets no ceiling.
-- **Outstanding.** For calef: the `sched.rs` queue handoff, question 1 under "What is still open".
-  It goes to a proposed milestone if he rules for option C, or to BUGS alone if A.
-- **Outstanding.** For calef: the seventeen provisional names, question 2.
-- **Outstanding.** For calef: round 6's slice accessors, question 3.
+- **Outstanding.** The renames calef ruled on 2026-10-08 (UTC), built under this milestone:
+  fifteen names, the `initial_ramdisk` sweep, `abi::interrupt` and the `abi::virtio` constants.
+- **Done.** Round 6's slice accessors stay: calef, 2026-10-08 (UTC), "Keep. We don't want to
+  penalize reuse." `as_slice`, `as_mut_slice` and `is_granted` are ratified as is.
+- **Outstanding.** The scheduler's ownership token (`Unqueued<T>`), ruled option C by calef on
+  2026-10-08 (UTC) and built under this milestone, not a new one. See "What is still open".
 - **Done.** Round 5's caveat that whichever concurrent lane landed second would find the ceiling
   arithmetic stale was discharged by round 8, which re-measured from the merged tree.
 - **Done.** The `tock_registers` follow-on round 3 named was taken in round 5.

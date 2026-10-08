@@ -856,6 +856,10 @@ pub fn map_page_frame(frame_slot: u64, va: u64, writable: bool, memory_region_sl
 /// Lifted out of `date.rs`'s `clock_page` probe, which four more programs (`pgrep`, `pmap`, `ps`,
 /// `watch`) had each copied verbatim, one of them naming the duplication out loud in its own doc
 /// comment without anyone lifting it. The exact §94 shape the crate-level docs above describe.
+///
+/// Name: ratified 2026-10-08 (calef, #1842, milestone 139 (drive the unsafe count down) round 9's
+/// question 2). His words: "Ratify ... `is_granted`." Refused `holds_capability` (the
+/// boolean-predicate worklist had already given this probe its `is_` shape).
 pub fn is_granted(slot: u64) -> bool {
     /// A method number no object type defines, so the invocation can only ever be refused.
     const NO_SUCH_METHOD: u64 = 0xffff;
