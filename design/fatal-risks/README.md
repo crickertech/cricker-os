@@ -86,6 +86,23 @@ A risk's file holds the claim of record: its status, its experiment, its cost an
 8. [Nobody needs it](8-nobody-needs-it.md)
 9. [The HAL is a fiction, and an architecture costs a restructure rather than a port, and so does the next machine](9-the-hal-is-a-fiction.md)
 
+## The standard benchmarks each risk is measured by
+
+calef ruled on 2026-10-08 (UTC) that nife is measured with the field's standard benchmarks, run
+unmodified against Linux, and optimized toward. The ruling is §262 (nife is measured with the
+field's standard benchmarks), [in its own file](../decisions/0262-nife-is-measured-with-the-fields-standard-benchmarks.md).
+Each risk file lists its own under *Benchmarks that inform this risk*. None has produced a number yet.
+
+| risk | milestones |
+|---|---|
+| 1, the ecosystem | 831 (SQLite), 833 (fio), 834 (ioping) |
+| 4, the per-crossing cost | 25 (`sel4bench`), 826 (lmbench), 827 (hackbench), 828 (iperf3), 829 (netperf), 831, 832 (STREAM) |
+| 5, multicore | 827, 830 (schbench) |
+| 6, a confined driver | 828, 829, 833, 834 |
+
+Risks 2, 3, 7, 8 and 9 have none. They are claims about proofs, tests, confinement, demand and
+portability, which a speed benchmark does not measure.
+
 ## The running order
 
 Ranked by chance-of-fatal times cheapness-of-test, not by number. Each cell's verdict is the entry's.

@@ -1,15 +1,21 @@
 ---
-status: PROPOSED
+status: NOT-STARTED
 raised: 2026-10-08
+promoted_from: stream-on-nife-and-linux
 milestone_dependencies: none
-decision_dependencies: none
+decision_dependencies: 262, unwritten
 machine_requirements: silicon, radon, xenon, later argon
 specific_machine: none
 needs_person: yes
 ---
-# STREAM on nife and Linux, the memory-bandwidth baseline
+# 832. STREAM on nife and Linux, the memory-bandwidth baseline
 
-Written by an agent, 2026-10-08 (UTC), at calef's request. Model: the fio proposal. It pairs with
+*(Minted 2026-10-08 (UTC) by lane/standard-benchmarks from the proposal `stream-on-nife-and-linux`,
+under §262 (nife is measured with the field's standard benchmarks). The number is provisional until
+the merge queue lands it; the title and slug are drafts.)*
+
+Written by an agent, 2026-10-08 (UTC), at calef's request. Model: milestone 833 (the same storage
+benchmark on nife and Linux, by porting real fio). It pairs with
 `coremark`, the compute control in `notes/benchmarks.md` that must never move.
 
 **In brief.** Port STREAM (one C file) for the Copy, Scale, Add and Triad bandwidth numbers. If nife
@@ -43,6 +49,17 @@ program reports. Frequency scaling is pinned on Linux, and the clock and governo
 
 Reuse: stream.c is taken unmodified except the timer shim.
 
+## What it waits on
+
+Every program in this family is POSIX C, and nife has no C library that runs one unmodified. §31
+(the foreign-language seam) lets C make no syscalls, and full POSIX is milestone 478 (tier three:
+full POSIX behind the foreign-language seam), refused until a component needs it. Whether §262 makes
+these programs that component is calef's call, and nobody has written that question up, so this
+block carries `decision_dependencies: unwritten`.
+
+Threads, for the per-core half only. The single-threaded build needs none; one thread per core waits
+on milestone 812 (`std::thread::spawn` runs real threads in one address space).
+
 ## How it runs continuously
 
 QEMU TCG wall-clock timings are meaningless, so nothing here gates on them. Where a host-side
@@ -51,3 +68,8 @@ icount baseline per workload step, `--check` failing on drift). The wall-clock r
 silicon on a schedule, as the runbook does for the soak, and write dated rows to
 `notes/benchmarks.md` with the Linux row beside them. A run that cannot reach the board writes
 nothing rather than a TCG number.
+
+## Index row
+
+STREAM, the memory-bandwidth control: if nife and Linux differ on a loop with no syscalls, the cause
+is mappings or cache attributes. Needs only a C library for the single-threaded run.
