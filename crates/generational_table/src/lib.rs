@@ -534,6 +534,13 @@ mod tests {
         // Removing the top one lets the bound come down past the hole; what is left is still found.
         t.remove(c);
         assert_eq!(t.values().copied().collect::<Vec<_>>(), vec![10]);
+        // The values alone cannot see the bound: a `top` stuck at 3 walks two empty slots and yields
+        // the same list. What the bound buys is the walk's length, so read it directly; slot 0 is
+        // the highest live slot left, and the shrink stepped over the hole at slot 1 to get there.
+        assert_eq!(
+            t.top, 1,
+            "the bound comes down past the hole to the highest live slot"
+        );
 
         // And it grows again on the next insert, which first-fit puts back in the hole.
         let d = t.insert_with(|_| 40).unwrap();
@@ -558,6 +565,7 @@ mod tests {
         assert_eq!(t.len(), 0);
         assert_eq!(t.values().count(), 0);
         assert_eq!(t.iter_from(0).count(), 0);
+        assert_eq!(t.top, 0, "an emptied table's walks visit no slot at all");
     }
 
     /// Out-of-range slots and wrong generations are both just `None`.

@@ -1,6 +1,7 @@
 ---
-status: PARTIAL
+status: BUILT
 raised: 2026-09-24
+built: 2026-10-07
 promoted_from: triage-the-crates-the-2026-09-21-census-measured-first
 milestone_dependencies: none
 decision_dependencies: none
@@ -14,7 +15,7 @@ Promoted 2026-10-03 (UTC); the number is provisional until the integrator confir
 
 Newest census: mutation run 37108924347 (2026-10-03), 85 crates, 14,853 mutants, 1,004 missed, 92.7% killed. Its missed list is the work list; the 2026-09-21 table below is the order.
 
-Sixth batch (`milestone/637-survivor-triage-6`) done 2026-10-03 (UTC); the lane continues on the next batch's branch. Running tally of the 1,004 (killed by a new test, recorded equivalent, recorded gap, remaining): 511, 275, 17, 201. Crates done so far, in the proposal's order: `component_plan`, `ps`, `pgrep`, `pmap`, `firmware_configuration`, `sealed_pair`, `loaded_image_check`, `uptime`, `globally_unique_identifier_partition_table`, `entropy_protocol`, `socket_protocol` and `uefi_loader`. `documentation`, `filesystem_protocol`, `timetable`, `video_terminal`, `machine_discovery`, `grant_plan`, `paging`, `walk_pricing`, `system_log`, `swish`, `line_editor`, `package_archive`, `pci`, `manifest_note`, `file_allocation_table`, `system_log_protocol`, `login_protocol` and `compositor` are done in the later batches, then come the crates the earlier appendices already ledger. The accounting is in [census-2026-10-03-triage](../../notes/mutation-testing/census-2026-10-03-triage.md).
+Seventh and last batch (`milestone/637-survivor-triage-7`) done 2026-10-07 (UTC). Final tally of the 1,004 (killed by a new test, recorded equivalent, recorded gap, remaining): 621, 359, 24, 0. The last 201 sat in 39 crates; 114 already had rows from milestone 326's inflow lanes, and the other 87 are in [part five](../../notes/mutation-testing/census-2026-10-03-triage-part-5.md). The accounting is in [census-2026-10-03-triage](../../notes/mutation-testing/census-2026-10-03-triage.md).
 
 Raised by the lane that condensed `notes/mutation-testing.md`
 (#1209), while recording the 2026-09-21 census, whose run no one had captured.
@@ -75,7 +76,9 @@ table links.
 
 ## Follow-on
 
-- **Outstanding.** 201 of the 1,004 survivors in run 37108924347 are untriaged, headed by `argument_protocol` (13), `boot_slot` (12), `machine_statistics_protocol` (11) and `elf` (10). Checked against the run's `missed.txt` on 2026-10-03 (UTC).
+- **Done.** The 201 left after batch 6, on 2026-10-07 (UTC): 10 killed by new tests, 70 equivalent and 7 gaps among the 87 with no row, and the 114 rows the inflow lanes wrote re-checked against a per-crate re-run.
+- **Recorded.** The census host is Linux and lanes re-run on macOS, so a `cfg!(target_os)` branch can read caught locally and missed weekly (`board_console::dial_in_warning`, three mutants). Part five says so where the next lane reads.
+- **Recorded.** 35 survivors in code merged after the census (`board_console/src/exposure.rs`, `jh7110_clock_and_reset`, `screen_console`) have no triage row; part five lists them, and the inflow check (#1582) and the next census are their route.
 - **Milestone 771.** Milestone 771 (the inline scanner reads from a slice that ends with its range). `design/roadmap/0771-the-inline-scanner-reads-from-a-slice-that-ends-with-its-range.md` makes the eight `documentation` over-read equivalents unrepresentable.
 - **Recorded.** The `output_len` and `CMDLINE_LEN` bounds are generous by design, so 12 survivors in `uefi_loader` stay as gaps, in `notes/mutation-testing/census-2026-10-03-triage.md`.
 

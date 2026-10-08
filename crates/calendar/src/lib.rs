@@ -910,6 +910,18 @@ fn expect(b: &[u8], at: usize, c: u8) -> Result<(), Error> {
 mod tests {
     use super::*;
 
+    /// **A full buffer drops, it does not panic**, which is what `Writer`'s doc promises. No format
+    /// reaches the cap (the longest is two bytes short), so only a direct write can test the
+    /// promise; an off-by-one in the bound turns the drop into an index past the array.
+    #[test]
+    fn a_full_writer_drops_the_next_byte_instead_of_panicking() {
+        let mut w = Writer::new();
+        for _ in 0..FMT_CAP + 1 {
+            w.byte(b'9');
+        }
+        assert_eq!(w.len, FMT_CAP);
+    }
+
     /// A whole civil reading as a tuple, which is how the tables below state their expectations.
     type Fields = (i32, u8, u8, u8, u8, u8);
 
