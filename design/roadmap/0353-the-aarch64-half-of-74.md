@@ -21,7 +21,7 @@ unchanged.
 ## The rulings, 2026-10-07 (UTC)
 
 calef answered "Yes" to both as stated below. Recorded as
-[§260 (PMCCFILTR_EL0 is zero on every aarch64 board, and a cycle read carries its meaning)](../decisions/0260-pmccfiltr-el0-is-zero-on-every-aarch64-board-and-a-cycle-read-carries-its-meaning.md)
+[§261 (PMCCFILTR_EL0 is zero on every aarch64 board, and a cycle read carries its meaning)](../decisions/0261-pmccfiltr-el0-is-zero-on-every-aarch64-board-and-a-cycle-read-carries-its-meaning.md)
 (number provisional).
 
 Decision A: A1, zero on every aarch64 board. It supersedes the 2026-09-19 ruling "wait for
@@ -272,7 +272,7 @@ The riscv64 lane's handoff (2026-09-03) and the aarch64 lane that built the coun
   a test-only door. DECISIONS §139 (who may read the cycle counter, and by what authority) put the
   grant in the spawn manifest, and carrying it there is milestone 75 (who may read the cycle
   counter, and by what authority). `cycle_reading`'s `BUGS` says so where a caller meets it.
-- **Done.** *The rulings were recorded only in this block.* They are now §260 (PMCCFILTR_EL0 is zero on every aarch64 board), linked from "The rulings, 2026-10-07 (UTC)".
+- **Done.** *The rulings were recorded only in this block.* They are now §261 (PMCCFILTR_EL0 is zero on every aarch64 board), linked from "The rulings, 2026-10-07 (UTC)".
 - **Done.** *`script/test --arch x86_64 --test <name>` failed on a test that lives only in the
   system-tests image*, because the OVMF kernel leg selected nothing and printed no time record.
   `xtask/src/time_record.rs`'s `whole` now accepts a leg that selected zero tests, in this branch.

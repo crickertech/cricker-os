@@ -5,10 +5,10 @@ decided: 2026-10-07
 ratified_by: calef
 ---
 
-# 260. PMCCFILTR_EL0 is zero on every aarch64 board, and a cycle read carries its meaning
+# 261. PMCCFILTR_EL0 is zero on every aarch64 board, and a cycle read carries its meaning
 
 *Section number provisional until the merge queue lands it; 257 was the highest on `main` when this
-was written, and open PRs #1846 and #1847 hold 258 and 259. Minted for milestone 353 (the aarch64 half of milestone 74), on 2026-10-07 (UTC). Milestone 74
+was written, and open PRs #1846, #1847 and #1851 hold 258, 259 and 260. Minted for milestone 353 (the aarch64 half of milestone 74), on 2026-10-07 (UTC). Milestone 74
 (Cycle counters) is the parent.*
 
 ## The rulings
