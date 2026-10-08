@@ -92,8 +92,10 @@ every build, asserted never. **A number with a consumer gets a relation; a numbe
 
 ### Which rows the PMCCFILTR_EL0 ruling touches
 
-calef's `PMCCFILTR_EL0` ruling touches M5 and M9 on aarch64, and M12. seL4's 413 and 426 are TX1
-cycle counts, so M12's comparison is exactly the number the filter decides. M6 to M8 count events
+calef's `PMCCFILTR_EL0` ruling (A1, 2026-10-07 UTC: `0` on every board, user and kernel counted)
+touches M5 and M9 on aarch64, and M12. seL4's 413 and 426 are TX1 cycle counts under whatever
+filter the TX1's firmware left. If argon's firmware left `P` set, M12 needs a second nife run with
+the filter matched to seL4's, labeled as such (milestone 25 (cross-OS comparison)). M6 to M8 count events
 rather than cycles, and `PMCCFILTR_EL0` filters only the cycle counter. Each event counter has its
 own filter in `PMEVTYPER<n>_EL0`, which will raise the same question when a driver first writes
 one.

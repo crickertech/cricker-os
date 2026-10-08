@@ -377,6 +377,7 @@ place instead of moving text between two systems. Numbers 68 to 73 are the six t
 | 258 | DECIDED | [Names for two installed versions of one program](0258-names-for-two-installed-versions-of-one-program.md) |
 | 259 | DECIDED | [A multicore soak counts toward risk 5 at ten million crossings over three boots](0259-a-multicore-soak-counts-toward-risk-5-at-ten-million-crossings-over-three-boots.md) |
 | 260 | DECIDED | [Radon's block server serves a USB drive](0260-radons-block-server-serves-a-usb-drive.md) |
+| 261 | DECIDED | [PMCCFILTR_EL0 is zero on every aarch64 board, and a cycle read carries its meaning](0261-pmccfiltr-el0-is-zero-on-every-aarch64-board-and-a-cycle-read-carries-its-meaning.md) |
 
 Two blocks that lived among the decisions are not decisions and moved out with the split, the same
 way milestone 76 moved four essays out of the roadmap: [the open design
