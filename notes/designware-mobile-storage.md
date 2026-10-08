@@ -102,7 +102,8 @@ cable in the port U-Boot netboots over. In a second terminal, leave the TFTP ser
 script/board-netboot
 ```
 
-Power is smart plug 2. **Never switch plug 3 (garcia), and never unplug the USB hub.**
+Power is radon's own outlet. **Never switch any other outlet, and never unplug a USB hub.** Which
+outlet is which is kept off-tree by the maintainers.
 
 ### Step 1: read-only
 
