@@ -752,11 +752,16 @@ def render_appendix(rows, crates, week, events, rev):
                    % (crate, r[0], r[1], t[0], t[1], t[2], t[3], share))
     out += ['', '## What broke in %s' % week, '',
             'Read at `%s` against the week before. Each line is one removed or changed public '
-            'item; a crate rename is one line for the whole crate.' % rev[:12], '']
+            'item, quoted as it stood that week; a crate rename is one line for the whole '
+            'crate.' % rev[:12], '']
     if not events:
         out.append('Nothing.')
+    # A blockquote: the item's name is quoted with the spelling it had in the earlier week's tree,
+    # so a name the American-spelling sweep has since retired (2026-10-06, helpers/house_style.py)
+    # appears here spelled the only way an honest record can spell it, and a quotation keeps its
+    # source's words.
     for crate, what, path in events:
-        out.append('- `%s`: %s `%s`' % (crate, what, path))
+        out.append('> - `%s`: %s `%s`' % (crate, what, path))
     return '\n'.join(out) + '\n'
 
 
@@ -998,6 +1003,10 @@ def selftest():
         ('the appendix lists a week with no breaks as nothing',
          render_appendix({'2026W39': {}}, {'2026W39': {'abi': [0, 1, 1, 1]}}, '2026W39', [],
                          'f' * 40).rstrip().endswith('Nothing.'), True),
+        ('a what-broke line is a quotation line, so a retired spelling stays quotable',
+         render_appendix({'2026W39': {}}, {'2026W39': {}}, '2026W39',
+                         [('c', 'removed', 'X')], 'f' * 40)
+         .count('> - `c`: removed `X`'), 1),
         ('the std abi list comes from the copy',
          std_abi_crates('root.join("crates/abi/src/lib.rs"),\nroot.join("crates/abi/src/lib.rs"),'
                         ' root.join("crates/clock_protocol/src/lib.rs")'),
