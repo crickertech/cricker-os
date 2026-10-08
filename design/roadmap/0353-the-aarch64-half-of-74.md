@@ -1,8 +1,9 @@
 ---
-status: PARTIAL
+status: BUILT
 raised: 2026-09-03
-milestone_dependencies: 127
-decision_dependencies: unwritten
+built: 2026-10-07
+milestone_dependencies: none
+decision_dependencies: none
 machine_requirements: none
 specific_machine: none
 needs_person: no
@@ -12,40 +13,48 @@ needs_person: no
 Filed 2026-09-03 as an unnumbered proposal by the
 `milestone/74-cycle-counters-riscv` lane, numbered 2026-09-19 by milestone 433 (drain), and the work it
 described was built the same day by the `milestone/74-cycle-counters-aarch64` lane: `PMCR_EL0.E`
-and `PMCNTENSET_EL0.C` are written, so `PMCCNTR_EL0` is no longer a stopped counter. What is left
-is not code. It is two rulings, and they are what this block now holds.
+and `PMCNTENSET_EL0.C` are written, so `PMCCNTR_EL0` is no longer a stopped counter. What was left
+was two rulings. calef made both on 2026-10-07 (UTC), and the `milestone/353-cycle-read` lane built
+what they require the same day. The options they chose between follow the rulings,
+unchanged.
 
-Nothing is blocked from building. What is blocked is publishing: no aarch64
-cycle figure should be quoted until decision A is made, and no program should read the counter
-through a shared function until decision B is.
+## The rulings, 2026-10-07 (UTC)
 
-Two branches met in this file: one numbered the proposal, the other rewrote it on 2026-09-19
-after building it (the block of milestone 74 (cycle counters), "What the aarch64 half built"). The number and filename
-are the first's, the content the second's, and nothing of either was dropped. Each decision is
-answered against AGENTS.md's seven questions, with options and no winner, because both are facts
-that leave the machine.
+calef answered "Yes" to both as stated below. The decision text lives here until the integrator
+mints a `design/decisions/` section for it: a developer lane does not write that directory, and
+this block already held both forks.
+
+Decision A: A1, zero on every aarch64 board. It supersedes the 2026-09-19 ruling "wait for
+argon's firmware value". The reason: `PMCCFILTR_EL0`'s reset value is architecturally UNKNOWN and
+firmware-dependent, so argon's value says what argon's firmware does and what seL4's TX1 figures
+were measured under. It cannot set nife's policy. The kernel writes `0` (EL0 and EL1 counted, EL2
+not), consistent with riscv64 and x86_64, which both count user and kernel. argon's firmware value is still read at first boot, for milestone 25
+(cross-OS comparison) only: if firmware left `P` set, milestone 25 runs nife a second time with
+the filter matched to seL4's and labels that run as such.
+
+Decision B: B4, in two steps. Step 1: one public function in `crates/user_mode_runtime` that
+returns the count paired with what it counts. On riscv64 that is core cycles, flagged if the kernel
+probe was handed `hpmcounter3`. On x86_64 it is the TSC, labeled as constant-rate reference cycles
+and not core cycles; `rdpmc` and `CR4.PCE` are not reopened. On aarch64 it is core cycles counting
+user and kernel, per A1. A program knows whether it may read from its own manifest's grant, so
+step 1 needs no syscall-surface change. Step 2, a kernel-provided "may I read" page or method, is a
+later syscall-surface fork and is not built.
+
+### What was built
+
+- A. The constant is `PMCCFILTR_COUNT_EL0_AND_EL1` (name provisional), and the boot and bench
+  lines no longer say `PROVISIONAL`. `FIRMWARE_FILTER` stays, as milestone 25's evidence only.
+- B, step 1. `user_mode_runtime::cycle_reading()` returns `CycleReading { count, meaning }`, where
+  `meaning` is an `abi::cycle_counter::CycleMeaning`; all three names are provisional. It is in
+  `abi` so the kernel's test decodes it without a second copy (AGENTS.md rule 7), and that test
+  checks the meaning on all three architectures. `cycle_counter_reader` reads through it.
+- Not built: the riscv64 flag. A process cannot learn which counter the kernel's probe got without
+  a page or a call, which is step 2's territory, so it is proposed with step 2 (Follow-on).
 
 ## Decision A: what `PMCCFILTR_EL0` counts
 
-Ruled 2026-09-19 (21:34 UTC), calef: wait for argon's firmware value. The TX1 is awaited,
-undated (2026-10-06). The choice is deferred
-until argon's first boot prints `firmware left PMCCFILTR_EL0 0x...`, and then the filter is set to
-match what that firmware left, which is what seL4's published 413 and 426 were counted under
-(Question 3 below reads their source for this). Until then the provisional `0`
-stands, the boot line keeps saying `PROVISIONAL`, and no aarch64 cycle figure is published,
-milestone 25's included.
-
-Not a deferral in the bad sense: every option below argues about what seL4's number means, and
-one line of argon's console output replaces the argument with evidence, in scheduled work
-(milestone 127 (sel4)'s bring-up). Milestone 25's aarch64 row stays empty until then, as it would
-anyway: there is no aarch64 board number yet.
-
-What the bench evening owes this block, beyond reading that line: if firmware left `P` set
-(kernel cycles excluded), say so loudly, because then seL4's figures exclude the kernel and every
-comparison in `notes/benchmarks.md` needs re-reading rather than re-running. If it left `0`, which
-is what QEMU reports, A1 is what argon inherits and the provisional value was right by accident.
-Either way the value goes in this block, the filter stops being provisional, and decision B stays
-open.
+Superseded on 2026-10-07 (UTC) by A1, above. The 2026-09-19 (21:34 UTC) ruling it replaced was to
+wait for argon's firmware value and match it.
 
 ### What is being decided
 
@@ -61,10 +70,8 @@ architecturally UNKNOWN on every field (Arm's `AArch64-pmccfiltr_el0` page, read
 | 27 | `NSH` | do count EL2 (the one field whose sense is inverted) |
 | 26 | `M` | EL3: counted as `P` says when equal to it, not counted when different |
 
-The kernel writes `0` today, provisionally (`arch::aarch64::pmu::PMCCFILTR_PROVISIONAL`, whose
-doc comment carries the reasons). That counts EL0 and EL1, not EL2, and EL3 wherever `MDCR_EL3`
-permits. The boot line and the bench probe's meaning line both say `PROVISIONAL`, so a number cannot
-leave the machine without the qualifier.
+The kernel writes `0` (`PMCCFILTR_COUNT_EL0_AND_EL1`, provisional until A1): EL0 and EL1, not
+EL2, and EL3 wherever `MDCR_EL3` permits.
 
 ### The options
 
@@ -169,9 +176,8 @@ wants its published numbers to mean.
 
 ### What happened when calef ruled
 
-He took none of A1 to A3 and chose the evidence: **wait for argon's firmware value**
-(2026-09-19), as stated at the top of this decision. The provisional A1 stays and milestone 25
-cannot publish an aarch64 cycle figure until the bench evening.
+He chose to wait for argon's firmware value on 2026-09-19, then A1 on 2026-10-07 (UTC): the rulings
+at the top of this block.
 
 ## Decision B: the portable user-mode cycle read, its name and its promise
 
@@ -246,9 +252,9 @@ trying.
 7. **Equal cost**: B1 and B2 are not chosen for being cheap; B4 would still be the most honest if
    all four cost the same, and B3 is the only one that is more than a naming question.
 
-### What happens if calef says nothing
+### What happened when calef ruled
 
-B1 holds: the read stays in the fixture, and nothing is worse than it was.
+B4, in two steps, on 2026-10-07 (UTC): the rulings at the top of this block. Step 1 is built.
 
 ## Where it came from
 
@@ -257,32 +263,28 @@ The riscv64 lane's handoff (2026-09-03) and the aarch64 lane that built the coun
 
 ## Follow-on
 
-- **Outstanding.** *Decision A, what `PMCCFILTR_EL0` counts.* Blocks publishing any aarch64 cycle
-  figure, because a count that excludes the kernel is not comparable to seL4's and one that includes
-  it is not comparable to a userspace-only profile. Options and costs are above.
-- **Outstanding.** *Decision B, what a program calls the cycle-counter read and what it promises.*
-  Blocks a shared function; the read stays in the fixture until it is answered, which is where it is
-  today.
-- **Recorded.** *Both decisions live in this roadmap block rather than in `design/decisions/`*, which
-  is the defect milestone 435 swept forty-five blocks for the same evening. They are kept here
-  rather than minted because a section number is global to the tree and two sessions collided on one
-  three times in ninety minutes; the integrator mints them once this branch lands. Until then the
-  options and their costs are at the thing itself, which is rung three, and that is better than the
-  paragraph-addressed-to-one-person the sweep was correcting.
+- **Proposed.** *Step 2 of decision B, and the riscv64 flag that needs it.* A kernel-provided way for
+  a program to ask whether it may read the counter, and to learn which counter the kernel's own
+  probe reads, is a syscall-surface fork calef deferred.
+  `design/roadmap/proposals/a-program-asks-whether-it-may-read-the-cycle-counter.md`.
+- **Recorded.** *No manifest field grants the cycle counter yet*, so no real aarch64 or riscv64
+  program can call `cycle_reading` without being killed; only the kernel's test grants it, through
+  a test-only door. DECISIONS §139 (who may read the cycle counter, and by what authority) put the
+  grant in the spawn manifest, and carrying it there is milestone 75 (who may read the cycle
+  counter, and by what authority). `cycle_reading`'s `BUGS` says so where a caller meets it.
+- **Recorded.** *The rulings live in this block, not in `design/decisions/`.* A developer lane may
+  not write that directory and a section number is global to the tree, so the integrator mints the
+  section from "The rulings, 2026-10-07 (UTC)" above when this branch lands.
+- **Done.** *`script/test --arch x86_64 --test <name>` failed on a test that lives only in the
+  system-tests image*, because the OVMF kernel leg selected nothing and printed no time record.
+  `xtask/src/time_record.rs`'s `whole` now accepts a leg that selected zero tests, in this branch.
 
 ## Index row
 
-`PMCR_EL0.E` and `PMCNTENSET_EL0.C` were never written by this kernel, so `PMCCNTR_EL0` was a
-stopped counter: a thread holding the milestone 229 grant could read it, legally, and got the same
-number every time. That was built on 2026-09-19 and `bench::cycles_per_tick` now has no `cfg` at
-all, so the measurement half of milestone 74 exists on all three architectures. **The three are not
-yet the same quantity**, and closing that gap is a ruling rather than code: riscv64 counts every
-mode including M-mode firmware, x86_64 counts ring 0 and 3, and aarch64 counts EL0 and EL1 under a
-provisional `PMCCFILTR_EL0`. Two things here are an architect's and both are facts that leave the
-machine: what `PMCCFILTR_EL0` counts, because a count excluding the kernel is not comparable to
-seL4's and one including it is not comparable to a userspace-only profile, and what a program calls
-the cycle-counter read and what it promises. §19 (parity) makes the first a
-parity gap in the one subsystem whose entire purpose is cross-machine comparison, and
-milestone 25 (performance)'s `sel4bench` needs it. Nothing can be settled on
-Apple silicon: the PMU is not architected state a hypervisor must present, so the machine that
-decides it is argon, with a person at it.
+The two rulings the aarch64 half of milestone 74 (cycle counters) left, made by calef on 2026-10-07 (UTC) and built.
+A1: `PMCCFILTR_EL0` is `0` on every aarch64 board, so aarch64 counts user and kernel like riscv64
+and x86_64, and the boot and bench lines stopped saying `PROVISIONAL`; argon's firmware value is
+read for milestone 25 (cross-OS comparison) only. B4 step 1: `user_mode_runtime::cycle_reading()`
+returns the count with an `abi::cycle_counter::CycleMeaning`, core cycles on aarch64 and riscv64
+and constant-rate reference cycles on x86_64, proved on all three by the granted-read test. Step 2,
+a "may I read" page or method, is a deferred syscall-surface fork and is proposed, not built.
