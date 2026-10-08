@@ -146,6 +146,23 @@ fn redoxfs_host(args: &[&str]) -> bool {
 /// exactly the code that opens it. Arch-neutral (the on-disk format does not depend on the CPU), so
 /// one image serves both ISA test legs.
 pub(crate) fn mkredoxfs() -> bool {
+    mkredoxfs_of(REDOXFS_FIXTURE_MIB)
+}
+
+/// **How large the shared RedoxFS fixture is**, in MiB: every suite, benchmark and the kernel tests
+/// read this size, and notes such as notes/xenon-bench-2026-10.md quote windows derived from it.
+const REDOXFS_FIXTURE_MIB: &str = "16";
+
+/// **How large `script/swish-check`'s RedoxFS image is**, in MiB: twice the fixture, for
+/// [`RIPGREP_CORPUS`] (milestone 121, 2026-10-07). The copy of `crates/` is 8.2 MB in 661 files
+/// and 275 directories, and RedoxFS spends a 4 KiB node on each of those 936 entries and rounds
+/// every file up to its block, so it took about 13.5 MiB on disk; beside the 4.8 MiB the image
+/// already held, the import failed with "No space left on device". Only this gate's image grows, so
+/// the benchmarks and the suite keep the disk their notes describe.
+pub(crate) const SWISH_CHECK_DISK_MIB: &str = "32";
+
+/// [`mkredoxfs`] at `mib` MiB rather than the fixture's size.
+pub(crate) fn mkredoxfs_of(mib: &str) -> bool {
     let img = redoxfs_disk_path();
     // **`NIFE_KEEP_REDOXFS=1` keeps an existing image instead of rebuilding it.** This is the
     // deliberate way to run the second-boot case: run the suite once normally, then again with this
@@ -193,7 +210,7 @@ pub(crate) fn mkredoxfs() -> bool {
     let Some(tree) = stage_subtree() else {
         return false;
     };
-    redoxfs_host(&["mkfs", &img, "16"])
+    redoxfs_host(&["mkfs", &img, mib])
         && redoxfs_host(&["put", &img, filesystem_protocol::fixture::MOTD_NAME, &motd])
         && redoxfs_host(&[
             "put",
@@ -310,6 +327,128 @@ pub(crate) const INSTALLED_STD_ECHO_LARGE: &str = "installed/std-echo-large";
 /// How large [`INSTALLED_STD_ECHO_LARGE`] is: 3 MiB, 768 pages, about `rg` 14.1.1's image
 /// (`notes/ripgrep-on-nife.md`) and under `spawnproto::IMAGE_MAX_PAGES`.
 const LARGE_IMAGE_BYTES: usize = 3 * 1024 * 1024;
+
+/// **Where the shell stands to search [`RIPGREP_CORPUS`]**: a directory at the image root holding
+/// it. The shell builds a caretaker for a word only by descending into a directory, so at `/` it
+/// refuses to grant a word at all ("`cd` into one first", found 2026-10-07 on aarch64); the line
+/// is typed after `cd` here. Provisional.
+pub(crate) const RIPGREP_WALK_HOME: &str = "search";
+
+/// **The tree `rg` walks at the prompt** (milestone 121 (`ripgrep`: enumeration as a capability),
+/// calef's 2026-10-07 ruling on fatal risk 1): every file `git ls-files crates` names, copied under
+/// `/search/crates`. Hundreds of files in a few hundred nested directories, Rust, TOML, patches
+/// and binary device trees, which is the walk `rg` was chosen to exercise. Before this it searched
+/// one file in one directory at the prompt. Written only beside [`INSTALLED_RIPGREP`], since
+/// nothing else reads it. Provisional.
+pub(crate) const RIPGREP_CORPUS: &str = "crates";
+
+/// **What `rg` looks for in [`RIPGREP_CORPUS`]**: about 350 lines in about 140 files on
+/// 2026-10-07, spread across the tree because every crate with a `BUGS` section has one. The count
+/// moves with the tree; the gate never states it, it compares against the host's answer.
+pub(crate) const RIPGREP_WALK_PATTERN: &str = "BUGS";
+
+/// **What real `rg` on the host printed for [`RIPGREP_WALK_PATTERN`] over [`RIPGREP_CORPUS`]**,
+/// written when the corpus is staged and read by `script/swish-check` to compare the prompt's answer
+/// line for line. One file for every architecture, since the corpus is the same bytes on each.
+pub(crate) fn ripgrep_walk_expected() -> std::path::PathBuf {
+    workspace_root().join("target/ripgrep-walk-expected.txt")
+}
+
+/// **The host `rg` the expected set comes from**: `helpers/build-ripgrep.sh`'s host build, which is
+/// the same 14.1.1 source the guest runs, or failing that whatever `rg` is on `PATH`, whose version
+/// the staging line prints so a mismatch between versions is visible rather than silent.
+fn host_ripgrep() -> String {
+    let built = crate::farm::ripgrep_elf("host");
+    if built.exists() {
+        built.display().to_string()
+    } else {
+        "rg".to_string()
+    }
+}
+
+/// Stage [`RIPGREP_CORPUS`] under `tree` and write [`ripgrep_walk_expected`] by running the host's
+/// `rg` over it, returning a sentence for the log.
+///
+/// The host run stands in [`RIPGREP_WALK_HOME`] and names [`RIPGREP_CORPUS`], exactly as the line
+/// typed at the prompt does, so the paths it prints are the guest's. `--no-config` keeps a person's `RIPGREP_CONFIG_PATH`
+/// out of it, and `--no-ignore-parent` keeps this worktree's `.gitignore` (which ignores `target/`,
+/// where the copy lives) from hiding what the guest, which has no repository, will search. Neither
+/// flag is typed at the prompt: they make the host see what the guest sees, not the other way round.
+fn stage_ripgrep_corpus(tree: &std::path::Path) -> Result<String, String> {
+    let root = workspace_root();
+    let listed = std::process::Command::new("git")
+        .args(["ls-files", "-z", "crates"])
+        .current_dir(&root)
+        .output()
+        .map_err(|e| format!("git ls-files crates: {e}"))?;
+    if !listed.status.success() {
+        return Err("git ls-files crates failed".into());
+    }
+    let home = tree.join(RIPGREP_WALK_HOME);
+    let corpus = home.join(RIPGREP_CORPUS);
+    let (mut files, mut bytes) = (0usize, 0u64);
+    let mut dirs = std::collections::BTreeSet::new();
+    for path in listed.stdout.split(|b| *b == 0).filter(|p| !p.is_empty()) {
+        let path = std::str::from_utf8(path).map_err(|e| format!("a path under crates/: {e}"))?;
+        let Some(inner) = path.strip_prefix("crates/") else {
+            continue;
+        };
+        let from = root.join(path);
+        // A file deleted in the working tree but not yet from the index is listed and absent.
+        if !from.is_file() {
+            continue;
+        }
+        let to = corpus.join(inner);
+        let parent = to.parent().expect("a file under corpus/ has a parent");
+        std::fs::create_dir_all(parent).map_err(|e| format!("{}: {e}", parent.display()))?;
+        bytes += std::fs::copy(&from, &to).map_err(|e| format!("{}: {e}", from.display()))?;
+        files += 1;
+        let mut up = std::path::Path::new(inner).parent();
+        while let Some(dir) = up.filter(|d| !d.as_os_str().is_empty()) {
+            dirs.insert(dir.to_path_buf());
+            up = dir.parent();
+        }
+    }
+    let rg = host_ripgrep();
+    let version = std::process::Command::new(&rg)
+        .arg("--version")
+        .output()
+        .ok()
+        .and_then(|o| String::from_utf8(o.stdout).ok())
+        .and_then(|s| s.lines().next().map(str::to_string))
+        .ok_or_else(|| {
+            format!(
+                "no host `rg` to compute the expected matches with ({rg}); \
+                 `helpers/build-ripgrep.sh` builds one"
+            )
+        })?;
+    let out = std::process::Command::new(&rg)
+        .args([
+            "--no-config",
+            "--no-ignore-parent",
+            RIPGREP_WALK_PATTERN,
+            RIPGREP_CORPUS,
+        ])
+        .current_dir(&home)
+        .output()
+        .map_err(|e| format!("{rg}: {e}"))?;
+    if !out.status.success() {
+        return Err(format!(
+            "host `{rg}` over {RIPGREP_CORPUS} exited {}: {}",
+            out.status,
+            String::from_utf8_lossy(&out.stderr)
+        ));
+    }
+    let expected = ripgrep_walk_expected();
+    std::fs::write(&expected, &out.stdout).map_err(|e| format!("{}: {e}", expected.display()))?;
+    let matches = out.stdout.iter().filter(|b| **b == b'\n').count();
+    Ok(format!(
+        "/{RIPGREP_WALK_HOME}/{RIPGREP_CORPUS}: {files} files in {} directories, {bytes} bytes; host {version} finds \
+         {matches} lines for `{RIPGREP_WALK_PATTERN}` ({})",
+        dirs.len() + 1,
+        expected.display()
+    ))
+}
 
 /// **A program with no symbol table, for the disk** ([`INSTALLED_RIPGREP`]). `read_stripped` takes
 /// only the debug sections, and keeps the symbols for whoever reads the archive later; `rg` 14.1.1's
@@ -534,6 +673,8 @@ fn stage_installed(architecture: &str) -> Result<String, String> {
     }
     if let Some(bytes) = &ripgrep {
         write(tree.join(INSTALLED_RIPGREP), bytes)?;
+        let said = stage_ripgrep_corpus(&tree)?;
+        eprintln!("seed_installed ({architecture}): {said}");
     }
     write(tree.join(DOWNLOADED_NOTELESS), &noteless)?;
     write(tree.join(DOWNLOADED_GREETING_0_2_0), &greeting_v2)?;
