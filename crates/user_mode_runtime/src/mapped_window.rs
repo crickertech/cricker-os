@@ -170,6 +170,10 @@ impl MappedWindow {
     /// is staged by one side, then handed off by a `SEND`/`receive`, one side touching it at a time)
     /// rather than from a lock, the same "one thread per address space (DECISIONS §33), so there
     /// is no concurrent writer" argument each hand-written copy stated for itself.
+    ///
+    /// Name: ratified 2026-10-08 (calef, #1842, milestone 139 (drive the unsafe count down) round
+    /// 9's question 2), with [`as_mut_slice`](Self::as_mut_slice). His words: "`as_slice` /
+    /// `as_mut_slice`". Refused `bytes`/`bytes_mut` (std spells this pair `as_slice`/`as_mut_slice`).
     pub unsafe fn as_slice(self) -> &'static [u8] {
         // SAFETY: forwarded from this function's own contract, verbatim.
         unsafe { core::slice::from_raw_parts(self.base as *const u8, self.len as usize) }
@@ -179,6 +183,8 @@ impl MappedWindow {
     ///
     /// # Safety
     /// As [`as_slice`](Self::as_slice)'s.
+    ///
+    /// Name: ratified 2026-10-08 (calef, #1842), with [`as_slice`](Self::as_slice).
     pub unsafe fn as_mut_slice(self) -> &'static mut [u8] {
         // SAFETY: forwarded from this function's own contract, verbatim.
         unsafe { core::slice::from_raw_parts_mut(self.base as *mut u8, self.len as usize) }

@@ -344,6 +344,14 @@ fn running_count(line: &str) -> Option<usize> {
 /// extra, first few of each.
 pub(crate) fn whole(r: &Reading) -> Result<(), String> {
     use std::collections::BTreeSet;
+    // A filtered run that selected nothing in this image (`script/test --test` names a test that
+    // lives in the other image) has no test to time, and the kernel prints no record for it. The
+    // QEMU legs already count such a leg; the OVMF leg failed it for want of a record until
+    // milestone 353 (the aarch64 half of 74) hit it on 2026-10-07 (UTC) with a test
+    // that lives only in the system-tests image.
+    if r.heading.is_none() && r.selected == Some(0) && r.tests.is_empty() {
+        return Ok(());
+    }
     if r.heading.is_none() {
         return Err("the image printed no per-test time record".into());
     }
@@ -713,6 +721,21 @@ mod tests {
             }
         }
         assert!(whole(&read(&t)).unwrap_err().contains("did not parse"));
+    }
+
+    #[test]
+    fn a_filter_that_selected_nothing_needs_no_record() {
+        let t = vec![
+            at(2000, "nife on x86_64"),
+            at(
+                3000,
+                "running 0 of 138 tests (filter: some_other_images_test)",
+            ),
+            at(3001, "test result: ok. 0 passed"),
+        ];
+        let r = read(&t);
+        assert_eq!(r.selected, Some(0));
+        assert_eq!(whole(&r), Ok(()));
     }
 
     #[test]

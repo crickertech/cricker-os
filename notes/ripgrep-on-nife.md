@@ -210,9 +210,13 @@ sh bench/host/run_linux_rg.sh         # needs rustup target add aarch64-unknown-
 - The corpus is whatever `crates/` holds when the gate runs, and it carries no ignore files, so
   gitignore semantics are still untested at the prompt.
 
-- **No gate runs any of this.** CI skips every `rg` test because nothing builds `rg` there. The
-  numbers above are from one machine on one evening, and the tests are proven only where somebody
-  built the binary. A pinned `rg` from the packaging milestone is what would change that.
+- **The kernel suite still skips `rg`; the prompt does not, since 2026-10-08 (UTC).** CI's
+  `swish-check` rows build `rg` with `helpers/build-ripgrep.sh` and type its lines, the walk
+  included, on all three legs, and refuse to skip them there (lane milestone/121-rg-ci). The
+  four `ripgrep_tests` in the kernel harness are still proven only where somebody built the
+  binary, because the `test` job builds no `rg`. The timings above are from one machine on one
+  evening. A pinned `rg` from the packaging milestone, 810 (`ripgrep` is packaged in basalt and
+  installed with `jig`), is what would replace the fetch.
 - **The gap to Linux is not attributed.** The failed ignore-file opens are a guess, not a
   measurement; a request count like the one milestone 606 (a directory walk costs what it does on Linux) took
   with `walk_model` would settle it.
@@ -220,9 +224,11 @@ sh bench/host/run_linux_rg.sh         # needs rustup target add aarch64-unknown-
   has not been observed here, only its walking.
 - **One version, one program.** `ripgrep` 14.1.1 is evidence about this platform, not a survey of
   crates.io.
-- **The build script checks no hash.** It pins a version and fetches over the network. It is an
-  experiment's apparatus and on no trust path (the initrd's measurement table digests whatever it
-  packs), but it is not a supply-chain-safe way to obtain software. Packaging replaces it.
+- **The build script trusts crates.io's index for its one hash.** Since 2026-10-08 (UTC) it refuses
+  a `ripgrep-14.1.1.crate` whose SHA-256 is not the index's `cksum`, and builds `--locked` against
+  the crate's own `Cargo.lock`, whose checksums cargo verifies for every dependency. A version
+  given by hand is fetched unchecked and says so. Packaging, milestone 810 (`ripgrep` is packaged
+  in basalt and installed with `jig`), replaces it.
 - **The harness's argv page is the kernel's, not the progenitor's.** It writes the same bytes with
   the same function and maps them the same way, but the path a command line takes from `swish`
   through the progenitor is milestone 205's tests, not these.

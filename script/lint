@@ -2034,6 +2034,16 @@ REGISTRY = {
         'assertion that the compiler is wrong about a type',
         lambda: _unsafe_census()['thread_safety'],
     ),
+    # The census's third population (milestone 139 (drive the unsafe count down), 2026-10-07 UTC;
+    # name provisional). Its opening measurement counted `unsafe impl` as one number and the gate
+    # above watched only its Send/Sync half; this is the other half, held the same way, at the
+    # tree's exact value. `unsafe fn` is deliberately still not here: notes/unsafe-obligations.md
+    # says why, beside this marker.
+    'unsafe-trait-claims': (
+        'how many `unsafe impl` of an unsafe trait other than Send/Sync the tree makes, each one a '
+        "hand-written assertion that a trait's contract holds for a type",
+        lambda: _unsafe_census()['trait_claims'],
+    ),
 }
 
 # --- finding the markers ------------------------------------------------------------------------
@@ -2270,7 +2280,8 @@ if _census:
     print(f'unsafe census: {_census["outside_arch"]} blocks in {_census["code_lines"]} lines '
           f'outside kernel/src/arch/, {_census["density"]} per 10,000 (ceiling); '
           f'{_census["inside_arch"]} blocks inside arch/ (no target: rule 1 puts assembly there); '
-          f'{_census["thread_safety"]} Send/Sync claims (ceiling). '
+          f'{_census["thread_safety"]} Send/Sync claims (ceiling); '
+          f'{_census["trait_claims"]} other unsafe trait impls (ceiling). '
           f'See notes/register-of-measures.md')
 
 # --- the three derivations that could not be made one (milestone 236) ----------------------------

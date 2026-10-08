@@ -1,14 +1,7 @@
 # toolchain: nightly-2026-10-07
 # qemu: 11.1.1
-# date: 2026-10-03
-# why: milestone 629 (the context-switch statistic stops costing the switch path): the switch count moved from a fetch_add on the machine statistics page to PerCpu::switches, published on the tick; per switch 134 -> 31 instructions at -O0 (riscv64), ruled option B on #1489
-# why: #1486 (drift since the 2026-09-26 floors) attributed the rest: map_new from the RETYPE layering of milestone 23 (a capability-routed component OS with live replacement) and the fixed +43 of milestone 206 (a program image has under 896 KiB), spawn_reap partly from the 24-to-32 capability table; recorded here rather than recovered
-# why: 2026-10-03: restamped from nightly-2026-10-02 to nightly-2026-10-03 by `cargo xtask bench --restamp`, rows unchanged; compiler term on one machine, largest: ctx_switch -0.040%, ipc_rtt_el0 -0.018%, map_el0 +0.002% (bounds 0.5% per row, 2% cumulative); cumulative since the last --save: ctx_switch -0.040%, ipc_rtt_el0 -0.018%, map_el0 +0.002%, null_syscall -0.001%
-# why: 2026-10-04: restamped from nightly-2026-10-03 to nightly-2026-10-04 by `cargo xtask bench --restamp`, rows unchanged; compiler term on one machine, largest: ctx_switch +0.020%, ipc_rtt_el0 -0.005%, null_syscall -0.001% (bounds 0.5% per row, 2% cumulative); cumulative since the last --save: ipc_rtt_el0 -0.023%, ctx_switch -0.020%, null_syscall -0.002%, map_el0 +0.002%
-# why: 2026-10-05: restamped from nightly-2026-10-04 to nightly-2026-10-05 by `cargo xtask bench --restamp`, rows unchanged; compiler term on one machine, largest: ctx_switch +0.020%, relay_rtt +0.020%, ipc_rtt_el0 -0.006% (bounds 0.5% per row, 2% cumulative); cumulative since the last --save: ipc_rtt_el0 -0.029%, relay_rtt +0.020%, broker_rtt -0.005%, spawn_reap -0.003%, null_syscall -0.002%, map_el0 +0.002%, call_reply +0.001%
-# why: 2026-10-05: the bump workflow's CI runner (x86_64) measured ipc_rtt 178171 -> 181459 (+1.845%) and ipc_rtt_el0 +0.776% between these nightlies and so declined to restamp; the same A/B on Apple aarch64 (patagonia) read ipc_rtt 178171 -> 178171 (+0.000%) and ipc_rtt_el0 -0.006%, so the CI delta did not reproduce on a second host and is unattributed (no objdump diff, nothing to diff); floor numbers unchanged
-# why: 2026-10-06: restamped from nightly-2026-10-05 to nightly-2026-10-06 by `cargo xtask bench --restamp`, rows unchanged; compiler term on one machine, largest: map_el0 -0.074%, ctx_switch -0.020%, sink_throughput +0.015% (bounds 0.5% per row, 2% cumulative); cumulative since the last --save: map_el0 -0.072%, ipc_rtt_el0 -0.022%, ctx_switch -0.020%, sink_throughput +0.015%, relay_rtt +0.010%, call_reply +0.010%, broker_rtt +0.004%, spawn_reap -0.003%, null_syscall -0.002%, ipc_rtt +0.001%
-# why: 2026-10-07: restamped from nightly-2026-10-06 to nightly-2026-10-07 by `cargo xtask bench --restamp`, rows unchanged; compiler term on one machine, largest: ipc_rtt_el0 +0.151%, map_new -0.039%, sink_throughput -0.005% (bounds 0.5% per row, 2% cumulative); cumulative since the last --save: ipc_rtt_el0 +0.129%, map_el0 -0.074%, map_new -0.039%, ctx_switch -0.020%, relay_rtt +0.010%, call_reply +0.010%, sink_throughput +0.010%, broker_rtt +0.004%, spawn_reap -0.003%, ipc_rtt +0.001%, yield_switch +0.001%, null_syscall -0.001%
+# date: 2026-10-08
+# why: 2026-10-08, milestone 139 (drive the unsafe count down) round 9: the revocation log's walk moved behind revoke::chain, and its scans loop per page over a slice instead of a flat_map across the chain. map_el0 falls well under the floor (aarch64 389647 to about 300k, riscv64 62743 to about 47k). The first cut used a flat_map and cost map_el0 +39% and spawn_el0 +19% on aarch64; CI caught it on #1842. This save also absorbs main's own drift since the 2026-10-04 floor (measured on origin/main 9c9d6a25f the same day: map_el0 356622, spawn_el0 1453995, and every other aarch64 row that moved over 3% here, yield_switch, call_reply, broker_rtt, ctx_switch and spawn_reap, reads the same on main to within 0.02%, so those moves are main's, not this branch's; this branch's own effect on aarch64 is map_el0 -15.8% and spawn_el0 -3.4% against main). On riscv64, origin/main measured the same day reads within 0.3% of this file on every row but two: map_el0 56821 to 47398 (-16.6%) and spawn_el0 234661 to 226143 (-3.6%). The riscv64 #[inline(always)] on switch_user_root and write_satp moved no hot row.
 # bench/baseline-riscv64.txt: deterministic icount tick counts (cargo xtask bench --save).
 # Recorded against the QEMU pinned in .qemu-version. icount counts guest instructions, so the
 # emulator version is part of what these numbers mean: script/qemu-check warns when the QEMU on
@@ -21,18 +14,18 @@
              # Updating this file is a statement that a performance change is intended and
              # understood; do it in the commit that causes the change. Checked by --check, a coarse
              # 10% tripwire (icount counts drift across builds; see notes/benchmarks.md).
-yield_switch 188345 2000
-ipc_rtt 171977 1000
-relay_rtt 345344 1000
-call_reply 178564 1000
-broker_rtt 356664 1000
-spawn_reap 34991 64
-map_new 2556 64
-rfence_self 6571 512
-coremark 3654806 256
-null_syscall 73000 20000
-ctx_switch 516252 5000
-ipc_rtt_el0 1875536 5000
-sink_throughput 762792 80000
-map_el0 62743 500
-spawn_el0 217204 100
+yield_switch 194558 2000
+ipc_rtt 179714 1000
+relay_rtt 353897 1000
+call_reply 186579 1000
+broker_rtt 372607 1000
+spawn_reap 36477 64
+map_new 2555 64
+rfence_self 6073 512
+coremark 3654877 256
+null_syscall 66844 20000
+ctx_switch 528032 5000
+ipc_rtt_el0 1862158 5000
+sink_throughput 752951 80000
+map_el0 47398 500
+spawn_el0 226143 100

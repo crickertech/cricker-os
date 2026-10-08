@@ -97,9 +97,10 @@ could read legally and get the same number from every time. `kernel/src/arch/aar
 this on every core, from `timer::init`, gated on `ID_AA64DFR0_EL1.PMUVer` the way the `PMUSERENR_EL0`
 write beside it is:
 
-1. `PMCCFILTR_EL0 = 0`, **a provisional value**: EL0 and EL1 counted, EL2 not. What it should be is
-   calef's (design/roadmap/proposals/the-aarch64-half-of-74.md), because it decides what every
-   published cycle number means.
+1. `PMCCFILTR_EL0 = 0`: EL0 and EL1 counted, EL2 not, on every board. calef ruled it on
+   2026-10-07 (UTC), option A1 in design/roadmap/0353-the-aarch64-half-of-74.md, because it decides
+   what every published cycle number means and user plus kernel is what the other two
+   architectures count. What firmware left is printed, for milestone 25 (cross-OS comparison).
 2. `PMCR_EL0 = E | C | LC`, assigned rather than read-modify-written, so a divide-by-64 bit firmware
    left set cannot survive.
 3. `PMCNTENSET_EL0` bit 31, the cycle counter's own enable.
@@ -108,7 +109,7 @@ write beside it is:
 The boot prints one line after the secondaries are up, in every build:
 
 ```
-  cycles      : PMCCNTR_EL0 running on 4 of 4 cores (33000 over 1125 ticks at boot), 6 event counters visible, PMCCFILTR_EL0 0x0 PROVISIONAL (EL0+EL1 counted, EL2 not)
+  cycles      : PMCCNTR_EL0 running on 4 of 4 cores (33000 over 1125 ticks at boot), 6 event counters visible, PMCCFILTR_EL0 0x0 (EL0+EL1 counted, EL2 not)
 ```
 
 and the other answers it can give are `enabled but did not advance ...; refused` (the `Stuck`
@@ -125,8 +126,8 @@ argon the ratio should be near the core clock over 19.2 MHz and **not** a clean 
 ### BUGS
 
 - Nothing here has run on silicon. argon's bench procedure is milestone 127 (sel4)'s.
-- `PMCCFILTR_EL0` is provisional, and no aarch64 cycle figure is a result until an architect
-  rules.
+- No aarch64 cycle figure is a result until one is measured on silicon. The filter is settled
+  (2026-10-07); the machine is not here.
 - The `Stuck` refusal has never fired. Every QEMU `-cpu` this tree boots models PMUv3 and moves
   the counter, and `-cpu cortex-a72,pmu=off` takes the no-PMU path instead. The first machine that
   can exercise it is one whose secure firmware prohibits Non-secure counting.

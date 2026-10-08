@@ -446,6 +446,36 @@ impl AddressSpace {
     pub fn ttbr0(&self) -> u64 {
         mmu::ttbr0_value(self.root.addr(), self.asid)
     }
+
+    /// **Run `body` with this space installed as the current user half, then uninstall it**, so a
+    /// kernel thread can ask the hardware's own tables a question about this space
+    /// (`mmu::translate_user`, `mmu::map_current_user_page_frame`) rather than reading back the
+    /// kernel's record of them.
+    ///
+    /// The safe form of `mmu::activate_user` for every caller that wants exactly this (milestone 139
+    /// (drive the unsafe count down), 2026-10-07 UTC; name provisional). Six call sites, the boot
+    /// tour and five system tests, each restated that function's contract by hand; it is a fact
+    /// about this type, so it is asserted once, here. A closure rather than a guard whose `Drop`
+    /// uninstalls, because `mem::forget` is safe: a forgotten guard would end the borrow with the
+    /// space still installed, and the space could then be dropped under a live root register.
+    ///
+    /// Not for a test that reads through the user translation itself or installs a space on
+    /// another core: those carry their own arguments (`system_tests::user::tests` keeps both).
+    #[cfg_attr(
+        not(any(feature = "system_tests", target_arch = "riscv64")),
+        allow(dead_code)
+    )]
+    pub fn while_installed<R>(&self, body: impl FnOnce() -> R) -> R {
+        // SAFETY: `ttbr0` composes this space's own root (built by a `Mapper` over `Half::Low`,
+        // with the kernel's high half shared into it by both constructors) with the ASID allocated
+        // to it, which is every architecture's contract. The root lives as long as `self`, which
+        // this call borrows until after the uninstall below, and nothing here runs at EL0 or
+        // U-mode: `body` is kernel code on this kernel thread.
+        unsafe { mmu::activate_user(self.ttbr0()) };
+        let result = body();
+        mmu::deactivate_user();
+        result
+    }
 }
 
 /// The machine's ASID allocator (milestone 15; the crate carries the proofs). Taken alone, at

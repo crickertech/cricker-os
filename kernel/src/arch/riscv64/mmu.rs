@@ -81,6 +81,7 @@ fn read_satp() -> u64 {
 /// address space, was a contract on one architecture and an ordinary call on the other. Rule 5 is
 /// about capabilities shipping on every ISA; a *rule about the code* that differs by ISA is the same
 /// defect one level up.
+#[inline(always)] // on the context switch's hot path; see `switch_user_root`'s note
 unsafe fn write_satp(satp: u64) {
     // SAFETY: this function's own `# Safety` contract is exactly the one this write needs; it
     // forwards, it does not weaken.
@@ -1064,6 +1065,15 @@ pub fn reserved_root() -> u64 {
 /// `satp` must be a value [`ttbr0_value`] composed over a **live** `AddressSpace`'s root, or
 /// [`reserved_root`]. Same contract as [`write_satp`]; see the aarch64 twin for why the liveness
 /// half of it cannot be carried by a type instead.
+///
+/// `#[inline(always)]`, with [`write_satp`] beneath it, because both are on the context switch's
+/// hot path and must land inside `.text.hot` with their caller. LLVM had inlined them by choice
+/// until milestone 139 (drive the unsafe count down) round 9 gave the riscv64 boot tour a call
+/// through `AddressSpace::while_installed`. Then it outlined this function, and with only it
+/// forced, it outlined `write_satp` and merged it with the identical `activate_user`. Both times
+/// `script/fastpath-footprint` caught a hot symbol outside `.text.hot` (2026-10-08 UTC). Forcing
+/// the two hot ones keeps the hot path independent of how many cold callers exist.
+#[inline(always)]
 pub unsafe fn switch_user_root(satp: u64) {
     if read_satp() == satp {
         return;
