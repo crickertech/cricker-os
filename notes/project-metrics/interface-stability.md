@@ -14,7 +14,7 @@ Sorted by breaking changes in the last four weeks (2026W38 to 2026W41), then by 
 | `login_protocol` | 14 | 68 | 14 | 83 | 30 | 30 (100%) |
 | `package_archive` | 14 | 109 | 14 | 109 | 17 | 12 (71%) |
 | `line_editor` | 11 | 73 | 12 | 118 | 29 | 25 (86%) |
-| `swap_protocol` | 11 | 34 | 12 | 124 | 41 | 40 (98%) |
+| `swap_protocol` | 11 | 34 | 12 | 124 | 42 | 41 (98%) |
 | `filesystem_protocol` | 10 | 54 | 42 | 454 | 101 | 92 (91%) |
 | `abi` | 7 | 52 | 37 | 149 | 96 | 91 (95%) |
 | `byte_sink_protocol` | 5 | 10 | 6 | 48 | 27 | 27 (100%) |
@@ -41,7 +41,7 @@ Sorted by breaking changes in the last four weeks (2026W38 to 2026W41), then by 
 
 ## What broke in 2026W41
 
-Read at `cc19e3b4bc4c` against the week before. Each line is one removed or changed public item, quoted as it stood that week; a crate rename is one line for the whole crate.
+Read at `bb2be83ec03f` against the week before. Each line is one removed or changed public item, quoted as it stood that week; a crate rename is one line for the whole crate.
 
 > - `abi`: syscall changed, method or encoding `CAPABILITY_TABLE_SLOTS`
 > - `abi`: changed `Error`
