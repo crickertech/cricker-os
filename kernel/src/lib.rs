@@ -1290,15 +1290,15 @@ pub extern "C" fn kernel_main(boot_info_pointer: usize) -> ! {
             use paging::Flags;
             let aspace = user::AddressSpace::new(1).expect("no process aspace");
             let user_va = 0x40_0000u64;
-            // SAFETY: aspace.ttbr0() is a well-formed Sv39 satp whose root carries the kernel half.
-            unsafe { arch::mmu::activate_user(aspace.ttbr0()) };
-            let frame = memory::alloc().expect("no user frame").addr();
-            arch::mmu::map_current_user_page_frame(user_va, frame, Flags::user_data(), || {
-                memory::alloc().map(|f| f.addr())
-            })
-            .expect("user map failed");
-            let mapped = arch::mmu::translate_user(user_va);
-            arch::mmu::deactivate_user(); // back to the kernel-only root before dropping the address space
+            // Uninstalled again before the space drops: `while_installed` holds both halves.
+            let mapped = aspace.while_installed(|| {
+                let frame = memory::alloc().expect("no user frame").addr();
+                arch::mmu::map_current_user_page_frame(user_va, frame, Flags::user_data(), || {
+                    memory::alloc().map(|f| f.addr())
+                })
+                .expect("user map failed");
+                arch::mmu::translate_user(user_va)
+            });
             println!(
                 "  user address space : process satp activated (kernel half shared), user {user_va:#x} -> {mapped:x?}",
             );

@@ -118,15 +118,7 @@ pub(super) fn build_child_with(
 ) -> u64 {
     let aspace = user_address_space_create(region).expect("no aspace");
 
-    let code_phys = crate::memory_region::retype_page(region).expect("no code frame");
-    // SAFETY: a fresh frame we own, direct-mapped; write the stub and make it fetchable.
-    unsafe {
-        let dst = mmu::phys_to_virt(code_phys) as *mut u32;
-        for (i, &insn) in stub.iter().enumerate() {
-            dst.add(i).write(insn);
-        }
-    }
-    sync_icache(mmu::phys_to_virt(code_phys), core::mem::size_of_val(stub));
+    let code_phys = code_page(region, stub);
     user_address_space_map(
         aspace,
         CODE_VA,

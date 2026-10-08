@@ -1,4 +1,4 @@
-use core::sync::atomic::{AtomicBool, AtomicU64, Ordering};
+use core::sync::atomic::{AtomicBool, AtomicU8, AtomicU64, Ordering};
 
 // The std-transcript and FS-readiness assertions live with the std tests so both ISAs share one
 // copy; see `std_tests`. Most of them are used only by the device/FS tests below, which have
@@ -489,10 +489,9 @@ fn an_image_past_the_old_ceiling_loads() {
     let (space, entry) = load(&image, 0).expect("a 2 MiB image did not load");
     assert_eq!(entry, IMAGE_BASE);
 
-    // SAFETY: nothing is at EL0; we are a kernel thread mid-test.
-    unsafe { mmu::activate_user(space.ttbr0()) };
-    let last = mmu::translate_user(IMAGE_BASE + BYTES - page_frames::FRAME_SIZE).is_some();
-    mmu::deactivate_user();
+    let last = space.while_installed(|| {
+        mmu::translate_user(IMAGE_BASE + BYTES - page_frames::FRAME_SIZE).is_some()
+    });
     drop(space);
     assert!(last, "the image's last page is not mapped");
 }
@@ -894,23 +893,20 @@ fn a_read_only_segment_is_mapped_read_only() {
         .expect("the test binary has no read-only segment");
 
     // Install it so we can ask the CPU's own tables, rather than our record of them.
-    // SAFETY: nothing is at EL0 right now; we are a kernel thread mid-test.
-    unsafe { mmu::activate_user(space.ttbr0()) };
+    space.while_installed(|| {
+        let (_, flags) = mmu::translate_user(rodata.vaddr).expect(".rodata is not mapped at all");
 
-    let (_, flags) = mmu::translate_user(rodata.vaddr).expect(".rodata is not mapped at all");
-
-    assert!(
-        flags.is_user_accessible(),
-        "EL0 cannot read its own .rodata"
-    );
-    assert!(!flags.is_writable(), "the loader made .rodata WRITABLE");
-    assert!(!flags.is_user_executable(), ".rodata is executable at EL0");
-    assert!(
-        !flags.is_kernel_executable(),
-        ".rodata is executable at EL1"
-    );
-
-    mmu::deactivate_user();
+        assert!(
+            flags.is_user_accessible(),
+            "EL0 cannot read its own .rodata"
+        );
+        assert!(!flags.is_writable(), "the loader made .rodata WRITABLE");
+        assert!(!flags.is_user_executable(), ".rodata is executable at EL0");
+        assert!(
+            !flags.is_kernel_executable(),
+            ".rodata is executable at EL1"
+        );
+    });
     drop(space);
 }
 
@@ -938,34 +934,31 @@ fn the_hardware_says_el0_cannot_read_the_kernels_memory() {
 
     let (space, _) = load(loader_subject_image(), 0).expect("the initrd did not load");
 
-    // SAFETY: nothing is at EL0; we are a kernel thread mid-test.
-    unsafe { mmu::activate_user(space.ttbr0()) };
+    space.while_installed(|| {
+        // The precondition, and it is what gives the assertion below its teeth: that address IS
+        // mapped, and the KERNEL can read it. It reads it all day.
+        assert!(
+            mmu::translate(KERNEL_TEXT).is_some(),
+            "the kernel's text is not mapped, so this test proves nothing",
+        );
 
-    // The precondition, and it is what gives the assertion below its teeth: that address IS
-    // mapped, and the KERNEL can read it. It reads it all day.
-    assert!(
-        mmu::translate(KERNEL_TEXT).is_some(),
-        "the kernel's text is not mapped, so this test proves nothing",
-    );
+        // And EL0 cannot. Not "we decline to"; the silicon says no.
+        assert!(
+            !mmu::user_can_read(KERNEL_TEXT),
+            "the hardware says EL0 could read the kernel's own text",
+        );
+        assert!(!mmu::user_can_write(KERNEL_TEXT));
 
-    // And EL0 cannot. Not "we decline to"; the silicon says no.
-    assert!(
-        !mmu::user_can_read(KERNEL_TEXT),
-        "the hardware says EL0 could read the kernel's own text",
-    );
-    assert!(!mmu::user_can_write(KERNEL_TEXT));
+        // It can read its own code, or the check is a rubber stamp that says no to everything.
+        assert!(
+            mmu::user_can_read(address_space_map::IMAGE_BASE),
+            "EL0 cannot read its own .text, so the check refuses everything and proves nothing",
+        );
 
-    // It can read its own code, or the check is a rubber stamp that says no to everything.
-    assert!(
-        mmu::user_can_read(address_space_map::IMAGE_BASE),
-        "EL0 cannot read its own .text, so the check refuses everything and proves nothing",
-    );
-
-    // And not an address in its own half that nobody mapped: the stack band's guard page, which the
-    // address-space map promises no loader ever maps.
-    assert!(!mmu::user_can_read(address_space_map::STACK.start));
-
-    mmu::deactivate_user();
+        // And not an address in its own half that nobody mapped: the stack band's guard page, which the
+        // address-space map promises no loader ever maps.
+        assert!(!mmu::user_can_read(address_space_map::STACK.start));
+    });
     drop(space);
 }
 
@@ -986,7 +979,9 @@ fn a_user_client_moves_data_through_shared_memory() {
 
     static CAPTURED: AtomicBool = AtomicBool::new(false);
     static LEN: AtomicU64 = AtomicU64::new(0);
-    static mut BUF: [u8; 128] = [0; 128];
+    // Atomics rather than a `static mut`: the server thread writes and the test thread reads, and
+    // `CAPTURED`'s SeqCst store is the handoff either way, so the bytes need no `unsafe` to cross.
+    static BUF: [AtomicU8; 128] = [const { AtomicU8::new(0) }; 128];
 
     let image = program("console_test_client").expect("no console_test_client in the archive");
     // Deliberately kept for the boot, like the shared page below and for the same reason: the
@@ -1008,15 +1003,14 @@ fn a_user_client_moves_data_through_shared_memory() {
             let m = sched::ipc_receive(request);
             let len = m[0].min(128);
             if !CAPTURED.load(Ordering::SeqCst) {
-                // SAFETY: the shared frame is ours via the direct map; the client wrote `len`
-                // bytes before sending. Single-threaded capture.
                 let src = crate::arch::mmu::phys_to_virt(shared) as *const u8;
-                let dst = (&raw mut BUF).cast::<u8>();
-                for i in 0..len as usize {
-                    // SAFETY: both pointers are in range; BUF is 128 bytes and len <= 128.
-                    unsafe {
-                        core::ptr::write_volatile(dst.add(i), core::ptr::read_volatile(src.add(i)));
-                    };
+                for (i, byte) in BUF.iter().enumerate().take(len as usize) {
+                    // SAFETY: the shared frame is ours via the direct map and `i < len <= 128`, inside
+                    // it; the client wrote `len` bytes before sending.
+                    byte.store(
+                        unsafe { core::ptr::read_volatile(src.add(i)) },
+                        Ordering::Relaxed,
+                    );
                 }
                 LEN.store(len, Ordering::SeqCst);
                 CAPTURED.store(true, Ordering::SeqCst);
@@ -1060,10 +1054,13 @@ fn a_user_client_moves_data_through_shared_memory() {
     );
 
     let len = LEN.load(Ordering::SeqCst) as usize;
-    // SAFETY: written by the server thread, which stopped touching BUF once CAPTURED.
-    let got = unsafe { core::slice::from_raw_parts((&raw const BUF).cast::<u8>(), len) };
+    let mut got = [0u8; 128];
+    for (g, b) in got.iter_mut().zip(&BUF) {
+        *g = b.load(Ordering::Relaxed);
+    }
     assert_eq!(
-        got, FIRST_LINE,
+        &got[..len],
+        FIRST_LINE,
         "the wrong bytes arrived through shared memory"
     );
 }
@@ -1099,22 +1096,19 @@ fn map_physical_maps_a_shared_frame_and_a_device_page() {
         )
         .expect("device map failed");
 
-    // SAFETY: nothing is at EL0; we are a kernel thread mid-test.
-    unsafe { mmu::activate_user(space.ttbr0()) };
+    space.while_installed(|| {
+        let (data_pa, data_f) = mmu::translate_user(DATA_VA).expect("shared page not mapped");
+        assert_eq!(data_pa, frame, "shared page maps the wrong frame");
+        assert!(data_f.is_user_accessible() && data_f.is_writable());
+        assert!(!data_f.is_user_executable());
 
-    let (data_pa, data_f) = mmu::translate_user(DATA_VA).expect("shared page not mapped");
-    assert_eq!(data_pa, frame, "shared page maps the wrong frame");
-    assert!(data_f.is_user_accessible() && data_f.is_writable());
-    assert!(!data_f.is_user_executable());
-
-    let (dev_pa, dev_f) = mmu::translate_user(DEV_VA).expect("device page not mapped");
-    assert_eq!(
-        dev_pa, device_phys,
-        "device page maps the wrong physical address"
-    );
-    assert!(dev_f.is_user_accessible() && dev_f.is_writable());
-
-    mmu::deactivate_user();
+        let (dev_pa, dev_f) = mmu::translate_user(DEV_VA).expect("device page not mapped");
+        assert_eq!(
+            dev_pa, device_phys,
+            "device page maps the wrong physical address"
+        );
+        assert!(dev_f.is_user_accessible() && dev_f.is_writable());
+    });
     crate::memory::free(PageFrame::from_addr(frame));
     drop(space);
 }
@@ -2957,16 +2951,7 @@ fn a_process_can_build_start_and_run_a_child_thread() {
     let aspace = user_address_space_create(as_region).expect("no aspace");
     let frames_region = crate::memory_region::create(2).expect("no frame region");
 
-    let code_phys = crate::memory_region::retype_page(frames_region).expect("no code frame");
-    // Write the program through the direct map, then make it coherent for the fetcher.
-    // SAFETY: a fresh frame we own, direct-mapped.
-    unsafe {
-        let dst = mmu::phys_to_virt(code_phys) as *mut u32;
-        for (i, &insn) in code.iter().enumerate() {
-            dst.add(i).write(insn);
-        }
-    }
-    sync_icache(mmu::phys_to_virt(code_phys), size_of_val(code));
+    let code_phys = code_page(frames_region, code);
     user_address_space_map(
         aspace,
         CODE_VA,
@@ -3080,15 +3065,7 @@ fn reclaim_frees_a_started_then_exited_childs_regions() {
     let as_region = crate::memory_region::create(8).expect("no address space region");
     let aspace = user_address_space_create(as_region).expect("no aspace");
 
-    let code_phys = crate::memory_region::retype_page(as_region).expect("no code frame");
-    // SAFETY: a fresh frame we own, direct-mapped.
-    unsafe {
-        let dst = mmu::phys_to_virt(code_phys) as *mut u32;
-        for (i, &insn) in code.iter().enumerate() {
-            dst.add(i).write(insn);
-        }
-    }
-    sync_icache(mmu::phys_to_virt(code_phys), size_of_val(code));
+    let code_phys = code_page(as_region, code);
     user_address_space_map(
         aspace,
         CODE_VA,
@@ -3192,15 +3169,7 @@ fn spawn_to_reap_repeats_without_leaking() {
     for round in 0..6 {
         let as_region = crate::memory_region::create(8).expect("address space region");
         let aspace = user_address_space_create(as_region).expect("aspace");
-        let code_phys = crate::memory_region::retype_page(as_region).expect("code frame");
-        // SAFETY: a fresh frame we own, direct-mapped.
-        unsafe {
-            let dst = mmu::phys_to_virt(code_phys) as *mut u32;
-            for (i, &insn) in code.iter().enumerate() {
-                dst.add(i).write(insn);
-            }
-        }
-        sync_icache(mmu::phys_to_virt(code_phys), size_of_val(code));
+        let code_phys = code_page(as_region, code);
         user_address_space_map(
             aspace,
             CODE_VA,

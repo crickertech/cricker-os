@@ -483,7 +483,7 @@ invariant **96 times** and now asserts it once.
 
 ### What each number is held to, and why the answers differ
 
-At most 88 <!--count-at-most:unsafe-density-outside-arch--> unsafe blocks per 10,000 lines
+At most 72 <!--count-at-most:unsafe-density-outside-arch--> unsafe blocks per 10,000 lines
 outside `kernel/src/arch/`. The direction is down, because unsafe outside `arch/` is not paying
 for hardware access: it is a raw syscall, a shared page, or a hand-rolled data structure, and each
 of those has a safe wrapper somebody could write. The ceiling is written at a threshold the tree
@@ -491,30 +491,21 @@ crossed **the day before this was written** rather than at slack: every sample b
 would have failed it, 2026-08-16 included at 111.7. That is what makes it a ratchet instead of
 decoration.
 
-Lowered from 100 to 97 by milestone 139 (2026-08-23), cinching the ratchet behind a real
-reduction rather than the tree's own growth. Seven userspace programs
-(`entropy`, `keyboard_driver`, `net_transport`, `multicast_dns_responder`, `socket_test_client`, `smb_server`, `ntp`)
-each hand-rolled the same `r8`/`w8`/`r16`/`w16`/`r32` volatile-access functions over a DMA page or
-a shared IPC frame, one hand-written `// SAFETY:` comment per function, asserting one invariant
-("this offset is inside the page the kernel mapped here") by hand at every call site; `ntp.rs`'s
-own comment had already named the duplication ("the same shape net_stack and socket_test_client
-use") without anyone lifting it out. `user_mode_runtime::mapped_window::MappedWindow` (new, milestone 139)
-holds that invariant once, at construction, and turns every access into a bounds-checked call with
-no unsafe at the call site.
+Every move of this ceiling, each behind a measured reduction. The per-round accounting (what
+collapsed, the diff each was measured from, the base commit) is in milestone 139's block,
+`design/roadmap/0139-drive-down-unsafe.md`, and is not repeated here.
 
-Measured precisely from the diff, not from a before/after tree census (which the 2026-08-23
-column above already shows gets contaminated by unrelated concurrent growth): 32 `unsafe {`
-blocks removed across the seven programs, 11 added (9 window constructions -- one per program,
-except `smb_server`, which needs two: one for its boot-wired FS channel at `FS_VA`, sized to
-`fs::TRANSFER_MAX` rather than one page, and one for its runtime-mapped socket frame at
-`FRAME_VA` -- plus the 2 generic `read`/`write` methods inside `MappedWindow` itself, doc-comment
-examples excluded since the census strips comments). Net -21. `smb_server.rs` alone is flat
-(11 unsafe blocks before and after: two hand-rolled functions traded for two window
-constructions), which is still a real reduction by this milestone's own test -- criterion 2, a
-raw-pointer assertion replaced by a typed, bounds-checked abstraction -- even though it does not
-move that one file's own block count. The checked bound is a genuine soundness improvement the
-hand-written copies never had: a wrong offset used to be a silent out-of-bounds volatile access,
-and is now a panic naming the access. Full account in `design/roadmap/0139-drive-down-unsafe.md`.
+| Round | Date | Ceiling | Density after | What collapsed |
+|---|---|---|---|---|
+| 1 | 2026-08-23 | 100 to 97 | 90.8 | seven programs' volatile accessors, onto `MappedWindow` |
+| 2 | 2026-08-24 | 97 to 96 | 89 | `user_mode_runtime`'s twelve `asm!` traps; nine FS page-copy loops |
+| 3 | 2026-08-24 | 96 to 95 | 88 | `swish`, `disk_surveyor` and `net_stack` windows |
+| 4 | 2026-08-24 | 95 to 94 | 87 | the framebuffer and graphics windows |
+| 5 | 2026-08-24 | unchanged | 87 | device register blocks onto `tock_registers` |
+| 8 | 2026-09-01 | 94 to 88 | 78.8 | 37 page-zeroing sites, 5 device-tree parses |
+| 9 | 2026-10-07 | 88 to 72 | 65.3 | the revocation log walk, address-space installs, code pages |
+
+Round 1 chose the headroom, and its reasoning is the one later rounds argue from.
 
 The new ceiling keeps 7 points of headroom above the density this reduction actually reached
 (90.8, truncated to 90), the same absolute headroom the original 100-vs-93 ceiling carried,
@@ -529,184 +520,6 @@ Headroom here is not slack given back: the ceiling fell by the same 3 points the
 its pre-reduction reading (100 to 97, against 93.4 to 90.8), so the full gain this lane won is
 locked in and nobody can silently spend it back up to 100.
 
-Lowered again, 97 to 96, by milestone 139 round 2 (2026-08-24). Two further reductions, both
-measured the same way (from the diff, bracketed by the exact base commit this round branched from,
-`a269403e`, rather than a stale baseline): the round found no unrelated tree growth in between, so
-this is the cleanest paired measurement this ceiling has had.
-
-*`crates/user_mode_runtime`'s `SYS_INVOKE` round trip.* Six methods (`receive`, `receive_cap`, `receive_fault`, `call`,
-`survey`, `list`), each duplicated once per architecture, had each hand-rolled its own `asm!` block
-asserting the identical invariant ("`svc`/`ecall` traps to the kernel, which validates before
-acting") at a register layout that differed only in which of the five return words the caller
-happened to read: twelve hand-written copies of one assertion, the exact §94 shape. `invoke5` (new,
-private to the crate) holds the trap once per architecture; every caller above it, including
-`invoke` itself, is now a safe wrapper with no `asm!` of its own. 14 `unsafe {` blocks removed, 9
-added, net -5, in `crates/user_mode_runtime/src/lib.rs` alone.
-
-*The broader `read_volatile`/`write_volatile` sweep round 1's BUGS section asked for.* Grepping
-directly for `read_volatile`/`write_volatile` (rather than by the `r8`/`w8`/`r16` naming convention
-round 1 searched by name) found a second cluster the name-based search could not have seen: eight
-programs (`rm`, `fs_file_caretaker`, `sink`, `fs_subtree_caretaker`, `fs_nameset_caretaker`,
-`login_test_client`, `fs_test_client`, `swish`) each hand-rolled a `put_page`/`get_page` byte-copy
-loop over the page shared with the FS server (`fs_nameset_caretaker` carries a second, read-only
-window for its name set; `fs_test_client` carries five such helpers over one window sized to
-`fs::TRANSFER_MAX`), every one asserting "this VA is a mapped page of this size" by hand, near
-word-for-word the same comment. Migrated onto the existing `user_mode_runtime::mapped_window::MappedWindow`
-(round 1's type, reused rather than duplicated) the same way the DMA-page cluster was. 21 removed,
-10 added, net -11 across the nine files. `fs_subtree_caretaker.rs` alone is flat (1 before, 1
-after: one hand-rolled function traded for one window construction), the same "still real by
-criterion 2" case `smb_server.rs` was in round 1.
-
-Combined: 35 `unsafe {` blocks removed, 19 added, net -16, all measured from the diff against
-base commit `a269403e`. The tree-wide census confirms it cleanly for once, because nothing else
-landed on this branch in between: 792 blocks outside `arch/` at the base commit, 776 in the working
-tree after, exactly -16. Density moved only 90 to 89 (truncated), because the reduction also removed
-lines (duplicated `asm!` blocks and doc comments along with the blocks themselves), which is the
-first time this ceiling's headroom math has had to account for the denominator moving with the
-numerator. Ceiling set to 96, keeping the same 7-point headroom the 100-vs-93 and 97-vs-90 ceilings
-both carried, above the 89 this round reached.
-
-Lowered again, 96 to 95, by milestone 139 round 3 (2026-08-24). Round 2's own handoff list
-named the targets precisely, so this round took three of them rather than re-deriving a net.
-
-*`swish.rs`'s other two windows.* `OUT_VA`/`LINE_VA` (`stage`/`read_line`, the shell's terminal
-pages) and the job frame `spawn_interruptible`/`watch` signal through (`jf_load`/`jf_store`,
-parametrized by a runtime `va` -- round 2's own framing that this is "actually a *better*
-`MappedWindow` fit than the FS cluster, since `new` already takes a runtime base"). The terminal
-pair is flat by block count (2 removed in `stage`/`read_line`, 2 added at the two `const` window
-declarations) and still a real reduction by criterion 2, the same "typed abstraction replaces raw
-pointer arithmetic" case `smb_server.rs` and `fs_subtree_caretaker.rs` were. The job frame collapses
-for real: `jf_load`/`jf_store` were two functions, each with its own `// SAFETY:` comment, called
-eight times combined across `spawn_interruptible` and `watch`; one `MappedWindow` constructed once,
-right after the frame is mapped, replaced both. 4 `unsafe {` blocks removed, 3 added, net -1, in
-`components/src/swish.rs` alone.
-
-*`disk_surveyor.rs`'s `ROSTER_VA`.* A single shared `u64` flag at a fixed VA the program maps
-itself at runtime (`Frame::MAP`, not a boot-time wiring), read once in [`ROLE_HOLDER`], read again
-after the kernel deliberately revokes the mapping (the module's own negative-control test: the
-second read must fault), and written once in [`ROLE_PROBE`] (refused by the kernel: the mapping is
-read-only). The two deliberate-fault sites are the one honest exception recorded at the call site:
-`MappedWindow`'s own bounds check cannot catch either fault (offset 0 is inside the declared
-window both times), so the real hardware fault happens inside `read`/`write` exactly where the
-hand-written version made it, and the test's behavior is unchanged. 3 `unsafe {` blocks removed,
-2 added, net -1, in `components/src/disk_surveyor.rs` alone.
-
-*`net_stack.rs`'s `a_r8`/`a_r16`/`a_w16`/`a_w8` cluster.* The exact naming variant
-`user_mode_runtime::mapped_window`'s own doc comment already named as a shape round 1's search should have
-caught and did not (a different file, not one of round 1's seven). Harder than the FS cluster
-because it is genuinely harder, not because the milestone's own text says so: the VA is not a fixed
-constant but `socket_va(sid) = 0x00A0_0000 + sid * 0x1000`, a different page per open socket, and
-every caller computed an absolute VA (`sk.va + OFF_X`) rather than holding a `(window, offset)`
-pair. Migrating cleanly meant restructuring the socket-lifecycle state itself: `Sock.va: u64` (0
-meaning "no frame") became `Sock.window: Option<MappedWindow>` (`None` meaning the same thing), and
-the parallel `frame_va: [u64; MAX_SOCKETS]` array became `frame_window: [Option<MappedWindow>;
-MAX_SOCKETS]`, constructed once in `OPERATION_ATTACH_PAGE_FRAME` right after the kernel maps the frame -- the
-one place in the whole socket lifecycle that needs to assert the invariant, instead of every one of
-the four functions' bodies. Every call site downstream (`read_dst`, `udp_sendto`, `sock_receive`,
-`tcp_connect`, `tcp_accept`, `udp_bind`, `tcp_send`) now takes or holds a `MappedWindow` rather than
-a raw VA, so the restructuring reaches the caller side rather than stopping at a wrapper that still
-took an absolute address. One further site collapsed for the same reason though it was never named
-`a_w8`: `sock_receive`'s payload-write loop had its own hand-rolled `write_volatile`, identical in
-shape, folded into the same window. 5 `unsafe {` blocks removed (the four functions' bodies plus
-the one hand-rolled loop), 1 added (the window construction in `OPERATION_ATTACH_PAGE_FRAME`), net -4, in
-`components/src/net_stack.rs` alone. `script/test`'s aarch64 and riscv64 net suites (DHCP, UDP, TCP
-connect/accept/listen, the mDNS responder) are the load-bearing evidence for this one: the
-restructuring touches per-socket lifecycle state, exactly the kind of change where a mistake shows
-up as a flaky network test rather than a compile error.
-
-Combined round 3: 12 `unsafe {` blocks removed, 6 added, net -6, measured from the diff against
-this round's own base commit (`f731894d`), the same discipline every round has used. Uncontaminated
-this time as well: nothing else landed on this branch between the base commit and this reduction, so
-the tree-wide census confirms it exactly: 776 blocks outside `arch/` at the base commit (89 per
-10,000, matching round 2's own final reading), 770 in the working tree after, exactly -6. Density
-moved 89 to 88 (truncated); the line count moved by only 15 (net, mostly comments explaining the new
-windows), so the denominator barely moved this round, unlike round 2's `asm!`-collapse.
-
-The ratchet, cinched again: ceiling lowered from 96 to 95, keeping the same 7-point headroom the
-100-vs-93, 97-vs-90 and 96-vs-89 ceilings all carried, now above the 88 this round reached.
-
-Lowered again, 95 to 94, by milestone 139 round 4 (2026-08-24). Round 3's own handoff named the
-question precisely: does `MappedWindow`'s bounds check cost enough at the bounded volumes the
-framebuffer/graphics code actually sees (2,048-8,192 accesses per one-shot test, or a
-keystroke-driven repaint) to matter, measured rather than reasoned about. `script/bench` (icount,
-both ISAs), a temporary comparison loop over a page-sized buffer, one raw `write_volatile` against
-one loop performing `MappedWindow::check`'s own arithmetic first: the check costs 4 icount
-ticks/access on aarch64 (8 to 12) and ~0.6 on riscv64 (1.4 to 2.0), flat across 56, 2,048 and
-8,192 accesses. Total overhead at the largest volume, 8,192, is ~29,000 aarch64 ticks -- under 30
-`ipc_rtt` round trips (1,017 ticks each), inside a one-shot test that already pays several of those
-round trips plus, for `display.rs`, a real device DMA completion at ~200 us wall clock. Negligible on
-both ISAs; full readings in design/roadmap/0139-drive-down-unsafe.md. The comparison itself was not
-kept in the tree: it settled a one-time question rather than an ongoing primitive, and keeping it
-would have cost this ceiling two more `unsafe {` blocks (one per loop) for a diagnostic that does not
-need to be regression-gated forever, working directly against the number it was written to inform.
-
-So, measured negligible, all four remaining sites migrated onto `MappedWindow`: `painter.rs`'s
-`px_write`/`px_read` (a `const` window, `SURFACE_VA` sized to `gfx::SURFACE_BYTES`, the same shape
-round 1 used), `window.rs`'s `px_write`/`px_read` (a window sized to `bytes`, the client's own
-`w * h * 4` computed and bound-checked in `_start` before any pixel is painted, since the compositor
-maps a different frame count per client and only that runtime value is trustworthy -- the "genuinely
-per-caller, not a `const`" case round 3's `net_stack.rs` cluster was), `display.rs`'s `dma_write`/
-`dma_read` (a `const` window over the whole DMA region, which `surface_pixel` calls into along with
-every virtqueue-field write in the file, so this migration is broader than the one call site it was
-scoped to: round 3 named `surface_pixel`'s own `dma_read` call as the target, and migrating only that
-call while leaving `dma_read`/`dma_write` on raw pointers would have *duplicated* the region's
-invariant rather than collapsed it, the wrong direction; migrating the two shared functions instead
-covers `surface_pixel` for free and bounds-checks the few dozen other offsets too), and
-`display_terminal.rs`'s `paint` (a window sized to `gfx::SURFACE_BYTES` in `MODE_DISPLAY`, to
-`stride * h` off the compositor's own published geometry in `MODE_WINDOW`, constructed once in
-`_start` and threaded through `Wiring` rather than declared as a `const`, for the same per-client
-reason as `window.rs`).
-
-Measured precisely from the diff against this round's own base commit (`757562a3`): `painter.rs`
-2 removed, 1 added (net -1); `window.rs` 2 removed, 1 added (net -1); `display.rs` 2 removed, 1 added
-(net -1); `display_terminal.rs` 1 removed, 1 added (net 0, still a real reduction by criterion 2, the
-same "typed abstraction replaces raw pointer arithmetic" case `swish.rs`'s terminal pair and
-`smb_server.rs` were). Combined: 7 `unsafe {` blocks removed, 4 added, net -3. Uncontaminated:
-nothing else landed on this branch between the base commit and this reduction, so the tree-wide
-census confirms it exactly: 782 blocks outside `arch/` at the base commit (88 per 10,000, matching
-round 3's own final reading despite 12 blocks of unrelated tree growth landing in between, 770 to
-782 -- density absorbed it the same way round 1 and round 2's readings did), 779 in the
-working tree after, exactly -3. Density moved 88 to 87 (truncated); the line count moved by +19 net
-(mostly the new `SAFETY` comments explaining each window's invariant), so the denominator barely
-moved this round, like round 3's.
-
-The ratchet, cinched a fourth time: ceiling lowered from 95 to 94, keeping the same 7-point
-headroom the 100-vs-93, 97-vs-90, 96-vs-89 and 95-vs-88 ceilings all carried, now above the 87 this
-round reached.
-
-Lowered a fifth time, by milestone 139 round 5 (2026-08-24). `console.rs`'s and `input.rs`'s
-aarch64 (PL011) halves and `jh7110_trng.rs` migrated onto `tock_registers::register_structs!`/
-`register_bitfields!`, matching `kernel/src/drivers/pl011.rs`'s own idiom (calef, in conversation:
-"Take the dependency for user, launch the lane," taking `tock-registers` as a `user` crate
-dependency for the first time). `console.rs`'s and `input.rs`'s riscv64 (NS16550) halves were
-deliberately left unmigrated: round 3's premise that `kernel/src/drivers/ns16550.rs` already used
-this idiom "for the identical hardware" was checked and found false (that driver uses plain
-volatile access on purpose, because the NS16550's register stride is a runtime value no
-compile-time layout macro can express, per its own module doc), and the same fact holds for these
-two files' riscv64 halves, which hard-code QEMU's one-byte stride with no way to vary it. Full
-per-file reasoning in `design/roadmap/0139-drive-down-unsafe.md`'s round 5 section.
-
-Round 5 was measured against its own base commit (`757562a3`, the same one round 4 branched
-from), independently of round 4: 5 `unsafe {` blocks removed, 3 added, net -2 (`console.rs` flat,
-1 before and 1 after, still real by criterion 2; `input.rs` 2 removed 1 added, net -1;
-`jh7110_trng.rs` 2 removed 1 added, net -1). Round 4 landed first, so this section's own arithmetic
-is restated here from the merged tree rather than the stale shared base: 779 blocks (round 4's own
-landed count) to 777, in 88,853 lines. Density: 87 per 10,000, unchanged from round 4's own final
-reading, truncated -- the two fewer blocks are offset by the lines the compile-time-checked layout's
-doc comments and macro invocations cost over the hand-written offsets and `SAFETY` comments they
-replaced, the same denominator effect this round's own base-commit measurement already showed in
-isolation.
-
-*`jh7110_trng.rs` is `components/src/jh7110_entropy.rs` now (renamed three times: milestone 175's
-split, then `jh7110_entropy_source` when calef ratified that on 2026-09-13, then `jh7110_entropy`
-when he replaced it later the same day, performed 2026-09-14). It is spelled here as it was when
-the blocks were counted, so the -1 stays checkable against base commit `757562a3`, and
-`design/roadmap/0139-drive-down-unsafe.md`'s round 5 section spells it the same way.*
-
-The ratchet does not move a fifth time. With density unchanged at 87, the 7-point-headroom
-ceiling stays 94: there is nothing to cinch that round 4 had not already cinched. The block count
-is real and lower, and it is recorded as such above; the ceiling tracks density, not a raw block
-count, and density is what a growing tree's line count keeps honest.
 
 Lowered a sixth time, 94 to 88, by milestone 139 round 8 (2026-09-01), and the six-point step is
 the first one this measurement's own history argues for rather than the convention. Rounds 6 and
@@ -760,6 +573,12 @@ The gain is more than kept, and the arithmetic is worth stating exactly in a not
 subject is a measurement: the density fell five points (83 to 78, truncated) and the ceiling
 fell six (94 to 88), so this round cinched one point further than it gained and nobody can
 spend the reduction back up to 94 quietly.
+
+Lowered again, 88 to 72, by milestone 139 round 9 (2026-10-07 UTC). Five weeks of lane traffic
+had taken the density from 78 to 66 with no round working it, so the ceiling stood 22 points over
+the tree, a budget rather than a ratchet. The round removed 25 blocks and added 2 (1,147 to 1,124,
+density 66.6 to 65.3, from the diff against base `3dfbf1fd4`). 72 keeps round 1's seven points; the
+density has fallen at every sample since 2026-09-01, so seven points is weeks of headroom.
 
 At most 23 `unsafe impl Send`/`Sync` claims <!--count-at-most:unsafe-thread-safety-claims-->,
 and this one has no headroom at all. Each is a hand-written assertion that the compiler is wrong
