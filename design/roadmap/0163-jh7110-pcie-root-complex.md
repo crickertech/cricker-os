@@ -74,6 +74,12 @@ from a mainline Linux driver for the same controller the way `crates/jh7110_entr
 JH7110 TRNG's from `drivers/char/hw_random/jh7110-trng.c`, and host-tested before any hardware is
 involved, but whether it actually enumerates real devices can only be verified on the board.
 
+## Radon's storage depends on this, 2026-10-07
+
+§258 (radon's block server serves a USB drive) puts radon's USB 3 ports, which sit behind a VL805
+controller on PCIe, on this milestone's critical path: the booted system's storage on radon
+cannot be read until this root complex enumerates the controller.
+
 ## Index row
 
 Named as needing "its own milestone" in three places (milestone 53, notes/visionfive2.md,

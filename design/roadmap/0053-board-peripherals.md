@@ -1,7 +1,7 @@
 ---
 status: PARTIAL
 raised: 2026-07-31
-milestone_dependencies: none
+milestone_dependencies: 163, 242
 decision_dependencies: none
 machine_requirements: riscv64 silicon with an NVMe controller and a NIC
 specific_machine: none
@@ -139,12 +139,12 @@ and both trees are GPL and were read for hardware facts only.
 - **Outstanding.** The storage half's first run on radon: calef's three-boot bench step in
   notes/designware-mobile-storage.md, read-only first, then the scratch write, then the ordinary
   image back. Passing it lifts the block server's `PROVEN_ON_SILICON`.
-- **Outstanding.** An architect's call, owed a PROPOSED file under `design/decisions/` that this
-  lane may not write: which part of radon's storage the booted system's block server serves, a
-  fact whatever writes the card and the kernel must agree on. The options: a second
-  partition on the microSD card, beside the FAT one U-Boot boots from; the eMMC socket, if step 1
-  finds a module fitted; or NVMe, once milestone 163 (the PLDA root complex) exists. Not blocking
-  until the bench step passes.
+- **Done.** The architect's call on which part of radon's storage the booted system's block server
+  serves: a USB drive (calef, 2026-10-07 UTC; §258 (radon's block server serves a USB drive)). It
+  refused the second microSD partition, the eMMC socket and NVMe for now. It costs milestone 163 (the JH7110's PCIe root complex), because radon's USB 3 ports sit behind a VL805 on PCIe,, the xHCI driver milestone 242
+  builds, and a USB mass-storage driver, filed as the proposal `usb-mass-storage` (it takes a
+  number at merge, and this block's dependencies take it then). The microSD bench step above still
+  proves the MSHC driver and is no longer the block server's target.
 - **Outstanding.** The IDMAC data path, once the network half's coherence probe has read radon's
   DMA coherence (milestone 655 (DMA on a non-coherent RISC-V machine)); then high speed and an
   8-bit eMMC bus, measured against the polled rate step 1 prints.
