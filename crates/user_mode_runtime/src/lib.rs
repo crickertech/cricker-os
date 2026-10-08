@@ -1351,6 +1351,129 @@ pub fn cntfrq_checked() -> Option<u64> {
     page.hz()
 }
 
+pub use abi::cycle_counter::CycleMeaning;
+
+/// **A cycle-counter read and what it counts**, returned together by [`cycle_reading`].
+///
+/// The count alone is not a quantity a reader can compare across machines: aarch64 and riscv64
+/// count core cycles (over different privilege levels), and `x86_64` counts reference cycles at a
+/// constant rate. So the count never travels without its [`CycleMeaning`].
+///
+/// Name: provisional, minted by the lane for milestone 353 (the aarch64 half of 74) on 2026-10-07
+/// (UTC), the noun for what
+/// [`cycle_reading`] returns.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct CycleReading {
+    /// The raw counter value. **Only a difference of two reads means anything**, and only when
+    /// both were taken on the same core (aarch64 and riscv64 counters are per core and start at
+    /// different times).
+    pub count: u64,
+    /// What [`Self::count`] counts on this architecture.
+    pub meaning: CycleMeaning,
+}
+
+/// **Read the CPU's cycle counter from user mode, paired with what it counts** (milestone 353,
+/// calef's ruling B4 step 1, 2026-10-07 UTC).
+///
+/// One instruction per architecture, no syscall, which is the property DECISIONS §139 (who may read the cycle counter, and by what
+/// authority) option 4
+/// chose the grant to keep:
+///
+/// | architecture | instruction | [`CycleMeaning`] |
+/// |---|---|---|
+/// | aarch64 | `mrs PMCCNTR_EL0` | [`CycleMeaning::CoreCyclesUserAndKernel`]: EL0 and EL1, not EL2 |
+/// | riscv64 | `csrr cycle` | [`CycleMeaning::CoreCyclesEveryMode`]: every privilege mode |
+/// | `x86_64` | `rdtsc` | [`CycleMeaning::ConstantRateReferenceCycles`]: not core cycles |
+///
+/// # Who may call it
+///
+/// **Only a program granted the cycle counter, on aarch64 and riscv64.** There the read is legal
+/// at EL0 or U-mode only if the kernel opened `PMUSERENR_EL0` or `scounteren.CY` for this thread
+/// (milestone 229 (the cycle-counter grant)). An ungranted call traps, and the kernel kills the thread: the read does not
+/// fail softly, because a program is expected to know from its own manifest whether it holds the
+/// grant, and there is no question to ask the kernel first. On `x86_64` the TSC is ambient in ring
+/// 3 and every program may call it. A kernel-provided way to ask "may I read" is step 2 of the
+/// ruling, a syscall-surface fork that is recorded and not built.
+///
+/// # Examples
+///
+/// ```no_run
+/// let before = user_mode_runtime::cycle_reading();
+/// // ... the work being measured ...
+/// let after = user_mode_runtime::cycle_reading();
+/// let spent = after.count.wrapping_sub(before.count);
+/// if !after.meaning.is_core_cycles() {
+///     // x86_64: `spent` is reference cycles at the TSC's constant rate, not core cycles.
+/// }
+/// # let _ = spent;
+/// ```
+///
+/// # BUGS
+///
+/// - **No manifest field grants the cycle counter yet**, so outside the kernel's own test (which
+///   grants through a test-only door) no aarch64 or riscv64 program can call this without being
+///   killed. DECISIONS §139 put the grant in the spawn manifest; carrying it there is milestone 75
+///   (who may read the cycle counter, and by what authority), and milestone 229 left the kernel
+///   side without a setter on purpose.
+/// - **riscv64 cannot say whether its counter is the kernel's.** The `cycle` CSR is `mcycle`, and the
+///   kernel's bench probe may have been handed `hpmcounter3` by firmware instead. Flagging that in
+///   the reading needs a kernel-to-process channel that does not exist; it is proposed with step 2
+///   in `design/roadmap/proposals/a-program-asks-whether-it-may-read-the-cycle-counter.md`.
+/// - **Under QEMU every count is emulator time**, an instruction count or a virtual clock, never a
+///   measurement of a core.
+///
+/// Name: provisional, minted by milestone 353's lane on 2026-10-07 (UTC). A noun, Rust's getter
+/// shape (`now`, `cntfrq`). Refused `cycles` (the kernel's `arch::pmu::cycles` already means core
+/// cycles on all three architectures, and on `x86_64` this is the TSC, which is not), and
+/// `read_cycle_counter` (the fixture's private name for the raw read, and a verb).
+pub fn cycle_reading() -> CycleReading {
+    CycleReading {
+        count: read_cycle_counter(),
+        meaning: CYCLE_MEANING,
+    }
+}
+
+/// What [`cycle_reading`] counts here: core cycles at EL0 and EL1, under the `PMCCFILTR_EL0` of
+/// zero the kernel writes on every core.
+#[cfg(target_arch = "aarch64")]
+const CYCLE_MEANING: CycleMeaning = CycleMeaning::CoreCyclesUserAndKernel;
+/// What [`cycle_reading`] counts here: `mcycle`, every privilege mode.
+#[cfg(target_arch = "riscv64")]
+const CYCLE_MEANING: CycleMeaning = CycleMeaning::CoreCyclesEveryMode;
+/// What [`cycle_reading`] counts here: the TSC, constant-rate reference cycles.
+#[cfg(target_arch = "x86_64")]
+const CYCLE_MEANING: CycleMeaning = CycleMeaning::ConstantRateReferenceCycles;
+
+#[cfg(target_arch = "aarch64")]
+fn read_cycle_counter() -> u64 {
+    let value: u64;
+    // SAFETY: `mrs` from `PMCCNTR_EL0` reads a counter and touches no memory. It is UNDEFINED at
+    // EL0 unless `PMUSERENR_EL0` permits it, which is the grant `cycle_reading`'s caller must hold;
+    // an ungranted read traps and the kernel kills the thread, which is not memory unsafety.
+    unsafe {
+        core::arch::asm!("mrs {}, pmccntr_el0", out(reg) value, options(nomem, nostack, preserves_flags));
+    }
+    value
+}
+
+#[cfg(target_arch = "riscv64")]
+fn read_cycle_counter() -> u64 {
+    let value: u64;
+    // SAFETY: `csrr` from the `cycle` CSR reads a counter and touches no memory. It is an illegal
+    // instruction in U-mode unless `scounteren.CY` permits it; see the aarch64 twin above.
+    unsafe {
+        core::arch::asm!("csrr {}, cycle", out(reg) value, options(nomem, nostack, preserves_flags));
+    }
+    value
+}
+
+/// The TSC. The same instruction [`now`] executes on this architecture, kept separate because
+/// the two answer different questions: `now` is the clock, this is the counter with its meaning.
+#[cfg(target_arch = "x86_64")]
+fn read_cycle_counter() -> u64 {
+    now()
+}
+
 /// **Which CPU this thread is running on**, or `None` if this process has no page to read it from
 /// or has somehow not been switched in yet.
 ///

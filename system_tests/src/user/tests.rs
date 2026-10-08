@@ -2787,14 +2787,23 @@ fn init_builds_the_demo_and_passes_it_an_argument() {
 /// the embryo-only rule that a real ABI would go through; `sched`'s own
 /// `a_running_thread_cannot_be_granted_the_cycle_counter` covers that separately.
 ///
-/// **The two reads are checked where the kernel has said the counter runs, and only there**
-/// (milestone 74's aarch64 half). Until that milestone they were carried and not checked, because
-/// nothing started `PMCCNTR_EL0` and it read zero forever. Now:
+/// **What the reads count is checked on every architecture** (milestone 353 (the aarch64 half of 74), calef's ruling B4 of
+/// 2026-10-07 UTC). The program reads through `user_mode_runtime::cycle_reading`, which pairs each
+/// count with an `abi::cycle_counter::CycleMeaning`, and reports the meaning it was handed. This test
+/// states the expected meaning per architecture itself rather than asking the runtime, so a runtime
+/// that labeled the TSC as core cycles, or labeled aarch64's count without the kernel's filter
+/// policy behind it, fails here: aarch64 must say core cycles at EL0 and EL1 (the `PMCCFILTR_EL0` of
+/// zero that `arch::pmu` writes and its own test reads back from the register), riscv64 core cycles
+/// in every mode, and `x86_64` constant-rate reference cycles.
+///
+/// **The difference of two reads is checked where the kernel has said the counter runs, and only
+/// there** (milestone 74 (cycle counters), its aarch64 half). Until that milestone the reads were
+/// carried and not checked, because nothing started `PMCCNTR_EL0` and it read zero forever. Now:
 ///
 /// - **aarch64**: when `arch::pmu` reports `Running` on every online core, the second read must be
 ///   past the first. The thread may be placed on any core and the `yield` between the reads is a
-///   trip through EL1, so the claim holds whatever the (provisional) `PMCCFILTR_EL0` counts, as
-///   long as it counts EL0 or EL1. Where a core refused its counter (`Stuck`) nothing is asserted,
+///   trip through EL1, so the claim holds under the `PMCCFILTR_EL0` of zero (EL0 and EL1 counted),
+///   and would under any filter that counted either. Where a core refused its counter (`Stuck`) nothing is asserted,
 ///   because a stopped counter is the honest answer there and not a failure of the grant.
 /// - **`x86_64`**: the TSC is always running and constant-rate, so the second read must be past the
 ///   first, always.
@@ -2870,13 +2879,46 @@ fn a_granted_thread_reads_the_cycle_counter_and_an_ungranted_one_faults() {
     );
     sched::reclaim_region(endpoints).expect("the endpoint region did not come back");
 
-    let (first, second) = (message[1], message[2]);
+    let (moved, meaning) = (message[1], message[2]);
+    assert_eq!(
+        abi::cycle_counter::CycleMeaning::from_word(meaning),
+        Some(expected_cycle_meaning()),
+        "the granted thread's reading said it counts {meaning:#x}, which is not what this \
+         architecture's counter counts",
+    );
     if el0_cycle_counter_is_known_to_run() {
         assert!(
-            second.wrapping_sub(first) > 0 && second.wrapping_sub(first) < u64::MAX / 2,
-            "the granted thread read the cycle counter at {first} and then {second}: the kernel \
-             says the counter runs on every core, so it should have moved forward",
+            moved > 0 && moved < u64::MAX / 2,
+            "the granted thread's two cycle-counter reads differ by {moved}: the kernel says the \
+             counter runs on every core, so the second should have been past the first",
         );
+    }
+}
+
+/// **What a granted read must say it counts on this architecture**, stated here and not taken from
+/// `user_mode_runtime`, so the test is an independent statement of the kernel's promise.
+///
+/// On aarch64 the promise rests on the filter: the meaning is only true while `arch::pmu` writes
+/// zero, so that is asserted at compile time here, and a change of policy fails the build until the
+/// meaning changes with it.
+fn expected_cycle_meaning() -> abi::cycle_counter::CycleMeaning {
+    use abi::cycle_counter::CycleMeaning;
+    #[cfg(target_arch = "aarch64")]
+    {
+        const _: () = assert!(
+            crate::arch::pmu::PMCCFILTR_COUNT_EL0_AND_EL1 == 0,
+            "the kernel no longer counts EL0 and EL1 alone, so CoreCyclesUserAndKernel is no \
+             longer what a granted aarch64 read counts",
+        );
+        CycleMeaning::CoreCyclesUserAndKernel
+    }
+    #[cfg(target_arch = "riscv64")]
+    {
+        CycleMeaning::CoreCyclesEveryMode
+    }
+    #[cfg(target_arch = "x86_64")]
+    {
+        CycleMeaning::ConstantRateReferenceCycles
     }
 }
 

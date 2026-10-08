@@ -104,9 +104,11 @@ pub const USED_WORD: u64 = 0x5A;
 ///
 /// **The word is the grant's result.** An ungranted read of `PMCCNTR_EL0` or the `cycle` CSR
 /// traps, and this kernel turns that into a fault that ends the thread, so a program that gets as
-/// far as sending anything is a program the grant reached. The two counter reads ride in words 1
-/// and 2, and the kernel's test checks they moved forward only where the kernel itself says the
-/// counter runs (milestone 74; the reasoning is on the test).
+/// far as sending anything is a program the grant reached. Word 1 is the difference of two reads
+/// taken across a yield, and word 2 is what they count, an `abi::cycle_counter::CycleMeaning` as
+/// its word (milestone 353 (the aarch64 half of 74)). The kernel's test checks the meaning on every architecture, and that
+/// the difference moved forward only where the kernel itself says the counter runs (milestone 74 (cycle counters);
+/// the reasoning is on the test).
 pub const CYCLE_COUNTER_WORD: u64 = 0xC1C1E;
 
 /// **The verdict `process_composition_witness` reports**, one bit per step, so a failure says which
