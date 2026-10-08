@@ -24,7 +24,7 @@ where `hackbench` reports a total.
 
 Risk 5 (`5-not-reliable-on-multicore.md`): a wakeup that arrives very late, or never, is the
 visible edge of a lost-wakeup or run-queue defect. A p99.9 that is 100x the median is a finding, and a
-stuck worker is a failure the soak (milestone 225, run the soak on radon, argon and xenon) would also catch.
+stuck worker is a failure the soak (milestone 225 (run the soak on radon, argon and xenon)) would also catch.
 
 ## What nife must supply, as questions
 
