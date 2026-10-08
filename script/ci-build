@@ -107,6 +107,14 @@ cd "$(dirname "$0")/.."
 # dependency lives in the row now, where CI and a developer both meet it, instead of in a job's
 # position in a chain.
 #
+# **The same rows build `rg` first** (lane milestone/121-rg-ci, 2026-10-08 UTC), for the same reason:
+# the check types `rg`'s lines, including milestone 121 (`ripgrep` on nife)'s walk of a copy of
+# `crates/`, only when `helpers/build-ripgrep.sh` has run, and in CI it now refuses to skip them.
+# Until then CI never built it, so nothing re-checked fatal risk 1's claim. Measured cold on patagonia under load 12 to
+# 22: 81 s for all three triples and the host's reference `rg`, about 20 s a triple. Each CI row
+# builds only its own legs' triples. The fetch is pinned by SHA-256 and `--locked`, and is a §46
+# (thin primitives or whole subsystems) question asked on that lane's pull request.
+#
 # **CI runs `swish-check` as the two `ci` rows after it** (milestone 628 (provisional); the row
 # names are provisional): the aarch64 and riscv64 legs on the arm64 runner, whose weakly ordered
 # host is why they stay there, and the x86_64 leg on an x86_64 runner, where it boots under KVM.
@@ -124,9 +132,9 @@ image-permissions|local|script/image-permissions
 icount|local|script/icount
 build-is-reproducible|local|script/build-is-reproducible
 test|local|script/test
-swish-check|local|cargo xtask std-exerciser && script/swish-check
-swish-check-aarch64-riscv64|ci|cargo xtask std-exerciser && script/swish-check --arch aarch64 && script/swish-check --arch riscv64
-swish-check-x86_64|ci|cargo xtask std-exerciser && script/swish-check --arch x86_64
+swish-check|local|cargo xtask std-exerciser && helpers/build-ripgrep.sh && script/swish-check
+swish-check-aarch64-riscv64|ci|cargo xtask std-exerciser && NIFE_RIPGREP_TRIPLES="aarch64-unknown-nife riscv64-unknown-nife" helpers/build-ripgrep.sh && script/swish-check --arch aarch64 && script/swish-check --arch riscv64
+swish-check-x86_64|ci|cargo xtask std-exerciser && NIFE_RIPGREP_TRIPLES=x86_64-unknown-nife helpers/build-ripgrep.sh && script/swish-check --arch x86_64
 boot-check|local|script/boot-check
 hvf|local|hvf_leg
 fastpath-footprint|ci|script/fastpath-footprint

@@ -46,7 +46,11 @@ Walked 2026-10-07 (UTC) at the prompt (lane `milestone/121-rg-walk`). In `/searc
 of `crates/` (661 files, 275 directories, 8.2 MB), `script/swish-check` types `/installed/rg BUGS
 crates` with no flag. All three legs printed exactly the 349 lines the host's `rg` 14.1.1 prints
 over the same copy. notes/ripgrep-on-nife.md has the three faults it exposed, fixed here, and the
-timings. `rg` is not yet installed by `jig`, so exit clause 4 stays open.
+timings.
+
+Re-checked in CI from 2026-10-08 (UTC) (lane `milestone/121-rg-ci`, #1853), the first gap of
+calef's amber ruling on fatal risk 1. `script/ci-build`'s `swish-check` rows build `rg` first, so
+the walk runs on every pull request, and in CI a missing `rg` fails the leg.
 
 Built 2026-08-31 (lane `milestone/121-ripgrep`; notes/ripgrep-on-nife.md). Unmodified
 `ripgrep` 14.1.1 builds for all three `*-unknown-nife` triples with zero source changes, loads,
@@ -229,9 +233,9 @@ ripgrep working beautifully and confinement being decorative.
   which needs a C cross-compiler this machine lacks, and uses musl's malloc. Upstream added
   `jemalloc` because musl's allocator is slow for `ripgrep`, so the Linux figure is if anything
   pessimistic. `bench/host/run_linux_rg.sh` says so where it does it.
-- `rg` runs only where somebody ran `helpers/build-ripgrep.sh`. No gate builds it (DECISIONS §46
-  (thin primitives or whole subsystems)), so CI skips all four `rg` tests and only a local run proves
-  them. The packaging milestone #1797 mints is what would let a gate fetch a pinned `rg`.
+- CI's `test` job builds no `rg`, so the kernel suite's four `rg` tests skip there; only
+  `swish-check` builds it (2026-10-08 UTC). Its crates.io fetch in a gate is a DECISIONS §46 (thin
+  primitives or whole subsystems) question, asked on #1853.
 
 - Spawning `rg` at the prompt takes up to 39 s under load, the walk up to 432 s on `x86_64` under
   TCG, and neither is explained; its peak memory there is unmeasured (notes/ripgrep-on-nife.md).
@@ -246,8 +250,6 @@ ripgrep working beautifully and confinement being decorative.
   overlap rather than a size.
 - **Outstanding.** Exit clause 4, `rg` installed by `jig` (809) from the package #1797 mints.
   Checked 2026-10-07.
-- **Done.** 2026-10-07: `rg BUGS crates` at the swish prompt walks a copy of `crates/` on all
-  three architectures and prints exactly the host's 349 lines.
 - **Done.** 2026-10-07: `rg` searches the priced tree and its counts match the fixture, on all
   three architectures (`ripgrep_tests::ripgrep_searches_the_tree_it_was_granted`).
 - **Done.** 2026-10-07: the same refusal with `rg` as the walker, and a named-file control

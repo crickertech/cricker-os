@@ -293,8 +293,8 @@ RedoxFS disk; its PVH leg ran it.
 - The HVF cycle numbers are aarch64 on one machine (patagonia); riscv64 and x86_64, where the
   checks cost more bytes, have no release cycle measurement.
 - The icount figures are opt-level 0 and overstate the release instruction cost.
-- `cryptography_exerciser` and `rg` are built only by hand-run helpers, so CI never runs them with
-  checks on; the 2026-10-04 run above is by hand and will not repeat itself.
+- `cryptography_exerciser` is built only by hand, so CI never runs it with checks on. CI's
+  `swish-check` has run `rg` with them since 2026-10-08 (UTC).
 - `rendezvous_of` and the rest of riscv64's and x86_64's `phys_to_virt` callers still carry an add
   check that on x86_64 refuses only addresses past about 119 TiB, beyond the 64 TiB the direct map
   has room for. The check that matters there is a range check, and nothing makes it.
