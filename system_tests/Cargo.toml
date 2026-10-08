@@ -48,7 +48,7 @@ pgrep = { version = "0.1.0", path = "../crates/pgrep" }
 # reasoning one object type over: no party has its own copy of the cursor walk.
 pmap = { version = "0.1.0", path = "../crates/pmap" }
 # The package format (milestone 198 rung 3a). The kernel's package tests look the image's package
-# catalogue up by `package_archive::CATALOGUE`, the entry name the archive build packs it under,
+# catalogue up by `package_archive::CATALOG`, the entry name the archive build packs it under,
 # rather than by a second spelling of it.
 package_archive = { version = "0.1.0", path = "../crates/package_archive" }
 coremark = { version = "0.1.0", path = "../crates/coremark" }

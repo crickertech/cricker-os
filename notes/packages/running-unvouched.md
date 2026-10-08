@@ -69,7 +69,7 @@ $ caps installed/unvouched
     cap 0  endpoint  result   report its answer back
     cap 1  page      clock    read-only; unvouched bytes may read the time
     cap 2  page      config   read-only; and the configuration page
-    provenance: unvouched (digest 82f73b2e...)
+    provenance: unvouched (digest sha256:82f73b2e...)
     runs on this session's capability to run unvouched bytes (slot 62)
 ```
 

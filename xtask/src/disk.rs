@@ -685,7 +685,9 @@ fn stage_installed(architecture: &str) -> Result<String, String> {
          unvouched programs; no activation set. The package source at {} serves {greeting_stem} \
          and a lying {stem}",
         package.len(),
-        String::from_utf8_lossy(&measured_boot::hex(&package_archive::sha256(&package))),
+        String::from_utf8_lossy(&measured_boot::digest_text(&package_archive::sha256(
+            &package
+        ))),
         source.display(),
     );
     Ok(tree.display().to_string())

@@ -1116,7 +1116,7 @@ pub const NO_DISPLAY_SENTENCE: &[u8] =
 /// provisional).
 ///
 /// The shell computes every input from the bytes it read and the activation set it can read:
-/// `hex` is the file's SHA-256 in lowercase hex, `vouched_by` is the live generation that lists
+/// `digest` is the file's SHA-256 in its text form, `sha256:<hex>` (`measured_boot::digest_text`), `vouched_by` is the live generation that lists
 /// that digest and whether that entry is the owner's own vouch (DECISIONS §221 (the boot prompt
 /// is the owner's console)), or `None`, `declared` is the manifest the file's note carries (`None` for no note),
 /// and `e` is the line bound against it. `holds` is whether this session holds the run-unvouched
@@ -1137,9 +1137,9 @@ pub const NO_DISPLAY_SENTENCE: &[u8] =
 /// let holds = grant_plan::Holdings::default();
 /// let e = grant_plan::plan_against(&spec, grant_plan::IMAGE_ROW, m, holds, grant_plan::expand::Expansion::none()).unwrap();
 /// let mut said = Vec::new();
-/// swish::write_image_caps(b"./a.out", b"ab12", None, true, Some(m), &e, &holds, &mut |b| said.extend_from_slice(b));
+/// swish::write_image_caps(b"./a.out", b"sha256:ab12", None, true, Some(m), &e, &holds, &mut |b| said.extend_from_slice(b));
 /// let said = String::from_utf8(said).unwrap();
-/// assert!(said.contains("provenance: unvouched (digest ab12)"));
+/// assert!(said.contains("provenance: unvouched (digest sha256:ab12)"));
 /// assert!(said.contains("cap 1  page      clock"));
 /// assert!(said.contains("its manifest note asks for: output bytes, the network"));
 /// ```
@@ -1149,7 +1149,7 @@ pub const NO_DISPLAY_SENTENCE: &[u8] =
 #[allow(clippy::too_many_arguments)]
 pub fn write_image_caps(
     path: &[u8],
-    hex: &[u8],
+    digest: &[u8],
     vouched_by: Option<Vouched>,
     holds: bool,
     declared: Option<grant_plan::Manifest>,
@@ -1196,7 +1196,7 @@ pub fn write_image_caps(
         }
         None => out(b"unvouched (digest "),
     }
-    out(hex);
+    out(digest);
     out(b")\n");
     match (vouched_by, holds) {
         (Some(_), _) => {}
@@ -1267,7 +1267,7 @@ pub fn write_activation(
         (S::Done, V::Remove(_)) => b"  removed",
         (S::Done, V::Vouch(_)) => b"  vouched",
         (S::Done, _) => b"  rolled back",
-        (S::NotCatalogued, _) => {
+        (S::NotCataloged, _) => {
             b"  refused: this image's catalog does not vouch for those bytes"
         }
         (S::NoProgram, _) => b"  refused: that package carries no program named after it",
@@ -2204,7 +2204,7 @@ mod tests {
             "  rolled back; generation 1 is live\n"
         );
         assert_eq!(
-            shown(|o| write_activation(V::Install(b"x"), S::NotCatalogued, 0, o)),
+            shown(|o| write_activation(V::Install(b"x"), S::NotCataloged, 0, o)),
             "  refused: this image's catalog does not vouch for those bytes; nothing is installed\n"
         );
         assert_eq!(

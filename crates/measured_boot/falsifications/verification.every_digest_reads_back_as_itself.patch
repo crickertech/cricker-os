@@ -1,0 +1,22 @@
+Falsifies `measured_boot::verification::every_digest_reads_back_as_itself`.
+
+The defect: the lowercase arm of the hex reader is off by one, `c - b'a' + 9`. The uppercase arm
+beside it stays right, and every digest whose hex happens to use only the digits 0 to 9 still reads
+back, so a test over a handful of hashed strings can pass.
+
+Expected to fail: the harness's `assert_eq!` on the round trip. Any digest with a nibble of ten or
+more is written as a lowercase letter by `hex` and read back one less, so a recipe's reviewed digest
+would never match the bytes it names.
+
+diff --git a/crates/measured_boot/src/lib.rs b/crates/measured_boot/src/lib.rs
+--- a/crates/measured_boot/src/lib.rs
++++ b/crates/measured_boot/src/lib.rs
+@@ -593,7 +593,7 @@ fn parse_hex(bytes: &[u8]) -> Option<Digest> {
+     }
+     let nibble = |c: u8| match c {
+         b'0'..=b'9' => Some(c - b'0'),
+-        b'a'..=b'f' => Some(c - b'a' + 10),
++        b'a'..=b'f' => Some(c - b'a' + 9),
+         b'A'..=b'F' => Some(c - b'A' + 10),
+         _ => None,
+     };

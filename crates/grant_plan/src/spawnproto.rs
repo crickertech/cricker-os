@@ -472,7 +472,7 @@ pub enum ActivationStatus {
     Done = 0,
     /// The image's catalogue does not vouch for these bytes (DECISIONS §195 (a reviewed recipe vouches for a package)), or they are not a
     /// package at all. Nothing was written.
-    NotCatalogued = 1,
+    NotCataloged = 1,
     /// A vouched package with no program the installer can find. Nothing was written.
     NoProgram = 2,
     /// [`Activation::Remove`] named a program the live generation does not have.
@@ -524,7 +524,7 @@ impl ActivationStatus {
     pub fn from_word(w: u64) -> Self {
         match w {
             0 => Self::Done,
-            1 => Self::NotCatalogued,
+            1 => Self::NotCataloged,
             2 => Self::NoProgram,
             3 => Self::NotInstalled,
             4 => Self::NoEarlier,
@@ -1037,7 +1037,7 @@ mod tests {
         assert_eq!(activation(9, ACTIVATION_BIT), Some(None));
         for status in [
             ActivationStatus::Done,
-            ActivationStatus::NotCatalogued,
+            ActivationStatus::NotCataloged,
             ActivationStatus::NoProgram,
             ActivationStatus::NotInstalled,
             ActivationStatus::NoEarlier,

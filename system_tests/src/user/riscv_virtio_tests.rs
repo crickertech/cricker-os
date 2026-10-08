@@ -530,7 +530,7 @@ fn a_client_echoes_over_tcp_through_the_socket_contract() {
 /// (milestone 198 (a package manager) rung 3a): `uptime 0.1.0 riscv64`, genuine then tampered.
 #[test_case]
 fn a_package_fetched_over_http_is_accepted_only_by_the_image_digest() {
-    let catalogue = program(package_archive::CATALOGUE)
+    let catalogue = program(package_archive::CATALOG)
         .expect("no package catalogue in the initrd archive: the archive build packs one");
     let Some((report, net)) = virtio_service::start_package_fetch(
         net_stack_image(),

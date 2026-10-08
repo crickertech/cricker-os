@@ -34,6 +34,10 @@
 //! default <program> <digest>               the pointer: what the bare word runs
 //! ```
 //!
+//! A `<digest>` is written `sha256:<64 hex>`, the one text form `measured_boot::digest_text`
+//! writes and `measured_boot::parse_digest` reads (DECISIONS §197 (a package is one archive
+//! file), its digest ruling of 2026-10-07).
+//!
 //! **Rows key on the digest; `program`, `version` and `package` are label columns.** The digest is
 //! the packager's attestation (the program member's SHA-256, as installing verified it); the
 //! version string is the upstream developer's claim. A rebuild claiming a version string already
@@ -90,7 +94,7 @@
 //!   makes rollback free and is also unbounded. A retention rule (keep N, keep the last boot's) is
 //!   owed before a system installs often.
 //! - **A table is read whole into memory**, and its size is whatever the caller's buffer is. With
-//!   the version column and the pointer lines a row costs about 130 bytes, so thirty-odd entries
+//!   the version column and the pointer lines a row costs about 140 bytes (the digest's `sha256:` label added seven on 2026-10-07), so thirty-odd entries
 //!   fit a page.
 //! - **One program per package row.** A package with two programs is two rows naming the same
 //!   package, which works and is not tested beyond that.
@@ -233,9 +237,11 @@ enum Line<'a> {
     Malformed,
 }
 
-/// Classify one line. A row is `<64 hex> <program> <version> <package>`; a pointer line is
-/// `default <program> <64 hex>`; anything else is malformed. A row's first word is the key, which
-/// is why `default` is a word no digest can be: it is not hex.
+/// Classify one line. A row is `<digest> <program> <version> <package>`; a pointer line is
+/// `default <program> <digest>`; anything else is malformed. A digest is its text form,
+/// `sha256:<64 hex>` (`measured_boot::parse_digest`), so an unlabeled or unknown one makes the line
+/// malformed and the table unreadable. A row's first word is the key, which is why `default` is a
+/// word no digest can be: it has no label.
 fn classify(line: &str) -> Line<'_> {
     let mut words = line.split(' ');
     let Some(first) = words.next() else {
@@ -245,7 +251,10 @@ fn classify(line: &str) -> Line<'_> {
         let (Some(program), Some(hex), None) = (words.next(), words.next(), words.next()) else {
             return Line::Malformed;
         };
-        let Some(digest) = measured_boot::parse_hex(hex).filter(|_| good_name(program)) else {
+        let Some(digest) = measured_boot::parse_digest(hex)
+            .ok()
+            .filter(|_| good_name(program))
+        else {
             return Line::Malformed;
         };
         return Line::Pointer { program, digest };
@@ -255,7 +264,7 @@ fn classify(line: &str) -> Line<'_> {
     else {
         return Line::Malformed;
     };
-    let Some(digest) = measured_boot::parse_hex(first) else {
+    let Ok(digest) = measured_boot::parse_digest(first) else {
         return Line::Malformed;
     };
     if !good_name(program) || !good_name(version) || !good_name(package) {
@@ -659,7 +668,7 @@ impl Writer<'_> {
     }
 
     fn entry(&mut self, e: &Entry<'_>) -> Result<(), Error> {
-        self.bytes(&measured_boot::hex(&e.digest))?;
+        self.bytes(&measured_boot::digest_text(&e.digest))?;
         self.bytes(b" ")?;
         self.bytes(e.program.as_bytes())?;
         self.bytes(b" ")?;
@@ -673,7 +682,7 @@ impl Writer<'_> {
         self.bytes(b"default ")?;
         self.bytes(program.as_bytes())?;
         self.bytes(b" ")?;
-        self.bytes(&measured_boot::hex(digest))?;
+        self.bytes(&measured_boot::digest_text(digest))?;
         self.bytes(b"\n")
     }
 }
@@ -1090,8 +1099,8 @@ mod tests {
 
     #[test]
     fn a_malformed_line_anywhere_makes_the_table_vouch_for_nothing() {
-        let good = "11".repeat(32) + " a 1 a\n";
-        let pointer = format!("{good}default a {}\n", "11".repeat(32));
+        let good = format!("sha256:{} a 1 a\n", "11".repeat(32));
+        let pointer = format!("{good}default a sha256:{}\n", "11".repeat(32));
         // The bare name needs its pointer: rows without one answer `None`, never a guess.
         assert!(lookup(&good, "a").unwrap().is_none());
         assert!(lookup(&pointer, "a").unwrap().is_some());
@@ -1101,6 +1110,11 @@ mod tests {
             format!("{good}b 2 b\n"),
             format!("{good}b 2 b {} extra\n", "22".repeat(32)),
             format!("{good}b 2 b {}\n", "2".repeat(63)),
+            // A digest with no label, as every row was written before 2026-10-07, and one under a
+            // label this reader does not know (DECISIONS §197's digest ruling).
+            format!("{good}{} b 2 b\n", "22".repeat(32)),
+            format!("{good}merkle-sha256-8k:{} b 2 b\n", "22".repeat(32)),
+            format!("{good}default a {}\n", "11".repeat(32)),
             // A bad pointer line.
             format!("{good}default a\n"),
             format!("{good}default a nothex\n"),
@@ -1234,7 +1248,7 @@ mod tests {
     /// version and package is checked on its own.
     #[test]
     fn a_row_with_one_bad_name_is_malformed() {
-        let hex = "22".repeat(32);
+        let hex = format!("sha256:{}", "22".repeat(32));
         for bad in [
             format!("{hex} #p 1 pkg\n"),
             format!("{hex} p #1 pkg\n"),
@@ -1315,7 +1329,7 @@ mod tests {
     /// install relabels instead) are not both taken because they agree on it.
     #[test]
     fn a_qualified_removal_takes_one_row_even_when_a_digest_repeats() {
-        let a = "11".repeat(32);
+        let a = format!("sha256:{}", "11".repeat(32));
         let table = format!("{a} p 1 pkg\n{a} p 2 pkg\ndefault p {a}\n");
         let mut out = [0u8; 512];
         let n = without_version(&table, "p", "2", &mut out).unwrap();

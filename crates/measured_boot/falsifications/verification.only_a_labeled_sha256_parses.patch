@@ -1,0 +1,22 @@
+Falsifies `measured_boot::verification::only_a_labeled_sha256_parses`.
+
+The defect: the label is compared as a prefix of `sha256` rather than for equality, the shape a
+reader that wanted to be lenient about a truncated label would write. `sha256:` still parses, and
+every digest this tree writes still reads back.
+
+Expected to fail: the harness's `assert_eq!(len, DIGEST_TEXT_LEN)`. A text with an empty or shorter
+label (`:` and 64 hex, or `sha:` and 64 hex) now parses as a SHA-256, which is the label the ruling
+exists to make mandatory being treated as optional.
+
+diff --git a/crates/measured_boot/src/lib.rs b/crates/measured_boot/src/lib.rs
+--- a/crates/measured_boot/src/lib.rs
++++ b/crates/measured_boot/src/lib.rs
+@@ -391,7 +391,7 @@ fn parse_digest_bytes(text: &[u8]) -> Result<Digest, DigestTextError> {
+     let Some(colon) = text.iter().position(|&b| b == b':') else {
+         return Err(DigestTextError::Unlabeled);
+     };
+-    if text[..colon] != *SHA256_LABEL.as_bytes() {
++    if !SHA256_LABEL.as_bytes().starts_with(&text[..colon]) {
+         return Err(DigestTextError::UnknownLabel);
+     }
+     parse_hex(&text[colon + 1..]).ok_or(DigestTextError::NotHex)
