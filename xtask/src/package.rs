@@ -48,7 +48,7 @@
 //! program = "uptime"           # a built ELF for that architecture, resolved from target/
 //! as = "uptime"                # optional: the member's name in the package, when the ELF it
 //!                              # packs is built under another name (milestone 614's 0.2.0
-//!                              # fixture, which packs `greeting_two` as `greeting`)
+//!                              # fixture, which packs `greeting_v2` as `greeting`)
 //!
 //! [[member]]
 //! name = "uptime.licence"      # any file, by a path relative to the repository root
@@ -541,7 +541,7 @@ version = \"0.2.0\"
 architecture = \"aarch64\"
 
 [[member]]
-program = \"greeting_two\"
+program = \"greeting_v2\"
 as = \"greeting\"
 ";
         let recipe = parse_recipe(text).unwrap();
@@ -549,15 +549,15 @@ as = \"greeting\"
             recipe.members,
             vec![(
                 "greeting".to_string(),
-                Source::Program("greeting_two".to_string())
+                Source::Program("greeting_v2".to_string())
             )]
         );
         let plain = text.replace("as = \"greeting\"\n", "");
         assert_eq!(
             parse_recipe(&plain).unwrap().members,
             vec![(
-                "greeting_two".to_string(),
-                Source::Program("greeting_two".to_string())
+                "greeting_v2".to_string(),
+                Source::Program("greeting_v2".to_string())
             )]
         );
         assert_eq!(

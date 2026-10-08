@@ -22,9 +22,10 @@ the pointer, so the bare word still means the newest install. Removal follows ru
 takes every live version and the pointer; `program@version` removes one, moving the pointer to the
 sole survivor and refusing, candidates named by the shell from the live table, when several remain.
 Rollback is unchanged. The shell resolves the bare word through the pointer, and consults the
-nearest `versions` file at or above the working directory (asdf-style; the file's and the module's
-names are provisional). It prints the divergence notice on the spawn line when what ran differs
-from what the set specifies, and takes `program@version` as an explicit ask. `script/swish-check`
+nearest version-set file at or above the working directory (asdf-style; built as `versions`,
+renamed `.jig-versions` by §258 (names for two installed versions of one program)). It prints the
+divergence notice on the spawn line when what ran differs from what the set specifies, and takes
+`program@version` as an explicit ask. `script/swish-check`
 types it on all three architectures: the second version of `greeting` installs beside the first,
 each runs by path, the set selects 0.1.0 for the bare word, and a set naming an uninstalled
 version produces the notice.
@@ -143,7 +144,7 @@ the reasoning is kept to one line each so a reader can check the rule against it
    above the working directory, asdf-style, on calef's usability ruling; a version set can only
    select among installed versions, so a cloned repository can ask but cannot install or run
    uninstalled bytes. Two guards: when the version that ran differs from the version the set
-   specifies, the spawn line says both (`uptime 0.2.0 (repo specifies 0.1.0)`); and an explicit
+   specifies, the spawn line says both (`uptime 0.2.0 (repo specifies 0.1.0)`, reworded by §258); and an explicit
    override exists, by path or by an explicit version-qualified ask. An installing dev tool is
    follow-on work, not this milestone; the capability, the file and the tool are three provisional
    names.
@@ -238,11 +239,14 @@ Added by the build lane, 2026-09-29.
 - **Outstanding.** The `script/swish-check` lines are typed on every leg and not yet proven by a
   run: this lane never boots QEMU, and the transcript bullet of Done means holds only when a green
   run names them. How checked: `script/swish-check` green on aarch64, riscv64 and x86_64 in CI.
-- **Outstanding.** Ratification: `swish::versions`, its `versions` file, the `program@version`
-  spelling, the `as` recipe key, `greeting_two`, the `default` line kind, `NO_VERSION`,
-  `without_version`, `versions_of`, `Ambiguous`, `StemMiss` and the divergence wording are
-  provisional. The names and the format await an architect through a `design/decisions/` section
-  by the integrator (Done means, last bullet).
+- **Done.** Ratification, by calef on 2026-10-07 (UTC), recorded in §258 (names for two installed
+  versions of one program). Ratified as they stood: `program@version`, the `as` recipe key, the `default` line kind,
+  `NO_VERSION`, `versions_of` and `without_version`. Renamed: the `versions` file is
+  `.jig-versions` and its module `swish::jig_versions`, `package_archive::StemMiss` is
+  `CatalogMiss`, `activation_set::Error::Ambiguous` is `Error::SeveralVersions`, the fixture
+  `greeting_two` is `greeting_v2`, and the divergence notice reads `uptime 0.2.0 (.jig-versions
+  asks for 0.1.0)`. Every name this milestone shipped is now ruled. The section holds the
+  refusals.
 - **Done.** Carried by pull request #1443, in a comment of 2026-10-03 00:24 UTC. The
   `package install <package>@<version>` spelling: ratified 2026-10-03 (calef), the same `@` as
   `remove`. Refusing a bare `package install <name>` that matches more than one cataloged version
