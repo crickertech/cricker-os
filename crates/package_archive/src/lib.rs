@@ -148,7 +148,7 @@
 pub use measured_boot::{DIGEST_LEN, Digest, sha256};
 
 /// **The archive entry an image carries its own package source's catalog under** (milestone 198
-/// rung 3a). One `<name>-<version>-<architecture> <64 hex>` line per package, which is
+/// rung 3a). One `<name>-<version>-<architecture> sha256:<64 hex>` line per package, which is
 /// [`measured_boot`]'s manifest shape, so [`measured_boot::expected_in_manifest`] reads it. It is
 /// packed *before* the measurement table, so the kernel's trust root vouches for it and a package
 /// fetched over plain HTTP is checked against a digest that never crossed the network: DECISIONS
@@ -821,9 +821,9 @@ mod tests {
     }
 
     fn catalogue_for(file: &[u8]) -> std::string::String {
-        let hex = measured_boot::hex(&sha256(file));
+        let hex = measured_boot::digest_text(&sha256(file));
         std::format!(
-            "other-1.0-aarch64 {}\nuptime-0.1.0-aarch64 {}\n",
+            "other-1.0-aarch64 sha256:{}\nuptime-0.1.0-aarch64 {}\n",
             "0".repeat(64),
             core::str::from_utf8(&hex).unwrap()
         )
@@ -887,7 +887,7 @@ mod tests {
     /// architecture's line is not this machine's.
     #[test]
     fn a_name_finds_its_stem_in_the_catalogue() {
-        let d = "0".repeat(64);
+        let d = std::format!("sha256:{}", "0".repeat(64));
         let catalogue = std::format!(
             "uptime-0.1.0-aarch64 {d}\ngreeting-0.1.0-riscv64 {d}\ngreeting-0.1.0-aarch64 {d}\n"
         );
@@ -911,7 +911,7 @@ mod tests {
     /// because its recipe's filename sorts first; the order must not decide what is fetched.
     #[test]
     fn a_bare_name_with_two_catalogued_versions_is_refused_and_a_qualified_one_is_not() {
-        let d = "0".repeat(64);
+        let d = std::format!("sha256:{}", "0".repeat(64));
         let catalogue = std::format!(
             "greeting-0.2.0-aarch64 {d}\ngreeting-0.1.0-aarch64 {d}\ngreeting-0.1.0-riscv64 {d}\n"
         );
@@ -1071,7 +1071,7 @@ mod tests {
     /// versions, and an empty name is not a package, whatever a catalog line says.
     #[test]
     fn a_stem_with_an_empty_or_hyphenated_version_or_an_empty_name_is_never_found() {
-        let d = "0".repeat(64);
+        let d = std::format!("sha256:{}", "0".repeat(64));
         let none = Err(CatalogMiss::NoSuchPackage);
         let empty_version = std::format!("foo--aarch64 {d}\n");
         assert_eq!(catalogued_stem(&empty_version, "foo", "aarch64"), none);

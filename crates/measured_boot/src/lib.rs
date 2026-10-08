@@ -74,7 +74,19 @@ extern crate std;
 /// A SHA-256 digest: 32 bytes.
 pub const DIGEST_LEN: usize = 32;
 
-/// The measurement of a program's bytes.
+/// The measurement of a program's bytes: the SHA-256 of all of them.
+///
+/// **The type does not carry its algorithm, and that is deliberate** (DECISIONS §197 (a package
+/// is one archive file), its digest ruling, calef, 2026-10-07 UTC). The algorithm lives in the *text* form, `sha256:<hex>`
+/// ([`digest_text`], [`parse_digest`]), because text is what leaves a program: a catalog line, a
+/// recipe, an activation row. In memory a `Digest` is only ever a whole-file SHA-256, and the day a
+/// Merkle root arrives (labeled, for example, `merkle-sha256-8k:`) it is a second fact *beside*
+/// this one, checked by a different procedure, not another value this one might hold. So it gets
+/// its own type then. An enum with one variant now would make every comparison in the trust root,
+/// the activation table and the package installer match on a variant that cannot be anything else,
+/// and on the day a second variant arrived it would let a Merkle root reach a check that only knows
+/// how to hash a whole file. Two types make that state unrepresentable; one enum makes it a runtime
+/// match somebody has to remember.
 pub type Digest = [u8; DIGEST_LEN];
 
 /// The round constants of SHA-256 (FIPS 180-4 §4.2.2): the first 32 bits of the fractional parts of
@@ -274,8 +286,13 @@ pub fn verify(root: &[Measurement], name: &str, bytes: &[u8]) -> Result<(), Veri
     verify_digest(root, name, &sha256(bytes))
 }
 
-/// A digest as 64 lowercase hex characters (ASCII). No allocation, so the kernel can print it in a
-/// diagnostic and the build can write it into the manifest.
+/// A digest as 64 lowercase hex characters (ASCII), with no label. No allocation, so the kernel can
+/// print it in a diagnostic.
+///
+/// **This is not the text form of a digest that leaves a program**; that is [`digest_text`]. Bare
+/// hex is for a person comparing a line against `shasum -a 256`, which is what the kernel's boot
+/// diagnostics, `sealed_pair` and the stick's payload note use it for. Nothing parses it back:
+/// [`parse_digest`] refuses it.
 pub fn hex(digest: &Digest) -> [u8; DIGEST_LEN * 2] {
     const HEXDIGITS: &[u8; 16] = b"0123456789abcdef";
     let mut out = [0u8; DIGEST_LEN * 2];
@@ -284,6 +301,100 @@ pub fn hex(digest: &Digest) -> [u8; DIGEST_LEN * 2] {
         out[i * 2 + 1] = HEXDIGITS[(byte & 0xf) as usize];
     }
     out
+}
+
+/// **The label a [`Digest`] carries in text**: `sha256`, the container-image convention's name for
+/// the algorithm, followed by a colon and the hex (DECISIONS §197's digest ruling, calef, 2026-10-07
+/// UTC: "C"). OCI image digests and Docker's are spelled this way, so a stranger reading a
+/// catalog line already knows what `sha256:` means, and can still check the hex with `sha256sum`.
+///
+/// The label is there so that a second kind of digest can be added beside this one rather than in
+/// place of it. A Merkle root, when a loader that pages binaries in on demand wants one, gets its
+/// own label (`merkle-sha256-8k:` is the example the ruling gave) and its own type, and every line
+/// written before it still reads.
+pub const SHA256_LABEL: &str = "sha256";
+
+/// The length of a digest's text form: the label, a colon, 64 hex characters.
+pub const DIGEST_TEXT_LEN: usize = SHA256_LABEL.len() + 1 + DIGEST_LEN * 2;
+
+/// **A digest as the text every file and program in this tree writes it in**: `sha256:` and 64
+/// lowercase hex characters. A catalog line, a recipe's `digest`, an activation-set row, the
+/// measurement table, `caps`'s provenance line: one formatter, so they cannot drift apart, and one
+/// parser, [`parse_digest`], that every reader of them depends on (rule 7). No allocation, so the
+/// progenitor and the shell can write it.
+///
+/// ```
+/// use measured_boot::{digest_text, parse_digest, sha256};
+///
+/// let d = sha256(b"abc");
+/// let text = digest_text(&d);
+/// let text = core::str::from_utf8(&text).unwrap();
+/// assert_eq!(
+///     text,
+///     "sha256:ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad"
+/// );
+/// assert_eq!(parse_digest(text), Ok(d));
+/// ```
+///
+/// Name: provisional 2026-10-07 (UTC), lane/digest-label, with [`parse_digest`],
+/// [`DigestTextError`], [`SHA256_LABEL`], [`DIGEST_TEXT_LEN`] and [`BadLine`]. Not ratified.
+pub fn digest_text(digest: &Digest) -> [u8; DIGEST_TEXT_LEN] {
+    let mut out = [0u8; DIGEST_TEXT_LEN];
+    let label = SHA256_LABEL.len();
+    out[..label].copy_from_slice(SHA256_LABEL.as_bytes());
+    out[label] = b':';
+    out[label + 1..].copy_from_slice(&hex(digest));
+    out
+}
+
+/// Why a digest's text did not parse. Each one is a refusal, and they are kept apart so the
+/// diagnostic can say which: a digest from before the label existed, one from a format this
+/// reader does not know, and one that is simply damaged are three different pieces of news.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum DigestTextError {
+    /// There is no digest at all: an empty field, or a manifest line with no space in it.
+    Missing,
+    /// There is no label, as in bare hex. **Refused rather than read as SHA-256**, because a
+    /// reader that guessed the algorithm would be the format change the label exists to avoid.
+    Unlabeled,
+    /// A label this reader does not know, such as a Merkle root's, or `SHA256` in capitals. A
+    /// reader meeting a newer digest says so instead of comparing it as though it were the old one.
+    UnknownLabel,
+    /// `sha256:` followed by something other than exactly 64 hex characters.
+    NotHex,
+}
+
+/// **Parse a digest's text form**, `sha256:<64 hex>`, the inverse of [`digest_text`]. Strict about
+/// the label and its case; the hex may be either case, since a person may paste it from a tool
+/// that prints capitals.
+///
+/// ```
+/// use measured_boot::{parse_digest, DigestTextError};
+///
+/// let bare = "ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad";
+/// assert_eq!(parse_digest(bare), Err(DigestTextError::Unlabeled));
+/// let merkle = std::format!("merkle-sha256-8k:{bare}");
+/// assert_eq!(parse_digest(&merkle), Err(DigestTextError::UnknownLabel));
+/// assert_eq!(parse_digest("sha256:abc"), Err(DigestTextError::NotHex));
+/// assert!(parse_digest(&std::format!("sha256:{bare}")).is_ok());
+/// ```
+pub fn parse_digest(text: &str) -> Result<Digest, DigestTextError> {
+    parse_digest_bytes(text.as_bytes())
+}
+
+/// [`parse_digest`] over bytes, which is what the Kani harnesses hand it: a symbolic buffer need
+/// not be UTF-8, and proving `from_utf8` along the way would be proving the standard library.
+fn parse_digest_bytes(text: &[u8]) -> Result<Digest, DigestTextError> {
+    if text.is_empty() {
+        return Err(DigestTextError::Missing);
+    }
+    let Some(colon) = text.iter().position(|&b| b == b':') else {
+        return Err(DigestTextError::Unlabeled);
+    };
+    if text[..colon] != *SHA256_LABEL.as_bytes() {
+        return Err(DigestTextError::UnknownLabel);
+    }
+    parse_hex(&text[colon + 1..]).ok_or(DigestTextError::NotHex)
 }
 
 /// **The archive entry that carries the progenitor's measurement table** (milestone 104).
@@ -302,34 +413,50 @@ pub fn hex(digest: &Digest) -> [u8; DIGEST_LEN * 2] {
 /// provenance block, which belongs to the crate, and a second one would be unreachable.
 pub const PROGRAM_MEASUREMENTS: &str = "program_measurements";
 
-/// **The measurement manifest format**, one entry per line: a name, one space, 64 hex characters.
-/// Blank lines and `#` comments are skipped. Written by `cargo xtask`, read by `kernel/build.rs`
-/// (which turns it into [`Measurement`]s) and by the progenitor (which reads it out of the archive at boot and
-/// cannot allocate, so this yields borrowed names and never builds a collection).
+/// A manifest line [`manifest_entries`] could not read, and why.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub struct BadLine<'a> {
+    /// The line itself, trimmed, so a caller can name it.
+    pub line: &'a str,
+    /// What was wrong with its digest.
+    pub why: DigestTextError,
+}
+
+/// **The measurement manifest format**, one entry per line: a name, one space, and the digest's
+/// text form, `sha256:` and 64 hex characters ([`digest_text`]). Blank lines and `#` comments are
+/// skipped. Written by `cargo xtask`, read by `kernel/build.rs` (which turns it into
+/// [`Measurement`]s) and by the progenitor (which reads it out of the archive at boot and cannot
+/// allocate, so this yields borrowed names and never builds a collection). An image's package
+/// catalog is the same format, with package stems for names.
 ///
-/// `Err(line)` is a line we could not parse, carrying the line itself so a caller can name it. A
-/// caller that skips errors still fails closed, because a name it cannot parse is a name it will not
-/// find, and an unfound name is [`VerifyError::Unmeasured`].
+/// `Err` is a line we could not parse, carrying the line itself so a caller can name it and the
+/// reason, so the build can say a digest is unlabeled or carries a label it does not know. A caller
+/// that skips errors still fails closed, because a name it cannot parse is a name it will not find,
+/// and an unfound name is [`VerifyError::Unmeasured`].
 ///
 /// ```
-/// use measured_boot::manifest_entries;
+/// use measured_boot::{manifest_entries, DigestTextError};
 ///
 /// let text = "# a comment\n\
-///             console e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855\n\
+///             console sha256:e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855\n\
 ///             \n\
+///             old e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855\n\
 ///             oops not-a-digest\n";
 /// let mut it = manifest_entries(text);
 /// assert_eq!(it.next().unwrap().unwrap().0, "console");
-/// assert_eq!(it.next().unwrap().unwrap_err(), "oops not-a-digest");
+/// let old = it.next().unwrap().unwrap_err();
+/// assert_eq!(old.why, DigestTextError::Unlabeled);
+/// assert_eq!(it.next().unwrap().unwrap_err().line, "oops not-a-digest");
 /// assert!(it.next().is_none());
 /// ```
-pub fn manifest_entries(text: &str) -> impl Iterator<Item = Result<(&str, Digest), &str>> {
+pub fn manifest_entries(text: &str) -> impl Iterator<Item = Result<(&str, Digest), BadLine<'_>>> {
     text.lines()
         .map(str::trim)
         .filter(|line| !line.is_empty() && !line.starts_with('#'))
         .map(|line| {
-            let (name, hex) = line.split_once(' ').ok_or(line)?;
-            let digest = parse_hex(hex.trim()).ok_or(line)?;
+            let bad = |why| BadLine { line, why };
+            let (name, digest) = line.split_once(' ').ok_or(bad(DigestTextError::Missing))?;
+            let digest = parse_digest(digest.trim()).map_err(bad)?;
             Ok((name, digest))
         })
 }
@@ -411,10 +538,10 @@ pub struct Verdict<'a> {
 /// # Examples
 ///
 /// ```
-/// use measured_boot::{sha256, hex, verdict};
+/// use measured_boot::{sha256, digest_text, verdict};
 ///
 /// let swish = b"the real swish";
-/// let d = hex(&sha256(swish));
+/// let d = digest_text(&sha256(swish));
 /// let table = std::format!("swish {}\n", std::str::from_utf8(&d).unwrap());
 ///
 /// // Substituted bytes: the archive had it, and the table would not vouch for it.
@@ -456,11 +583,11 @@ pub fn verdict<'a>(table: &str, name: &str, bytes: Option<&'a [u8]>) -> Verdict<
     }
 }
 
-/// Parse 64 hex characters back into a digest. Used by `kernel/build.rs` to read the manifest the
-/// build wrote; strict, because a manifest we cannot parse must not silently become an empty trust
-/// root (see [`VerifyError::Unmeasured`]).
-pub fn parse_hex(text: &str) -> Option<Digest> {
-    let bytes = text.as_bytes();
+/// Parse 64 hex characters back into a digest: the part of [`parse_digest`] after the label.
+/// Private, so nothing outside this crate can read a digest without its label; strict, because a
+/// manifest we cannot parse must not silently become an empty trust root (see
+/// [`VerifyError::Unmeasured`]).
+fn parse_hex(bytes: &[u8]) -> Option<Digest> {
     if bytes.len() != DIGEST_LEN * 2 {
         return None;
     }
@@ -579,18 +706,48 @@ mod tests {
         }
     }
 
-    /// Hex out, hex in: the manifest the build writes must read back as the digest the kernel checks.
+    /// Text out, text in: the manifest the build writes must read back as the digest the kernel
+    /// checks.
     #[test]
-    fn hex_round_trips_and_rejects_malformed_text() {
+    fn digest_text_round_trips_and_rejects_malformed_text() {
         let d = sha256(b"round trip");
-        let text = hex(&d);
+        let text = digest_text(&d);
         let text = core::str::from_utf8(&text).unwrap();
-        assert_eq!(parse_hex(text), Some(d));
-        assert_eq!(parse_hex("abc"), None, "a short string is not a digest");
+        assert!(text.starts_with("sha256:"));
+        assert_eq!(parse_digest(text), Ok(d));
         assert_eq!(
-            parse_hex(&"g".repeat(64)),
-            None,
+            parse_digest("sha256:abc"),
+            Err(DigestTextError::NotHex),
+            "a short string is not a digest"
+        );
+        assert_eq!(
+            parse_digest(&std::format!("sha256:{}", "g".repeat(64))),
+            Err(DigestTextError::NotHex),
             "non-hex characters must not parse as zeros"
+        );
+        assert_eq!(parse_digest(""), Err(DigestTextError::Missing));
+    }
+
+    /// **The ruling's whole point, as a test** (DECISIONS §197, 2026-10-07): a digest written before
+    /// the label existed, and one written by a format that comes after it, are both refused by
+    /// name rather than compared. Bare hex read as SHA-256 would be a guess; a Merkle root compared
+    /// as a whole-file hash would be a guaranteed mismatch reported as tampering.
+    #[test]
+    fn an_unlabeled_or_unknown_digest_is_refused_by_name() {
+        let hexed = hex(&sha256(b"x"));
+        let hexed = core::str::from_utf8(&hexed).unwrap();
+        assert_eq!(parse_digest(hexed), Err(DigestTextError::Unlabeled));
+        for label in ["merkle-sha256-8k", "SHA256", "sha512", "sha256 ", ""] {
+            assert_eq!(
+                parse_digest(&std::format!("{label}:{hexed}")),
+                Err(DigestTextError::UnknownLabel),
+                "{label:?} is not the label this reader knows"
+            );
+        }
+        // The colon is the separator, so a second one belongs to the value and fails as hex.
+        assert_eq!(
+            parse_digest(&std::format!("sha256::{hexed}")),
+            Err(DigestTextError::NotHex)
         );
     }
 
@@ -602,9 +759,12 @@ mod tests {
     #[test]
     fn a_manifest_gives_the_same_three_verdicts_a_compiled_in_trust_root_does() {
         let console = b"the real console".as_slice();
-        let hexed = hex(&sha256(console));
+        let hexed = digest_text(&sha256(console));
         let hexed = core::str::from_utf8(&hexed).unwrap();
-        let text = std::format!("# generated by cargo xtask\nconsole {hexed}\nbroken deadbeef\n");
+        let bare = &hexed[SHA256_LABEL.len() + 1..];
+        let text = std::format!(
+            "# generated by cargo xtask\nconsole {hexed}\nbroken deadbeef\nunlabeled {bare}\n"
+        );
 
         assert_eq!(verify_in_manifest(&text, "console", console), Ok(()));
         assert_eq!(
@@ -620,6 +780,11 @@ mod tests {
             verify_in_manifest(&text, "broken", b"deadbeef"),
             Err(VerifyError::Unmeasured),
             "a malformed line must refuse its program, not vouch for it"
+        );
+        assert_eq!(
+            verify_in_manifest(&text, "unlabeled", console),
+            Err(VerifyError::Unmeasured),
+            "a digest from before the label existed vouches for nothing"
         );
         assert_eq!(
             verify_in_manifest("", "console", console),
@@ -668,7 +833,7 @@ mod tests {
 
     /// A one-line table vouching for `name`'s real bytes.
     fn table_for(name: &str, bytes: &[u8]) -> std::string::String {
-        let d = hex(&sha256(bytes));
+        let d = digest_text(&sha256(bytes));
         std::format!("{name} {}\n", core::str::from_utf8(&d).unwrap())
     }
 
@@ -757,14 +922,22 @@ mod tests {
     /// reported with the line, because the build turns that into a hard error.
     #[test]
     fn manifest_parsing_skips_comments_and_reports_the_line_it_could_not_read() {
-        let d = hex(&sha256(b"x"));
+        let d = digest_text(&sha256(b"x"));
         let d = core::str::from_utf8(&d).unwrap();
         let text = std::format!("# header\n\n  wc {d}  \nno-space-here\nshort ab\n");
-        let got: Vec<Result<(&str, Digest), &str>> = manifest_entries(&text).collect();
+        let got: Vec<Result<(&str, Digest), BadLine>> = manifest_entries(&text).collect();
         assert_eq!(got.len(), 3);
         assert_eq!(got[0].unwrap().0, "wc");
-        assert_eq!(got[1].unwrap_err(), "no-space-here");
-        assert_eq!(got[2].unwrap_err(), "short ab");
+        let missing = BadLine {
+            line: "no-space-here",
+            why: DigestTextError::Missing,
+        };
+        assert_eq!(got[1].unwrap_err(), missing);
+        let short = BadLine {
+            line: "short ab",
+            why: DigestTextError::Unlabeled,
+        };
+        assert_eq!(got[2].unwrap_err(), short);
         assert_eq!(expected_in_manifest(&text, "wc"), Some(sha256(b"x")));
     }
 
@@ -773,9 +946,49 @@ mod tests {
     /// a digest pasted from a tool that prints uppercase would have been refused.
     #[test]
     fn uppercase_hex_parses_to_the_same_digest() {
-        let lower = "ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad";
-        let upper = lower.to_uppercase();
-        assert_eq!(parse_hex(&upper), parse_hex(lower));
-        assert_eq!(parse_hex(&upper).unwrap()[0], 0xBA);
+        let lower = "sha256:ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad";
+        let upper = std::format!("sha256:{}", lower[7..].to_uppercase());
+        assert_eq!(parse_digest(&upper), parse_digest(lower));
+        assert_eq!(parse_digest(&upper).unwrap()[0], 0xBA);
+    }
+}
+
+#[cfg(kani)]
+mod verification {
+    use super::*;
+
+    /// **Every digest reads back as itself.** The formatter and the parser are the one definition
+    /// of the text that a catalog, a recipe, an activation row and the measurement table share,
+    /// so a digest that wrote out and read back as something else would make a vouched package
+    /// unrunnable, or a different one runnable. Proved for all 2^256 digests rather than the few
+    /// the tests hash.
+    ///
+    /// Falsification: replayable `crates/measured_boot/falsifications/verification.every_digest_reads_back_as_itself.patch`
+    #[kani::proof]
+    #[kani::unwind(72)]
+    fn every_digest_reads_back_as_itself() {
+        let digest: Digest = kani::any();
+        assert_eq!(parse_digest_bytes(&digest_text(&digest)), Ok(digest));
+    }
+
+    /// **Only `sha256:` and 64 hex characters parse, whatever the bytes and however many.** The
+    /// property the ruling needs from the parser: an unlabeled digest and a foreign label are
+    /// refused, never read as a SHA-256, and no input panics. Up to one byte longer than the text
+    /// form, so the too-long case is in the space too.
+    ///
+    /// Falsification: replayable `crates/measured_boot/falsifications/verification.only_a_labeled_sha256_parses.patch`
+    #[kani::proof]
+    #[kani::unwind(73)]
+    fn only_a_labeled_sha256_parses() {
+        let bytes: [u8; DIGEST_TEXT_LEN + 1] = kani::any();
+        let len: usize = kani::any();
+        kani::assume(len <= bytes.len());
+        let text = &bytes[..len];
+        if let Ok(digest) = parse_digest_bytes(text) {
+            assert_eq!(len, DIGEST_TEXT_LEN);
+            assert_eq!(&text[..SHA256_LABEL.len() + 1], b"sha256:");
+            // What parsed is what the text says, up to the case of the hex.
+            assert!(digest_text(&digest).eq_ignore_ascii_case(text));
+        }
     }
 }

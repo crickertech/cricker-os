@@ -20,10 +20,10 @@
 //! ```text
 //! $ cargo xtask package packages/uptime.recipe.toml
 //! uptime 0.1.0 aarch64, 2 members, 4600 bytes
-//!   uptime          4528 bytes  7d8e...c1
-//!   uptime.licence    68 bytes  a3f0...9e
+//!   uptime          4528 bytes  sha256:7d8e...c1
+//!   uptime.licence    68 bytes  sha256:a3f0...9e
 //! wrote target/packages/uptime-0.1.0-aarch64.nifepkg
-//! digest 9f2c...4b  (recorded in the recipe, and it matches)
+//! digest sha256:9f2c...4b  (recorded in the recipe, and it matches)
 //! package: PASS
 //! ```
 //!
@@ -42,7 +42,8 @@
 //! name = "uptime"              # required, at most package_archive::NAME_LEN bytes
 //! version = "0.1.0"            # required
 //! architecture = "aarch64"     # required: aarch64, riscv64 or x86_64
-//! digest = "9f2c..."           # optional: 64 hex characters, checked against what was built
+//! digest = "sha256:9f2c..."    # optional: sha256: and 64 hex characters, checked against
+//!                              # what was built (DECISIONS §197's digest ruling, 2026-10-07)
 //!
 //! [[member]]                   # members in order: the package's bytes depend on it
 //! program = "uptime"           # a built ELF for that architecture, resolved from target/
@@ -60,7 +61,7 @@
 //! refused, so a misspelt `digest` cannot pass review as a recipe that records none.
 //!
 //! The parser is the `toml` crate, host-only: `xtask` never reaches the shipping graph, and no
-//! target reads a recipe. The target reads the image's catalogue (`name digest` lines, below).
+//! target reads a recipe. The target reads the image's catalog (`name sha256:<hex>` lines, below).
 //!
 //! # BUGS
 //!
@@ -99,7 +100,9 @@ struct Recipe {
     /// `(member name, where its bytes come from)`, in the order the recipe lists them, because the
     /// package's bytes are a function of that order and a reviewed digest depends on it.
     members: Vec<(String, Source)>,
-    digest: Option<String>,
+    /// Read with `measured_boot::parse_digest`, the one parser every reader of a digest's text
+    /// shares, so a recipe cannot record a digest the catalog's readers would refuse.
+    digest: Option<measured_boot::Digest>,
 }
 
 #[derive(Debug, PartialEq, Eq)]
@@ -144,7 +147,7 @@ pub(crate) fn package(recipe_path: Option<String>) -> bool {
         let name = parsed.member_name(index).unwrap_or("");
         let len = parsed.member(index).map(<[u8]>::len).unwrap_or(0);
         let digest = parsed.member_digest(index).unwrap_or_default();
-        println!("  {name:<24} {len:>9} bytes  {}", hex(&digest));
+        println!("  {name:<24} {len:>9} bytes  {}", labeled(&digest));
     }
     if built.recorded {
         println!(
@@ -175,7 +178,7 @@ pub(crate) struct Built {
     /// `name-version-architecture`, the file's stem and its catalogue name.
     pub(crate) stem: String,
     pub(crate) file: Vec<u8>,
-    /// SHA-256 over the whole file, as 64 lowercase hex characters.
+    /// SHA-256 over the whole file, in its text form, `sha256:<64 lowercase hex>`.
     pub(crate) digest: String,
     /// Whether the recipe recorded a digest (which, if this returned at all, matched).
     recorded: bool,
@@ -227,18 +230,20 @@ pub(crate) fn build(root: &std::path::Path, text: &str) -> Result<Built, String>
         return Err(format!("member {} does not match its digest", error.index));
     }
 
-    let digest = hex(&sha256(&file));
+    let measured = sha256(&file);
+    let digest = labeled(&measured);
     // **The recorded digest is checked before anything is written**, which is the order §195 asks
     // for even though it costs a rebuild to find out. A package whose bytes do not reproduce the
     // reviewed line is one nothing accepts, so leaving it on disk beside a catalogue entry
     // vouching for it would be the tool disagreeing with itself.
     if let Some(recorded) = &recipe.digest
-        && *recorded != digest
+        && *recorded != measured
     {
         return Err(format!(
-            "the recipe records {recorded}, these bytes are {digest}: a rebuild that does not \
+            "the recipe records {}, these bytes are {digest}: a rebuild that does not \
              reproduce the reviewed digest is the failure DECISIONS §195 exists to make visible; \
-             nothing was written"
+             nothing was written",
+            labeled(recorded)
         ));
     }
     Ok(Built {
@@ -326,8 +331,9 @@ fn relative(root: &std::path::Path, path: &std::path::Path) -> String {
         .to_string()
 }
 
-fn hex(digest: &[u8]) -> String {
-    digest.iter().map(|byte| format!("{byte:02x}")).collect()
+/// A digest in the text form every catalog, recipe and activation row shares, `sha256:<hex>`.
+fn labeled(digest: &measured_boot::Digest) -> String {
+    String::from_utf8_lossy(&measured_boot::digest_text(digest)).into_owned()
 }
 
 /// Where a member's bytes live on this host.
@@ -384,12 +390,12 @@ fn parse_recipe(text: &str) -> Result<Recipe, String> {
     let name = string("name")?.ok_or("no name")?;
     let version = string("version")?.ok_or("no version")?;
     let architecture = string("architecture")?.ok_or("no architecture")?;
-    let digest = string("digest")?;
-    if let Some(digest) = &digest
-        && (digest.len() != 64 || !digest.bytes().all(|b| b.is_ascii_hexdigit()))
-    {
-        return Err("a digest is 64 hex characters".to_string());
-    }
+    let digest = match string("digest")? {
+        None => None,
+        Some(digest) => Some(measured_boot::parse_digest(&digest).map_err(|why| {
+            format!("a digest is sha256: and 64 hex characters ({why:?}: {digest})")
+        })?),
+    };
 
     let mut members = Vec::new();
     let entries = match table.get("member") {
@@ -500,12 +506,26 @@ file = "LICENSE-MIT"
             )
         };
         assert_eq!(
-            parse_recipe(&with("abc123")).unwrap_err(),
-            "a digest is 64 hex characters"
+            parse_recipe(&with("sha256:abc123")).unwrap_err(),
+            "a digest is sha256: and 64 hex characters (NotHex: sha256:abc123)"
+        );
+        // DECISIONS §197's digest ruling (2026-10-07): bare hex, as recipes were written before
+        // it, and a label this tool does not know are both refused by name, not read as SHA-256.
+        let bare = "a".repeat(64);
+        assert_eq!(
+            parse_recipe(&with(&bare)).unwrap_err(),
+            format!("a digest is sha256: and 64 hex characters (Unlabeled: {bare})")
+        );
+        let merkle = format!("merkle-sha256-8k:{bare}");
+        assert_eq!(
+            parse_recipe(&with(&merkle)).unwrap_err(),
+            format!("a digest is sha256: and 64 hex characters (UnknownLabel: {merkle})")
         );
         assert_eq!(
-            parse_recipe(&with(&"a".repeat(64))).unwrap().digest,
-            Some("a".repeat(64))
+            parse_recipe(&with(&format!("sha256:{bare}")))
+                .unwrap()
+                .digest,
+            Some([0xaa; 32])
         );
     }
 

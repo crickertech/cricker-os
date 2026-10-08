@@ -297,7 +297,7 @@ const SWISH_CHECK_AFTER_REBOOT: &[Line] = &[
         0,
         "caps packages/noteless/0.1.0/noteless",
         &[
-            "provenance: unvouched (digest ",
+            "provenance: unvouched (digest sha256:",
             "runs on this session's capability to run unvouched bytes",
         ],
     ),
@@ -662,7 +662,7 @@ const SWISH_CHECK_SCRIPT: &[Line] = &[
         0,
         "caps packages/noteless/0.1.0/noteless",
         &[
-            "provenance: vouched by activation generation 1 (digest ",
+            "provenance: vouched by activation generation 1 (digest sha256:",
             // **No note, the default** (milestone 597 (a program carries its manifest in an ELF
             // note), provisional): `noteless` carries no manifest note, so it is bound and endowed
             // as `grant_plan::NO_NOTE_MANIFEST`, its output alone.
@@ -678,7 +678,7 @@ const SWISH_CHECK_SCRIPT: &[Line] = &[
         &[
             "cap 1  page      clock",
             "cap 2  page      config",
-            "provenance: unvouched (digest ",
+            "provenance: unvouched (digest sha256:",
             "runs on this session's capability to run unvouched bytes (slot 62)",
             // **What the note asks, beside what is granted** (milestone 597, provisional). The
             // witness's note asks for the three authorities it probes, and §219 says an unvouched
@@ -901,7 +901,7 @@ const SWISH_CHECK_SCRIPT: &[Line] = &[
     line(
         0,
         "caps greeting",
-        &["provenance: vouched by activation generation 2 (digest "],
+        &["provenance: vouched by activation generation 2 (digest sha256:"],
     ),
     // **Milestone 614: the second version installs beside the first** (rulings 2 and 3). Rows key
     // on the digest, so installing over a live version appends and moves the default pointer
@@ -1000,7 +1000,7 @@ const SWISH_CHECK_SCRIPT: &[Line] = &[
     line(
         0,
         "caps installed/unvouched",
-        &["provenance: vouched by the owner in activation generation 4 (digest "],
+        &["provenance: vouched by the owner in activation generation 4 (digest sha256:"],
     ),
     // **A vouch claims no name** (§229 B2): the entry is found by the bytes' digest and never by
     // the name it was recorded under, so the bare word reaches nothing.
@@ -1014,7 +1014,7 @@ const SWISH_CHECK_SCRIPT: &[Line] = &[
     line(
         0,
         "caps installed/unvouched",
-        &["provenance: unvouched (digest "],
+        &["provenance: unvouched (digest sha256:"],
     ),
     line(
         1,
