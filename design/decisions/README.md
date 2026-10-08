@@ -374,6 +374,7 @@ place instead of moving text between two systems. Numbers 68 to 73 are the six t
 | 255 | DECIDED | [Each socket is its own capability, and a reply carries it](0255-each-socket-is-its-own-capability.md) |
 | 256 | DECIDED | [A server that keeps windows for many clients scopes each by the caller's badge](0256-a-server-that-keeps-windows-for-many-clients-scopes-each-by-the-callers-badge.md) |
 | 257 | DECIDED | [A required review that the App would give is refused](0257-a-required-review-the-app-would-give-is-refused.md) |
+| 260 | DECIDED | [PMCCFILTR_EL0 is zero on every aarch64 board, and a cycle read carries its meaning](0260-pmccfiltr-el0-is-zero-on-every-aarch64-board-and-a-cycle-read-carries-its-meaning.md) |
 
 Two blocks that lived among the decisions are not decisions and moved out with the split, the same
 way milestone 76 moved four essays out of the roadmap: [the open design
