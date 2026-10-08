@@ -209,4 +209,4 @@ week,crate,breaking,additions,commits,commits_crossing
 2026W41,package_archive,13,12,4,4
 2026W41,socket_protocol,4,4,1,1
 2026W41,supervision_protocol,0,4,5,4
-2026W41,swap_protocol,1,8,5,5
+2026W41,swap_protocol,1,8,6,6
