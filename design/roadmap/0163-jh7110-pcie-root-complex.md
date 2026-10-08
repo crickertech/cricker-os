@@ -76,9 +76,9 @@ involved, but whether it actually enumerates real devices can only be verified o
 
 ## Radon's storage depends on this, 2026-10-07
 
-§258 (radon's block server serves a USB drive) puts radon's USB 3 ports, which sit behind a VL805
-controller on PCIe, on this milestone's critical path: the booted system's storage on radon
-cannot be read until this root complex enumerates the controller.
+§258 (radon's block server serves a USB drive) puts this milestone on radon's storage path. The USB 3
+ports sit behind a VL805 on PCIe. Until this root complex enumerates it, the booted system cannot
+read a disk.
 
 ## Index row
 

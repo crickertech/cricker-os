@@ -141,10 +141,12 @@ and both trees are GPL and were read for hardware facts only.
   image back. Passing it lifts the block server's `PROVEN_ON_SILICON`.
 - **Done.** The architect's call on which part of radon's storage the booted system's block server
   serves: a USB drive (calef, 2026-10-07 UTC; §258 (radon's block server serves a USB drive)). It
-  refused the second microSD partition, the eMMC socket and NVMe for now. It costs milestone 163 (the JH7110's PCIe root complex), because radon's USB 3 ports sit behind a VL805 on PCIe, the xHCI driver milestone 242 (USB host and HID, because on commodity hardware the keyboard is not a UART)
-  builds, and a USB mass-storage driver, filed as the proposal `usb-mass-storage` (it takes a
-  number at merge, and this block's dependencies take it then). The microSD bench step above still
-  proves the MSHC driver and is no longer the block server's target.
+  refused the second microSD partition, the eMMC socket and NVMe for now. It needs milestone 163 (the
+  JH7110's PCIe root complex), because radon's USB 3 ports sit behind a VL805 on PCIe. It needs the
+  xHCI driver of milestone 242 (USB host and HID, because on commodity hardware the keyboard is not
+  a UART). It also needs a USB mass-storage driver, filed as the proposal `usb-mass-storage`. That
+  proposal takes a number at merge, and this block's dependencies take it then. The microSD bench
+  step above still proves the MSHC driver; it is no longer the block server's target.
 - **Outstanding.** The IDMAC data path, once the network half's coherence probe has read radon's
   DMA coherence (milestone 655 (DMA on a non-coherent RISC-V machine)); then high speed and an
   8-bit eMMC bus, measured against the polled rate step 1 prints.

@@ -17,7 +17,10 @@ milestone 242 (USB host and HID) builds the host controller and input only. Name
 calef ruled on 2026-10-07 (UTC) that radon's block server serves a USB drive, "even though it is
 more work. I need that work done anyways." This is the part of that work no milestone held.
 
-Reuse: take first, write second. Unread so far; the lane that builds it searches crates.io (`usb-storage`, `usbd-storage`, `scsi`), OpenBSD's `umass` and `sd` (ISC) and FreeBSD's `umass` (BSD-2-Clause) first, and records what it took in this line. Linux's `usb-storage` is GPL and is read for hardware facts only.
+Reuse: take first, write second. Unread so far. The lane that builds it searches crates.io
+(`usb-storage`, `usbd-storage`, `scsi`), OpenBSD's `umass` and `sd` (ISC) and FreeBSD's `umass`
+(BSD-2-Clause) first, and records what it took in this line. Linux's `usb-storage` is GPL and is
+read for hardware facts only.
 
 ## What it is
 
