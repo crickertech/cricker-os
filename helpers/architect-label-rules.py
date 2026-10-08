@@ -43,9 +43,11 @@ against literal fixture strings, no repository and no subprocess required, cheap
 3. **format-crate**: a version constant, magic value, or documented on-disk layout moved in a crate
    that is classified, from its own head content, as a format crate: it declares a `pub const`
    ending in `VERSION` or `MAGIC`, or its module doc carries a markdown table with a `version`
-   column (the two tells the brief names). Firing is on a changed `VERSION`/`MAGIC` constant line, or a changed comment line that
-   states a layout (a markdown table row, `offset`, `width`, `bit N`, an `N..M` range); other
-   comment-only edits do not fire.
+   column (the two tells the brief names). Firing is on a changed `VERSION`/`MAGIC` constant line, or
+   a changed doc or block comment line (`//!`, `///`, `/* */`) outside test code that states a
+   layout (a markdown table row, `offset`, `width`, `bit N`, an `N..M` range). A plain `//`
+   comment, a line under `#[test]` or `#[cfg(test)]`, and a removed/added pair with the same
+   numbers and layout words (an identifier renamed in the sentence) do not fire.
 4. **spawnproto**: a `pub const` changed in a file named `spawnproto.rs` (the wire layout
    `crates/grant_plan/src/spawnproto.rs` documents; matched by filename rather than the one path in
    the tree today, so a second one elsewhere is still caught). Same-value renames pair off as in
@@ -87,6 +89,26 @@ to the graph, or a decisions edit):
 Narrowed on this evidence: rules 1, 2, 3 and 4 (above). Not narrowed: decisions (a sweep is still
 an edit to a ratified record).
 
+# format-crate's second narrowing, measured 2026-10-08 UTC
+
+calef on #1838's hold: "Please deal with the false positives." It fired on a `//` line beside a
+test's assert (`... the 1900-to-1970 offset ...`); no constant, field or layout moved. Rule 3 rerun
+over every merge from 2026-09-12 to 2026-10-07 (1,000 pull requests) plus #1838: 29 file firings.
+13 fire on a `VERSION`/`MAGIC` constant line and are untouched. The other 16 fired on a comment
+alone, classified by reading each diff:
+
+    class                                        n  kept  the pull requests
+    layout table edited (true)                   3     3  #1402 #1385 #1360 (manifest_note rows)
+    true by coincidence (a const moved, the      3     2  kept #1727 (PUT_REFUSED) #1066 (PAGE_VA);
+      comment that matched was unrelated)                 dropped #1352 (PAGE_VA, matched in a test)
+    false, `//` comment or test code             3     0  #1838 #1569 #805
+    false, identifier renamed in the sentence    3     0  #1255, #860 (two files)
+    false, still firing                          4     4  #1088 (a cost table), #927 #853 #1067 (prose)
+
+So 7 of 29 file firings drop (6 false, plus #1352's coincidental catch), every layout-table edit
+still fires, and #1402's class is in the fixtures. #1352 shows the real gap, now in BUGS: a format
+crate's other `pub const` values are not read at all.
+
 # BUGS
 
 - **Renames pair by one-line value text.** `pub const A: u64 = 1;` against `pub const B: u64 = 1;`
@@ -98,6 +120,13 @@ an edit to a ratified record).
 - **syscall-error reads one file.** An error moved into a helper the dispatcher calls (`revoke.rs`,
   `sched.rs`) is missed, and a refactor that rewrites a line holding `Error::` fires. Both measured
   at zero and unknown respectively on the 31 merges above; revisit on the first miss.
+- **format-crate reads only `VERSION`/`MAGIC` constants.** A format crate's other wire values
+  (#1352 and #1066 moved `PAGE_VA`, #1727 added `PUT_REFUSED`) fire only if an unrelated layout
+  comment happens to change beside them, and #1352's no longer does. Unmeasured beyond those three;
+  firing on every `pub const` in a format crate is the obvious widening and has not been tried.
+- **The test-code mask counts braces.** A raw string or a multi-line string holding an unbalanced
+  `{` or `}` misplaces where a test module ends. Leaving a test region late hides a layout comment
+  after it; the fixtures cover one-line strings and char literals only.
 - **format-crate's layout-comment test is a regex.** A layout described in a comment without a
   table row, offset, width, bit number or `N..M` range (say, a prose paragraph that moves a field)
   is missed unless a constant moves with it. Residual and unmeasured: the table-row form is the one
@@ -363,6 +392,63 @@ LAYOUT_COMMENT_RE = re.compile(
     re.IGNORECASE)
 
 
+# Test code, which documents no format: an item under `#[test]`, `#[cfg(test)]` or
+# `#[cfg(all(test, ...))]`. `#[cfg(any(test, kani))]` is not here, since it compiles outside tests.
+TEST_ATTR_RE = re.compile(r'^\s*#\[(test|cfg\(test\)|cfg\(all\(test\b)')
+STRING_OR_CHAR_RE = re.compile(r'"(?:\\.|[^"\\])*"|\'(?:\\.|[^\'\\])\'')
+
+
+def test_code_mask(lines):
+    """[bool] per line: is this line inside (or the header of) a test item?
+
+    Brace counting over code text with string and char literals and `//` tails removed. A test
+    attribute arms the next item: its first `{` opens the region and the matching `}` closes it,
+    and a `;` before any `{` (`#[cfg(test)] mod tests;`) disarms it. See BUGS for what a raw string
+    holding a brace does.
+    """
+    mask = []
+    depth, armed, region = 0, False, None  # region: the depth the test item's `{` opened from
+    for line in lines:
+        inside = armed or region is not None
+        if not is_comment_only(line):
+            if region is None and TEST_ATTR_RE.match(line):
+                armed = inside = True
+            code = STRING_OR_CHAR_RE.sub('""', line).split('//')[0]
+            for ch in code:
+                if ch == '{':
+                    if armed and region is None:
+                        region, armed = depth, False
+                    depth += 1
+                elif ch == '}':
+                    depth -= 1
+                    if region is not None and depth <= region:
+                        region = None
+                elif ch == ';' and armed and region is None:
+                    armed = False
+        mask.append(inside)
+    return mask
+
+
+def changed_lines_outside_tests(fd):
+    """changed_lines(fd), less those inside test code on their own side of the diff."""
+    head_mask = iter(test_code_mask(head_lines(fd)))
+    base_mask = iter(test_code_mask(base_lines(fd)))
+    left = []
+    for prefix, line in fd['lines']:
+        in_head = next(head_mask) if prefix != '-' else False
+        in_base = next(base_mask) if prefix != '+' else False
+        if prefix == '+' and not in_head or prefix == '-' and not in_base:
+            left.append((prefix, line))
+    return left
+
+
+def is_doc_or_block_comment(line):
+    """`//!`, `///` or a `/* */` line: where a crate documents its layout. A plain `//` explains the
+    code beside it (#1838: `// ... the 1900-to-1970 offset ...` over a test's assert)."""
+    t = line.strip()
+    return t.startswith(('//!', '///')) or not t.startswith('//')
+
+
 def rule_format_crate(fd, out):
     if not (fd['path'].startswith('crates/') and '/src/' in fd['path']
             and fd['path'].endswith('.rs')):
@@ -370,15 +456,35 @@ def rule_format_crate(fd, out):
     if not is_format_crate_source(head_lines(fd)):
         return
     # A comment-only edit fires only if it reads as a layout statement (measured: 7 of 9 firings
-    # were `//!` prose or a diagram that does not); a VERSION/MAGIC code line always fires.
-    for _prefix, line in changed_lines(fd):
-        if is_comment_only(line):
-            fires = bool(LAYOUT_COMMENT_RE.search(line))
-        else:
-            fires = bool(VERSION_OR_MAGIC_CONST_RE.match(line))
-        if fires:
+    # were `//!` prose or a diagram that does not), sits in a doc or block comment, and is outside
+    # test code (measured 2026-10-08: see "format-crate's second narrowing" above). A VERSION/MAGIC
+    # code line fires wherever it is.
+    for prefix, line in changed_lines(fd):
+        if not is_comment_only(line) and VERSION_OR_MAGIC_CONST_RE.match(line):
             out.append(('format-crate', fd['path'], line.strip()))
             return
+    # A removed and an added layout line with the same layout signature (every number, and every
+    # layout match's text) pair off, as a constant rename does in rule 1: `[plausible]` becoming
+    # `[is_plausible]` in a sentence about an offset moved no byte (#1255, #860). A table row's
+    # match is the whole row, so a table row pairs only with itself.
+    removed, added = [], []
+    for prefix, line in changed_lines_outside_tests(fd):
+        if (is_comment_only(line) and is_doc_or_block_comment(line)
+                and LAYOUT_COMMENT_RE.search(line)):
+            (removed if prefix == '-' else added).append((layout_signature(line), line))
+    for key, line in added:
+        hit = next((i for i, (rk, _l) in enumerate(removed) if rk == key), None)
+        if hit is None:
+            out.append(('format-crate', fd['path'], line.strip()))
+            return
+        removed.pop(hit)
+    if removed:
+        out.append(('format-crate', fd['path'], removed[0][1].strip()))
+
+
+def layout_signature(line):
+    return (tuple(re.findall(r'\d+', line)),
+            tuple(m.group(0).strip().lower() for m in LAYOUT_COMMENT_RE.finditer(line)))
 
 
 # ---- rule 4: spawnproto ---------------------------------------------------------------------------
@@ -749,6 +855,93 @@ diff --git a/crates/manifest_note/src/lib.rs b/crates/manifest_note/src/lib.rs
 -//! | 1       | a     |
 -pub fn parse() {}
 +pub const MAGIC: u32 = 7;
+""", 'format-crate'),
+
+    ("format-crate: #1838's shape, a `//` line naming an offset beside a test assert, stays quiet",
+     """\
+diff --git a/crates/network_time_protocol/src/lib.rs b/crates/network_time_protocol/src/lib.rs
+--- a/crates/network_time_protocol/src/lib.rs
++++ b/crates/network_time_protocol/src/lib.rs
+@@ -1,9 +1,11 @@
+ pub const VERSION: u8 = 4;
+ #[cfg(test)]
+ mod tests {
+     #[test]
+     fn the_pivot_holds() {
++        // 2^32 seconds less the 1900-to-1970 offset, plus the half-era the pivot grants, is
++        assert_eq!(super::pivot(), 1);
+     }
+ }
+""", None),
+
+    ("format-crate: a `///` layout line inside a test module stays quiet (#1569's shape)", """\
+diff --git a/crates/package_archive/src/lib.rs b/crates/package_archive/src/lib.rs
+--- a/crates/package_archive/src/lib.rs
++++ b/crates/package_archive/src/lib.rs
+@@ -1,4 +1,5 @@
+ pub const MAGIC: [u8; 8] = *b"NIFEPKG1";
+ #[cfg(test)]
+ mod tests {
++    /// a party writing this format from the crate docs lands on exactly these offsets.
+ }
+""", None),
+
+    ("format-crate: a table row after a closed test module still fires", """\
+diff --git a/crates/manifest_note/src/lib.rs b/crates/manifest_note/src/lib.rs
+--- a/crates/manifest_note/src/lib.rs
++++ b/crates/manifest_note/src/lib.rs
+@@ -1,8 +1,8 @@
+ pub const VERSION: u32 = 1;
+ #[cfg(test)]
+ mod tests {
+     #[test]
+     fn f() { let s = "}"; }
+ }
+-/// | 53 | 3 | zero | |
++/// | 53 | 1 | `machine` | 0 or 1 |
+ pub fn parse() {}
+""", 'format-crate'),
+
+    ("format-crate: a plain `//` line naming an offset in library code stays quiet", """\
+diff --git a/crates/nifefs/src/lib.rs b/crates/nifefs/src/lib.rs
+--- a/crates/nifefs/src/lib.rs
++++ b/crates/nifefs/src/lib.rs
+@@ -1,2 +1,3 @@
+ pub const MAGIC: [u8; 8] = *b"CRKR0002";
++// the reader takes its offsets from the same header the builder wrote
+ pub fn read() {}
+""", None),
+
+    ("format-crate: a doc layout line whose number moved fires", """\
+diff --git a/crates/nifefs/src/lib.rs b/crates/nifefs/src/lib.rs
+--- a/crates/nifefs/src/lib.rs
++++ b/crates/nifefs/src/lib.rs
+@@ -1,3 +1,3 @@
+-/// The name sits at offset 12.
++/// The name sits at offset 16.
+ pub const MAGIC: [u8; 8] = *b"CRKR0002";
+""", 'format-crate'),
+
+    ("format-crate: an identifier renamed in a layout sentence stays quiet (#1255, #860)", """\
+diff --git a/crates/clock_protocol/src/lib.rs b/crates/clock_protocol/src/lib.rs
+--- a/crates/clock_protocol/src/lib.rs
++++ b/crates/clock_protocol/src/lib.rs
+@@ -1,3 +1,3 @@
+-/// Where the opcode sits: bits 63:56, the same position `filesystem_proto` uses.
++/// Where the opcode sits: bits 63:56, the same position `filesystem_protocol` uses.
+ pub const VERSION: u32 = 1;
+""", None),
+
+    ("format-crate: a VERSION constant inside a test module still fires", """\
+diff --git a/crates/nifefs/src/lib.rs b/crates/nifefs/src/lib.rs
+--- a/crates/nifefs/src/lib.rs
++++ b/crates/nifefs/src/lib.rs
+@@ -1,3 +1,4 @@
+ pub const MAGIC: [u8; 8] = *b"CRKR0002";
+ #[cfg(test)]
+ mod tests {
++    pub const OLD_VERSION: u32 = 1;
+ }
 """, 'format-crate'),
 
     ("spawnproto: a changed slot constant fires", """\
