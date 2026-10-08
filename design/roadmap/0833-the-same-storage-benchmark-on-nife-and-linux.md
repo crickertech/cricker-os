@@ -1,13 +1,19 @@
 ---
-status: PROPOSED
+status: NOT-STARTED
 raised: 2026-10-07
-milestone_dependencies: 261
-decision_dependencies: none
+promoted_from: the-same-storage-benchmark-on-nife-and-linux
+milestone_dependencies: 261, 812
+decision_dependencies: 262, unwritten
 machine_requirements: x86_64 silicon with VT-d and an NVMe drive
 specific_machine: xenon (the Micron 2450 the first comparison was taken on)
 needs_person: yes
 ---
-# The same storage benchmark on nife and Linux, by porting real fio
+# 833. The same storage benchmark on nife and Linux, by porting real fio
+
+*(Minted 2026-10-08 (UTC) by lane/standard-benchmarks from the proposal
+`the-same-storage-benchmark-on-nife-and-linux`, under §262 (nife is measured with the field's
+standard benchmarks). The number is provisional until the merge queue lands it; the title and slug
+are drafts.)*
 
 Written by an agent, 2026-10-07 (UTC), at calef's request, from fatal risk 6's GREEN verdict
 (`design/fatal-risks/6-a-confined-driver-is-too-slow.md`) and milestone 261 (the NVMe driver leaves
@@ -46,10 +52,30 @@ These are questions the port answers, not assumptions. Each is a dependency foun
 
 ## What it must answer
 
-Why the 2026-10-04 read was 2.16x Linux's (272 MB/s against 126 MB/s) when polled Linux reads were no
+Why the 2026-10-04 read was 2.16x Linux's (272 MB/s against 126 MB/s) when polled Linux reads were
+no
 faster than interrupt-driven ones. Either nife's number is wrong, which the histogram will show, or
 the gap is real and has a cause worth knowing. Queue depths 4 and 32 are where the comparison stops
 being one command in flight and "real speed" can be claimed beyond depth 1.
 
 Reuse: `fio` itself is taken, ported rather than rewritten, and `spdk_nvme_perf` is taken as is for
 the Linux side. No nife-side benchmark program is written, so there is no shim to keep.
+
+## What it waits on
+
+Every program in this family is POSIX C, and nife has no C library that runs one unmodified. §31
+(the foreign-language seam) lets C make no syscalls, and full POSIX is milestone 478 (tier three:
+full POSIX behind the foreign-language seam), refused until a component needs it. Whether §262 makes
+these programs that component is calef's call, and nobody has written that question up, so this
+block carries `decision_dependencies: unwritten`.
+
+Threads. fio times its jobs with its own threads even when jobs are processes. Threads are milestone
+812 (`std::thread::spawn` runs real threads in one address space), option A of §105
+(`std::thread::spawn` stays declined, until a customer needs it), reopened 2026-10-07 and not yet
+scheduled. Until then, milestone 834 (ioping) answers risk 6's read gap at queue depth 1 without
+threads.
+
+## Index row
+
+Real fio, one job file on nife and Linux, queue depths 1, 4 and 32 with per-I/O histograms, so risk
+6's read gap is explained or corrected. Waits on a C library and threads.

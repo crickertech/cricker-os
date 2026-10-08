@@ -1,15 +1,21 @@
 ---
-status: PROPOSED
+status: NOT-STARTED
 raised: 2026-10-08
-milestone_dependencies: 225
-decision_dependencies: none
+promoted_from: hackbench-on-nife-and-linux
+milestone_dependencies: 225, 812
+decision_dependencies: 262, unwritten
 machine_requirements: silicon with 4 or more cores, radon first, then xenon, argon when the TX1 arrives
 specific_machine: none
 needs_person: yes
 ---
-# hackbench on nife and Linux, as a scheduler benchmark and a multicore soak
+# 827. hackbench on nife and Linux, as a scheduler benchmark and a multicore soak
 
-Written by an agent, 2026-10-08 (UTC), at calef's request. Model: the fio proposal.
+*(Minted 2026-10-08 (UTC) by lane/standard-benchmarks from the proposal
+`hackbench-on-nife-and-linux`, under §262 (nife is measured with the field's standard benchmarks).
+The number is provisional until the merge queue lands it; the title and slug are drafts.)*
+
+Written by an agent, 2026-10-08 (UTC), at calef's request. Model: milestone 833 (the same storage
+benchmark on nife and Linux, by porting real fio).
 
 **In brief.** Port `hackbench` (rt-tests; about 700 lines of C) and run it on the boards, once as a
 benchmark and again as a long soak. Groups of sender and receiver tasks pass small messages over
@@ -45,6 +51,21 @@ median and spread; core count fixed with `--smp` or `taskset` identically on bot
 
 Reuse: hackbench is taken, ported and not rewritten.
 
+## What it waits on
+
+Every program in this family is POSIX C, and nife has no C library that runs one unmodified. §31
+(the foreign-language seam) lets C make no syscalls, and full POSIX is milestone 478 (tier three:
+full POSIX behind the foreign-language seam), refused until a component needs it. Whether §262 makes
+these programs that component is calef's call, and nobody has written that question up, so this
+block carries `decision_dependencies: unwritten`.
+
+Threads or fork. hackbench's thread mode needs threads, and its process mode forks. Threads are
+milestone 812 (`std::thread::spawn` runs real threads in one address space), option A of §105
+(`std::thread::spawn` stays declined, until a customer needs it), reopened 2026-10-07 and not yet
+scheduled. nife has no `fork` by design (§10 (process model: capability-based, microkernel)), so a
+path that needs it never unblocks. The port runs the program's no-fork mode where one exists, and a
+row that cannot run is recorded with its reason, as `notes/benchmarks.md` already does for spawn.
+
 ## How it runs continuously
 
 QEMU TCG wall-clock timings are meaningless, so nothing here gates on them. Where a host-side
@@ -53,3 +74,8 @@ icount baseline per workload step, `--check` failing on drift). The wall-clock r
 silicon on a schedule, as the runbook does for the soak, and write dated rows to
 `notes/benchmarks.md` with the Linux row beside them. A run that cannot reach the board writes
 nothing rather than a TCG number.
+
+## Index row
+
+hackbench on the boards, as a cost per cross-task handoff and as a second multicore soak. Waits on a
+C library and on threads (milestone 812), since its other mode forks.

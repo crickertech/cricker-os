@@ -378,6 +378,7 @@ place instead of moving text between two systems. Numbers 68 to 73 are the six t
 | 259 | DECIDED | [A multicore soak counts toward risk 5 at ten million crossings over three boots](0259-a-multicore-soak-counts-toward-risk-5-at-ten-million-crossings-over-three-boots.md) |
 | 260 | DECIDED | [Radon's block server serves a USB drive](0260-radons-block-server-serves-a-usb-drive.md) |
 | 261 | DECIDED | [PMCCFILTR_EL0 is zero on every aarch64 board, and a cycle read carries its meaning](0261-pmccfiltr-el0-is-zero-on-every-aarch64-board-and-a-cycle-read-carries-its-meaning.md) |
+| 262 | DECIDED | [nife is measured with the field's standard benchmarks, run unmodified, against Linux](0262-nife-is-measured-with-the-fields-standard-benchmarks.md) |
 | 265 | DECIDED | [A C library started from relibc, whose Rust platform layer holds the capabilities](0265-a-c-library-started-from-relibc.md) |
 
 Two blocks that lived among the decisions are not decisions and moved out with the split, the same
