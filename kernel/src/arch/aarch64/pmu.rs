@@ -27,7 +27,7 @@
 //!
 //! | register | written | why |
 //! |---|---|---|
-//! | `PMCCFILTR_EL0` | [`PMCCFILTR_PROVISIONAL`] | which exception levels are counted. **Provisional**, and calef's; see below |
+//! | `PMCCFILTR_EL0` | [`PMCCFILTR_COUNT_EL0_AND_EL1`] | which exception levels are counted: EL0 and EL1, not EL2, by calef's ruling of 2026-10-07; see below |
 //! | `PMCR_EL0` | `E \| C \| LC` | `E` enables; `C` zeroes this core's cycle counter; `LC` makes its overflow 64-bit. `D` (divide by 64) and `DP` (stop when counting is prohibited) are cleared by the assignment, and a set `D` would make every number 64 times too small |
 //! | `PMCNTENSET_EL0` | bit 31 (`C`) | the cycle counter's own enable. Write-one-to-set, so no other counter is touched |
 //!
@@ -36,15 +36,20 @@
 //! benchmark.c`, read 2026-09-19) writes `E | C | P` and then `PMCNTENSET` bit 31, which is this
 //! module minus `LC`.
 //!
-//! # `PMCCFILTR_EL0` is written with a provisional value, and publishing a number waits on calef
+//! # `PMCCFILTR_EL0` is written with zero, on every board, by policy
 //!
 //! Its `P`, `U` and `NSH` bits decide whether cycles spent at EL1, EL0 and EL2 are counted. That
-//! decides what every cycle number this kernel ever prints *means*: a count that includes EL1 is
-//! comparable to seL4's IPC figures, and one that excludes it is a userspace-only profile. It is a
-//! fact that leaves the machine, so it is an architect's, and the options are
-//! `design/roadmap/proposals/the-aarch64-half-of-74.md`. What is written today is
-//! zero, for the reasons [`PMCCFILTR_PROVISIONAL`] gives, and no number measured under it is a
-//! result.
+//! decides what every cycle number this kernel prints *means*: a count that includes EL1 is the
+//! cost of an operation to the machine, kernel included, and one that excludes it is a userspace
+//! profile. calef ruled on 2026-10-07 (UTC), option A1 of milestone 353 (the aarch64 half of 74):
+//! **zero, everywhere**, so EL0 and EL1 count and EL2 does not, which is what riscv64 and `x86_64`
+//! already count (user and kernel). [`PMCCFILTR_COUNT_EL0_AND_EL1`] carries the reasons.
+//!
+//! That ruling replaced an earlier one (2026-09-19) to wait for argon's firmware value and match
+//! it. The register's reset value is architecturally UNKNOWN and firmware-dependent, so argon's
+//! value says what argon's firmware does and what seL4's TX1 figures were measured under. It cannot
+//! set this kernel's policy. [`FIRMWARE_FILTER`] still records it, for milestone 25 (cross-OS
+//! comparison) only.
 //!
 //! # BUGS
 //!
@@ -79,27 +84,38 @@ use tock_registers::interfaces::Readable;
 
 use crate::cpu::{self, MAX_CPUS};
 
-/// **The value written to `PMCCFILTR_EL0` on every core. PROVISIONAL**, pending calef's ruling in
-/// `design/roadmap/proposals/the-aarch64-half-of-74.md`; do not publish a number
-/// measured under it.
+/// **The value written to `PMCCFILTR_EL0` on every core: zero, so EL0 and EL1 are counted and EL2
+/// is not.** calef's ruling A1, 2026-10-07 (UTC), recorded in milestone 353's block.
 ///
 /// Zero means: `P` = 0 and `U` = 0, so EL1 and EL0 are counted; `NSK` and `NSU` equal to them, so
 /// Non-secure EL1 and EL0 are counted too; `NSH` = 0, so **EL2 is not counted**; `M` = `P`, so EL3
 /// is counted where `MDCR_EL3` permits it at all.
 ///
-/// Why zero is the provisional value rather than any other, none of which is an argument that it
-/// should be the final one:
+/// Why this value is the policy rather than a placeholder:
 ///
+/// - **It is what the other two architectures count.** riscv64's counter runs in every mode and
+///   `x86_64`'s fixed counter is programmed for rings 0 and 3, so a cross-architecture reader
+///   comparing one operation's cost meets the same quantity: user plus kernel. A3 (`P` set, EL0
+///   only) would have made aarch64 the one architecture whose IPC figures exclude the kernel that
+///   does the IPC.
 /// - **It is the only value both things built here can run under.** `bench::cycles_per_tick` reads
 ///   the counter at EL1, and the EL0 grant test (`a_granted_thread_reads_the_cycle_counter_...`)
 ///   reads it at EL0. `P` = 1 would stop the first and `U` = 1 the second.
 /// - **EL2 runs nothing in this kernel.** `boot.s` drops to EL1 and never installs an EL2 vector
-///   table, so `NSH` changes nothing measurable on argon or QEMU today; it would matter under a
-///   hypervisor that let a guest program it, which is not a configuration this kernel reports
-///   numbers from.
-/// - **It is a definite value over an UNKNOWN one**, which is the whole reason this register is
-///   written at all.
-pub const PMCCFILTR_PROVISIONAL: u64 = 0;
+///   table, so `NSH` changes nothing measurable on argon or QEMU; it would matter only under a
+///   hypervisor that let a guest program it.
+/// - **It is a definite value over an UNKNOWN one.** The register resets to an architecturally
+///   UNKNOWN value and firmware decides what it is at hand-off, so matching firmware (A4, or the
+///   2026-09-19 plan to copy argon's value) would make the policy a property of each board's boot
+///   chain. What firmware left is still read, into [`FIRMWARE_FILTER`], and milestone 25 uses it:
+///   if argon's firmware left `P` set, 25 runs nife a second time with the filter matched to
+///   seL4's and labels that run as such.
+///
+/// Name: provisional, minted by milestone 353's lane on 2026-10-07 (UTC), replacing
+/// `PMCCFILTR_PROVISIONAL` once the value stopped being provisional. Names the levels counted,
+/// which is the fact a reader needs. `PMCCFILTR_A1` was considered and refused (an option letter
+/// means nothing outside the block that lettered it).
+pub const PMCCFILTR_COUNT_EL0_AND_EL1: u64 = 0;
 
 /// `PMCR_EL0.E`: enable the counters.
 const PMCR_E: u64 = 1 << 0;
@@ -168,7 +184,8 @@ static CHECK_ELAPSED: [AtomicU64; MAX_CPUS] = [const { AtomicU64::new(0) }; MAX_
 
 /// **What `PMCCFILTR_EL0` held before this kernel overwrote it**, per core, for the boot line.
 ///
-/// This is evidence for calef's decision rather than state this kernel uses. seL4's published TX1
+/// This is evidence for milestone 25 (cross-OS comparison) rather than state this kernel uses; it
+/// never changes what [`PMCCFILTR_COUNT_EL0_AND_EL1`] writes (calef, 2026-10-07 UTC). seL4's published TX1
 /// figures come from a build that never writes this register (`arm_init_ccnt` and libsel4bench's
 /// `sel4bench_init` write it only under `CONFIG_ARM_HYPERVISOR_SUPPORT`, and the published build
 /// line enables no hypervisor), so those numbers counted **whatever the TX1's firmware left here**.
@@ -219,7 +236,7 @@ pub fn init_this_cpu() {
             "msr pmcr_el0, {pmcr}",
             "msr pmcntenset_el0, {cnten}",
             "isb",
-            filter = in(reg) PMCCFILTR_PROVISIONAL,
+            filter = in(reg) PMCCFILTR_COUNT_EL0_AND_EL1,
             pmcr = in(reg) PMCR_E | PMCR_C | PMCR_LC,
             cnten = in(reg) PMCNTEN_C,
             options(nomem, nostack, preserves_flags)
@@ -267,7 +284,7 @@ pub fn outcome_on(cpu: usize) -> CycleCounter {
 ///
 /// One `mrs`, no trap and no call, so a caller may put this on either side of the thing it is
 /// measuring. **Only meaningful as a difference of two reads on the same core**: see this module's
-/// BUGS. It counts whatever exception levels [`PMCCFILTR_PROVISIONAL`] says, which is not settled.
+/// BUGS. It counts EL0 and EL1, per [`PMCCFILTR_COUNT_EL0_AND_EL1`].
 // The consumers are the bench probe (`bench::cycles_per_tick`, `--features bench`) and the tests. A
 // production boot has nothing to measure, so it has no caller, the same call the other two halves
 // make; the counter is still started and printed in every build, because whether this machine has
@@ -337,7 +354,7 @@ pub fn print_summary() {
         CycleCounter::Running => crate::println!(
             "  cycles      : PMCCNTR_EL0 running on {running} of {initialised} cores ({checked} over \
              {elapsed} ticks at boot), {event_counters} event counters visible, PMCCFILTR_EL0 \
-             {PMCCFILTR_PROVISIONAL:#x} PROVISIONAL (EL0+EL1 counted, EL2 not)"
+             {PMCCFILTR_COUNT_EL0_AND_EL1:#x} (EL0+EL1 counted, EL2 not)"
         ),
         CycleCounter::Stuck => crate::println!(
             "  cycles      : PMCCNTR_EL0 enabled but did not advance over {elapsed} ticks; refused \
@@ -355,6 +372,7 @@ pub fn print_summary() {
     }
     if outcome_on(boot) != CycleCounter::NoPmuV3 {
         // The one number that says what seL4's published TX1 figures counted; see `FIRMWARE_FILTER`.
+        // Read for milestone 25's comparison only: it never changes what this kernel writes.
         crate::println!(
             "  cycles      : firmware left PMCCFILTR_EL0 {inherited:#x} on this core before it was overwritten"
         );
@@ -443,7 +461,7 @@ mod tests {
             "PMCNTENSET_EL0.C is clear: the cycle counter is not enabled"
         );
         assert_eq!(
-            filter, PMCCFILTR_PROVISIONAL,
+            filter, PMCCFILTR_COUNT_EL0_AND_EL1,
             "PMCCFILTR_EL0 does not hold the value init wrote"
         );
     }
