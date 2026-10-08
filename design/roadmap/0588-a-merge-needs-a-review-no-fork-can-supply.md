@@ -1,9 +1,10 @@
 ---
-status: PARTIAL
+status: BUILT
+built: 2026-10-07
 raised: 2026-09-24
 promoted_from: a-merge-needs-a-review-no-fork-can-supply
 milestone_dependencies: none
-decision_dependencies: unwritten
+decision_dependencies: 257
 machine_requirements: none
 specific_machine: none
 needs_person: no
@@ -96,9 +97,10 @@ holding.
   run 37156264104 (`workflow_dispatch`, 2026-10-03 21:46 UTC) succeeded after the deletion; run
   37149031146 had succeeded before it, on the environment secrets. (On 2026-09-24 the environment's
   secrets endpoint listed none, and an org secret reaches every job regardless of environment.)
-- **Outstanding.** Option 1, a required approving review the App would give. Not ruled; its cost is
-  as written under Options. Checked 2026-09-24: the `main` ruleset's `pull_request` rule still
-  reads `required_approving_review_count: 0`.
+- **Refused.** Option 1, a required approving review the App would give. calef ruled on 2026-10-07
+  (UTC): *"Refuse the App-given required review and close 588 as BUILT."* The reasons and the
+  condition for revisiting it are in §257 (a required review that the App would give is refused).
+  The `main` ruleset still reads `required_approving_review_count: 0`, on purpose.
 - **Done.** Option 2, a repository setting made 2026-09-24; the fork approval endpoint reads
   `approval_policy: all_external_contributors`.
 - **Done.** Option 3's tree side, pull request #1215, merged 2026-09-24. Dispatch runs from `main`
@@ -108,4 +110,4 @@ holding.
 
 ## Index row
 
-A merge-group build runs a pull request's own workflow edits with this repository's secrets, and the `main` ruleset requires no review. calef adopted two of three fixes on 2026-09-24: workflow approval for every outside contributor, and the App's secrets behind a `main`-only environment. The secrets have not yet moved out of the organization, and a required review stays unruled.
+A merge-group build runs a pull request's own workflow edits with this repository's secrets, and the `main` ruleset requires no review. calef adopted two of three fixes on 2026-09-24: workflow approval for every outside contributor, and the App's secrets behind a `main`-only environment. The secrets now exist only on that environment. calef refused the third fix, a required review the App would give, on 2026-10-07: it would be a rubber stamp and the record would lie (§257).
