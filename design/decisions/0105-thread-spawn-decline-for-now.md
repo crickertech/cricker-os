@@ -1,8 +1,7 @@
 ---
-status: AMENDED
+status: SUPERSEDED
 raised: 2026-08-22
-decided: 2026-08-22
-ratified_by: calef
+superseded_by: 263
 ---
 
 # 105. `std::thread::spawn` stays declined, until a customer needs it
@@ -79,3 +78,9 @@ btrfs through LKL, the `tough` TUF client, `ripgrep`'s parallel walk, and parall
 `cargo` for milestone 173 (`rustc`/`cargo`/LLVM natively on nife). The syscall-surface change in
 option A still owes its own section, ruled before code. The evidence is in
 [notes/filesystem-crates-2026-10-07.md](../../notes/filesystem-crates-2026-10-07.md).
+
+## Superseded (2026-10-08): threads are built
+
+calef, 2026-10-08 (UTC): *"We should do threads. We deferred them because we didn't have a use. Now
+we've backed up uses."* §263 (threads are built) records the ruling and the uses, and milestone 812
+is now scheduled. Read this section for the costing and the history; §263 is the rule.

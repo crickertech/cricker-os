@@ -59,6 +59,17 @@ grants and two read-only pages. Running it needs the D2 capability, which the ow
 So `cargo` runs a freshly linked test binary through the same request the shell uses. Waiting, exit
 status and output stay this milestone's fork, and the gate above still names them.
 
+## Spawn is the supported path, and `fork` is refused for good
+
+§264 (`fork` is declined for good, and spawn is the supported way to start a program), 2026-10-08
+(UTC), quoting calef: *"decline fork. support spawn. decided."* It makes this milestone the home of
+the `posix_spawn`-shaped path for foreign programs. `std::process::Command::spawn` and a
+`posix_spawn` shim for ported C are both thin layers over the request §219 settled, plus the wait
+this milestone owes. Neither gets a milestone of its own. The shim also needs a C library, which
+does not exist: §31 (the foreign-language seam: C holds no capabilities and makes no syscalls) and
+the refused milestone 478 (tier three: full POSIX behind the foreign-language seam) stand in the
+way, and that is calef's call, not this block's.
+
 ## What it needs
 
 - The actual design fork, raised per DECISIONS §10 (process model: capability-based, microkernel),

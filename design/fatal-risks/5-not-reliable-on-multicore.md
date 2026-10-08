@@ -31,6 +31,10 @@ Two caveats, argued in the [appendix](multicore-reliability.md): every load-sens
 red so far has been a test bug, which fits a healthy kernel and a blind instrument equally well, and
 no result here can be green, since a flattening curve is only a confidence.
 
+2026-10-08 (UTC): threads are to be built (§263 (threads are built), milestone 812
+(`std::thread::spawn` runs real threads in one address space)), which `schbench` and `hackbench`'s
+thread mode need to run here at all.
+
 ## Benchmarks that inform this risk
 
 As of 2026-10-08 (UTC), under §262 (nife is measured with the field's standard benchmarks).

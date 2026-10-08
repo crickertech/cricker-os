@@ -35,6 +35,9 @@ GREEN needs 1 and 2; whether 3 does is the architect's call.
 
 Caveats. Every figure is one command in flight, polled completion, and one pass per boot with no warm-up, so it is a lower bound on the device and not comparable to `fio` at queue depth 32. A Linux `fio` run on the same disk at queue depth 1 has been made (corrected 2026-10-07 per §216 (fatal-risk facts are correctable, and verdicts are the architect's), from `bench/xenon-2026-10-04/linux-fio.log`, which was hand-transcribed from photographs): Fedora 44 live USB, fio-3.40, the Micron 2450 NVMe 256GB (`nvme0n1`), 4 KiB blocks, queue depth 1, `--direct=1`, offset 1 MiB, 64 MiB, one pass, with the same window nife used. The main run (psync) read 30.7k IOPS at 126 MB/s and wrote 77.6k IOPS at 318 MB/s; two further runs with polling requested (pvsync2 did not engage polling; io_uring did) read 126 MB/s and wrote 272 MB/s and 425 MB/s. Correction, 2026-10-08 (§216): the sentence that stood here, saying the comparison against the 0.8x condition was owed to calef and that no verdict changed, was stale. The comparison was made and ruled on 2026-10-07: writes 1.08x and reads 2.16x of Linux's best, both inside the condition, and the verdict went GREEN. On 2026-10-08 calef moved it back to AMBER, because the read gap is unexplained and the Linux figures are hand-transcribed. "Real speed" is claimed at queue depth 1 on this one disk, and stays provisional until the path above is walked. Read varied 16% across boots. [Appendix](the-confined-driver.md).
 
+2026-10-08 (UTC): `fio` needs threads, which §263 (threads are built) schedules as milestone 812
+(`std::thread::spawn` runs real threads in one address space).
+
 ## Benchmarks that inform this risk
 
 As of 2026-10-08 (UTC), under §262 (nife is measured with the field's standard benchmarks).
