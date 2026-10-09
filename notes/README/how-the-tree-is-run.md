@@ -44,6 +44,7 @@ Part of [the notes index](../README.md), which says how to add a line.
   that replaced them, one dated file each.
 - [Cobble, the mascot](../mascot.md): the project's mascot, drawn by Clay.
 - [The system tests and the kernel crate](../system-tests-and-the-kernel-crate.md): what the kernel linked for its tests, the gate that keeps them out, and where the tests go. Name provisional.
+- [The suite's frame budget](../frame-budget.md): what the system tests may leave unreturned, what they legitimately keep, the conventions, and every number the ceiling has been. Name provisional.
 - [The swish-check CI flake, measured](../swish-check-flake.md): two timing-race reds at one gate, counted over 30 days, explained mechanically. Name provisional.
 - [swish-check failures, 2026W40](../swish-check-flake-2026w40.md): the week's 18 failures classified; the echo splice that looked like it survived milestone 342 (the kernel and the `console` server drive one UART from two address spaces) all predates it. Name provisional.
 - [Crates that could be released on their own, 2026-10-07](../releasable-crates-2026-10-07.md): which crates could leave, who else implements each, and whether to offer them our proofs. Name provisional.
