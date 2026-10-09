@@ -1,17 +1,21 @@
 ---
-status: PROPOSED
+status: NOT-STARTED
 raised: 2026-10-08
+promoted_from: comments-state-the-constraint-as-it-is-now
 milestone_dependencies: none
 decision_dependencies: none
 machine_requirements: none
 specific_machine: none
 needs_person: no
 ---
-# Comments state the constraint as it is now
+# 860. Comments state the constraint as it is now
+
+*(Minted 2026-10-09 (UTC) by lane/promote-proposals from the proposal `comments-state-the-constraint-as-it-is-now`. The number is provisional until the merge queue lands it; the title and slug are drafts.)*
+
 
 Raised for calef, who ruled the shape on 2026-10-07 (UTC) while deciding the forks of
-`notes/comment-cost-2026-10-07.md` (PR #1800, fork (c)); this proposal files the sweep that
-ruling wants, which nothing yet builds.
+`notes/comment-cost-2026-10-07.md` (PR #1800, fork (c)); this block files the sweep that ruling
+wants, which nothing yet builds.
 
 ## The ruling, as made
 
@@ -82,3 +86,7 @@ in where the fact lives, and the sweep records the fact rather than deleting it.
 Everything measured above is in `notes/comment-cost-2026-10-07.md`, including the scripts that
 took each number (`notes/comment-cost-2026-10-07/`). The kept/moved judgments of the thirty-block
 sample are listed block by block there.
+
+## Index row
+
+Comments state the constraint as it is now: the sweep moves history to commit messages and findings to notes, cites rulings by section number, and a ratchet caps comment blocks at about 40 lines. The cost being paid is measured: comment is 2.5 million tokens of a 4.3 million token tree.

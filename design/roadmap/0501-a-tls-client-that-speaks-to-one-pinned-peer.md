@@ -74,7 +74,8 @@ radon or xenon will measure, where nothing is emulated and every cipher runs its
 
 ## Follow-on
 
-- **Proposed.** `design/roadmap/proposals/the-tls-graph-enters-the-gated-build.md`. Today
+- **Milestone 855.** Milestone 855 (the TLS graph enters the gated build), promoted 2026-10-09.
+  Today
   `pinned_tls_exerciser` rides in the archive only when somebody ran
   `helpers/build-pinned-tls-exerciser.sh`, and the test skips in CI, which is 442's posture.
   Milestone 801 (packages over the internet) cannot ship a client no gate builds. Whether a gate

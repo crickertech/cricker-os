@@ -1,6 +1,6 @@
 # The lab machines, read rather than assumed
 
-An appendix of [lab machines update themselves](../lab-machines-update-themselves.md). Read from the tree on
+An appendix of [lab machines update themselves](../0858-lab-machines-update-themselves.md). Read from the tree on
 2026-10-07 (UTC). No lab machine was powered, booted or reached to write it.
 
 | | radon | xenon | argon |

@@ -125,8 +125,8 @@ constructor is `reboot_capability`; and `prepare_reset_route`.
    - C, give `reboot` an ordinary `dir::WRITE` handle: far too much authority for a sync.
    - D, orderly shutdown: the reboot path tells every stateful server to stop taking writes,
      sync and acknowledge before the reset. It is the only option that closes the window. It
-     needs a service manager to own shutdown order, so it is neither `reboot`'s job nor the
-     progenitor's. Filed as `design/roadmap/proposals/orderly-shutdown-closes-the-sync-window.md`.
+      needs a service manager to own shutdown order, so it is neither `reboot`'s job nor the
+      progenitor's. Milestone 853 (orderly shutdown closes the sync window) owns it.
    - E, the kernel calls registered pre-reset endpoints: puts shutdown policy in the kernel,
      against the narrow syscall surface.
    - F, a crash-consistent filesystem, so no sync is needed: still loses recent writes, and

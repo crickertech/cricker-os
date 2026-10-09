@@ -37,7 +37,7 @@ block server cannot reach a drive until three things exist:
 1. Milestone 163 (the JH7110's PCIe root complex), still NOT-STARTED on a hardware gate.
 2. An xHCI driver. Milestone 242 (USB host and HID) is building one for xenon, and radon shares it.
 3. A USB mass-storage driver (bulk-only transport carrying SCSI), which no milestone covered. It is
-   filed as a proposal, `design/roadmap/proposals/usb-mass-storage.md`, so that radon's storage
+   milestone 859 (a USB mass-storage driver), so that radon's storage
    has an owner.
 
 The microSD bench step in notes/designware-mobile-storage.md still stands. It proves the MSHC

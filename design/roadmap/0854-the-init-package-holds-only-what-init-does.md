@@ -1,13 +1,17 @@
 ---
-status: PROPOSED
+status: NOT-STARTED
 raised: 2026-10-06
+promoted_from: the-init-package-holds-only-what-init-does
 milestone_dependencies: 611
 decision_dependencies: none
 machine_requirements: none
 specific_machine: none
 needs_person: no
 ---
-# The init package holds only what init does
+# 854. The init package holds only what init does
+
+*(Minted 2026-10-09 (UTC) by lane/promote-proposals from the proposal `the-init-package-holds-only-what-init-does`. The number is provisional until the merge queue lands it; the title and slug are drafts.)*
+
 
 Raised 2026-10-06 (UTC) by lane `init-package-regrouping`, on calef's approval of a maintainer
 request the same day. The lane moved nothing in code or in `packages/`; this file is the whole of
@@ -36,7 +40,7 @@ follow-on lanes is at the end.
 
 Milestone 611 (every program and crate belongs to a package) put eight programs and three crates in
 `init`. Its own file carries two dated exceptions saying one of its crates "is integration, not
-init", and [notes/package-boundaries.md](../../../notes/package-boundaries.md) lists the same pair as
+init", and [notes/package-boundaries.md](../../notes/package-boundaries.md) lists the same pair as
 a limitation. The maintainer's starting proposal was to keep the supervision spine and move the rest
 to three new packages. This lane tested that against the code. Three of its premises did not hold.
 
@@ -45,7 +49,7 @@ to three new packages. This lane tested that against the code. Three of its prem
 1. `broker` is not a memory broker. It is the queue broker of milestone 23 (a capability-routed
    component OS with live replacement), the latency ladder's middle rung (§41 (the endpoint is the
    broker)): a process that buffers requests while a backend is being replaced. The memory broker of
-   [a running program acquires more memory](a-running-program-acquires-more-memory.md) is a separate
+   milestone 851 (a running program acquires more memory as it needs it) is a separate
    program, `memory_broker`, provisional, and not built.
 2. `swapper` has nothing to do with memory or swap space. It is milestone 23's hot-swap operator,
    which replaces a running component under a talking client. Linux calls its PID 0 `swapper`
@@ -96,9 +100,8 @@ Alternatives:
 
 - Leave it in `init`. This matches systemd, whose journald ships in the same Debian binary package
   as PID 1 (recalled). It fits less well here. nife's log service is a separate address space with
-  its own protocol crate. The service manager that the orderly
-  shutdown proposal on #1783 foresees would stop it as one stateful
-  server among several, not as part of itself.
+  its own protocol crate. The service manager that milestone 853 (orderly shutdown closes the sync
+  window) foresees would stop it as one stateful server among several, not as part of itself.
 - Put it in a broader `logging` package that a later durable log writer would join. Nothing else
   exists to join it yet, and a package is the unit that releases together.
 
@@ -181,7 +184,7 @@ Where they arise:
   leave implementation crates).
 - `http_response`: used only by `fetch`, the package installer's download. calef ruled on
   2026-10-06 that the package client becomes a program, `jig`
-  ([milestone 809 (the package client becomes a program)](../0809-the-package-client-becomes-a-program.md)). Once `jig`
+  ([milestone 809 (the package client becomes a program)](0809-the-package-client-becomes-a-program.md)). Once `jig`
   fetches, the progenitor no longer does, and this exception goes with the code.
 
 Alternatives:
@@ -207,7 +210,8 @@ both exception reasons and in the package-boundaries limitation, since it misdes
 
 `root_supervisor`, `spawner` and `sub_server_supervisor` are test-only today. By the "what a program
 is" test they are init's design: a first process that gives its authority away, a builder that can
-build one thing, and a restart policy that holds no memory. The orderly shutdown proposal names them
+build one thing, and a restart policy that holds no memory. Milestone 853 (orderly shutdown closes
+the sync window) names them
 as nife's supervision tree. Moving them to `fixtures` would be accurate about who runs them and wrong
 about what they are.
 
@@ -232,12 +236,13 @@ program list. What blocks it:
 - Collision cost. Every lane adding a program edits `components/Cargo.toml`, so a split is a quiet-queue job.
 
 Splitting in place, one crate per package inside this repository, needs none of the three. It is a
-possible first step for 691, not a fork of this proposal.
+possible first step for 691, not a fork of this block.
 
 ## Pending members
 
-- `reboot`, on #1783, is placed in `init`. That matches Debian, where `reboot` ships with the init
-  system (recalled). This proposal agrees.
+- `reboot` is placed in `init`, which milestone 805 (`reboot` at the prompt) landed. That matches
+  Debian, where `reboot` ships with the init
+  system (recalled). This block agrees.
 - `memory_broker`, when built, goes to a new `memory` package; see Fork 3.
 
 ## Names
@@ -273,7 +278,7 @@ item waits on it.
    `init`. A code change; it waits on nothing.
 5. Fork 4b: the package installer's fetch moves to `jig`, and the `http_response` exception leaves
    `init`. Waits on `jig` existing, which is
-   [milestone 809 (the package client becomes a program)](../0809-the-package-client-becomes-a-program.md),
+   [milestone 809 (the package client becomes a program)](0809-the-package-client-becomes-a-program.md),
    not yet built. This item is that program's work, not a lane of its own.
 6. Fork 5: say in `init`'s package header that the supervision tree runs only under
    `system_tests`, and close the gap. The record is one comment and can ride with item 1 or 2;
@@ -282,5 +287,9 @@ item waits on it.
    `system_initializer` "integration, not init". Items 4 and 5 delete the exceptions, and the
    limitation's wording goes with the last of them.
 
-`reboot` (on #1783, still open) joins `init` as that pull request places it, and `memory_broker`
+`reboot` joined `init` when milestone 805 (reboot at the prompt) landed, and `memory_broker`
 starts a `memory` package when it is built.
+
+## Index row
+
+The init package holds only what init does: `system_log` leaves for a `system-log` package, `swapper` for `fixtures`, `broker` stays and is renamed `queue_broker`, and `system_initializer` stays with its two exceptions retired where they arise. Five forks ruled by calef on 2026-10-07; the worklist is one lane per item.

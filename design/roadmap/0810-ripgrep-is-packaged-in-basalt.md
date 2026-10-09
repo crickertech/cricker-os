@@ -10,7 +10,7 @@ needs_person: no
 # 810. `ripgrep` is packaged in basalt and installed with `jig`
 
 *(Minted 2026-10-07 (UTC) by lane `package-runtime-requirements` from fork 4 of the proposal
-[a package declares what it needs at run time](proposals/a-package-declares-what-it-needs-at-run-time.md),
+[milestone 849 (a package declares what it needs at run time)](0849-a-package-declares-what-it-needs-at-run-time.md),
 pull request #1797. The number is provisional until the merge queue lands it; the title and slug are
 drafts.)*
 

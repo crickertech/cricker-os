@@ -1,7 +1,7 @@
 #!/bin/sh
 # Does a Rust TUF client build for nife's targets? Cross-compile only. Name provisional.
 #
-#   design/roadmap/proposals/lab-machines-update-themselves/tuf-probe.sh nife|host [probe...]
+#   design/roadmap/0858-lab-machines-update-themselves/tuf-probe.sh nife|host [probe...]
 #
 # The recipe is notes/filesystem-crates-2026-10-07/probe.sh's (PR #1803), itself script/crypto-probes':
 # each probe is generated OUTSIDE the repository, so rust-toolchain.toml cannot beat

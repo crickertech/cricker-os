@@ -1163,8 +1163,8 @@ pub mod cycle_counter {
         /// programmable one (`hpmcounter3` on QEMU's `rva23s64` model) rather than `mcycle`.
         /// Both count core cycles, but a program comparing its own reads with the kernel's
         /// `bench-probe` lines cannot tell from this value whether they are one counter. Saying
-        /// so needs the kernel to tell the process, which no channel does today; it is proposed
-        /// in `design/roadmap/proposals/a-program-asks-whether-it-may-read-the-cycle-counter.md`.
+        /// so needs the kernel to tell the process, which no channel does today; milestone 856
+        /// (a program asks whether it may read the cycle counter) proposes it.
         CoreCyclesEveryMode = 2,
         /// **`x86_64`: constant-rate reference cycles, not core cycles.** The TSC, read with
         /// `rdtsc`, ambient in ring 3 (DECISIONS §139 (who may read the cycle counter, and by what

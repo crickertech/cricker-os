@@ -4,8 +4,8 @@ Measured and looked up 2026-10-07 (UTC) at base `cd2f93de` by lane/releasable-cr
 it on ruling fork 2 of #1803 (nife writes its own FAT crate and releases it independently): *"I
 suspect we have other such crates."* And then: *"assess for each of the releasable ones what the
 other implementations are so that we could work with those owners to add the proofs we need rather
-than jumping their missions."* The forks are in the proposal
-[crates-released-on-their-own](../design/roadmap/proposals/crates-released-on-their-own.md). The
+than jumping their missions."* The forks are in
+[milestone 857 (crates released on their own)](../design/roadmap/0857-crates-released-on-their-own.md). The
 appendices are in [releasable-crates-2026-10-07/](releasable-crates-2026-10-07/README.md).
 
 The question, so the data has a reader: which crates in this tree are useful outside nife, and for

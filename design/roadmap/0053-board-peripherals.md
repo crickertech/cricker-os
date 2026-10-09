@@ -1,7 +1,7 @@
 ---
 status: PARTIAL
 raised: 2026-07-31
-milestone_dependencies: 163, 242
+milestone_dependencies: 163, 242, 859
 decision_dependencies: none
 machine_requirements: riscv64 silicon with an NVMe controller and a NIC
 specific_machine: radon (the first runs of both halves)
@@ -144,8 +144,9 @@ and both trees are GPL and were read for hardware facts only.
   refused the second microSD partition, the eMMC socket and NVMe for now. It needs milestone 163 (the
   JH7110's PCIe root complex), because radon's USB 3 ports sit behind a VL805 on PCIe. It needs the
   xHCI driver of milestone 242 (USB host and HID, because on commodity hardware the keyboard is not
-  a UART). It also needs a USB mass-storage driver, filed as the proposal `usb-mass-storage`. That
-  proposal takes a number at merge, and this block's dependencies take it then. The microSD bench
+  a UART). It also needs a USB mass-storage driver, milestone 859 (a USB mass-storage driver:
+  bulk-only transport and SCSI, as a confined server), which joined this block's dependencies at
+  its promotion. The microSD bench
   step above still proves the MSHC driver; it is no longer the block server's target.
 - **Outstanding.** The IDMAC data path, once the network half's coherence probe has read radon's
   DMA coherence (milestone 655 (DMA on a non-coherent RISC-V machine)); then high speed and an

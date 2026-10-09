@@ -1,6 +1,6 @@
 # The nine forks as calef read them
 
-An appendix of [lab machines update themselves](../lab-machines-update-themselves.md). These are the
+An appendix of [lab machines update themselves](../0858-lab-machines-update-themselves.md). These are the
 options and recommendations as presented on #1805 on 2026-10-07 (UTC), kept as the argument. Every
 fork is ruled; the rulings, with his words, are the main body's table, and where a ruling recast a
 fork (5, 6 and 9) the ruling wins over the text here.

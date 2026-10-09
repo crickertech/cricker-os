@@ -1,13 +1,17 @@
 ---
-status: PROPOSED
+status: NOT-STARTED
 raised: 2026-10-06
+promoted_from: the-tls-graph-enters-the-gated-build
 milestone_dependencies: 501
 decision_dependencies: unwritten
 machine_requirements: none
 specific_machine: none
 needs_person: no
 ---
-# The TLS graph enters the gated build
+# 855. The TLS graph enters the gated build
+
+*(Minted 2026-10-09 (UTC) by lane/promote-proposals from the proposal `the-tls-graph-enters-the-gated-build`. The number is provisional until the merge queue lands it; the title and slug are drafts.)*
+
 
 Raised 2026-10-06 (UTC) by the lane for milestone 501 (a TLS client that speaks to one pinned
 peer). It built the client and found that nothing checks it keeps working.
@@ -50,3 +54,7 @@ written, and the crates are the ones §196 and §198 already took.
 The lane recommends the first. The second buys nothing §46 asks for. The third finds a break
 days late, on nobody's pull request. The fourth leaves the client unchecked through the toolchain
 bumps most likely to break it.
+
+## Index row
+
+The TLS graph enters the gated build: both exerciser programs build in CI's kernel legs, their host tests run in `script/test`'s host phase, and the crates fetch from crates.io as the rest of the workspace does. Milestone 801 (packages over the internet) cannot ship a client no gate builds.
