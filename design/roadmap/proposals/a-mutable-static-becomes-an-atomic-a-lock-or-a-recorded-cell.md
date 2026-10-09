@@ -17,6 +17,27 @@ Reuse: the tree's own `IrqSafeMutex`, `core::sync::atomic`, and `core::cell::Syn
 The count is one more population in `helpers/rust_source.py`'s census. Nothing is written beyond
 that.
 
+## The ruling, 2026-10-09 (UTC)
+
+The architect in session ruled on open question 1 on 2026-10-09 (UTC). That architect is not listed
+in [ARCHITECTS.md](../../../ARCHITECTS.md), so the record names the role and the session rather than
+a username. The five x86_64 tables the CPU reads (`IDT`, `TSS`, `GDT`, `INSTALLED_PORT_GRANT` and
+`BENCH_IOMAP`) move to nightly `SyncUnsafeCell`. The hand-written wrapper is refused.
+
+### The feature gate, recorded as the dependency it is
+
+`#![feature(sync_unsafe_cell)]` is a dependency on an unstable `core` API, so it is recorded the
+way §46 (thin primitives or whole subsystems) asks of a dependency:
+
+- What is taken: one type, `core::cell::SyncUnsafeCell`, behind one feature gate in the kernel
+  crate. Nothing is vendored and no crate is added.
+- Why it wins: it carries the thread-safety claim once, in `core`, where five wrappers would each
+  add a claim to the unsafe census's `unsafe-thread-safety-claims` ceiling.
+- What it costs: a toolchain bump can rename or remove an unstable API. The tree is pinned
+  (`rust-toolchain.toml`), so the break lands in the bump's own pull request, where the gates run.
+- The way out: if the feature changes shape, the fallback is the refused wrapper, with a written
+  raise of that ceiling per site. If it stabilizes, the gate line is deleted.
+
 ## The problem
 
 A `static mut` is shared mutable state the compiler does not reason about. Every access is
@@ -89,17 +110,18 @@ process", which 812 ends, and converting them first would do 812's work without 
 
 1. The census counts `static mut` declarations, and a ceiling at the tree's exact value runs in
    `script/lint`.
-2. The kernel declares no `static mut`. Each site is an atomic, a lock, or a `SyncUnsafeCell`
-   whose comment names the hardware or boot-order fact that makes plain access sound.
+2. The kernel declares no `static mut`. The five x86_64 tables the CPU reads are each a
+   `SyncUnsafeCell`, under `#![feature(sync_unsafe_cell)]` (the ruling above). The other three are an
+   atomic, a lock or a `SyncUnsafeCell`, whichever fits. Each cell's comment names the hardware or boot-order fact that makes plain
+   access sound.
 3. `uefi_loader`, `loaded_image_check` and `redoxfs_server` declare none, or carry a recorded
    exception at the site.
 4. The ceiling then reads 27, all in `components/`, and milestone 812's block cites it.
 
 ## Open questions for an architect
 
-1. `#![feature(sync_unsafe_cell)]` in the kernel. The tree is pinned to nightly already, but each
-   feature gate is one more thing a toolchain bump can break. The fallback is the hand-written
-   wrapper, with a raise of the thread-safety ceiling per site.
+1. Ruled 2026-10-09 (UTC): yes, `#![feature(sync_unsafe_cell)]` for the five CPU-read tables. The
+   question was whether one more feature gate a toolchain bump can break is worth it.
 2. `loaded_image_check`'s two markers test that `.data` and `.bss` were loaded. An `AtomicU64`
    lands in the same sections, so the test still means what it says. Is that the reading wanted?
 3. Should the components' 27 wait for 812, or convert now where the change is local?

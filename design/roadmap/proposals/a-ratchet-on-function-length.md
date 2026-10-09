@@ -17,6 +17,15 @@ It reuses the lint ratchet specified in
 Reuse: clippy's `too_many_lines`, and `helpers/file_length_ratchet.py`'s rules from milestone 841
 (a ratchet on Rust file length). Nothing is written but the row key below.
 
+## The rulings, 2026-10-09 (UTC)
+
+The architect in session ruled on two of this proposal's questions on 2026-10-09 (UTC). That
+architect is not listed in [ARCHITECTS.md](../../../ARCHITECTS.md), so the record names the role and
+the session rather than a username.
+
+- Open question 1, the threshold: 100 code lines. Every function over it today is baselined.
+- Open question 4: `kernel_main` is split by boot phase. Done criterion 4 records it.
+
 ## The problem
 
 §266 (a Rust source file stays under 2,000 lines) bounds a file so a reader can load it in one
@@ -63,7 +72,7 @@ rules are the file-length ratchet's. A function not on the list fails over the t
 function may not grow against the merge base or past its row. `--bank` lowers a row and nothing
 raises one. A renamed function moves its row.
 
-The threshold recommended is 100, clippy's default. The tree's p99 is 89, so 100 leaves 99% of
+The threshold is 100, clippy's default (ruled 2026-10-09 UTC). The tree's p99 is 89, so 100 leaves 99% of
 functions untouched, and the baseline starts at 39 rows, 8 of them in the kernel. 150 would list 14.
 
 §266's warning carries over. A line ceiling rewards deleting comments, and `too_many_lines` does
@@ -73,24 +82,26 @@ does.
 
 ## Done when
 
-1. `too_many_lines` runs in the lint ratchet at the ratified threshold, with a selftest.
-2. The baseline holds every function over the threshold, keyed by file and name.
+1. `too_many_lines` runs in the lint ratchet at 100 code lines, with a selftest.
+2. The baseline holds every function over 100 today, keyed by file and name, 39 rows at the census.
 3. Its dashboard row reads the tree, as milestone 841's row does, so the long tail is visible
    without opening the baseline.
+4. `kernel_main` is split by boot phase, one function per phase, and its row is banked down or
+   removed. No recorded exception at the site is needed.
 
-Burning the list down is not this milestone. Each long function is its own split, as file splits
-became their own blocks after milestone 841.
+Burning the rest of the list down is not this milestone. Each other long function is its own split,
+as file splits became their own blocks after milestone 841.
 
 ## Open questions for an architect
 
-1. The threshold: 100 (39 rows), 150 (14) or 200 (10)?
+1. Ruled 2026-10-09 (UTC): 100, with the 39 functions over it baselined. The options were 100,
+   150 (14 rows) and 200 (10).
 2. The unit. §266 counts physical lines and this counts code lines, so a 120-line function with 30
    lines of comment passes at 100. Code lines is the recommendation, since it removes the comment
    incentive; it does mean the two ratchets disagree on what a line is.
 3. `excessive_nesting` at a threshold of 6 (10 blocks), as a second count in the same ratchet?
-4. Is `kernel_main` a function to split, or a boot sequence read top to bottom on purpose? A
-   recorded exception at the site is the alternative. The file-length ratchet provides none, so
-   this would be the first.
+4. Ruled 2026-10-09 (UTC): `kernel_main` is split by boot phase (done criterion 4). The question
+   was whether to split it or keep it as one boot sequence under a recorded exception.
 
 ## Where it sits in the ranking
 

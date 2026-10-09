@@ -17,6 +17,13 @@ It reuses the lint ratchet specified in
 Reuse: rustc's `#[expect]` and its `reason =` field, and clippy's `allow_attributes`,
 `allow_attributes_without_reason` and `ignore_without_reason`. Nothing is written.
 
+## The ruling, 2026-10-09 (UTC)
+
+The architect in session ruled on the thresholds on 2026-10-09 (UTC). That architect is not listed
+in [ARCHITECTS.md](../../../ARCHITECTS.md), so the record names the role and the session rather than
+a username. Suppression counts are frozen per file at today's value and may only go down. There is
+no zero-by-date target, so done criteria 2 and 3 below were rewritten to match.
+
 ## The problem
 
 §38 (a suppression is scoped to an item and carries a reason) has two halves. `script/lint`
@@ -68,10 +75,12 @@ written.
 ## Done when
 
 1. `ignore_without_reason` is in `[workspace.lints.clippy]`, with its count beside it.
-2. Every `allow` in scope is an `#[expect(..., reason = "...")]`, or an `allow` with a reason and a
-   comment saying why it cannot be an `expect`.
-3. `allow_attributes_without_reason` and `allow_attributes` are in `[workspace.lints.clippy]`,
-   and the ratchet's rows for them are gone.
+2. The ratchet counts `allow_attributes_without_reason` and `allow_attributes` per file, frozen at
+   each file's count on 2026-10-09 (UTC), and a row may only go down. A row falls as an `allow`
+   becomes an `#[expect(..., reason = "...")]`, or an `allow` with a reason and a comment saying why
+   it cannot be an `expect`. No row has a date to reach zero.
+3. When both counts reach zero, the two lints move into `[workspace.lints.clippy]` and their rows
+   go. That is the end state, not a criterion this milestone waits on.
 4. The four comments that cite a missing TODO are corrected to say where the work went, or
    deleted. **Done 2026-10-09 (UTC).** The `paging::unmap` TODO was resolved as a design in
    d06791f73 (2026-07-22), so the three that cited it now cite `paging::Mapper::unmap` and

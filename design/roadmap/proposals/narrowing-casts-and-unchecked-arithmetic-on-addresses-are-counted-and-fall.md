@@ -2,7 +2,7 @@
 status: PROPOSED
 raised: 2026-10-09
 milestone_dependencies: none
-decision_dependencies: 61
+decision_dependencies: 61, 268
 machine_requirements: none
 specific_machine: none
 needs_person: no
@@ -17,6 +17,21 @@ two is promoted first builds it.
 
 Reuse: clippy's `cast_possible_truncation`, `cast_sign_loss`, `cast_possible_wrap` and
 `arithmetic_side_effects`. Nothing is written but the ratchet's filter described below.
+
+## The rulings, 2026-10-09 (UTC)
+
+The architect in session ruled on three of this proposal's questions on 2026-10-09 (UTC). That
+architect is not listed in [ARCHITECTS.md](../../../ARCHITECTS.md), so the record names the role and
+the session rather than a username.
+
+- Open question 1: the `u64`/`i64` to `usize` filter gets a short decision of its own rather than
+  stretching §61. It is
+  [§268 (the cast ratchet does not count a 64-bit integer cast to `usize`)](../../decisions/0268-the-cast-ratchet-does-not-count-a-64-bit-integer-cast-to-usize.md),
+  `PROPOSED` with a provisional number.
+- Open question 2: the scope is the 16 measured files. A file is added only when a concrete path
+  from a syscall argument into it is shown.
+- Open question 4, and the thresholds: cast counts are frozen per file at today's value and may only
+  go down. There is no zero-by-date target, so done criteria 2 and 3 below were rewritten to match.
 
 ## The problem
 
@@ -66,32 +81,35 @@ count by becoming `u32::try_from(x)?`, a checked or explicitly `wrapping_` opera
 
 ## Scope
 
-Recommended: `kernel/src/syscall.rs`, the memory and page-table files listed above, and the four
-crates. That is 16 files with 213 hits after the filter drops 32: 167 arithmetic, 11 truncation,
+Ruled 2026-10-09 (UTC): `kernel/src/syscall.rs`, the memory and page-table files listed above, and
+the four crates. That is 16 files with 213 hits after the filter drops 32: 167 arithmetic, 11 truncation,
 25 wrap and 2 sign-loss. The rest of the tree is not counted.
-Widening it is a reviewed edit to the scope list. The parsers' arithmetic belongs to the panic
+Widening it is a reviewed edit to the scope list, and it needs a concrete path from a syscall
+argument into the new file. The parsers' arithmetic belongs to the panic
 proposal, which shares the overflow boundary.
 
 ## Done when
 
-1. The four lints run in the lint ratchet over the scope, with the `usize` filter and a selftest
-   fixture that proves the filter drops exactly that class.
-2. `syscall.rs` carries no truncation, wrap or sign-loss hit. Each of its 29 is fixed or carries
-   an `#[expect(..., reason = "...")]` saying why the value is in range.
-3. The memory and page-table scope's baseline is set, and the truncation rows are at zero.
+1. The four lints run in the lint ratchet over the scope, with §268's `usize` filter and a
+   selftest fixture that proves the filter drops exactly that class.
+2. The baseline freezes each of the 16 files at its count on 2026-10-09 (UTC), and a row may only go
+   down. `syscall.rs`'s 29 cast hits fall as each is fixed or given an
+   `#[expect(..., reason = "...")]` saying why the value is in range, with no date to reach zero.
+3. A file joins the scope only with a shown path from a syscall argument into it, in the same
+   change that adds its row.
 4. The `Cargo.toml` paragraph that records `cast_possible_truncation` as deliberately absent is
    amended to say where the lint now runs and why.
 
 ## Open questions for an architect
 
-1. Is a filtered ratchet acceptable against §61's rule, or does it need a section of its own?
-2. Which files are syscall-argument handling? `syscall.rs` dispatches, and arguments flow into
-   `sched.rs`, `cap.rs` and `revoke.rs`. Counting all of `sched.rs` adds 20 arithmetic hits that
-   are mostly scheduler bookkeeping.
+1. Ruled 2026-10-09 (UTC): a section of its own, §268 (provisional). The question was whether a
+   filtered ratchet is acceptable against §61's rule.
+2. Ruled 2026-10-09 (UTC): the 16 measured files, and a file is added only when a concrete path
+   from a syscall argument is shown. So `sched.rs` and `cap.rs` stay out until one is.
 3. Address newtypes in `paging`: worth a milestone of their own? It is the rung-one answer and the
    larger change.
-4. `arithmetic_side_effects` in the memory scope: ratchet to zero, or to a ceiling? Most of its 167
-   are page-number arithmetic whose bounds are invariants of the frame allocator.
+4. Ruled 2026-10-09 (UTC): a ceiling, frozen at today's value per file, that only falls. The
+   question was whether `arithmetic_side_effects` in the memory scope ratchets to zero.
 
 ## Where it sits in the ranking
 

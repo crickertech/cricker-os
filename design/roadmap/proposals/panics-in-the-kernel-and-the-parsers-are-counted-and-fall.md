@@ -18,6 +18,17 @@ and `indexing_slicing`, configured rather than written. The ratchet copies
 `helpers/file_length_ratchet.py`'s rules, from milestone 841 (a ratchet on Rust file length). No
 dependency is added.
 
+## The rulings, 2026-10-09 (UTC)
+
+The architect in session ruled on two of this proposal's questions on 2026-10-09 (UTC). That
+architect is not listed in [ARCHITECTS.md](../../../ARCHITECTS.md), so the record names the role and
+the session rather than a username.
+
+- Open question 1, the untrusted-input scope: all 32 crates the note lists. Device drivers count as
+  untrusted, so a device is a less-trusted party here, IOMMU or not.
+- The thresholds: panic counts are frozen per file at today's value and may only go down. There is
+  no zero-by-date target, so done criteria 2 and 3 below were rewritten to match.
+
 ## The problem
 
 A kernel panic halts the machine (`kernel/src/panic.rs` ends in `arch::halt`). So a panic that a
@@ -96,20 +107,22 @@ baseline records. Converting them is not this milestone's work.
 
 1. The lint ratchet runs in `script/lint`, with a selftest that runs first, as the file-length
    ratchet's does.
-2. The kernel's syscall entry and every path a syscall argument reaches carry no panic hit. Which
-   files those are is open question 2.
-3. The network and peer-process crates carry no panic hit and no `indexing_slicing` hit.
-4. Each of the 20 crates without a fuzz target has one, or a `BUGS` entry in its own crate saying
+2. The baseline freezes every file in scope at its count on 2026-10-09 (UTC), and a row may only
+   go down. No row carries a target of zero by a date (the thresholds ruling above). The syscall
+   paths and the network and peer-process crates fall as their sites are rewritten.
+3. Each of the 20 crates without a fuzz target has one, or a `BUGS` entry in its own crate saying
    why fuzzing it would not find anything.
-5. The baseline is banked at the end, so every row reads as the tree does.
+4. The baseline is banked at the end, so every row reads as the tree does.
 
 ## Open questions for an architect
 
-1. Which crates count as parsing untrusted input. The note's 32 include device-supplied bytes (an
-   NVMe completion, an ACPI table). Is a device a less-trusted party, given the IOMMU work, or only
-   a disk image and a peer process?
+1. Ruled 2026-10-09 (UTC): all 32 crates, with device drivers counted as untrusted. The question
+   was which crates count as parsing untrusted input, given that the note's 32 include
+   device-supplied bytes (an NVMe completion, an ACPI table).
 2. What counts as syscall-reachable in the kernel. A file list is cheap and goes stale; a module
-   boundary (`syscall.rs` and what it calls) is cleaner and needs a split first.
+   boundary (`syscall.rs` and what it calls) is cleaner and needs a split first. With no zero
+   target, this now decides only which rows a reader watches, not what blocks done. The cast
+   proposal's ruling names 16 files for its own scope.
 3. Is a boot-time `expect` acceptable in the end state? The recommendation is yes, at a ceiling the
    baseline records, since a misconfigured image failing at boot is the right failure.
 4. Does `indexing_slicing` belong in the kernel at all? 89 of its 282 kernel hits are in `arch/`,
