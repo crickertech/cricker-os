@@ -26,6 +26,7 @@ Part of [the notes index](../README.md), which says how to add a line.
 - [The command line as a grant expression](../grant-expression.md): naming a resource at the prompt grants it.
 - [The glob matcher](../glob.md): a pure byte glob matcher with a bounded cost.
 - [Globbing, and the expansion you see is the grant](../glob-grant.md).
+- [What glob deliberately does not match](../glob-scope.md): `**` and qualifiers refused on authority grounds, and the `/`-is-a-byte cost. Name provisional.
 - [A set grant at the prompt](../a-set-grant-at-the-prompt.md): PROPOSED.
 - [Navigating with no global namespace](../shell-navigation.md): `cd`, `pwd`, `ls`, `mkdir` and `rm` as capability builtins.
 - [The shell edits its own line](../shell-line-editing.md): raw mode, Tab completion, and `^C` at the prompt.

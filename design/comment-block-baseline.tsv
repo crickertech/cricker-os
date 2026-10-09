@@ -121,7 +121,7 @@ crates/filesystem_protocol/src/lib.rs:2089	45
 crates/firmware_configuration/src/lib.rs:1	103
 crates/free/src/lib.rs:1	54
 crates/generational_table/src/lib.rs:1	68
-crates/glob/src/lib.rs:1	190
+crates/glob/src/lib.rs:1	153
 crates/globally_unique_identifier_partition_table/src/lib.rs:1	136
 crates/grant_plan/src/lib.rs:1	69
 crates/grant_plan/src/line.rs:1	90

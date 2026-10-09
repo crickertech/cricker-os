@@ -61,53 +61,16 @@
 //! everything it matched, so the default should be the interpretation that grants less. A user who
 //! wants the dotfiles asks for them by name, and gets the larger grant deliberately.
 //!
-//! # `**` is not here, and that is a decision
+//! # `**` and qualifiers are not here, and that is a decision
 //!
-//! Recursive descent (`**/*.rs`) is **out of scope for this crate, permanently, not "not yet".** Two
-//! reasons, and the second is the real one.
-//!
-//! - **It needs a path separator, and the matcher still has no business owning one.** Milestone 47
-//!   settled the syntax on 2026-08-18 and it settled it Plan 9's way: a path is resolved in the
-//!   client, `/` is the root of the holder's own namespace, and the FS server still sees one
-//!   component per request. That answers the question this bullet was waiting on and does not
-//!   change the answer, because the resolution lives in `grant_plan::nav` and in the `std` PAL,
-//!   both of which walk components against capabilities. A matcher that also split paths would be
-//!   a second, unauthorised resolver.
-//! - **`**` is not a matching feature. It is a traversal feature.** `*` says "consider these bytes";
-//!   `**` says "and also descend into that directory, and the one below it". Descending means
-//!   opening a subdirectory, which in this system means holding a capability for it, which is
-//!   enumeration and granting. Putting `**` in a string matcher hides an authority question inside
-//!   a pure function, which is the exact mistake this OS exists to not make.
-//!
-//! So this crate matches **one name**, a single path component, the thing `filesystem_protocol` actually
-//! carries. When path syntax is settled, recursive descent lands as a traversal layer *above* this
-//! crate, walking directory capabilities and calling [`matches()`] per component. That layer is where
-//! `**` belongs, because that is where the authority to descend is.
-//!
-//! **The honest cost, stated where you meet it:** nothing here treats `/` as special. Hand
-//! [`matches()`] a whole path and `*` will happily match across separators, because to this crate a
-//! `/` is a byte like any other. That is a caller error, not a mode. The type system cannot catch it
-//! while a name is `&[u8]`, so it is written down instead.
-//!
-//! # Glob qualifiers are out of scope, and the reason is authority
-//!
-//! zsh's qualifiers are the best thing in its glob engine (`*(.)` for regular files, `*(om[1])` for
-//! the newest, `*(Lm+1)` for over a megabyte) and none of them are here. The roadmap says to settle
-//! this **before** building the matcher around them, so: settled, out, and this crate is not built
-//! around them.
-//!
-//! It is not squeamishness about scope. A qualifier needs type, mtime and size **per candidate**, so
-//! one `enumerate` becomes N `FSTAT` calls and needs a **read right beyond enumerate**. That turns
-//! `echo *(.)`, which reads like a display, into an operation that requires more authority than
-//! listing the directory. In a capability system that is a change to what the command is, not a
-//! feature flag. If qualifiers ever arrive they arrive as a separate, visible step over an already
-//! enumerated set, with the extra right named, and the matcher stays a function of two byte strings.
-//!
-//! POSIX character classes (`[[:alpha:]]`) are out for a smaller reason: the inner `[:` and `:]` are
-//! not syntax here, so `[[:alpha:]]` parses as the class `[[:alpha:]` (members `[`, `:`, `a`, `l`,
-//! `p`, `h`) followed by a literal `]`, and matches the two-byte names `[]`, `:]`, `a]`, `l]`, `p]`
-//! and `h]`. Locale-dependent classes have no meaning on a system with no locale, and a wrong answer
-//! that is quiet is worse than a missing feature, so it is written down here and pinned by a test.
+//! This crate matches **one name**, a single path component, the thing `filesystem_protocol`
+//! actually carries. Recursive descent (`**`) is out **permanently, not "not yet"**: it is a
+//! traversal feature, and descending means holding a capability, which is an authority question a
+//! pure function must not hide. zsh-style qualifiers (`*(.)`, `*(om[1])`) are out for the same
+//! shape of reason: a qualifier needs a read right beyond enumerate, which changes what the
+//! command is. POSIX character classes are out because a locale has no meaning here, and their
+//! quiet misparse is pinned by a test. The arguments, and the `/`-is-a-byte cost of matching one
+//! name, are [notes/glob-scope.md](../../notes/glob-scope.md).
 //!
 //! # Why it cannot be made to hang
 //!
