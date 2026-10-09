@@ -177,8 +177,6 @@
 //! open fork) live in `design/roadmap/0049-users-and-attribution.md`'s BUGS, being facts about
 //! the boot's wiring, not this program's contract.
 
-
-
 #![no_std]
 // Program entry points, not the crates/ library surface milestone 68's ratchet tracks
 // (DECISIONS §107): each `[[bin]]` is its own crate root with one `_start`, and 58 of them
