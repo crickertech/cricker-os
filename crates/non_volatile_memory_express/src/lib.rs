@@ -86,104 +86,10 @@
 //! assert_eq!(prp_pair(0x4000_0000, 3 * 4096, 4096), None);
 //! ```
 //!
-//! Name: ratified 2026-09-17 (calef, DECISIONS §154), **deratifying this crate's own 2026-08-23
-//! ratification** to do it, and performed on 2026-09-18. Refused `nvme`, `nvm_express`,
-//! `nvme_driver` and `nvme_server`; the argument for each is below. Kept as the crates.io name by
-//! calef on 2026-10-07 (UTC), pull request #1806's publish-ours review, whose maintainer comment
-//! reads: "one milestone per crate, minted now, each keeping its tree name (all free on crates.io
-//! as of today) [...] Names are ratified now and permanent on first publication." His words: "Yes,
-//! one per crate". Milestone 814 (proven NVMe queue logic, released on its own) publishes it.
-//!
-//! **What it overturns is its own earlier ratification** (2026-08-23, a kernel-dependency crate
-//! naming review), which read: *"the specification's own name for the device family, the same
-//! claim `pci` and `virtio` make."* That exemption was never the acronym test AGENTS.md states,
-//! and the acronym test is what this name fails. An acronym is spelled out **unless its expansion
-//! teaches nothing**: "peripheral component interconnect" leaves a reader no wiser and `pci`
-//! stays, where "non-volatile memory" tells a reader this crate is about **storage**, which `nvme`
-//! says to nobody who has not already met the word. `virtio` is not an acronym at all, so it was
-//! never evidence for this one.
-//!
-//! **The deciding precedent is in this tree**: `network_time_protocol`, `filesystem_protocol`
-//! (was `fs_proto`), `graphics_protocol` (was `gfx_proto`) and `credential_protocol` (was
-//! `cred_proto`). NTP is at least as famous an acronym as NVMe and this tree spells it out.
-//!
-//! **This is the name milestone 265 said would come**, and a reader meeting it beside `pci` and
-//! `gpt` is owed why those two did not move. 265 narrowed the external-standard exemption to a
-//! boundary on 2026-09-13: *a standard's own name stays whole where it names a format or a piece
-//! of hardware (`elf`, `pci`, `dtb`, `gpt`), and expands where it names a network protocol*, and
-//! it closed by saying nothing mechanical can tell the two apart, so the next name that tests the
-//! line comes to an architect. This is that name.
-//!
-//! **It lands on the protocol side without the line moving.** NVM Express is not a piece of
-//! hardware and not a format; its own specifications define how host software *communicates* with
-//! non-volatile memory across several transports, PCIe among them but also RDMA and TCP, and NVMe
-//! over TCP has its own RFC. `pci` names the bus the messages travel on and `gpt` names a layout
-//! written to a disk, which is why both stay whole while this expands. **That reconciliation is
-//! the maintainer's reading of calef's boundary rather than calef's own words**; if the intent was
-//! to move the line instead, this paragraph is what needs correcting.
-//!
-//! **The line did move, the next day, and the paragraph above is kept as the account it now is.**
-//! DECISIONS §154 (2026-09-18) replaced 265's format-versus-protocol boundary with one question,
-//! whether the expansion is a phrase people say. Under it `gpt` expanded after all, to
-//! `globally_unique_identifier_partition_table`, and `pci` stays for a different reason than the
-//! one given above: not because it names a bus, but because nobody says "peripheral component
-//! interconnect". This crate's own name is unchanged by the switch, since "non-volatile memory" is
-//! spoken under either test.
-//!
-//! **Refused `nvm_express`**, which the maintainer recommended and argued was the faithful
-//! spelling, since "NVM Express" is what the standard and its consortium actually call themselves
-//! and `non_volatile_memory_express` expands an acronym nested inside that name. calef's ruling is
-//! that the rule is about the reader rather than about the vendor, and `NVM` is four letters a
-//! newcomer bounces off whether or not the specification chose to keep them. **Refused `nvme`**,
-//! above. **Refused `nvme_driver` and `nvme_server`** for the program, both of which carry the
-//! same unexpanded word.
-//!
-//! **`script/names --check` reports this name as "refused but live", and that is a parse artifact
-//! rather than a fact.** The refusal clause above runs to the end of its sentence, and that
-//! sentence names `non_volatile_memory_express` while arguing against `nvm_express`, so the
-//! parser records the winner as a refusal too. It is a NOTE and never a failure, the same shape
-//! `video_terminal` carries for a real reason. It was left alone on 2026-09-18 because rewording
-//! the sentence would move the tree-wide refusal count, which is the one gate a performed rename
-//! is measured by; the count held at 273 across this rename.
-//!
-//! **Known cost, recorded rather than hidden**: every datasheet, every error message and this
-//! kernel's own boot output say `nvme`, so a reader grepping the word the machine printed will not
-//! find these identifiers. That is the price of the rule and it was weighed.
-//!
-//! Introduced 2026-08-15 with milestone 53's NVMe block driver. The kernel's module is this
-//! crate's volatile half, the crate/module name-sharing convention AGENTS.md records for
-//! `compositor`.
-//!
-//! **What did not move, and it was most of the word.** Three of the four senses of it are not
-//! identifiers: a citation of the standard (`NVMe 1.4 §3.1`) is the spec's own name; a bench
-//! transcript is evidence and is never edited; and a `BUILT` roadmap block is an account of what
-//! was built under the name it had. Measured across the performed rename on 2026-09-18: **615
-//! occurrences in 93 files before, 477 in 87 files after**, so 138 moved and 477 stayed. Of what
-//! stayed, 241 are the standard as a proper noun in prose, 71 are QEMU's device name or a build
-//! artifact, 68 are the old name inside an account or a quotation, 30 are spec citations, 26 are
-//! a decision or roadmap slug, and 26 are `crates/pci`'s class-code identifiers.
-//! AGENTS.md's own scar is the blind `sed` that rewrote the row recording a name's *refusal*.
-//!
-//! **Four things carried the name and all four moved**: this crate, `kernel/src/nvme.rs`, the
-//! `Nvme` type inside it, and the program, which took this crate's own name rather than a
-//! `_server` suffix (calef, 2026-09-18; the argument is in
-//! `components/src/non_volatile_memory_express.rs`). `kernel/src/user/nvme_service.rs` and
-//! `nvme_tests.rs` went with the program, because a `<program>_service` module's name is the
-//! program's name plus a suffix and carries no decision of its own.
-//!
-//! **What stayed in the neighbouring crates was deliberate.** `crates/pci`'s `CLASS_NVME`,
-//! `PciNvmeDevice` and `find_nvme_device` name the **PCI class code the specification defines**,
-//! not this crate, so they keep the spelling for the same reason `satp.ASID` and `flush_asid`
-//! kept theirs through §154's first rename. So do QEMU's `-device nvme`, the `NIFE_NVME`
-//! environment variable and `target/nife-nvme.img`: an emulator's device name and a build
-//! artifact are not names this tree gets to choose. `clippy.toml` keeps its `NVMe` entry for the
-//! same reason the citations do, which is that the proper noun survives the rename intact.
-//!
-//! **It was ruled on 2026-09-17 and performed on 2026-09-18**, a day apart on purpose: milestone
-//! 320 was a live lane in `kernel/src/pci.rs` and `crates/pci`, rewriting `find_nvme_device` and
-//! the bus walk around it, and landing a tree-wide rename underneath it would have handed that
-//! lane a conflict in the files it was rewriting. Sequencing the two was cheaper than merging
-//! them (AGENTS.md on the collision surface).
+//! Name: ratified 2026-09-17 (calef, DECISIONS §154), deratifying this crate's own 2026-08-23
+//! ratification, performed 2026-09-18, and kept as the crates.io name on 2026-10-07 (#1806). The
+//! acronym argument, the boundary story, the refused names, and the rename account are in git
+//! history.
 
 /// Register offsets in BAR0 (NVMe 1.4 §3.1). All are 4-byte registers or 8-byte registers the
 /// kernel accesses as two 4-byte halves (the spec permits either for the 64-bit ones).

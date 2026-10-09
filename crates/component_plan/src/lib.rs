@@ -153,36 +153,9 @@
 //! kernel already checks loudly.
 //!
 //! Name: provisional, and ruled: calef ruled **`capability_plan`** on 2026-09-13, working the
-//! unratified worklist. The block stays `provisional` because the ratified name is not this
-//! crate's until the rename is performed, and until then `component_plan` belongs on the worklist
-//! rather than off it. Minted by milestone 23's lane.
-//!
-//! **`component` named the customer; the crate is about capabilities.** calef, shown the old name
-//! and the two alternatives on offer: *"Neither component nor substitution plan convey to me in
-//! the name what this thing is. The word capability seems important to it."* It is, and this
-//! header says so four lines up: §41's test is that *any program that speaks the protocol and
-//! holds the right capabilities is the component*, the protocol half has always been a crate, and
-//! **this crate is the capability half**, lifted out of the literal arrays milestone 23's block
-//! calls "endowments are literals in the operator's source".
-//!
-//! **The argument that lost, recorded because it is a real cost rather than a bad idea.** A grant
-//! *is* a capability, so `capability_plan` and `grant_plan` read as near-synonyms while the four
-//! bullets above insist they are siblings rather than one being a subtype of the other. That
-//! distinction is now the header's to carry rather than the name's, which is where it already
-//! was. `supervision_plan` was the alternative that kills the synonymy by naming who wires (a
-//! shell at a prompt, against a supervisor with nothing typed), and it was refused for dropping
-//! the word that makes the crate legible.
-//!
-//! **A second reason the old name had to go, which arrived on its own.** Milestone 175 landed on
-//! 2026-09-13 and split `user/` into `components/` and `fixtures/`, so `component` now also names
-//! a directory. Those are different senses: §41's component is a contract a program satisfies,
-//! 175's is a place a file sits, and nothing stops a program in `fixtures/` from having one of
-//! these plans. The collision did not decide the ruling and would have needed recording either way.
-//!
-//! Refused `component_manifest` and `manifest` (a second `Manifest` in a tree that already has
-//! `grant_plan::Manifest` is the comprehension disaster this crate's own header argues against),
-//! and `capability_declaration` (a declaration is only half of it; the wiring is the other half and
-//! is where the checking lives, which is why the ratified name keeps `plan`).
+//! unratified worklist. The block stays `provisional` until the rename is performed; minted by
+//! milestone 23's lane. The capability-half argument, the `grant_plan` synonymy cost, the
+//! `components/` directory collision, and the refusals are in git history.
 
 #![no_std]
 

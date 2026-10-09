@@ -51,7 +51,7 @@ components/src/swish.rs:1	100
 components/src/system_installer.rs:1	175
 components/src/system_log.rs:1	80
 components/src/terminal_sink_caretaker.rs:1	56
-components/src/timetable.rs:1	201
+components/src/timetable.rs:1	191
 components/src/top.rs:1	90
 components/src/usb_keyboard_driver.rs:1	55
 components/src/user_timetable_keeper.rs:1	69
@@ -70,7 +70,7 @@ crates/bitmap_font/src/lib.rs:1	104
 crates/block_roster/src/lib.rs:1	83
 crates/board_console/src/board.rs:1	72
 crates/board_console/src/exposure.rs:1	68
-crates/board_console/src/lib.rs:1	186
+crates/board_console/src/lib.rs:1	176
 crates/board_console/src/lottery.rs:1	51
 crates/board_console/src/port.rs:1	52
 crates/board_console/src/progress.rs:1	60
@@ -85,8 +85,8 @@ crates/calendar/src/lib.rs:1	113
 crates/capability/src/lib.rs:1	55
 crates/capability_witness_protocol/src/lib.rs:1	83
 crates/clock_protocol/src/lib.rs:1	118
-crates/component_plan/src/lib.rs:1	185
-crates/component_plan/src/lib.rs:876	46
+crates/component_plan/src/lib.rs:1	159
+crates/component_plan/src/lib.rs:850	46
 crates/compositor/src/lib.rs:1	138
 crates/coremark/src/lib.rs:1	53
 crates/counter_frequency_protocol/src/lib.rs:1	154
@@ -121,7 +121,7 @@ crates/filesystem_protocol/src/lib.rs:2089	45
 crates/firmware_configuration/src/lib.rs:1	103
 crates/free/src/lib.rs:1	54
 crates/generational_table/src/lib.rs:1	68
-crates/glob/src/lib.rs:1	190
+crates/glob/src/lib.rs:1	153
 crates/globally_unique_identifier_partition_table/src/lib.rs:1	136
 crates/grant_plan/src/lib.rs:1	69
 crates/grant_plan/src/line.rs:1	90
@@ -165,7 +165,7 @@ crates/memory_regions/src/table.rs:568	50
 crates/name_resolution_protocol/src/lib.rs:1	83
 crates/network_time_protocol/src/lib.rs:1	149
 crates/nifefs/src/lib.rs:1	91
-crates/non_volatile_memory_express/src/lib.rs:2	185
+crates/non_volatile_memory_express/src/lib.rs:2	92
 crates/package_archive/src/lib.rs:1	144
 crates/page_frames/src/lib.rs:1	73
 crates/paging/src/lib.rs:1	150

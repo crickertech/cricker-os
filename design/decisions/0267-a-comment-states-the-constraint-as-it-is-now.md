@@ -31,9 +31,20 @@ calef, 2026-10-07 (UTC), on what a Rust comment is for, in the sharper form he c
 
 Points 1 through 3 say where each kind of sentence lives. The comment keeps the constraint; the
 commit message keeps the history; a section keeps the semantics and the rulings, and the comment
-cites it. A comment that cannot shrink to its constraint without losing a fact nobody has recorded
-is a bug in where the fact lives. The sweep records the fact, in a note, a `BUGS` entry or a
+cites it. A comment that cannot shrink to its constraint without losing a fact nobody has
+recorded is a bug in where the fact lives. The sweep records the fact, in a note, a `BUGS` entry or a
 section, rather than deleting it.
+
+**Amended 2026-10-09 (UTC), calef, in session**: *"We do not need to capture the full history in
+the tree. That's what source control is for."* and *"Lets remove the refusal records. They're in
+history. We don't need to repeat them in document form. If we need them, which we are unlikely
+to, then we can get them from the commit history."* History that the sweep lifts out of a comment
+goes to the commit message and to git, not to a new document: the sweep does not transplant
+narratives, refusal accounts or correction stories into notes or appendices. What still earns a
+home in the tree is the rule, the ruling, the standing measurement and the current constraint.
+The naming record's refusal archive keeps its own convention (§155 (the naming conventions move
+out of the constitution); design/naming.md says where
+it lives); this amendment ends the sweep adding to it.
 
 The rule the tree already had (AGENTS.md, "Comments": a comment explains a constraint the code
 can't show; never restate the next line) is unchanged. The measurement that asked the question

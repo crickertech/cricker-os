@@ -251,26 +251,3 @@ wires it is `display_terminal`. The crate is named for the protocol it implement
 bytes in and a character grid out). The program is named for its role: the terminal on the display,
 next to `gpu_driver`, the virtio-gpu driver it is a client of. Both facts are true and neither name
 says the other.
-
-## The initializer that is not `init`
-
-`system_initializer` was ratified 2026-08-04 (calef, milestone 96 (one init: the spawn service
-written twice)), and the ratification is what raised milestone 115 (the names that were ratified,
-and the ones that were refused). Two names lost. `system_builder` had already been refused, for a
-reason still true when a lane proposed it anyway and the maintainer endorsed it: `builder.rs` then
-called itself "a minimal init: the system builder", so two programs would claim one phrase. The
-refusal lived in one table cell inside one milestone's block, where neither the lane nor the
-maintainer found it. `builder.rs` was retired 2026-09-14 by milestone 295 (retire
-`components/src/builder.rs`); the quotation is kept because a refusal is an account of why a name
-lost, not a description of the tree. `system_bootloader` lost because it claims a position in the
-boot sequence it does not occupy, and milestone 88 (nife on rented silicon) will need the real
-one. The type the crate exports as `BootEndowment` was ratified the same day, replacing `Grants`.
-
-Asked again 2026-09-13, when the program this crate is the logic of became `progenitor`
-(milestone 266 (one progenitor, on all three architectures)), and refused: calef, *"init is the
-issue not initializer."* `init` is a truncated verb, which is why it lost. `initializer` is an
-agent noun, the thing that initializes, which is what the convention asks for. Milestone 266's own
-house-style list cites `initializer` beside `builder`, `spawner`, `supervisor` and `provisioner`
-as evidence for the convention, and a section later argued the opposite; that contradiction stood
-for five days. The crate is also not the process: it is the initialization, as distinct from the
-thing that runs it, so `progenitor` would fit it worse than it fits the program.

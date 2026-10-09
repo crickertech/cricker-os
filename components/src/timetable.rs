@@ -13,34 +13,24 @@
 //!
 //! # What it holds, and that is the whole list
 //!
-//! The slots and arguments are `timetable::contract`'s, which a session spawning this reads too.
-//!
-//! - slot 0: the output endpoint (WRITE). Where the plan and the summary go, as `byte_sink_protocol`
-//!   bytes. Never touched with a registration page, when everything goes into the page instead.
-//! - slot 1: an untyped budget (WRITE). What every instance is made of, what pays for the loader's
-//!   own scratch mappings, and what a `--mem` entry's grant is carved from (nested inside that
-//!   instance's own region rather than split from this budget directly; see `fire` and `BUGS`).
-//! - slot 2: the child report endpoint (WRITE|GRANT), handed to each instance as its slot 0.
-//! - slot 3: the supervision endpoint (READ|GRANT), placed in each instance's reserved fault slot
-//!   so every scheduled child is born supervised (DECISIONS §26), and invoked with
-//!   `Rendezvous::REAP` to collect the corpses (§32).
-//! - `a0`: how many fires to perform before summarising and exiting. `0` means forever.
-//! - `a2`: where a registration page is mapped, or `0` for none (milestone 129 (scheduled execution), §222 (who holds a
-//!   user's schedule)). With none, the document is the compiled-in `timetable.conf`. With one, the
-//!   timetable starts empty and its document is whatever a registrar last sent with `REPLACE`; see
-//!   `timetable::registration` and "Replacement" below.
-//! - `a1`: the length of the archive the spawn site mapped read-only at
-//!   [`user_mode_runtime::initrd::INITRD_VA`]. **Not the initrd**: it holds exactly the programs this
-//!   document will ever build, because the plan is computable before the first tick and so the
-//!   endowment can be narrowed to it. This process audits that and says what it found, in the
-//!   line after the plan.
+//! The slots and arguments are `timetable::contract`'s, which a session spawning this reads too;
+//! that table is the record. What the slots *are to this process*: slot 0 carries the plan and
+//! the summary, or nothing at all once a registration page holds everything; slot 1 is the
+//! untyped budget every instance is made of, the loader's scratch, and the well a `--mem` entry's
+//! grant is nested in rather than split from (see `fire` and `BUGS`); slots 2 and 3 make
+//! every scheduled child born supervised (§26 (the fault endpoint)) and reaped (§32 (a supervisor
+//! may collect a corpse without being able to build one)). Of the arguments, two carry
+//! facts worth saying here: `a2` is the registration page, without which the document is the
+//! compiled-in `timetable.conf` (milestone 129 (scheduled execution), §222 (who holds a user's
+//! schedule)); and `a1` is **not the initrd** but the archive of exactly the programs this
+//! document will ever build, because the plan is computable before the first tick, and this
+//! process audits that and says what it found, in the line after the plan.
 //!
 //! **It wants a bigger stack than a small program does**, and a spawn site has to say so: a
 //! `grant_plan::Endowment` is about a kilobyte (mostly the name set a directory grant can carry) and
 //! the plan holds one per entry, so the working set is tens of kilobytes rather than hundreds of
 //! bytes. `system_tests/src/user/timetable_tests.rs` maps 48 pages and says why; a stack overflow
-//! here reads like a wild pointer from the kernel side, a data abort whose faulting address is the
-//! stack pointer.
+//! here reads like a wild pointer: a data abort on the stack pointer.
 //!
 //! **And nothing else beyond that budget**, except in store mode below. No clock page, no
 //! directory, no console, no network, no device. That list is not modesty: it is why a scheduled `date` in `timetable.conf` is refused at

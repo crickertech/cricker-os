@@ -61,7 +61,7 @@ Worst first, each shrunk block banked as it fell:
 
 ## Follow-on
 
-- **Proposed.** `design/roadmap/proposals/the-comment-block-sweep-continues.md`: worth three,
+- **Milestone 863.** Milestone 863 (the comment-block sweep continues, worth three):
   with the new worst-first list. The baseline still holds 336 rows.
 
 ## Index row
