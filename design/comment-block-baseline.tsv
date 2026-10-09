@@ -138,7 +138,7 @@ crates/jh7110_clock_and_reset/src/lib.rs:2	184
 crates/jh7110_entropy/src/lib.rs:2	176
 crates/jh7110_entropy/src/lib.rs:370	44
 crates/jh7110_entropy/src/lib.rs:604	41
-crates/job_mix/src/lib.rs:1	197
+crates/job_mix/src/lib.rs:1	140
 crates/line_editor/src/lib.rs:1	142
 crates/loaded_image_check/src/lib.rs:1	76
 crates/login_protocol/src/lib.rs:2	169
