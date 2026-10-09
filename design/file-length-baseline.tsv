@@ -9,7 +9,6 @@
 # rename moves its row in the same change, at the same number. A file that must exceed its row
 # needs §266 amended by an architect, not an edit here.
 path	lines
-components/src/login.rs	2287
 components/src/swish.rs	5980
 crates/component_plan/src/lib.rs	2094
 crates/filesystem_protocol/src/lib.rs	5744
