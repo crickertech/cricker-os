@@ -1013,11 +1013,9 @@ fn descent_transcript() {
     );
     println!("rename across ok");
 
-    // **`remove_dir_all` needed no nife code at all.** std's generic recursion is written in terms
-    // of `read_dir`, `remove_file` and `remove_dir` on paths it composes with `DirEntry::path`, so
-    // it started working the moment those paths resolved. It was `Unsupported` here for two
-    // milestones with a note explaining why, which is the fourth refusal in this PAL to have
-    // outlived its own reason.
+    // **`remove_dir_all` needed no nife code at all**: std's generic recursion is written over
+    // `read_dir`, `remove_file` and `remove_dir` on paths it composes with `DirEntry::path`, so
+    // it works when those do.
     std::fs::remove_dir_all(TREE).expect("remove_dir_all failed");
     assert!(
         !std::fs::exists(TREE).expect("exists after remove_dir_all failed"),
