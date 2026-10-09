@@ -20,9 +20,7 @@ dependency is added.
 
 ## The rulings, 2026-10-09 (UTC)
 
-The architect in session ruled on two of this proposal's questions on 2026-10-09 (UTC). That
-architect is not listed in [ARCHITECTS.md](../../../ARCHITECTS.md), so the record names the role and
-the session rather than a username.
+calef ruled on two of this proposal's questions on 2026-10-09 (UTC).
 
 - Open question 1, the untrusted-input scope: all 32 crates the note lists. Device drivers count as
   untrusted, so a device is a less-trusted party here, IOMMU or not.

@@ -19,10 +19,9 @@ Reuse: rustc's `#[expect]` and its `reason =` field, and clippy's `allow_attribu
 
 ## The ruling, 2026-10-09 (UTC)
 
-The architect in session ruled on the thresholds on 2026-10-09 (UTC). That architect is not listed
-in [ARCHITECTS.md](../../../ARCHITECTS.md), so the record names the role and the session rather than
-a username. Suppression counts are frozen per file at today's value and may only go down. There is
-no zero-by-date target, so done criteria 2 and 3 below were rewritten to match.
+calef ruled on the thresholds on 2026-10-09 (UTC). Suppression counts are frozen per file at today's
+value and may only go down. There is no zero-by-date target, so done criteria 2 and 3 below were
+rewritten to match.
 
 ## The problem
 

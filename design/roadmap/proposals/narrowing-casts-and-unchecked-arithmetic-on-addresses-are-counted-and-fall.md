@@ -20,14 +20,12 @@ Reuse: clippy's `cast_possible_truncation`, `cast_sign_loss`, `cast_possible_wra
 
 ## The rulings, 2026-10-09 (UTC)
 
-The architect in session ruled on three of this proposal's questions on 2026-10-09 (UTC). That
-architect is not listed in [ARCHITECTS.md](../../../ARCHITECTS.md), so the record names the role and
-the session rather than a username.
+calef ruled on three of this proposal's questions on 2026-10-09 (UTC).
 
 - Open question 1: the `u64`/`i64` to `usize` filter gets a short decision of its own rather than
   stretching §61. It is
   [§268 (the cast ratchet does not count a 64-bit integer cast to `usize`)](../../decisions/0268-the-cast-ratchet-does-not-count-a-64-bit-integer-cast-to-usize.md),
-  `PROPOSED` with a provisional number.
+  ratified by calef the same day, with a provisional number.
 - Open question 2: the scope is the 16 measured files. A file is added only when a concrete path
   from a syscall argument into it is shown.
 - Open question 4, and the thresholds: cast counts are frozen per file at today's value and may only

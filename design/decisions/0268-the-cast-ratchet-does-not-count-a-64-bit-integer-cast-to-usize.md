@@ -1,6 +1,8 @@
 ---
-status: PROPOSED
+status: DECIDED
 raised: 2026-10-09
+decided: 2026-10-09
+ratified_by: calef
 ---
 
 # 268. The cast ratchet does not count a 64-bit integer cast to `usize`
@@ -9,13 +11,11 @@ Raised 2026-10-09 (UTC) by a maintainer session. It answers
 [the cast proposal](../roadmap/proposals/narrowing-casts-and-unchecked-arithmetic-on-addresses-are-counted-and-fall.md)'s
 first open question. *(Section number provisional until the merge queue lands it.)*
 
-## The ruling, and why this file still says PROPOSED
+## The ruling
 
-The architect in session ruled on 2026-10-09 (UTC) that the cast count filters out `u64` and `i64`
-to `usize`. The filter gets a short decision of its own rather than stretching §61 (a lint is
-adopted on evidence from this tree). That architect is not listed in
-[ARCHITECTS.md](../../ARCHITECTS.md), and `ratified_by` must name a listed username. So the status
-stays `PROPOSED` until a listed architect ratifies it or the list grows.
+calef ruled on 2026-10-09 (UTC) that the cast count filters out `u64` and `i64` to `usize`, and
+that the filter gets a short decision of its own rather than stretching §61 (a lint is adopted on
+evidence from this tree).
 
 ## What this decides
 

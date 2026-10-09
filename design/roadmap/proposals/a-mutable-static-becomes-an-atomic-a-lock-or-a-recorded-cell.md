@@ -19,10 +19,9 @@ that.
 
 ## The ruling, 2026-10-09 (UTC)
 
-The architect in session ruled on open question 1 on 2026-10-09 (UTC). That architect is not listed
-in [ARCHITECTS.md](../../../ARCHITECTS.md), so the record names the role and the session rather than
-a username. The five x86_64 tables the CPU reads (`IDT`, `TSS`, `GDT`, `INSTALLED_PORT_GRANT` and
-`BENCH_IOMAP`) move to nightly `SyncUnsafeCell`. The hand-written wrapper is refused.
+calef ruled on open question 1 on 2026-10-09 (UTC). The five x86_64 tables the CPU reads (`IDT`,
+`TSS`, `GDT`, `INSTALLED_PORT_GRANT` and `BENCH_IOMAP`) move to nightly `SyncUnsafeCell`. The
+hand-written wrapper is refused.
 
 ### The feature gate, recorded as the dependency it is
 
