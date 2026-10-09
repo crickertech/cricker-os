@@ -301,8 +301,7 @@
 //! Name: ratified 2026-08-04 (calef, milestone 96; the ratification that raised milestone 115 (the names that were ratified, and the ones that were refused)).
 //! The refusals (`system_builder`, `system_bootloader`), the lane that re-proposed one anyway,
 //! the 2026-09-13 re-ask and its answer (*"init is the issue not initializer."*), and the
-//! verb-versus-agent-noun reasoning are
-//! [design/naming/crates.md](../../../design/naming/crates.md)'s record. `BootEndowment` was
+//! verb-versus-agent-noun reasoning are in git history. `BootEndowment` was
 //! ratified the same day, replacing `Grants`.
 
 use core::sync::atomic::AtomicU16;

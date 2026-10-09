@@ -179,8 +179,7 @@
 //! `screen_console`, because a console is named for where its text comes out. The block stays
 //! `provisional` until the rename is performed; coined by milestone 216 (nothing in this tree
 //! can read a board)'s lane on 2026-09-01. The
-//! axis argument, the consequence for `serial_driver`, and the refusals are
-//! [design/naming/programs-scripts-and-directories.md](../../../design/naming/programs-scripts-and-directories.md).
+//! axis argument, the consequence for `serial_driver`, and the refusals are in git history.
 
 pub mod board;
 pub mod exposure;

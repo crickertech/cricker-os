@@ -88,9 +88,8 @@
 //!
 //! Name: ratified 2026-09-17 (calef, DECISIONS §154), deratifying this crate's own 2026-08-23
 //! ratification, performed 2026-09-18, and kept as the crates.io name on 2026-10-07 (#1806). The
-//! acronym argument, the boundary story, the refused names, and the measured 615-to-477 rename
-//! account are
-//! [design/naming/spelled-out-rulings.md](../../../design/naming/spelled-out-rulings.md).
+//! acronym argument, the boundary story, the refused names, and the rename account are in git
+//! history.
 
 /// Register offsets in BAR0 (NVMe 1.4 §3.1). All are 4-byte registers or 8-byte registers the
 /// kernel accesses as two 4-byte halves (the spec permits either for the 64-bit ones).

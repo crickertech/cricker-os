@@ -11,8 +11,7 @@
 //! Rust reimplementation of `kilo`'s spirit and scope, not a port, and it earns its own name for
 //! the same reason the distinction from `line_editor` (a single-line editor) is worth keeping
 //! visible on sight. `rmle`: Rust Multi-Line Editor. The search behind it (every SI-prefix name
-//! in the genre and several metalwork-themed alternatives was already taken) is recorded, with
-//! provenance, in `design/naming/rmle-name-search.md`.
+//! in the genre and several metalwork-themed alternatives was already taken) is in git history.
 //!
 //! # Why Rust and not a port of `kilo.c`
 //!

@@ -16,8 +16,8 @@
 //! The slots and arguments are `timetable::contract`'s, which a session spawning this reads too;
 //! that table is the record. What the slots *are to this process*: slot 0 carries the plan and
 //! the summary, or nothing at all once a registration page holds everything; slot 1 is the
-//! untyped budget every instance is made of, the loader's own scratch, and the well a `--mem`
-//! entry's grant is nested in rather than split from (see `fire` and `BUGS`); slots 2 and 3 make
+//! untyped budget every instance is made of, the loader's scratch, and the well a `--mem` entry's
+//! grant is nested in rather than split from (see `fire` and `BUGS`); slots 2 and 3 make
 //! every scheduled child born supervised (§26 (the fault endpoint)) and reaped (§32 (a supervisor
 //! may collect a corpse without being able to build one)). Of the arguments, two carry
 //! facts worth saying here: `a2` is the registration page, without which the document is the
@@ -30,8 +30,7 @@
 //! `grant_plan::Endowment` is about a kilobyte (mostly the name set a directory grant can carry) and
 //! the plan holds one per entry, so the working set is tens of kilobytes rather than hundreds of
 //! bytes. `system_tests/src/user/timetable_tests.rs` maps 48 pages and says why; a stack overflow
-//! here reads like a wild pointer from the kernel side, a data abort whose faulting address is the
-//! stack pointer.
+//! here reads like a wild pointer: a data abort on the stack pointer.
 //!
 //! **And nothing else beyond that budget**, except in store mode below. No clock page, no
 //! directory, no console, no network, no device. That list is not modesty: it is why a scheduled `date` in `timetable.conf` is refused at

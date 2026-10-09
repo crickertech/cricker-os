@@ -136,8 +136,8 @@
 //! (a multi-tasking workload benchmark)'s lane on 2026-09-04: AIM7's workfile is a *mix* of
 //! *jobs*. The `jobmix` misspelling milestone 296 (the `initboot` feature was `shell`) found and
 //! repaired, the console-marker rule calef ratified on 2026-09-14 (a marker takes the command's
-//! spelling), and the refusals are
-//! [design/naming/job-mix-name.md](../../../design/naming/job-mix-name.md).
+//! spelling), and the refusals are in git history. The marker rule's full account is milestone
+//! 297 (soak becomes soak-test)'s block.
 
 #![no_std]
 #![deny(missing_docs)]

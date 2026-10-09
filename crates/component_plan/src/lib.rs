@@ -155,8 +155,7 @@
 //! Name: provisional, and ruled: calef ruled **`capability_plan`** on 2026-09-13, working the
 //! unratified worklist. The block stays `provisional` until the rename is performed; minted by
 //! milestone 23's lane. The capability-half argument, the `grant_plan` synonymy cost, the
-//! `components/` directory collision, and the refusals are
-//! [design/naming/component-plan-name.md](../../../design/naming/component-plan-name.md).
+//! `components/` directory collision, and the refusals are in git history.
 
 #![no_std]
 

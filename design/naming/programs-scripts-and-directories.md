@@ -208,35 +208,3 @@ that way rather than as a correctness fix.
 Two things look alike and are not: `target/` is gitignored build output and `targets/` is the
 tracked custom target JSON (`aarch64-unknown-nife.json` and its siblings). Nothing enforces the
 distinction.
-
-## A console is named for where its text comes out
-
-Moved from `crates/board_console`'s Name block by milestone 863 (the comment-block sweep
-continues, worth three) on 2026-10-09 (UTC), wording kept except where a sentence had to split.
-
-calef ruled `serial_console` on 2026-09-13, pairing it with `screen_console`. The crate is still
-`board_console` until the rename is performed, and milestone 216 (nothing in this tree can read
-a board)'s block tracks that. The ruling:
-a console is named for where its text comes out. `serial_console` and `screen_console` are two
-consoles over two wires, and that is the scheme a reader holds: not who the console is for, and
-not where the code runs. The maintainer argued the other way twice and was wrong both times,
-which is worth recording because the wrong axis is the tempting one.
-
-The argument that lost, so the next reader can weigh it rather than rediscover it. The crate uses
-`std` and runs on the developer's machine, while `screen_console` is `#![no_std]` and the kernel
-depends on it, so the two are a development tool and a shipped component rather than siblings.
-calef's answer is that the distinction is real and is not what a *console* is named for. It
-belongs in the header, not in the name.
-
-One consequence to record rather than discover. `components/src/serial_driver.rs` is `#![no_std]`
-and drives the UART from EL0 inside nife; the console crate reads the far end of the same cable
-from the host. They are two ends of one wire on two machines, and the names now look like a
-matched pair. That is a cost of the scheme, accepted: a reader meeting both should know the
-driver ships and the console does not.
-
-Refused `board_console` (the pre-ruling name), `board_serial` (it names the transport where the
-transport is the least interesting part), and `bench` (a place rather than a thing).
-
-The open question is not the word but the scope: one crate that learns a board profile, or one
-per board. A name chosen before that is answered may be answering it by accident. Not put to
-calef.

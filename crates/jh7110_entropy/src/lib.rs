@@ -167,8 +167,7 @@
 //! Name: ratified 2026-09-13 (calef), replacing `jh7110_entropy_source`, which he ratified earlier
 //! the same day and superseded on a second pass. Kept as the crates.io name by calef on
 //! 2026-10-07 (UTC, #1806: "Names are ratified now and permanent on first publication."). The stem
-//! argument, the refused names, and the pattern it joins are
-//! [design/naming/jh7110-entropy-name.md](../../../design/naming/jh7110-entropy-name.md).
+//! argument, the refused names, and the pattern it joined are in git history.
 //!
 //! [binding]: https://github.com/torvalds/linux/blob/master/Documentation/devicetree/bindings/rng/starfive%2Cjh7110-trng.yaml
 //! [driver]: https://github.com/torvalds/linux/blob/master/drivers/char/hw_random/jh7110-trng.c
