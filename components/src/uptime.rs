@@ -1,20 +1,13 @@
-//! **`uptime`**: print how long the machine has been counting (milestone 126,
+//! **`uptime`**: print how long the machine has been counting (milestone 126 (the `procps` package),
 //! design/roadmap/0126-who-else-is-running.md, notes/process-view.md).
 //!
 //! The whole program is: read the ambient monotonic counter, hand the nanoseconds to
 //! [`uptime::format`], send the bytes. It holds one capability (the output sink) and cannot
-//! change anything.
-//!
-//! # It needed no new capability, and that is the finding worth stating
-//!
-//! Milestone 126's own BUGS section named `free`, `uptime` and `vmstat` together as "machine
-//! statistics rather than process enumeration," on the assumption all three want kernel-side
-//! accounting nothing exposes today. `uptime` turned out not to: [`user_mode_runtime::monotonic_nanos`] is
-//! the same counter `date` already reads, granted to **every** process unconditionally
-//! (`kernel/src/arch/*/timer.rs`'s documented, deliberate exception to DECISIONS §10's
-//! no-ambient-authority rule). So this program's manifest is `least_authority_demo`'s, not `date`'s: no memory,
-//! no file, no clock capability, no domain, nothing but the report channel every spawn carries.
-//! `free` and `vmstat` are a different body of work; see the roadmap doc's fork write-up for why.
+//! change anything: the counter is granted to every process unconditionally, so the manifest is
+//! `least_authority_demo`'s. The finding (milestone 126 (the `procps` package) assumed this
+//! wanted kernel-side accounting; it did not) is recorded in the process-view note's
+//! machine-statistics appendix, notes/process-view/the-machine-and-your-share.md, moved there
+//! 2026-10-09 (UTC).
 //!
 //! # Capability contract
 //!
