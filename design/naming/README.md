@@ -10,4 +10,7 @@ calef's; `script/names --unratified` lists each stem.*
 
 - [rmle-name-search.md](rmle-name-search.md): new, 2026-10-09, the `rmle` name search (every
   SI-prefix and metalwork candidate was already taken), moved from the program's Name block.
+- [jh7110-entropy-name.md](jh7110-entropy-name.md): new, 2026-10-09, the `jh7110_entropy` name
+  record (the same-day supersession, the crates.io keep, the refused names, and the argument that
+  lost), moved from the crate's Name block.
 
