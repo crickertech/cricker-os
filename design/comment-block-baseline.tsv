@@ -165,7 +165,7 @@ crates/memory_regions/src/table.rs:568	50
 crates/name_resolution_protocol/src/lib.rs:1	83
 crates/network_time_protocol/src/lib.rs:1	149
 crates/nifefs/src/lib.rs:1	91
-crates/non_volatile_memory_express/src/lib.rs:2	185
+crates/non_volatile_memory_express/src/lib.rs:2	92
 crates/package_archive/src/lib.rs:1	144
 crates/page_frames/src/lib.rs:1	73
 crates/paging/src/lib.rs:1	150
