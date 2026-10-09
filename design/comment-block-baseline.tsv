@@ -29,7 +29,7 @@ components/src/jh7110_entropy.rs:1	112
 components/src/job_undertaker.rs:1	86
 components/src/keyboard_driver.rs:1	69
 components/src/line_editor.rs:1	56
-components/src/login.rs:1	689
+components/src/login.rs:1	178
 components/src/login_audit_receiver.rs:1	65
 components/src/mdr.rs:1	116
 components/src/name_resolver.rs:1	92
@@ -42,7 +42,7 @@ components/src/printenv.rs:1	67
 components/src/ps.rs:1	83
 components/src/reboot.rs:1	50
 components/src/rm.rs:1	54
-components/src/rmle.rs:1	65
+components/src/rmle.rs:1	64
 components/src/serial_driver.rs:1	42
 components/src/socket_squatter.rs:1	44
 components/src/socket_test_client.rs:1	53
@@ -293,7 +293,6 @@ kernel/src/sync.rs:1	47
 kernel/src/sync.rs:55	64
 kernel/src/syscall.rs:316	41
 kernel/src/testing.rs:16	49
-kernel/src/testing.rs:240	468
 kernel/src/user.rs:337	46
 kernel/src/user.rs:2286	52
 kernel/src/user/e1000e_service.rs:1	54
