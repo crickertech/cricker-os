@@ -1,13 +1,18 @@
 ---
-status: PROPOSED
+status: IN-PROGRESS
 raised: 2026-10-09
+branch: milestone/863-the-comment-block-sweep-continues
+promoted_from: the-comment-block-sweep-continues
 milestone_dependencies: 862
 decision_dependencies: 267
 machine_requirements: none
 specific_machine: none
 needs_person: no
 ---
-# The comment-block sweep continues, worth three
+# 863. The comment-block sweep continues, worth three
+
+*(Minted 2026-10-09 (UTC) by lane `milestone/863-the-comment-block-sweep-continues` from the proposal `the-comment-block-sweep-continues`. The number is provisional until the merge queue lands it; the title and slug are drafts.)*
+
 
 Raised 2026-10-09 (UTC) by the lane that built milestone 862 (the comment-block sweep's next
 worth), at the end of its worth. §267 (a comment states the constraint as it is now) caps a
@@ -27,3 +32,7 @@ is banked. The method, the refused alternatives and the evidence are milestone 8
 
 Reuse: the ratchet, the lexer and the baseline already exist (milestone 860 built them). This
 worth only runs the sweep and banks, and takes no new code.
+
+## Index row
+
+The comment-block sweep's third worth: timetable's remainder, glob, board_console, the NVMe crate and component_plan, each shrunk to the constraint as it is now and banked. History goes to commit messages, findings to notes, naming records to design/naming/.
