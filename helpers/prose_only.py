@@ -77,12 +77,38 @@ workflow itself) run everything. The tools and metrics.yml also stop counting as
 prose, which is what lets #1831's note edit skip (the page names itself in both). `script/metrics --selftest` has no gate of its own, so the
 `lint` job, which never skips, runs it.
 
+# HOST-ONLY OUTPUTS
+
+#1878 (the 2026W41 metrics update, 2026-10-09 UTC) changed the page and thirteen generated records
+under `notes/project-metrics/` and ran the kernel suite, because `.csv` and `.svg` records are not
+Markdown and `baseline-drift.md` is named by `script/citations`. The records are written by the
+host-only tools above, so they ride the same skip: HOST_ONLY_OUTPUTS lists the one directory those
+tools write, and a changed file under it skips when no scanned file outside the tools, their runner
+and `.githooks/` names it on a non-comment line.
+
+Unlike the tools rule this check does NOT forgive namers under `script/` and `helpers/`. A gated
+script naming a data path on a code line is a read until proven otherwise:
+`helpers/verify_times.py` names `falsification-times.tsv` and `verify-runs.csv` precisely because
+`script/verify` shards by them (that is why it is not a host-only tool), and those files still run
+everything. The one exception is a pathspec exclusion: `script/citations` names
+`baseline-drift.md` only inside `:!`, which names a path to not read it, and lint runs citations on
+every pull request besides, so a `:!`-prefixed naming does not count. The namers outside the
+forgiven set on 2026-10-09 were `helpers/verify_times.py` (the two verify tables, gated) and
+`falsifications.yml`, `verify-shard-refresh.yml` and `mutation.yml` (scheduled, none a pull-request
+job), each naming its own files, so every record a gated job reads keeps running everything.
+
 # BUGS
 
 - **HOST_ONLY_TOOLS is a hand-kept list, and a script that begins to call a listed tool is not
   seen.** The root check covers callers outside `script/` and `helpers/` only. A new `script/x`
   that runs `script/metrics` and is run by a gated job would let a metrics-only change skip a job
   that now depends on it. None does on 2026-10-07; nothing checks that none does later.
+- **HOST_ONLY_OUTPUTS forgives exact-path namings only.** A file under the prefix that nothing
+  names by its full path skips: `mutation-survivors/`'s census copies are named by `mutation.yml`
+  only through the directory (`git add notes/project-metrics`), so they skip; nothing a pull
+  request job runs reads them, and the pull requests that carry them are opened with GITHUB_TOKEN,
+  which starts no CI at all. A reference through a runtime-built path or a bare basename is
+  equally invisible. A second host-only data directory needs its own row in the list.
 - **A directory read outside Rust is logged, not acted on.** A script that walks `design/` (lint's
   roadmap, citations and decisions checks, `helpers/prose_ratchet.py`) is printed as a reader and
   does not stop the skip, because lint runs on every pull request and skipping nothing would be the
@@ -143,6 +169,12 @@ HOST_ONLY_TOOLS = (
 # The one workflow that runs them, and so not a reader that makes them inputs.
 HOST_TOOL_RUNNER = ".github/workflows/metrics.yml"
 
+# The directory those tools write, generated records rather than prose: the weekly page's tables
+# and charts. A changed file under it skips on the HOST-ONLY OUTPUTS rule in the docstring, which
+# unlike the tools rule counts namers under script/ and helpers/ (script/verify reads two of these
+# files) and forgives only the tools, their runner, hooks and `:!` pathspec exclusions.
+HOST_ONLY_OUTPUTS = ("notes/project-metrics/",)
+
 
 def host_tool_readers(tool, tree):
     """Files outside script/, helpers/, hooks and the runner that name `tool` on a code line."""
@@ -158,6 +190,25 @@ def host_tool_readers(tool, tree):
         for n, line in code_lines(path, text):
             if any(p.search(line) for p in pats):
                 out.append(f"{path}:{n}")
+                break
+    return out
+
+
+def host_output_readers(path, tree):
+    """Scanned files that name a generated record on a code line and are not forgiven for it.
+
+    The forgiven are the host-only tools (they write the records), their runner, hooks, and the
+    `:!` pathspec exclusion, the one shape that names a path to not read it (script/citations
+    excludes baseline-drift.md). Everything else counts, script/ and helpers/ included, because
+    helpers/verify_times.py names the tsv script/verify shards by and is exactly a gated reader."""
+    pat = re.compile(r"(?<!:!)" + re.escape(path) + r"(?![A-Za-z0-9_-])")
+    out = []
+    for p, text in tree.items():
+        if text is None or not scanned(p) or p.startswith(".githooks/"):
+            continue
+        for n, line in code_lines(p, text):
+            if pat.search(line):
+                out.append(f"{p}:{n}")
                 break
     return out
 
@@ -276,15 +327,24 @@ def classify(changed, tree):
             else:
                 report.append(f"SKIP  {f}: host-only tool; only metrics.yml runs it and the lint job selftests it")
             continue
-        if not is_prose_path(f):
+        if f.startswith(HOST_ONLY_OUTPUTS):
+            namers = host_output_readers(f, tree)
+            if namers:
+                report.append(f"RUN   {f}: a generated record, but named by {', '.join(namers[:3])}")
+                prose_only = False
+                continue
+            reason = "generated record; the metrics tools write it and no gated file names it"
+        elif not is_prose_path(f):
             report.append(f"RUN   {f}: not Markdown under notes/, design/, briefs/ or the root")
             prose_only = False
             continue
-        if f in files:
+        elif f in files:
             where = ", ".join(sorted(set(files[f]))[:3])
             report.append(f"RUN   {f}: named by code ({where})")
             prose_only = False
             continue
+        else:
+            reason = "prose that no code names"
         readers = [(d, place, pkg) for d, hits in dirs.items() if f.startswith(d + "/")
                    for place, pkg in hits]
         rust = sorted({pkg for _, _, pkg in readers if pkg})
@@ -296,7 +356,7 @@ def classify(changed, tree):
         tests.update(rust)
         unacted.update(place.split(":")[0] for _, place, pkg in readers if pkg is None)
         note = f"; tests of the packages that walk its directory: {' '.join(rust)}" if rust else ""
-        report.append(f"SKIP  {f}: prose that no code names{note}")
+        report.append(f"SKIP  {f}: {reason}{note}")
     if unacted:
         report.append("note: these read a changed file's directory outside Rust and are not acted on,")
         report.append("      because lint runs them on every pull request or no gate does (see BUGS):")
@@ -385,9 +445,9 @@ def selftest():
     # Markdown outside the prose directories (a crate README) is not prose.
     p, t, r = run(["crates/abi/README.md"])
     cases.append(("crate README", p is False))
-    # A top-level .md is prose; a non-.md under notes/ is not.
+    # A top-level .md is prose; a non-.md under notes/ is not (outside the metrics records).
     cases.append(("root md", run(["ARCHITECTS.md"])[0] is True))
-    cases.append(("notes non-md", run(["notes/project-metrics/data.csv"])[0] is False))
+    cases.append(("notes non-md", run(["notes/other/data.csv"])[0] is False))
     # Nothing changed is a scope that failed, and runs everything.
     cases.append(("empty", run([])[0] is False))
     # A directory read from Rust in no package cannot be tested, so it runs everything.
@@ -431,6 +491,32 @@ def selftest():
                    "notes/project-metrics.md": None})
     cases.append(("the #1831 shape skips", p is True))
     cases.append(("tool plus code runs", run(["script/metrics", "kernel/src/main.rs"])[0] is False))
+
+    # Host-only outputs: the weekly metrics update (#1878 ran the kernel suite for this shape).
+    # The page is prose, the records are generated, and none of the namers counts: the tools and
+    # their runner are forgiven, and script/citations names baseline-drift.md only in a :!
+    # pathspec exclusion, which is a refusal to read, not a read.
+    weekly = ["notes/project-metrics.md", "notes/project-metrics/weeks.csv",
+              "notes/project-metrics/baseline-drift.md", "notes/project-metrics/models-lines.svg"]
+    p, t, r = run(weekly,
+                  {"script/citations": 'EXCLUDE = (":!notes/project-metrics/baseline-drift.md",)\n',
+                   "script/metrics": "# writes notes/project-metrics/weeks.csv\n",
+                   ".github/workflows/metrics.yml": "          git add notes/project-metrics/weeks.csv\n"})
+    cases.append(("weekly metrics update skips",
+                  p is True and t == ["documentation"] and sum(x.startswith("SKIP") for x in r) == 4))
+    # A gated workflow naming a record stops the skip.
+    p, t, r = run(["notes/project-metrics/weeks.csv"],
+                  {".github/workflows/ci.yml": "      - run: cat notes/project-metrics/weeks.csv\n"})
+    cases.append(("gated caller of a record", p is False and "named by" in r[0]))
+    # So does a gated helper under script/ or helpers/, unlike the tools rule: this is the
+    # falsification-times.tsv shape, which script/verify shards by.
+    p, t, r = run(["notes/project-metrics/falsification-times.tsv"],
+                  {"helpers/verify_times.py": 'REPLAY = "notes/project-metrics/falsification-times.tsv"\n'})
+    cases.append(("verify's tsv runs", p is False and "named by" in r[0]))
+    # A host-only tool naming the record it writes is not a reader.
+    p, t, r = run(["notes/project-metrics/baseline-drift.md"],
+                  {"helpers/baseline_drift.py": 'OUT = "notes/project-metrics/baseline-drift.md"\n'})
+    cases.append(("the writing tool is not a reader", p is True))
 
     bad = [name for name, ok in cases if not ok]
     for name, ok in cases:
