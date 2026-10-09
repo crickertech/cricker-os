@@ -41,7 +41,7 @@ Sorted by breaking changes in the last four weeks (2026W38 to 2026W41), then by 
 
 ## What broke in 2026W41
 
-Read at `bb2be83ec03f` against the week before. Each line is one removed or changed public item, quoted as it stood that week; a crate rename is one line for the whole crate.
+Read at `160d3331652a` against the week before. Each line is one removed or changed public item, quoted as it stood that week; a crate rename is one line for the whole crate.
 
 > - `abi`: syscall changed, method or encoding `CAPABILITY_TABLE_SLOTS`
 > - `abi`: changed `Error`
