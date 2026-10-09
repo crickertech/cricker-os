@@ -20,12 +20,16 @@ dependency is added.
 
 ## The rulings, 2026-10-09 (UTC)
 
-calef ruled on two of this proposal's questions on 2026-10-09 (UTC).
+calef ruled on three of this proposal's questions on 2026-10-09 (UTC).
 
 - Open question 1, the untrusted-input scope: all 32 crates the note lists. Device drivers count as
   untrusted, so a device is a less-trusted party here, IOMMU or not.
-- The thresholds: panic counts are frozen per file at today's value and may only go down. There is
-  no zero-by-date target, so done criteria 2 and 3 below were rewritten to match.
+- Open question 2, what is syscall-reachable in the kernel: the same 16 files as
+  [the cast proposal](narrowing-casts-and-unchecked-arithmetic-on-addresses-are-counted-and-fall.md)'s scope. A file is added only when a concrete
+  path from a syscall argument into it is shown.
+- The thresholds: panic counts are frozen per file at today's value and may only go down. That is
+  the mechanism. Zero stays the end goal, with no date attached, so done criteria 3 and 4 below
+  state it.
 
 ## The problem
 
@@ -106,21 +110,24 @@ baseline records. Converting them is not this milestone's work.
 1. The lint ratchet runs in `script/lint`, with a selftest that runs first, as the file-length
    ratchet's does.
 2. The baseline freezes every file in scope at its count on 2026-10-09 (UTC), and a row may only
-   go down. No row carries a target of zero by a date (the thresholds ruling above). The syscall
-   paths and the network and peer-process crates fall as their sites are rewritten.
-3. Each of the 20 crates without a fuzz target has one, or a `BUGS` entry in its own crate saying
+   go down.
+3. The kernel's syscall entry and every path a syscall argument reaches carry no panic hit. Those
+   are the 16 files open question 2's ruling names. Zero is the goal, with no date attached.
+4. The network and peer-process crates carry no panic hit and no `indexing_slicing` hit. Zero is the
+   goal, with no date attached.
+5. Each of the 20 crates without a fuzz target has one, or a `BUGS` entry in its own crate saying
    why fuzzing it would not find anything.
-4. The baseline is banked at the end, so every row reads as the tree does.
+6. The baseline is banked at the end, so every row reads as the tree does.
 
 ## Open questions for an architect
 
 1. Ruled 2026-10-09 (UTC): all 32 crates, with device drivers counted as untrusted. The question
    was which crates count as parsing untrusted input, given that the note's 32 include
    device-supplied bytes (an NVMe completion, an ACPI table).
-2. What counts as syscall-reachable in the kernel. A file list is cheap and goes stale; a module
-   boundary (`syscall.rs` and what it calls) is cleaner and needs a split first. With no zero
-   target, this now decides only which rows a reader watches, not what blocks done. The cast
-   proposal's ruling names 16 files for its own scope.
+2. Ruled 2026-10-09 (UTC): the cast proposal's 16 files, extended only when a concrete path from a
+   syscall argument is shown. The question was what counts as syscall-reachable in the kernel: a
+   file list is cheap and goes stale, and a module boundary (`syscall.rs` and what it calls) is
+   cleaner and needs a split first.
 3. Is a boot-time `expect` acceptable in the end state? The recommendation is yes, at a ceiling the
    baseline records, since a misconfigured image failing at boot is the right failure.
 4. Does `indexing_slicing` belong in the kernel at all? 89 of its 282 kernel hits are in `arch/`,

@@ -20,8 +20,8 @@ Reuse: rustc's `#[expect]` and its `reason =` field, and clippy's `allow_attribu
 ## The ruling, 2026-10-09 (UTC)
 
 calef ruled on the thresholds on 2026-10-09 (UTC). Suppression counts are frozen per file at today's
-value and may only go down. There is no zero-by-date target, so done criteria 2 and 3 below were
-rewritten to match.
+value and may only go down. That is the mechanism. Zero stays the end goal, with no date attached,
+so done criteria 3 and 4 below state it.
 
 ## The problem
 
@@ -52,7 +52,7 @@ The request's other two counts did not survive measurement:
   The 7 in Rust are prose too. At the census, four of them pointed at a TODO that no longer
   existed: `kernel/src/sched.rs`, `kernel/src/thread.rs` and `crates/paging/tests/mapping.rs` cited
   "the TODO on `paging::unmap`", and `crates/elf/src/lib.rs` cited "the TODO in the kernel's
-  loader". 1c7849691 fixed all four (done criterion 4).
+  loader". 1c7849691 fixed all four (done criterion 5).
 - `#[ignore]`. There are 3 attributes, not 6, and all 3 carry a reason.
 
 ## The mechanism, and its rung
@@ -75,18 +75,18 @@ written.
 
 1. `ignore_without_reason` is in `[workspace.lints.clippy]`, with its count beside it.
 2. The ratchet counts `allow_attributes_without_reason` and `allow_attributes` per file, frozen at
-   each file's count on 2026-10-09 (UTC), and a row may only go down. A row falls as an `allow`
-   becomes an `#[expect(..., reason = "...")]`, or an `allow` with a reason and a comment saying why
-   it cannot be an `expect`. No row has a date to reach zero.
-3. When both counts reach zero, the two lints move into `[workspace.lints.clippy]` and their rows
-   go. That is the end state, not a criterion this milestone waits on.
-4. The four comments that cite a missing TODO are corrected to say where the work went, or
+   each file's count on 2026-10-09 (UTC), and a row may only go down.
+3. Every `allow` in scope is an `#[expect(..., reason = "...")]`, or an `allow` with a reason and a
+   comment saying why it cannot be an `expect`. Zero is the goal, with no date attached.
+4. `allow_attributes_without_reason` and `allow_attributes` are in `[workspace.lints.clippy]`,
+   and the ratchet's rows for them are gone.
+5. The four comments that cite a missing TODO are corrected to say where the work went, or
    deleted. **Done 2026-10-09 (UTC).** The `paging::unmap` TODO was resolved as a design in
    d06791f73 (2026-07-22), so the three that cited it now cite `paging::Mapper::unmap` and
    notes/teardown.md. The loader TODO `crates/elf` cited was never written: the reference dangled
    from 0c7793dd7, in milestone 7c (user mode: EL0, capabilities, the ELF loader, and IPC). It now
    cites the linker script that keeps segments apart.
-5. §38 is amended to say the reason now lives in the attribute, since its second half becomes a
+6. §38 is amended to say the reason now lives in the attribute, since its second half becomes a
    gate.
 
 ## Open questions for an architect

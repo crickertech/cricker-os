@@ -29,7 +29,8 @@ calef ruled on three of this proposal's questions on 2026-10-09 (UTC).
 - Open question 2: the scope is the 16 measured files. A file is added only when a concrete path
   from a syscall argument into it is shown.
 - Open question 4, and the thresholds: cast counts are frozen per file at today's value and may only
-  go down. There is no zero-by-date target, so done criteria 2 and 3 below were rewritten to match.
+  go down. That is the mechanism. Zero stays the end goal, with no date attached, so done criteria
+  2 and 3 below state it.
 
 ## The problem
 
@@ -91,11 +92,15 @@ proposal, which shares the overflow boundary.
 1. The four lints run in the lint ratchet over the scope, with §268's `usize` filter and a
    selftest fixture that proves the filter drops exactly that class.
 2. The baseline freezes each of the 16 files at its count on 2026-10-09 (UTC), and a row may only go
-   down. `syscall.rs`'s 29 cast hits fall as each is fixed or given an
-   `#[expect(..., reason = "...")]` saying why the value is in range, with no date to reach zero.
-3. A file joins the scope only with a shown path from a syscall argument into it, in the same
+   down.
+3. `syscall.rs` carries no truncation, wrap or sign-loss hit. Each of its 29 is fixed or carries an
+   `#[expect(..., reason = "...")]` saying why the value is in range. Zero is the goal, with no date
+   attached.
+4. The memory and page-table scope's truncation rows are at zero. Zero is the goal, with no date
+   attached.
+5. A file joins the scope only with a shown path from a syscall argument into it, in the same
    change that adds its row.
-4. The `Cargo.toml` paragraph that records `cast_possible_truncation` as deliberately absent is
+6. The `Cargo.toml` paragraph that records `cast_possible_truncation` as deliberately absent is
    amended to say where the lint now runs and why.
 
 ## Open questions for an architect
@@ -106,8 +111,9 @@ proposal, which shares the overflow boundary.
    from a syscall argument is shown. So `sched.rs` and `cap.rs` stay out until one is.
 3. Address newtypes in `paging`: worth a milestone of their own? It is the rung-one answer and the
    larger change.
-4. Ruled 2026-10-09 (UTC): a ceiling, frozen at today's value per file, that only falls. The
-   question was whether `arithmetic_side_effects` in the memory scope ratchets to zero.
+4. Ruled 2026-10-09 (UTC): a ceiling, frozen at today's value per file, that only falls, with zero
+   the end goal and no date attached. The question was whether `arithmetic_side_effects` in the
+   memory scope ratchets to zero.
 
 ## Where it sits in the ranking
 
