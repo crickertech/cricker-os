@@ -470,12 +470,9 @@ pub fn self_test() -> usize {
 }
 
 // ---------------------------------------------------------------------------------------------
-// The `syscall` instruction pair (milestone 161, roadmap item 3).
-//
-// x86 has TWO ways into the kernel and this is the second one. The IDT above is how a *fault* or an
-// *interrupt* arrives; `syscall` is how a program asks on purpose, and it shares almost nothing with
-// the IDT path: no gate, no descriptor, no stack switch, no pushes. Four MSRs are the whole of its
-// configuration, and none of them has a default worth having.
+// The `syscall` instruction pair (milestone 161, roadmap item 3): the second way into the kernel,
+// sharing nothing with the IDT path above (no gate, no descriptor, no stack switch, no pushes).
+// Four MSRs are its whole configuration; the constraints on each are on the items below.
 // ---------------------------------------------------------------------------------------------
 
 /// `IA32_EFER`. Bit 0, `SCE`, is what makes `syscall` a legal instruction rather than `#UD`. The
