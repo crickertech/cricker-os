@@ -1,0 +1,101 @@
+---
+status: PROPOSED
+raised: 2026-10-09
+milestone_dependencies: none
+decision_dependencies: 61
+machine_requirements: none
+specific_machine: none
+needs_person: no
+---
+# Narrowing casts and unchecked arithmetic on syscall arguments and addresses are counted, and the count falls
+
+Raised by a maintainer session on 2026-10-09 (UTC), one of five lint proposals asked for together.
+Its numbers are in [notes/lint-census-2026-10-09.md](../../../notes/lint-census-2026-10-09.md).
+It reuses the lint ratchet specified in
+[the panic proposal](panics-in-the-kernel-and-the-parsers-are-counted-and-fall.md); whichever of the
+two is promoted first builds it.
+
+Reuse: clippy's `cast_possible_truncation`, `cast_sign_loss`, `cast_possible_wrap` and
+`arithmetic_side_effects`. Nothing is written but the ratchet's filter described below.
+
+## The problem
+
+An `as` cast that narrows does not fail. It keeps the low bits, so a physical address cut to 32
+bits is a plausible wrong address rather than an error. In a kernel, a wrong address is how a
+confinement break gets built. Arithmetic is the other half. Release builds keep overflow checks
+(calef, 2026-10-04, `notes/overflow-checks.md`), so an overflow halts rather than wraps. That makes
+unchecked arithmetic on a caller's value a reachable panic, the panic proposal's class.
+
+Measured over non-test code, the note's scope:
+
+- `as <integer>` appears 3,262 times, 945 of them in the kernel. The request's grep said about
+  5,000; the gap is test code.
+- Clippy flags 844 `cast_possible_truncation` hits (271 kernel), 155 `cast_possible_wrap` (30),
+  185 `cast_sign_loss` (3) and 3,218 `arithmetic_side_effects` (648).
+- `kernel/src/syscall.rs` has 7 truncation, 21 wrap, 2 sign-loss and 8 arithmetic hits.
+- The memory and page-table code has 36 truncation, 4 wrap and 167 arithmetic hits. That is
+  `memory.rs`, `memory_region.rs`, `kmem.rs`, `revoke.rs`, `user.rs`, the three `arch/*/mmu.rs`,
+  and the crates `paging`, `page_frames`, `memory_regions` and `address_space_map`.
+
+## What this tree already decided, and why this proposal reopens it
+
+§61 (a lint is adopted on evidence from this tree) dropped `cast_possible_truncation` on
+2026-08-03, and `Cargo.toml` records why. Of 497 hits then, 199 were `u64` or `i64` to `usize`.
+Those warn about 32-bit pointers, and §19 (architectural parity is a tenet) names three 64-bit
+targets only. A gate more than half inapplicable trains a reader to skim.
+
+The ratio holds today: 340 of 844 hits are that class, and 143 of the kernel's 271. Clippy still
+has no setting for pointer width (read from `cargo clippy --explain` on this toolchain).
+
+What changed is the instrument. §61's objection was to `-D warnings` over every hit. The lint
+ratchet reads clippy's JSON, and each truncation message names both types. So the ratchet can
+drop the `u64`/`i64` to `usize` class before it counts. That leaves 504 genuine narrowings in
+scope, 128 in the kernel. A reader sees no inapplicable hit. This is a new mechanism beside §61's
+ruling, not a reversal of it, and an architect should say so if it is not.
+
+## The mechanism, and its rung
+
+Rung one exists and was considered. Address newtypes (a physical and a virtual address type in
+`paging`) would make most address truncations unrepresentable. The tree has none today; `paging`
+speaks `u64`. Introducing them touches every mapping call on three architectures, and it is a
+design fork of its own. It is open question 3, not this milestone.
+
+So rung two: the lint ratchet, with the filter above, over the scope below. A site leaves the
+count by becoming `u32::try_from(x)?`, a checked or explicitly `wrapping_` operation, or a
+`const` assertion where the bound is a compile-time fact.
+
+## Scope
+
+Recommended: `kernel/src/syscall.rs`, the memory and page-table files listed above, and the four
+crates. That is 16 files with 213 hits after the filter drops 32: 167 arithmetic, 11 truncation,
+25 wrap and 2 sign-loss. The rest of the tree is not counted.
+Widening it is a reviewed edit to the scope list. The parsers' arithmetic belongs to the panic
+proposal, which shares the overflow boundary.
+
+## Done when
+
+1. The four lints run in the lint ratchet over the scope, with the `usize` filter and a selftest
+   fixture that proves the filter drops exactly that class.
+2. `syscall.rs` carries no truncation, wrap or sign-loss hit. Each of its 29 is fixed or carries
+   an `#[expect(..., reason = "...")]` saying why the value is in range.
+3. The memory and page-table scope's baseline is set, and the truncation rows are at zero.
+4. The `Cargo.toml` paragraph that records `cast_possible_truncation` as deliberately absent is
+   amended to say where the lint now runs and why.
+
+## Open questions for an architect
+
+1. Is a filtered ratchet acceptable against §61's rule, or does it need a section of its own?
+2. Which files are syscall-argument handling? `syscall.rs` dispatches, and arguments flow into
+   `sched.rs`, `cap.rs` and `revoke.rs`. Counting all of `sched.rs` adds 20 arithmetic hits that
+   are mostly scheduler bookkeeping.
+3. Address newtypes in `paging`: worth a milestone of their own? It is the rung-one answer and the
+   larger change.
+4. `arithmetic_side_effects` in the memory scope: ratchet to zero, or to a ceiling? Most of its 167
+   are page-number arithmetic whose bounds are invariants of the frame allocator.
+
+## Where it sits in the ranking
+
+The customer path is vacant, so the tie breaks toward the fatal risks. This serves risk 7 (the
+confinement claim is false), since a truncated address is a confinement break's raw material. It
+ranks third of the five, behind the panic proposal (which shares its overflow half) and the
+`static mut` proposal, which is smaller and touches risk 5 directly.
