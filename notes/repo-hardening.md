@@ -132,12 +132,16 @@ machine than the laptop these deadlines were calibrated on. This is a real bug i
 assumptions rather than an argument against the ruleset: a gate you have to re-run is annoying, and a
 gate that was never there is how `main` stayed red for two days. Fix it, then require the check.
 
-## 3. Code scanning: leave it on default setup
+## 3. Code scanning: it was on default setup
+
+**Corrected 2026-10-09 (UTC): this section is history.** Default setup moved to advanced setup by
+calef's order of 2026-10-08, and `notes/code-scanning.md` holds the decided record and the
+toggle. The coverage number below is still the caveat to read next to any Rust "0 alerts".
 
 Already enabled and running, for actions, c-cpp, python and rust. Rust was off for about four
 hours on 2026-10-07 (UTC) after a burst of upload failures whose cause is unconfirmed, and was back
-by run 37684382643; `notes/code-scanning.md` has that, every alert's disposition, and the open
-decision about advanced setup. §36 (the repository is part of the TCB) records the reasoning for staying on
+by run 37684382643; `notes/code-scanning.md` has that, every alert's disposition, and the decided
+move to advanced setup. §36 (the repository is part of the TCB) records the reasoning for staying on
 default setup instead of committing a workflow. It also records the number that should be read next
 to every "0 alerts": on 2026-07-30 the Rust extractor reported 176 of 176 files scanned, 60 of them
 extracted with errors, running against the *host* target with default features, for a kernel that
@@ -146,7 +150,8 @@ does not build for the host at all.
 Revisit on a stated trigger: an alert lands in `vendor/` (upstream's to fix, and noise here), the
 extracted-with-errors count stops falling as the extractor matures, or a query we want turns out to
 be unavailable by default. The first of these fired by 2026-10-07, with five alerts in
-`vendor/redoxfs`; the decision it opens is in `notes/code-scanning.md`.
+`vendor/redoxfs`; the decision it opened is decided in `notes/code-scanning.md` (2026-10-08:
+advanced setup, with `vendor/**` excluded).
 
 To re-check the coverage number after a future run:
 

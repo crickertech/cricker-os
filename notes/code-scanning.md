@@ -1,15 +1,20 @@
 # Code scanning: what CodeQL looks at, and what became of its alerts
 
-GitHub's CodeQL runs on every push and pull request through default setup, with no workflow file
-in the tree; DECISIONS §36 (the repository is part of the TCB) says why. Every alert gets one of
-the three dispositions in DECISIONS §35 (what a scanner is for here, and how its findings get
-dispositioned): fixed, dismissed with a written reason, or deferred to a milestone. This note
-records the dispositions where a reader of the tree meets them, because GitHub's dismissal
-comments are invisible from the source and do not survive a change of tool.
+GitHub's CodeQL ran on every push and pull request through default setup, with no workflow file
+in the tree, until calef ordered the move to advanced setup on 2026-10-08 (UTC); the committed
+workflow is `.github/workflows/codeql.yml`. DECISIONS §36 (the repository is part of the TCB)
+says why the repository is scanned at all; its stated trigger for leaving default setup is what
+fired. Every
+alert gets one of the three dispositions in DECISIONS §35 (what a scanner is for here, and how
+its findings get dispositioned): fixed, dismissed with a written reason, or deferred to a
+milestone. This note records the dispositions where a reader of the tree meets them, because
+GitHub's dismissal comments are invisible from the source and do not survive a change of tool.
 
 ## Which languages are scanned
 
-Default setup analyzes **actions, c-cpp, python and rust**. Check it with:
+The workflow's matrix analyzes **actions, c-cpp, python and rust**, the four default setup
+analyzed before it. Default setup's own configuration is still worth reading, because it must be
+OFF before the workflow's uploads are accepted (below):
 
 ```
 gh api repos/nifeos/nife/code-scanning/default-setup --jq '{state, languages}'
@@ -70,27 +75,31 @@ checks.
 
 ## BUGS
 
-- The cause of the 2026-10-07 upload failures is unconfirmed. If they recur, default setup has
-  no retry, and the Rust result for that commit is simply missing.
-- §36's stated trigger for leaving default setup has fired: an alert landed in `vendor/**` (five
-  of them, all in `vendor/redoxfs`). Default setup cannot exclude a path.
+- The cause of the 2026-10-07 upload failures is unconfirmed. The workflow retries the upload
+  once, in a second job 90 seconds later, which answers a transient repeat; a persistent failure
+  still goes red. A same-job retry is impossible: the action refuses a second upload per job per
+  tool and category (watched 2026-10-09, run 37863703201).
+- Alert continuity rests on the category match: the workflow uploads under `/language:<name>`,
+  default setup's own category (read from the analyses API, 2026-10-09 UTC). If the upload
+  rejects that string, the first post-toggle run will say so, and the 43 hand dismissals below
+  would need re-dismissing under whatever category replaces it.
 - §35 asks for a dismissal's reason at the code. For the 17 false positives the existing `SAFETY`
   and provenance comments at each site carry the argument, and this note carries the rest; no
   per-line suppression comment was added, because CodeQL reads none.
 
-## Open decision: whether to move to advanced setup
+## Advanced setup, decided 2026-10-08
 
-Rust is scanned again, so this is no longer about restoring it. Two things default setup cannot do
-now have reasons behind them: exclude `vendor/**`, where §36's trigger fired, and retry a failed
-upload. Options, for calef:
+calef ordered option 1 on 2026-10-08 (UTC), the recommendation this section's earlier form
+carried; option 2 (stay on default setup) is refused with it. The committed workflow keeps the
+four languages and retries the SARIF upload. It excludes `vendor/**`, the §36 trigger. Every
+language runs in `build-mode: none`: Rust because the kernel does not build for the host, the C
+fixtures because they have no build. And it skips analysis on a prose-only diff: on #1870,
+`Analyze (rust)` spent eight minutes on a six-file roadmap-docs pull request.
 
-1. Advanced setup. A committed `.github/workflows/codeql.yml` covering all four languages
-   (GitHub rejects advanced-setup uploads while default setup is on), with `vendor/**` excluded,
-   Rust in `build-mode: none`, and an upload retry. Cost: one maintained workflow file, which §36
-   avoided while the Rust extractor was moving fast. Recommended, because it answers both the
-   vendor trigger and the upload failure and is reversible by deleting the file.
-2. Stay on default setup. Alerts in `vendor/**` keep arriving and are dismissed by hand as
-   upstream's, and an upload failure, if it recurs, costs that commit's result. CodeQL is not a
-   required check (`notes/repo-hardening.md`, its second section), so neither blocks a merge.
-
-Nothing is blocked on the answer.
+The toggle. Default setup must be OFF before the workflow's uploads are accepted, and toggling
+it is calef's admin act in repository settings, outside this tree (§36 records why settings are
+not committed). Until then every upload is rejected and the upload jobs are red on purpose;
+CodeQL is not a required check, so that red blocks no merge. The first observed rejection is run
+[37863703201](https://github.com/nifeos/nife/actions/runs/37863703201) (2026-10-09 UTC), on the
+lane that landed the workflow. calef toggled default setup off on ______ (UTC). The first push
+to `main` after it goes green with no change to the workflow.

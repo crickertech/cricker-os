@@ -1,0 +1,230 @@
+name: codeql
+
+# Observed failing: 2026-10-09, run 37863703201: this pull request's own first run. Every
+#   `Upload the SARIF` step went red with "CodeQL analyses from advanced configurations cannot be
+#   processed when the default setup is enabled", the rejection this file predicts until calef
+#   toggles default setup off. The same run exposed a second fact: a same-job upload retry is
+#   refused by the action itself ("only one run of the codeql/analyze or codeql/upload-sarif
+#   actions is allowed per job per tool/category"), which is why the retry below is its own job.
+
+# CodeQL advanced setup, decided 2026-10-08 (UTC). Until this file, scanning ran through default
+# setup, which DECISIONS §36 (the repository is part of the TCB) chose while the Rust extractor
+# was moving fast, on stated revisit triggers. Two fired by 2026-10-07: five alerts landed in
+# `vendor/redoxfs`, which default setup cannot exclude from analysis, and six `Analyze (rust)`
+# uploads failed 17 seconds in with no retry available (notes/code-scanning.md, its BUGS).
+# calef ordered option 1 of that note's open decision (advanced setup) on 2026-10-08; the note
+# carries the decided record. Reversible by deleting this file, which is what default setup was
+# kept for until the triggers fired.
+#
+# **The upload waits on calef toggling default setup OFF.** GitHub rejects advanced-setup uploads
+# while default setup is enabled, and toggling it is an admin act in repository settings, outside
+# this tree (§36 records why settings are not committed). Until the toggle (ordered 2026-10-08,
+# at or just before merge; the day it happened is recorded in notes/code-scanning.md), both upload
+# jobs below are red on every run, on purpose. The failure is not swallowed: CodeQL is not a
+# required check (notes/repo-hardening.md, its second section), so red here blocks no merge, and
+# the first push after the toggle goes green with no change to this file.
+#
+# The matrix mirrors what default setup analyzed, read from the API on 2026-10-09 (UTC):
+# actions, c-cpp, python, rust (`gh api repos/nifeos/nife/code-scanning/default-setup`). All four
+# run in `build-mode: none`: Rust because the kernel does not build for the host at all (§36's
+# caveat about extraction errors is about exactly that), and c-cpp because the tree's only C
+# outside `vendor/` is two fixture files with no build of their own. If real C ever arrives with a
+# build, c-cpp needs an autobuild step and its own decision.
+#
+# `vendor/**` is excluded through the inline `config:` below, §36's first trigger. The category
+# `/language:<name>` is default setup's own (read from the analyses API, 2026-10-09 UTC), so the
+# alerts and the 43 hand dismissals of 2026-10-07 carry forward instead of reopening under a new
+# category.
+
+# Triggers mirror ci.yml's pull_request activity types (see ci.yml's header for the full record):
+# `ready_for_review` is not a default activity type, and without it the draft guard below fails
+# open, the failure #567 sat mergeable on for five days. `merge_group` is deliberately absent:
+# these checks are not required (notes/repo-hardening.md again), so the queue waits on nothing
+# here, and four CodeQL runners per batch would buy no gate. A pull request is scanned by its own
+# runs and the merge lands into a `push` run on `main`.
+on:
+  push:
+    branches: [main]
+  pull_request:
+    types: [opened, reopened, synchronize, ready_for_review]
+  workflow_dispatch:
+
+# Least privilege: the workflow default is `contents: read`; the upload jobs add the one write
+# the SARIF upload needs and nothing else.
+permissions:
+  contents: read
+
+# Mirrors ci.yml's group (its header has the reasoning) under this workflow's own prefix, so a
+# push supersedes the in-flight run on a branch, while `main` and merge-queue refs are never
+# cancelled.
+concurrency:
+  group: codeql-${{ github.ref }}-${{ github.ref == 'refs/heads/main' && github.sha || 'tip' }}
+  cancel-in-progress: ${{ github.ref != 'refs/heads/main' && !startsWith(github.ref, 'refs/heads/gh-readonly-queue/') }}
+
+jobs:
+  # The live draft state and the prose-only classification, decided once. This is ci.yml's `gate`
+  # job with the A′ half removed (this workflow never runs on merge-group refs, so there is no
+  # earlier run of it a push to `main` could cite); its header comment carries the full reasoning:
+  # the event payload's `draft` is a snapshot that has been wrong, so the API is asked what the
+  # pull request is right now, and the job fails toward running.
+  #
+  # **The prose-only half is why this job exists here at all** (calef, 2026-10-08, on #1870:
+  # `Analyze (rust)` spent eight minutes on a six-file roadmap-docs pull request). The classifier
+  # is `helpers/prose_only.py`, run exactly as ci.yml's gate runs it; a change that is only
+  # Markdown no code or test reads cannot need CodeQL either. The skip is a job-level `if:` on
+  # the jobs below, never a `paths:` filter, for ci.yml's recorded reason: a skipped job reports
+  # Success, a path-filtered workflow leaves its checks Pending forever.
+  gate:
+    name: draft gate
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: read
+      pull-requests: read
+    outputs:
+      run: ${{ steps.state.outputs.run }}
+      prose: ${{ steps.prose.outputs.prose }}
+    timeout-minutes: 10
+    steps:
+      - id: state
+        env:
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          if [ "${{ github.event_name }}" != "pull_request" ]; then
+            echo "run=true" >> "$GITHUB_OUTPUT"
+            echo "==> ${{ github.event_name }} is not a pull request; running everything"
+            exit 0
+          fi
+          draft="$(gh pr view "$PR_NUMBER" \
+                     --repo "$GITHUB_REPOSITORY" --json isDraft -q .isDraft 2>/dev/null || true)"
+          if [ "$draft" = "true" ]; then
+            echo "run=false" >> "$GITHUB_OUTPUT"
+            echo "==> pull request is a draft right now; skipping analysis"
+          else
+            echo "run=true" >> "$GITHUB_OUTPUT"
+            echo "==> live draft state is '${draft:-unreadable}'; running everything"
+          fi
+          exit 0
+      # The prose-only rule: only asked when something would run. See ci.yml's gate, whose comment
+      # has the whole rule; helpers/prose_only.py's header has the classifier and its BUGS.
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          fetch-depth: 0
+      - name: Is this change prose that no build or test reads?
+        id: prose
+        if: steps.state.outputs.run != 'false'
+        env:
+          BASE_REF: ${{ github.event.pull_request.base.ref }}
+          BASE_SHA: ${{ github.event.pull_request.base.sha || github.event.merge_group.base_sha }}
+        run: |
+          # The base, resolved exactly as ci.yml's gate resolves it, for the same reasons.
+          base="$(helpers/scope-merge-base.sh \
+              "$BASE_REF" \
+              "$BASE_SHA" 2>/dev/null || true)"
+          [ -n "$base" ] || base="$(git merge-base HEAD origin/main 2>/dev/null || true)"
+          [ -n "$base" ] && [ "$base" != "$(git rev-parse HEAD)" ] || base="$(git rev-parse HEAD~1 2>/dev/null || git rev-parse HEAD)"
+          echo "==> classifying $base..HEAD"
+          # A classifier that fails writes no `prose`, and the jobs below read empty as "run".
+          python3 helpers/prose_only.py classify "$base"
+
+  # Analysis and upload are separate jobs because the retry demands it: the action refuses a
+  # second `upload-sarif` in the same job per tool/category (run 37863703201 above), so the retry
+  # is the `upload-retry` job, which runs only when the first upload failed. The SARIF crosses
+  # the jobs as an artifact, kept a day. A transient incident (2026-10-07's shape) costs 90
+  # seconds and one more runner; a persistent rejection goes red twice, which until the toggle is
+  # the expected state.
+  analyze:
+    name: Analyze (${{ matrix.language }})
+    needs: gate
+    if: ${{ !cancelled() && needs.gate.outputs.run != 'false' && needs.gate.outputs.prose != 'true' }}
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    strategy:
+      # One language failing must not kill the other three's reports; each posts its own checks.
+      fail-fast: false
+      matrix:
+        language: [actions, c-cpp, python, rust]
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+      - name: Initialize CodeQL
+        uses: github/codeql-action/init@24c54180a607b1449ed407dd24f251e4e9147c8d # v4
+        with:
+          languages: ${{ matrix.language }}
+          build-mode: none
+          # The exclusion §36's first trigger asked for. Inline rather than a config file so a
+          # reader of this workflow meets it here.
+          config: |
+            paths-ignore:
+              - vendor/**
+      - name: Perform CodeQL Analysis
+        uses: github/codeql-action/analyze@24c54180a607b1449ed407dd24f251e4e9147c8d # v4
+        with:
+          category: /language:${{ matrix.language }}
+          output: ${{ runner.temp }}/sarif
+          # The upload is the next jobs' work, so it can be retried without re-running the
+          # analysis: the 2026-10-07 incident killed six uploads 17 seconds in, and re-analysis
+          # is minutes.
+          upload: never
+      - name: Keep the SARIF for the upload jobs
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7
+        with:
+          name: sarif-${{ matrix.language }}
+          path: ${{ runner.temp }}/sarif
+          retention-days: 1
+
+  upload:
+    name: Upload SARIF (${{ matrix.language }})
+    needs: [gate, analyze]
+    if: ${{ !cancelled() && needs.gate.outputs.run != 'false' && needs.gate.outputs.prose != 'true' && needs.analyze.result == 'success' }}
+    runs-on: ubuntu-24.04
+    # `security-events: write` is the SARIF upload; `contents: read` keeps what the workflow
+    # default already granted explicit in a job that replaces it.
+    permissions:
+      contents: read
+      security-events: write
+    timeout-minutes: 10
+    strategy:
+      fail-fast: false
+      matrix:
+        language: [actions, c-cpp, python, rust]
+    steps:
+      - name: Take the SARIF back from the analysis job
+        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8
+        with:
+          name: sarif-${{ matrix.language }}
+          path: ${{ runner.temp }}/sarif
+      - name: Upload the SARIF
+        uses: github/codeql-action/upload-sarif@24c54180a607b1449ed407dd24f251e4e9147c8d # v4
+        with:
+          category: /language:${{ matrix.language }}
+          sarif_file: ${{ runner.temp }}/sarif
+
+  # The retry: 90 seconds later, once. Runs only when the first upload failed, so on an honest
+  # day it is skipped (which reports Success). While default setup is still enabled this job is
+  # red with the same rejection as the first, by design; see the header.
+  upload-retry:
+    name: Upload SARIF, retried (${{ matrix.language }})
+    needs: [gate, upload]
+    if: ${{ !cancelled() && needs.gate.outputs.run != 'false' && needs.gate.outputs.prose != 'true' && needs.upload.result == 'failure' }}
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: read
+      security-events: write
+    timeout-minutes: 10
+    strategy:
+      fail-fast: false
+      matrix:
+        language: [actions, c-cpp, python, rust]
+    steps:
+      - name: Give a transient upload incident time to pass
+        run: sleep 90
+      - name: Take the SARIF back from the analysis job
+        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8
+        with:
+          name: sarif-${{ matrix.language }}
+          path: ${{ runner.temp }}/sarif
+      - name: Upload the SARIF (the retry, which goes red on a real failure)
+        uses: github/codeql-action/upload-sarif@24c54180a607b1449ed407dd24f251e4e9147c8d # v4
+        with:
+          category: /language:${{ matrix.language }}
+          sarif_file: ${{ runner.temp }}/sarif
