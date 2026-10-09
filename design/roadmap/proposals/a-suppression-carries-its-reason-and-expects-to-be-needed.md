@@ -73,7 +73,11 @@ written.
 3. `allow_attributes_without_reason` and `allow_attributes` are in `[workspace.lints.clippy]`,
    and the ratchet's rows for them are gone.
 4. The four comments that cite a missing TODO are corrected to say where the work went, or
-   deleted.
+   deleted. **Done 2026-10-09 (UTC).** The `paging::unmap` TODO was resolved as a design in
+   d06791f73 (2026-07-22), so the three that cited it now cite `paging::Mapper::unmap` and
+   notes/teardown.md. The loader TODO `crates/elf` cited was never written: the reference dangled
+   from 0c7793dd7, in milestone 7c (user mode: EL0, capabilities, the ELF loader, and IPC). It now
+   cites the linker script that keeps segments apart.
 5. §38 is amended to say the reason now lives in the attribute, since its second half becomes a
    gate.
 

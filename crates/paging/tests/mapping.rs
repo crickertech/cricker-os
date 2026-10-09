@@ -482,8 +482,8 @@ fn unmap_then_map_reuses_the_intermediate_tables() {
     // unmap only clears the leaf. The L1/L2/L3 tables stay, so re-mapping into the same region
     // costs no new frames.
     //
-    // The flip side is the TODO on `unmap`: tearing down a whole address space must walk back
-    // up and return those tables, or every process exit leaks its page tables.
+    // The flip side: tearing down a whole address space by `unmap` would leak these tables. The
+    // kernel never does that; it frees the recorded frame set wholesale (notes/teardown.md).
     let _tables = TableGuard;
     let budget = Cell::new(3); // exactly one chain of L1+L2+L3
     let mut m = mapper(&budget);

@@ -98,8 +98,9 @@ pub const UNNAMED: ThreadId = u64::MAX;
 ///
 /// **Reusing these is not a micro-optimization.** Bump-allocating virtual addresses forever
 /// means every 2 MiB of address space consumed permanently costs an L2 and an L3 page table,
-/// because `unmap_page` frees the leaf mapping but leaves the intermediate tables standing (see
-/// the TODO on `paging::unmap`). Threads come and go; the tables would only ever accumulate.
+/// because `unmap_page` frees the leaf mapping but leaves the intermediate tables standing, on
+/// purpose (see `paging::Mapper::unmap` and notes/teardown.md). Threads come and go; the tables
+/// would only ever accumulate.
 ///
 /// Handing the address range back means a new thread lands in page tables that already exist,
 /// and the whole system reaches a steady state. A test asserts that a second batch of threads
