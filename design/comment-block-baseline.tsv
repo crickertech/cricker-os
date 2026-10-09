@@ -247,7 +247,7 @@ kernel/src/arch/riscv64/iommu.rs:1	54
 kernel/src/arch/riscv64/pmu.rs:1	66
 kernel/src/arch/x86_64/amd_vi.rs:1	125
 kernel/src/arch/x86_64/ap_boot.rs:1	131
-kernel/src/arch/x86_64/iommu.rs:1	197
+kernel/src/arch/x86_64/iommu.rs:1	164
 kernel/src/arch/x86_64/irq.rs:1	106
 kernel/src/arch/x86_64/irq.rs:1181	43
 kernel/src/arch/x86_64/isa.rs:1	75

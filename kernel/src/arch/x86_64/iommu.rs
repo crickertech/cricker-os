@@ -67,10 +67,9 @@
 //! and the device is left out of the IOMMU layer with its DMA untranslated. Here `attach` for such
 //! a device writes no context entry anywhere (there is no root table it would be read from), and
 //! [`scope_of`] answers `Elsewhere { owner: None, .. }`, so no caller that asks can claim the
-//! device confined. The NVMe bench boot's `bypass` rehearsal is that case. Refusing the device
-//! bus mastering instead was considered and refused: it would change what a non-compliant
-//! machine does without making anything confined, and it would silence the very preflight that
-//! reports the firmware's gap.
+//! device confined. The NVMe bench boot's `bypass` rehearsal is that case. Refusing the device's
+//! bus mastering instead was refused: it changes what a non-compliant machine does without
+//! confining anything, and silences the preflight that reports the firmware's gap.
 //!
 //! # Default deny
 //!
@@ -99,29 +98,21 @@
 //!   graphics RMRR, so the display engine keeps scanning out of stolen memory if and only if the
 //!   firmware's RMRR covers the memory it scans. Linux translates the same unit on Skylake and Kaby
 //!   Lake without a quirk (its `quirk_iommu_igfx` list stops at Broadwell), which is the evidence
-//!   this is safe; xenon is the first run. notes/risk-6-bench-evening.md says what to watch.
-//!   xenon's first run under milestone 594 (2026-10-04) tore the screen as the units came up, but
-//!   that kernel did not yet write its tables back (the FIXED entry below), so the RMRR was mapped
-//!   into tables the unit could not read. Whether the RMRR covers the scanout is still unread.
+//!   this is safe; xenon is the first run, and whether the RMRR covers the scanout is still
+//!   unread (notes/risk-6-bench-evening.md says what to watch).
 //! - **No interrupt remapping.** `ECAP.IR` is read and *reported* since milestone 317
 //!   (the interrupt-remapping flags, and where MSI confinement actually lives) by
 //!   [`interrupt_remapping_available`] and the bring-up line `print_summary` writes, and that
 //!   is all: this driver never sets `GCMD.IRE`, never allocates an interrupt-remapping table, and
-//!   never programs an entry in one. MSI/MSI-X delivery is unaffected either way (this kernel does
-//!   not remap interrupts on any architecture yet), but a future PCI MSI driver on x86 would want
-//!   to know this is missing before assuming a remapping table exists to program.
+//!   never programs an entry in one. MSI/MSI-X delivery is unaffected (this kernel remaps
+//!   interrupts nowhere yet), but a future PCI MSI driver wants to know before assuming a table
+//!   exists to program.
 //!
-//!   **The unit has been offering it all along, which is a correction and not a feature.**
-//!   DECISIONS §86 recorded that interrupt remapping is off in every `x86_64` boot this tree runs,
-//!   reasoning from the runner attaching `-device intel-iommu` with no `intremap=on`. Reading
-//!   `ECAP` from inside the guest says otherwise: QEMU's `intremap` property defaults to `auto`,
-//!   which resolves ON with no in-kernel irqchip, so `ECAP.IR` reads set on the default machine
-//!   (`0xf00f4a`) and clear only under an explicit `intremap=off` (`0xf42`). Nothing read the bit,
-//!   so nobody noticed. `NIFE_INTREMAP=off` (provisional name) is now the way to reach a machine
-//!   without the capability.
-//!
-//!   **What remains unexercised is the whole of the rest.** Nothing here writes an `IRTE`, forges
-//!   an MSI, or proves that a remapped interrupt lands where the table says it should. That is the
+//!   The capability is on in every default boot: QEMU's `intremap` defaults to `auto`, which
+//!   resolves on with no in-kernel irqchip (DECISIONS §86 (whether an NVMe driver can leave the
+//!   kernel)'s 2026-09-18 amendment, which struck the claim that it was off). `NIFE_INTREMAP=off`
+//!   (provisional name) is the way to reach a machine without it. Nothing here writes an `IRTE`,
+//!   forges an MSI, or proves a remapped interrupt lands where the table says: that is the
 //!   confinement claim notes/confinement-claims.md carries as stated nowhere, and
 //!   design/roadmap/0317-interrupt-remapping-flags.md says what it would take.
 //! - **Invalidation is global, never domain- or device-selective.** Every `attach` invalidates the
@@ -143,46 +134,22 @@
 //!   faulted the NVMe's first admin fetch with reason 0x01 (root entry not present) while the
 //!   CPU read the entry as present: notes/risk-6-bench-evening.md, "What the first evening
 //!   found". QEMU reports `C=0` too but reads guest memory directly, so no rehearsal could show
-//!   it. [`Unit::publish`] now `clflush`es each line written and fences with `mfence`.
-//!   **Why per line and not `wbinvd`**, which a diagnostic image used to test the cause: an
-//!   NVMe attach writes about 260 lines (four domain frames, a context-table frame and two
-//!   entries), a few microseconds of `clflush` by any estimate. `wbinvd` writes back and
-//!   invalidates every cache in the package for the same few bytes; its cost scales with the
-//!   whole last-level cache's dirty lines (megabytes on xenon), is not interruptible, and lands
-//!   on every core. Neither cost is measured: TCG makes both near-free, so only xenon can, and
-//!   the per-line count is from the code, not a counter. Unverified on silicon when written.
+//!   it. [`Unit::publish`] now `clflush`es each line written and fences with `mfence`, per line
+//!   rather than `wbinvd`: an attach writes about 260 lines, while `wbinvd` flushes every cache
+//!   in the package for the same bytes, uninterruptibly, on every core. Neither cost is measured;
+//!   unverified on silicon when written.
 //! - **FIXED (2026-09-27): an unconfined sibling disk could win the one fault-recording
-//!   register and starve a test's own fault.** Not the device racing its own attach, which was
-//!   the original (wrong) theory: `virtio::tests::the_iommu_faults_a_dma_that_escapes_the_domain`
-//!   registers *one* PCIe disk (its rid varies with bus layout; `0x18` in the run that found
-//!   this), and this test's own runners also attach a second, unrelated virtio-blk-pci disk, the
-//!   RedoxFS fixture from milestone 303 (`x86_64`'s FS service has a server and no disk it can
-//!   find), that nothing in a filtered kernel-unit-test boot ever registers. Traced under QEMU's
-//!   `-d trace:vtd_dmar_translate,vtd_dmar_fault,vtd_ce_not_present`:
-//!   the moment *any* device's context-cache/IOTLB is globally invalidated (this driver's own
-//!   `attach`, below, always does this), every virtio-blk-pci function on the bus attempts a real
-//!   access near the top of guest RAM, confined device or not. A device with no context entry
-//!   faults default-deny with reason `0x2` (context entry not present), correctly; the device
-//!   under test, freshly attached, faults with reason `0x1` (present context, address outside its
-//!   own domain) against the same neighbourhood of addresses, also correctly. **Both cases are the
-//!   confinement working, not a gap**: nothing DMAs through unconfined or out of its own domain.
-//!   The bug was purely in the test's observation: `CAP.NFR` reports one fault-recording register
-//!   (see the next entry), the *other* disk's fault re-fires on every retry and can occupy that
-//!   one slot indefinitely, and a fault arriving while the register already holds one is dropped
-//!   with `FSTS.PFO` set rather than recorded, so the escape fault the test provokes on its own
-//!   device could be the one silently lost. **The other disk was not a QEMU quirk.** A read-only
-//!   `COMMAND`-register read taken before this boot ever calls `bring_up` shows Bus Master Enable
-//!   already set on it: something upstream of this kernel left it able to master the bus before
-//!   any driver here touched it, and `attach`'s invalidation is only when it first has a reason to
-//!   try. `init` never clears Bus Master Enable for a function it does not own, so the same thing
-//!   would happen with real firmware in the seat QEMU sits in here (aarch64's SMMUv3 and riscv64's
-//!   IOMMU do not show it, which is why those two legs always passed; whether their firmware
-//!   leaves functions bus-mastering the same way is unmeasured). The production question is
-//!   proposed, not answered, in
-//!   `design/roadmap/0693-reset-unowned-pci-functions-before-iommu-enable.md`. The test now
-//!   resets every *other* block device on the bus (`STATUS = 0`, an ordinary virtio reset) before
-//!   registering and provoking its own, which stops their DMA outright regardless of the
-//!   mechanism; see the test for the commented fix. Green on all three architectures.
+//!   register and starve a test's own fault.** The kernel's test runners attach a second,
+//!   unregistered virtio-blk-pci disk (the RedoxFS fixture from milestone 303 (x86_64's FS
+//!   service has a server and no disk it can find)), and the moment any `attach` globally
+//!   invalidates, that disk faults default-deny on every retry and can occupy a unit's single
+//!   fault-recording register indefinitely, so the fault a test provokes on its own device could
+//!   be the one dropped (`FSTS.PFO`). Both devices fault *correctly*: the confinement was
+//!   working; only the test's observation was wrong, and the test now resets every other block
+//!   device on the bus before provoking its own. The sibling was no QEMU quirk: its Bus Master
+//!   Enable was already set before this kernel ran, which is
+//!   `design/roadmap/0693-reset-unowned-pci-functions-before-iommu-enable.md`'s question. Green
+//!   on all three architectures.
 //! - **The fault path decodes and clears exactly one Fault Recording Register per unit.** `CAP.NFR` is read
 //!   to find where the bank starts, not to size it; QEMU's model reports `NFR = 0` (one register),
 //!   so a real unit with more than one is read at the same fixed offset only. A burst of faults past
