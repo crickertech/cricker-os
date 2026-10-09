@@ -7875,7 +7875,7 @@ mod tests {
         // The FIRST batch legitimately costs a couple of frames: the stack area is a fresh
         // region of virtual address space, so `map_page` has to build an L2 and an L3 page
         // table for it. Those are a one-time cost, not a leak: `unmap_page` frees the leaf
-        // mapping but leaves the intermediate tables standing (see the TODO on `paging::unmap`).
+        // mapping but leaves the intermediate tables standing, on purpose (notes/teardown.md).
         batch_of_eight();
 
         // **Reuse is asserted directly, because the frame count below cannot do it.** Measured

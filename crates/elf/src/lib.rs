@@ -296,7 +296,8 @@ pub enum Error {
     ///
     /// A real loader handles this (it is legal, and common when `.text` and `.rodata` share a
     /// page). Ours refuses, because our own linker script page-aligns every segment, so if we
-    /// ever see one it means something we did not expect. See the TODO in the kernel's loader.
+    /// ever see one it means something we did not expect. The linker script that keeps that true,
+    /// and the two empty-section cases that once broke it, is `crates/user_mode_runtime/link.ld`.
     SegmentsOverlap,
     /// The entry point is not inside any executable segment. The program cannot start.
     EntryNotExecutable,

@@ -384,6 +384,7 @@ place instead of moving text between two systems. Numbers 68 to 73 are the six t
 | 265 | DECIDED | [A C library started from relibc, whose Rust platform layer holds the capabilities](0265-a-c-library-started-from-relibc.md) |
 | 266 | DECIDED | [A Rust source file stays under 2,000 lines, held by a ratchet that only falls](0266-a-rust-source-file-stays-under-two-thousand-lines.md) |
 | 267 | DECIDED | [A comment states the constraint as it is now](0267-a-comment-states-the-constraint-as-it-is-now.md) |
+| 268 | DECIDED | [The cast ratchet does not count a 64-bit integer cast to `usize`](0268-the-cast-ratchet-does-not-count-a-64-bit-integer-cast-to-usize.md) |
 
 Two blocks that lived among the decisions are not decisions and moved out with the split, the same
 way milestone 76 moved four essays out of the roadmap: [the open design
