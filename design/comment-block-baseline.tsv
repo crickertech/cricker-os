@@ -70,7 +70,7 @@ crates/bitmap_font/src/lib.rs:1	104
 crates/block_roster/src/lib.rs:1	83
 crates/board_console/src/board.rs:1	72
 crates/board_console/src/exposure.rs:1	68
-crates/board_console/src/lib.rs:1	186
+crates/board_console/src/lib.rs:1	176
 crates/board_console/src/lottery.rs:1	51
 crates/board_console/src/port.rs:1	52
 crates/board_console/src/progress.rs:1	60

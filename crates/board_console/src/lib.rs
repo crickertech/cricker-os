@@ -142,16 +142,6 @@
 //! is an open keyboard beside U-Boot's autoboot countdown, which milestone 249's lane hit by
 //! detaching the console to send this same byte, at the cost of a power cycle.
 //!
-//! The two reasons this crate had to write have had opposite fates and both are worth keeping.
-//! **The first is gone**: reaching nife once meant interrupting autoboot and typing the four
-//! `StarFive #` commands `script/board-image` prints, because the extlinux path ended at
-//! `### ERROR ### Please RESET the board ###`. Milestone 218 closed that on 2026-09-16, confirmed
-//! by a boot whose countdown expired with nobody typing (`bench/radon-2026-09-16/tour-083200.log`),
-//! so a reader is enough to get radon from power-on to the kernel and nothing here drives U-Boot.
-//! **The second arrived thirteen days earlier from a different direction** and is what [`stop`]
-//! answers: milestone 249's rebooting soak is ended by a byte on this console, and a tool holding
-//! the port could not send one.
-//!
 //! **It does not touch power.** The board is powered by a Kasa strip that was not reachable from
 //! either machine when milestone 216 was written, and the roadmap block declines to decide whether
 //! this tool should ever drive it. A tool that power-cycles is a different and more dangerous
@@ -185,37 +175,12 @@
 //! sized against the slowest subrun rather than against a deadline; [`progress::Stage::Sweep`] and
 //! `script/job-mix`'s `BUGS` carry the measured number and what it costs a slow board.
 
-//! # Name
-//!
 //! Name: provisional, and ruled: calef ruled **`serial_console`** on 2026-09-13, pairing it with
-//! `screen_console`. The block stays `provisional` because the ratified name is not this crate's
-//! until the rename is performed, and until then `board_console` belongs on the worklist rather
-//! than off it. Coined by milestone 216's lane on 2026-09-01.
-//!
-//! **The ruling is that a console is named for where its text comes out.** `serial_console` and
-//! `screen_console` are two consoles over two wires, and that is the scheme a reader holds: not
-//! who the console is for, and not where the code runs. The maintainer argued the other way twice
-//! and was wrong both times, which is worth recording because the wrong axis is the tempting one.
-//!
-//! **The argument that lost**, so the next reader can weigh it rather than rediscover it: this
-//! crate uses `std` and runs on the developer's machine, while `screen_console` is `#![no_std]`
-//! and the kernel depends on it, so the two are a development tool and a shipped component rather
-//! than siblings. calef's answer is that the distinction is real and is not what a *console* is
-//! named for. It belongs in this header, not in the name.
-//!
-//! **One consequence to record rather than discover.** `components/src/serial_driver.rs` is
-//! `#![no_std]` and drives the UART from EL0 inside nife; this crate reads the far end of the same
-//! physical cable from the host. They are two ends of one wire on two machines, and the names now
-//! look like a matched pair. That is a cost of the scheme, accepted: a reader meeting both should
-//! know the driver ships and the console does not.
-//!
-//! Refused `board_console`, above. Refused `board_serial`, which names the transport where the
-//! transport is the least interesting part, and `bench`, a place rather than a thing.
-//!
-//! **The open question is not the word, it is the scope**, and milestone 216's block names it:
-//! whether this stays one crate that learns a board profile, or becomes one per board. A name
-//! chosen before that is answered is a name that may be answering it by accident. Not put to
-//! calef.
+//! `screen_console`, because a console is named for where its text comes out. The block stays
+//! `provisional` until the rename is performed; coined by milestone 216 (nothing in this tree
+//! can read a board)'s lane on 2026-09-01. The
+//! axis argument, the consequence for `serial_driver`, and the refusals are
+//! [design/naming/programs-scripts-and-directories.md](../../../design/naming/programs-scripts-and-directories.md).
 
 pub mod board;
 pub mod exposure;
