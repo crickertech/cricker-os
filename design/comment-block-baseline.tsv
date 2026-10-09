@@ -190,9 +190,9 @@ crates/swish/src/complete.rs:1	57
 crates/swish/src/lib.rs:1	84
 crates/swish/src/lib.rs:598	45
 crates/swish/src/sequence.rs:1	82
-crates/system_initializer/src/lib.rs:6	406
-crates/system_initializer/src/lib.rs:1365	41
-crates/system_initializer/src/lib.rs:3892	41
+crates/system_initializer/src/lib.rs:6	301
+crates/system_initializer/src/lib.rs:1261	41
+crates/system_initializer/src/lib.rs:3788	41
 crates/system_log/src/lib.rs:1	96
 crates/test_times/src/lib.rs:1	64
 crates/thread_wake_handshake/src/lib.rs:1	131

@@ -33,6 +33,23 @@ This worth claims no new decision, only the next slice of a ruled sweep.
 Reuse: the ratchet, the lexer and the baseline already exist (milestone 860 built them). This
 worth only runs the sweep and banks, and takes no new code.
 
+## The worth, 2026-10-09 (UTC): in progress
+
+Worst first, banked as each falls:
+
+- `kernel/src/testing.rs:240` (468 lines): the frame-budget ledger left for
+  `notes/frame-budget.md`, its dated narrative compressed to a number-line table there and its
+  stories left to the commits that wrote them. The doc comment is 35 lines and its row is gone
+  (337 rows to 336).
+- `crates/system_initializer/src/lib.rs:6` (406): the mutation essay deleted to a pointer at
+  milestone 244 (the largest crate in the tree is proved by nothing a mutation can reach)'s
+  block, the naming saga moved to `design/naming/crates.md`, the history
+  compressed to pointers. Banked at 301. The bulk that remains is the `no_run` doctest that
+  type-checks the whole `BootEndowment` literal, which is a gate and stays. This row stays on the
+  baseline at its banked ceiling.
+- Remaining in this worth: `components/src/timetable.rs:1` (224), `crates/jh7110_entropy/src/lib.rs:2`
+  (209), `kernel/src/arch/x86_64/iommu.rs:1` and `crates/job_mix/src/lib.rs:1` (197 each).
+
 ## Index row
 
 The comment-block sweep's next worth: the 337 over-cap blocks the baseline holds, swept a milestone's worth at a time, worst first. Every shrink is banked, so the baseline only falls. History moves to commit messages, findings to notes, rulings to sections.

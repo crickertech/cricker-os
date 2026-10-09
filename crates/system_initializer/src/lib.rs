@@ -3,25 +3,18 @@
 // a syscall that already returned its own error through the ABI, and a second, richer error would be
 // inventing detail the kernel did not provide. See that crate's head comment.
 #![allow(clippy::result_unit_err)]
-//! **The interactive system, built once** (milestone 96).
+//! **The interactive system, built once** (milestone 96 (one init: the spawn service written twice)).
 //!
 //! There is **one** first process, `components/src/progenitor.rs`, on all three architectures
 //! (milestone 266), and **one** system it builds, which is this crate. What that program still
 //! holds is the table of slot numbers its own kernel granted, which is a fact about a boot path and
 //! nothing else; everything from parsing the archive to serving the shell's last `run` is here.
 //!
-//! **There used to be two.** `user::initrd()` loaded an archive entry called `init`, which was
-//! `fixtures/src/hello.rs`'s `init_boot` role on aarch64 and a separate program on riscv64: an alias
-//! standing over two implementations of one job. This crate ended the duplicated *code* at
-//! milestone 96 and 266 ended the duplicated *program*.
-//!
-//! Before this crate the construction and the spawn service were written twice, about three hundred
-//! near-identical lines, and the failure that caused is the reason milestone 96 exists: a fix that
-//! lands in one copy and not the other is **a boot that reaches userspace and prints nothing at
-//! all**, with no fault and no message. That shape cost three separate lanes an evening each.
-//! `script/swish-check` boots both ISAs and types at the prompt, which is what makes it the gate
-//! that proves this: it is the only thing in the tree that runs the real progenitor.
-//!
+//! There used to be two programs and twice-written construction code, and a fix that landed in
+//! one copy and not the other was a boot that reached userspace and printed nothing at all: no
+//! fault, no message. That failure, which cost three lanes an evening each, is why milestone 96
+//! exists; its block holds the story. `script/swish-check` boots both ISAs and types at the
+//! prompt, the only thing that runs the real progenitor, which is what proves this.
 //! # Examples
 //!
 //! **This one cannot run either, and the reason is structural.** [`boot`] returns `!` and every step
@@ -162,25 +155,23 @@
 //! a grant expression and directs the progenitor to load the named program and endow it with exactly what the
 //! command named. Nothing here names an architecture: the console and input drivers hold the one
 //! device-specific fact (the UART register layout), and the kernel grants the right device.
-//!
 //! # What it gives away once the system is up (milestone 22, the interactive increment)
 //!
-//! It used to hold the kernel's whole construction budget for life, which made every process in the
-//! system one bug in the progenitor away from being built wrong. It no longer does. Once the boot servers
-//! above are built it carves two bounded budgets off that root and **deletes the root**:
+//! It carves two bounded budgets off the kernel's construction root and **deletes the root**, so
+//! no process here is one bug away from being built wrong:
 //!
 //! - [`INIT_OWN_PAGES`] for its own scratch page tables, which is all it spends on itself; and
 //! - [`JOBS_BUDGET_PAGES`] for the jobs the prompt asks for, one reclaimable region per job.
 //!
 //! It also gives up the UART device capability and the UART interrupt as soon as the drivers that
 //! need them are built, and everything in [`BootEndowment::for_test_roles`] with them. **It keeps
-//! the file service** (milestone 31 (a capability shell) phase 3, 2026-08-17): this sentence said it gave that away as
-//! soon as the shell held it, and DECISIONS §208 (installing a package is granting it) and milestone 507 (installing a package: mutate, compose, or widen) repeated it as the reason the
-//! spawner cannot read an installed program. It can; see "The filesystem stays" in `boot`, and
-//! DECISIONS §219 (how the shell names an installed program to the spawner) for what that changes. The proof is a negative control taken from inside the process and
-//! printed at the prompt, exactly the shape `root_supervisor` uses: after the delete, `RETYPE` and
-//! `RETYPE_OBJ` on that slot must answer `NoSuchSlot` (there is nothing there) rather than
-//! `NotPermitted` (there is, and you may not).
+//! the file service** (milestone 31 (a capability shell) phase 3, 2026-08-17): DECISIONS §219 (how
+//! the shell names an installed program to the spawner) rules that the spawner can read an
+//! installed program, so the old claim that it could not is retired; see "The filesystem stays" in
+//! `boot`. The proof is a negative control taken from inside the process and printed at the
+//! prompt, exactly the shape `root_supervisor` uses: after the delete, `RETYPE` and `RETYPE_OBJ`
+//! on that slot must answer `NoSuchSlot` (there is nothing there) rather than `NotPermitted`
+//! (there is, and you may not).
 //!
 //! The job budget is **renewable**, which is what makes bounding it cheap. Every job is built in its
 //! own region split off [`JOBS_BUDGET_PAGES`] and is born supervised: `job_undertaker`, a process
@@ -228,187 +219,91 @@
 //!
 //! # BUGS
 //!
-//! **Nothing a host test could run proves any of this, and milestone 244 measured how much that
-//! costs rather than leaving it as a feeling.** This crate reaches `user_mode_runtime` through the dependency
-//! graph, so it does not build for the host at all; `script/lint`, `script/coverage` and
-//! `.cargo/mutants.toml` all exclude it, and a gate in `script/lint` derives that set from cargo
-//! metadata so the four lists cannot drift apart again. `script/swish-check` is what proves this
-//! code, and it is a real gate: it boots both ISAs and types at the prompt, and it is the only
-//! thing in the tree that runs a real progenitor.
+//! **Nothing a host test could run proves any of this.** This crate reaches `user_mode_runtime`
+//! through the dependency graph, so it does not build for the host at all; `script/lint`,
+//! `script/coverage` and `.cargo/mutants.toml` all exclude it, and a gate in `script/lint`
+//! derives that set from cargo metadata so the lists cannot drift apart again.
+//! `script/swish-check` is what proves this code: it boots both ISAs and types at the prompt.
+//! Milestone 244 (the largest crate in the tree is proved by nothing a mutation can reach)'s
+//! block holds the mutation measurement (196 mutants, a sixth of them pure, nothing lifted), and
+//! milestone 246 (measured boot's refusal path is tested by nothing, and one mutant turns it off)
+//! lifted the one that mattered: `measured_boot::verdict`, host-tested and
+//! falsified.
 //!
-//! What it cannot do is say which of a mutation run's mutants it would have caught. So the question
-//! milestone 244 asked was the one behind that: how much of these 2,632 lines (the count on
-//! 2026-09-03, before this paragraph was added) is logic with a right answer a host could check, and
-//! is it enough to be worth lifting out. **It is not**, and the split is worth stating because the
-//! shape of it is the interesting part. `cargo mutants --list` generates **196** here, five more
-//! than the 191 milestone 238's report scored, because the file moved between the two runs; the
-//! fractions below are of the 196 counted on the day:
+//! **A refused `console` or `line_editor` stops in silence.** Those two carry the progenitor's
+//! output, so a refusal of either has no route to a person: the trap is indistinguishable from
+//! any other early failure. Everything refused after them is named on the console. There is no
+//! debug-print syscall (the kernel-served `Console` object went away at milestone 8 (the console driver leaves the kernel)), and driving
+//! the UART from here would be a second copy of the console driver, per ISA, inside the process
+//! the drivers exist to keep small.
 //!
-//! | | mutants | what it is |
-//! |---|---|---|
-//! | [`boot`] | 97 | the build sequence: 34 are *deleting a field* from a `ChildEndowment` literal, 24 are slot-counter arithmetic, 12 flip a rights mask's `\|` |
-//! | `spawn_service` | 32 | the `RECEIVE` loop, one syscall per step |
-//! | `fill_entropy`, `build_caretaker`, `announce`, `reclaim`, `must`, `must_ok`, `memory_region_split` | 28 | syscalls with the loop around them |
-//! | `hex_password`, `sentence` and its `push`, [`boot`]'s own second copy of that `push`, `opt_cap`, `archive_name`, `measured` | 33 | pure: bytes in, bytes out, no capability touched |
-//! | top-level `const` arithmetic | 6 | not movable; they are what the rest is written against |
-//!
-//! **One of those 33 has since been lifted, and it was the one that mattered** (milestone 246). The
-//! aggregate above is right and the per-function reading of it is not: a mutant in `hex_password` or
-//! `sentence` produces a wrong string, and the mutant in `measured` produced *a system that runs code
-//! nobody vouched for*. That one line is now `measured_boot::verdict`, tested on the host, and
-//! falsified: `unvouched: true` changed to `false` turns a test red. The rest of the table stands as
-//! measured, and the aggregate argument for not lifting the others stands with it.
-//!
-//! **A fifth of the mutants and a fiftieth of the lines**, and every pure one is a leaf helper of
-//! the sequence beside it: `measured` filled a `Lookup` that only [`boot`] destructured, `opt_cap`
-//! reads one word out of one `receive_cap`, `archive_name` is `Some(p.name())`. Lifting them
-//! buys 33 reachable mutants and costs a crate of fragments, a wider public surface, and a reader
-//! holding two files to follow one boot. `redoxfs_server` runs the split this would be modeled on
-//! and runs it the other way up: there the sans-IO core is most of the package and the EL0 binary
-//! wraps it. Here the sequence *is* the package.
-//!
-//! **And the largest single group is the one no host test could reach even after a lift.** Thirty-four
-//! of [`boot`]'s mutants delete a field from a `ChildEndowment` struct expression: a child built
-//! with no `caps`, or no `stack_pages`. That is not logic with a wrong answer, it is a *declaration*
-//! of what a component may do, and the only things that can check a declaration are the boot itself
-//! or a test comparing it against a separately written expectation. Milestone 244's block proposes
-//! the latter as a lane of its own.
-//!
-//! **A refused `console` or `line_editor` stops in silence.** Those two are what carry the progenitor's
-//! output, so a refusal of either has no route to a person: the progenitor traps and the operator sees the
-//! kernel's fault line for the progenitor and nothing else, indistinguishable from any other early progenitor
-//! failure. Everything refused after them is named on the console. There is no debug-print syscall
-//! (the kernel-served `Console` object went away at milestone 8) and driving the UART from here
-//! would be a second copy of the console driver, per ISA, inside the process the drivers exist to
-//! keep small.
-//!
-//! **An absent required component still traps with no message**, unchanged from before this
-//! existed. That is a build that did not pack it rather than bytes somebody swapped, and it has
-//! never had one.
+//! **An absent required component still traps with no message.** That is a build that did not
+//! pack it rather than bytes somebody swapped, and it has never had one.
 //!
 //! **The measurement is of the archive, not of memory over time.** It is checked once, when the
-//! program is loaded. Nothing re-measures a running process, and nothing measures the pages the progenitor
-//! wrote into a child after `build_child` copied them.
+//! program is loaded. Nothing re-measures a running process, and nothing measures the pages the
+//! progenitor wrote into a child after `build_child` copied them.
 //!
-//! The return of pages is **LIFO** (§16 (object revocation), `crates/memory_regions`): a job region that is not at the
-//! top of the budget's watermark when it is reclaimed returns nothing at once, and its run is a hole
-//! until no job above it is live, when the kernel reclaims it with the last of them. Until
-//! 2026-10-03 (UTC) the hole lasted until this process died, which it never does, so every pipeline
-//! (whose producer ends first) and every job carved before the reaper reached its predecessor cost
-//! the pool a region for good. On CI's riscv64 runner that ran a `std` job's 384 pages out before
-//! the swish-check session ended (`notes/swish-check-flake.md`). What remains: a hole under a job
-//! that stays live is not reusable while it does, because a carve still only bumps.
+//! The return of pages is **LIFO** (§16 (object revocation), `crates/memory_regions`): a job
+//! region that is not at the top of the budget's watermark when it is reclaimed returns nothing
+//! at once, and its run is a hole until no job above it is live. Until 2026-10-03 (UTC) the hole
+//! lasted until this process died, which it never does; milestone 676 (the NTP and login tests
+//! give their regions back) closed that on CI's riscv64 runner. A hole under a job that stays
+//! live is still not reusable while it does, because a carve still only bumps.
 //!
-//! **A `graphical_terminal` session's size is measured, after the count was wrong** (milestone 632
-//! (provisional)). [`GRAPHICAL_TERMINAL_SESSION_PAGES`] was first bounded from the constants at 464,
-//! and the `swish-check` graphical launch proved that too small: every launch failed with `could not
-//! spawn` (the builder refuses rather than traps). Its doc holds the bisection. While a session
-//! runs, its 528-page region is one of the pool's 672,
-//! so a `std` job and a second session are refused until it ends, which the shell also reports as
-//! `could not spawn`.
+//! **A `graphical_terminal` session's size is measured, after the count was wrong** (milestone
+//! 632). [`GRAPHICAL_TERMINAL_SESSION_PAGES`] was first bounded from the constants at 464, and
+//! every launch failed with `could not spawn`; its doc holds the bisection. While a session runs,
+//! its 528-page region is one of the pool's 672, so a `std` job and a second session are refused
+//! until it ends, which the shell also reports as `could not spawn`.
 //!
 //! **A session whose build fails after its first driver started may keep those pages for the
-//! boot.** The failure path reclaims the region, and reclaim's sweep wakes the half-built drivers,
-//! but whether they exit on a swept endpoint is a property of *their* serve loops that no leg has
-//! forced yet; a driver that will not die holds its pages past the refusal. The same applies to a
-//! driver that dies on its own inside a live session (unsupervised, for `build_caretaker`'s
-//! recorded reason): its pages wait for the session program's reap.
+//! boot.** The failure path reclaims the region, and reclaim's sweep wakes the half-built
+//! drivers, but whether they exit on a swept endpoint is a property of *their* serve loops that
+//! no leg has forced yet. The same applies to a driver that dies on its own inside a live
+//! session: its pages wait for the session program's reap.
 //!
-//! **A session is not §24-interruptible.** It ends on its own (`^C` through its terminal, or a
-//! `quit` line) rather than through a job frame the shell watches, so a second `^C` cannot
-//! escalate and a hung session holds its region until something reboots the machine. The
-//! supervised-session shape is real follow-on work, recorded in the milestone's block.
+//! **A session is not §24-interruptible.** It ends on its own rather than through a job frame
+//! the shell watches, so a second `^C` cannot escalate and a hung session holds its region until
+//! something reboots the machine. The supervised-session shape is follow-on work in 632's block.
 //!
 //! **The progenitor gives up every page it lays down for a child as soon as the page is in the
-//! child** (milestone 95 (an unmap primitive, and the mappings init never lets go), §249 (a running
-//! address space stays nameable)). Until 2026-10-05 the loader's scratch window was never unmapped,
-//! so the progenitor kept a writable mapping of every page of every boot server it built, for the
-//! life of the machine, and giving the construction budget away did not reach it. The kernel now
-//! grants it its own address space at slot 28 (`BootEndowment::own_space`), and the loader `UNMAP`s
-//! each scratch page through it (`supervision_protocol::give_up_own_page`). The other three windows
-//! it opened onto memory it hands on go the same way: the shell's output page once the last boot
+//! child** (milestone 95 (an unmap primitive, and the mappings init never lets go), §249 (a
+//! running address space stays nameable)). The kernel grants it its own address space at slot 28
+//! (`BootEndowment::own_space`), and the loader `UNMAP`s each scratch page through it
+//! (`supervision_protocol::give_up_own_page`), since 2026-10-05. The other three windows it
+//! opened onto memory it hands on go the same way: the shell's output page once the last boot
 //! line is printed, and the virtio-rng and NIC DMA pages once their physical base is read.
-//! `system_tests`' `running_space_tests` has the negative control, a builder faulting on the page.
+//! `system_tests`' `running_space_tests` has the negative control, a builder faulting on the
+//! page. A kernel that grants no slot 28 leaves every window open, as before.
 //!
-//! What it keeps: a kernel that grants no slot 28 leaves every window open, as before; and pages a
-//! *job's* image arrives in from the shell are given up after the copy, but a job's own pages are
-//! the job's region's to take back, as they always were.
+//! **A boot with a NIC waits for DHCP before it has a prompt** (milestone 590). `net_stack`
+//! reports its lease with a blocking send and serves nobody until that send is taken. On QEMU's
+//! user-mode network the answer is immediate; on a network with a virtio NIC and no DHCP server
+//! the boot would sit there with no console to say why, a case unreached rather than closed
+//! because nothing grants a NIC on real hardware today. Milestone 590's block records the fix
+//! shape and its slot cost.
 //!
-//! **A boot with a NIC waits for DHCP before it has a prompt** (milestone 590 (provisional)).
-//! `net_stack` reports its lease with a blocking send and serves nobody until that send is taken, so
-//! the network block receives it before building anything else. On QEMU's user-mode network the
-//! answer is immediate; on a network with a virtio NIC and no DHCP server the boot would sit there
-//! with no console to say why. Nothing grants a NIC on real hardware today, so the case is
-//! unreached rather than closed. Taking the lease later, when the first declaring child is spawned,
-//! would unblock the boot and cost the report endpoint a permanent slot (the peak is 23 of 32,
-//! `kernel::cap::CAPABILITY_TABLE_PEAK_MEASURED`); milestone 590's block records it.
+//! **The progenitor's capability table is finite, and running out of it prints nothing at all.**
+//! Every capability held across a `build_child` is one the child's address space, frames and TCB
+//! cannot have, and `build_child` answering `Err(())` is a silent halt. Three of the four
+//! evenings this file has cost were exactly that, and the fourth was a slot count silently
+//! lowered below what the login stack needs: milestone 230 (`script/shell-check` is red on
+//! `main`) is that incident's record. The table is thirty-two now (`kernel::cap::
+//! CAPABILITY_TABLE_SLOTS`, raised to twenty-four by milestone 230 and to thirty-two by calef on
+//! 2026-09-27 for the machine statistics page), the measured peak is twenty-three of them on a
+//! boot with a NIC, and `kernel::cap::CAPABILITY_TABLE_PEAK_MEASURED` holds the history of both
+//! numbers. Nine slots over the peak is deliberate: every raise that took the table to exactly
+//! the day's need was hit in silence by the next addition. If a change here needs another
+//! permanent capability, the honest buy-backs are the readiness endpoint and the file page
+//! (`notes/shared-page-audit.md`).
 //!
-//! **The progenitor's capability table is finite, and running out of it prints nothing at all.** Every
-//! capability held across a `build_child` is one the child's address space, frames and TCB cannot
-//! have, and `build_child` answering `Err(())` is a silent halt. Three of the four evenings this
-//! file has cost were that: once when the kernel grew two grants, once when a boot component was
-//! built one step too early, and once when a block that had never run before started running
-//! (milestone 230 (`script/shell-check` is red on `main`), below). The order below is load-bearing and the comments say where.
-//!
-//! **The table was sixteen slots, then seventeen, then twenty-four, and is thirty-two now**
-//! (`kernel::cap::CAPABILITY_TABLE_SLOTS`, raised to twenty-four by milestone 230 on 2026-09-02
-//! and to thirty-two by calef on 2026-09-27 for the machine statistics page's boot slot). Milestone 31
-//! phase 3 measured this process at nine capabilities at rest and fifteen at peak, one slot from
-//! the seventeen-slot wall, and that number described the boot as it then was: the login stack
-//! below did not exist yet. It does now, and with a virtio-rng attached (DECISIONS §120's
-//! 2026-08-26 amendment) entropy comes up, `entropy_client` is `Some`, `have_login_stack` is true,
-//! and the credentialer build runs. Measured at that peak, this process holds **twenty-one** slots
-//! at once: twelve it never gives back (the root untyped, six endpoints, four frames, and the
-//! shell's TCB waiting to be started), the login block's own
-//! `prov`/`verify`/`cred_ready`/`prov_page`/`verify_page`/`cred_budget`, and the address space and
-//! page `build_child` is laying the credentialer down through.
-//!
-//! **The login stack was written against twenty-eight slots and nobody knew.** Milestone 49's lane
-//! had raised the constant to `28 // TEMP: generous bisection value` while chasing an unrelated
-//! flake; a cleanup put it back to 17 on the evidence that the prose said 17 and `script/test` was
-//! green at 17, which is true and blind, because no suite in `script/test` boots this program. The
-//! boot that does is `script/swish-check`, and it ran in neither `script/test` nor CI, so `main`
-//! trapped here for five days behind a green tree. That is milestone 230's whole subject and the
-//! reason both of those now run this.
-//!
-//! **What that means for the next capability added here.** Twenty-four leaves three slots over a
-//! measured twenty-one, deliberately rather than generously: every previous raise took the number
-//! to exactly what the day's boot needed, and every time the next addition hit the wall in silence.
-//! If a change here needs a twenty-second permanent capability, the honest candidates for buying
-//! one back are still the readiness endpoint (it could be retyped after the caretaker's build
-//! rather than before, if the caretaker learned to take it another way) and the file page (nothing
-//! but a second frame per grant retires it, which is `notes/shared-page-audit.md`'s proposed lane).
-//!
-//! **That twenty-second capability arrived, and so did a twenty-third.** Milestone 111 (a shell
-//! that can endow a child with entropy)'s entropy endpoint took the peak to twenty-two, and
-//! milestone 590's network-stack endpoint took it to **twenty-three of twenty-four** on a boot with a NIC (`kernel::cap::
-//! CAPABILITY_TABLE_PEAK_MEASURED` carries both). One slot was left, and the next permanent
-//! capability was to buy one back through the two candidates above. The raise to thirty-two
-//! (milestone 126 (the `procps` package)) leaves nine above the same peak; the machine statistics
-//! page it was raised for arrives at boot slot 23 and goes to the shell before the login block, so
-//! it is never held across the peak.
-//!
-//! Name: ratified 2026-08-04 (calef, milestone 96), and it is the ratification that raised
-//! milestone 115. Refused `system_builder` (milestone 63 had already refused it, for a reason still
-//! true: `builder.rs` called itself "a minimal init: the system builder" when this was recorded,
-//! so two programs would claim one phrase; that program was retired on 2026-09-14 by milestone 295
-//! and the quotation is kept because a refusal is an account of why a name lost, not a description
-//! of the tree) and `system_bootloader` (it claims a position in the
-//! boot sequence it does not occupy, and milestone 88 will need the real one). A lane proposed
-//! `system_builder` anyway and the maintainer endorsed it, because that refusal lived in one table
-//! cell inside one milestone block and neither of them found it. The type this crate exports as
-//! `BootEndowment` was ratified the same day, replacing `Grants`.
-//!
-//! **Asked again on 2026-09-13, and refused.** The program this crate is the logic of became
-//! `progenitor` (milestone 266), and the obvious next question was whether the crate should follow.
-//! calef: *"init is the issue not initializer."* The refusal is right for a reason that keeps being
-//! got wrong. `init` is a truncated **verb**, which is why it lost; `initializer` is an **agent
-//! noun**, the thing that initializes, which is exactly what *name things with nouns* asks for.
-//! Milestone 266's own house-style list cites `initializer` beside `builder`, `spawner`,
-//! `supervisor` and `provisioner` as evidence *for* the convention, and then a section later argued
-//! the opposite; that contradiction stood for five days. And the crate is not the process: it is
-//! the initialization, as distinct from the thing that runs it, and it descends nothing, so
-//! `progenitor` would fit it worse than it fits the program.
+//! Name: ratified 2026-08-04 (calef, milestone 96; the ratification that raised milestone 115 (the names that were ratified, and the ones that were refused)).
+//! The refusals (`system_builder`, `system_bootloader`), the lane that re-proposed one anyway,
+//! the 2026-09-13 re-ask and its answer (*"init is the issue not initializer."*), and the
+//! verb-versus-agent-noun reasoning are
+//! [design/naming/crates.md](../../../design/naming/crates.md)'s record. `BootEndowment` was
+//! ratified the same day, replacing `Grants`.
 
 use core::sync::atomic::AtomicU16;
 use core::sync::atomic::Ordering::Relaxed;
