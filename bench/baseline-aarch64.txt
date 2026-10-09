@@ -1,8 +1,9 @@
-# toolchain: nightly-2026-10-08
+# toolchain: nightly-2026-10-09
 # qemu: 11.1.1
 # date: 2026-10-08
 # why: 2026-10-08, milestone 139 (drive the unsafe count down) round 9: the revocation log's walk moved behind revoke::chain, and its scans loop per page over a slice instead of a flat_map across the chain. map_el0 falls well under the floor (aarch64 389647 to about 300k, riscv64 62743 to about 47k). The first cut used a flat_map and cost map_el0 +39% and spawn_el0 +19% on aarch64; CI caught it on #1842. This save also absorbs main's own drift since the 2026-10-04 floor (measured on origin/main 9c9d6a25f the same day: map_el0 356622, spawn_el0 1453995, and every other aarch64 row that moved over 3% here, yield_switch, call_reply, broker_rtt, ctx_switch and spawn_reap, reads the same on main to within 0.02%, so those moves are main's, not this branch's; this branch's own effect on aarch64 is map_el0 -15.8% and spawn_el0 -3.4% against main).
 # why: 2026-10-08: restamped from nightly-2026-10-07 to nightly-2026-10-08 by `cargo xtask bench --restamp`, rows unchanged; compiler term on one machine, largest: ipc_rtt_el0 -0.264%, spawn_el0 +0.119%, ctx_switch +0.060% (bounds 0.5% per row, 2% cumulative); cumulative since the last --save: ipc_rtt_el0 -0.264%, spawn_el0 +0.119%, ctx_switch +0.060%, map_new +0.006%, sink_throughput -0.005%
+# why: 2026-10-09: restamped from nightly-2026-10-08 to nightly-2026-10-09 by `cargo xtask bench --restamp`, rows unchanged; compiler term on one machine, largest: ipc_rtt_el0 +0.104%, sink_throughput +0.016%, map_new +0.006% (bounds 0.5% per row, 2% cumulative); cumulative since the last --save: ipc_rtt_el0 -0.160%, spawn_el0 +0.119%, ctx_switch +0.060%, map_new +0.012%, sink_throughput +0.011%
 # bench/baseline-aarch64.txt: deterministic icount tick counts (cargo xtask bench --save).
 # Recorded against the QEMU pinned in .qemu-version. icount counts guest instructions, so the
 # emulator version is part of what these numbers mean: script/qemu-check warns when the QEMU on
