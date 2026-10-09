@@ -29,8 +29,9 @@ calef ruled on three of this proposal's questions on 2026-10-09 (UTC).
 - Open question 2: the scope is the 16 measured files. A file is added only when a concrete path
   from a syscall argument into it is shown.
 - Open question 4, and the thresholds: cast counts are frozen per file at today's value and may only
-  go down. That is the mechanism. Zero stays the end goal, with no date attached, so done criteria
-  2 and 3 below state it.
+  go down. That is the mechanism. Zero stays the end goal for the three cast lints, with no date
+  attached, so done criteria 3 and 4 below state it. `arithmetic_side_effects` is the exception:
+  its ceiling only falls, and zero is not its goal (calef, 2026-10-09 (UTC)).
 
 ## The problem
 
@@ -111,9 +112,10 @@ proposal, which shares the overflow boundary.
    from a syscall argument is shown. So `sched.rs` and `cap.rs` stay out until one is.
 3. Address newtypes in `paging`: worth a milestone of their own? It is the rung-one answer and the
    larger change.
-4. Ruled 2026-10-09 (UTC): a ceiling, frozen at today's value per file, that only falls, with zero
-   the end goal and no date attached. The question was whether `arithmetic_side_effects` in the
-   memory scope ratchets to zero.
+4. Ruled 2026-10-09 (UTC): a ceiling, frozen at today's value per file, that only falls. Zero is not
+   the goal for this lint. Checking every `+` in page-table code costs thousands of edits on the
+   hottest path, and the cast lints and Kani proofs already cover the overflow that matters. The
+   question was whether `arithmetic_side_effects` in the memory scope ratchets to zero.
 
 ## Where it sits in the ranking
 
