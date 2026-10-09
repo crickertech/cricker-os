@@ -43,10 +43,10 @@ The request's other two counts did not survive measurement:
 - `TODO`, `FIXME` and `XXX`. A gate already exists: `script/lint`'s "TODO markers cite a
   milestone", from milestone 94 (the untracked-work sweep). It finds no marker in Rust. The word
   appears on 107 tracked lines at the base, 97 of them prose in `design/`, `notes/` and `script/`.
-  The 7 in Rust are prose too, and four of them point at a TODO that no longer exists.
-  `kernel/src/sched.rs`, `kernel/src/thread.rs` and `crates/paging/tests/mapping.rs` cite "the TODO
-  on `paging::unmap`". `crates/elf/src/lib.rs` cites "the TODO in the kernel's loader". Neither
-  TODO is there.
+  The 7 in Rust are prose too. At the census, four of them pointed at a TODO that no longer
+  existed: `kernel/src/sched.rs`, `kernel/src/thread.rs` and `crates/paging/tests/mapping.rs` cited
+  "the TODO on `paging::unmap`", and `crates/elf/src/lib.rs` cited "the TODO in the kernel's
+  loader". 1c7849691 fixed all four (done criterion 4).
 - `#[ignore]`. There are 3 attributes, not 6, and all 3 carry a reason.
 
 ## The mechanism, and its rung

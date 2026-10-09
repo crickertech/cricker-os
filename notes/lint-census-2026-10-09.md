@@ -91,8 +91,9 @@ edition 2024, checked with a two-line program on this toolchain.
 | `allow_attributes_without_reason` (lint) | 380 | 294 |
 | `#[expect(...)]` attributes | 1 | 1 |
 
-`TODO`, `FIXME` or `XXX` appears on 7 lines of tracked Rust, and none is a marker. Four of them
-point at a TODO that no longer exists. The 3 `#[ignore]` attributes all carry a reason.
+`TODO`, `FIXME` or `XXX` appears on 7 lines of tracked Rust, and none is a marker. At the base, four
+of them pointed at a TODO that no longer existed; 1c7849691 points them at where the work went. The 3
+`#[ignore]` attributes all carry a reason.
 
 ## Function length and complexity
 
