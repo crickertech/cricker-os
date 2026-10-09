@@ -85,8 +85,8 @@ crates/calendar/src/lib.rs:1	113
 crates/capability/src/lib.rs:1	55
 crates/capability_witness_protocol/src/lib.rs:1	83
 crates/clock_protocol/src/lib.rs:1	118
-crates/component_plan/src/lib.rs:1	185
-crates/component_plan/src/lib.rs:876	46
+crates/component_plan/src/lib.rs:1	159
+crates/component_plan/src/lib.rs:850	46
 crates/compositor/src/lib.rs:1	138
 crates/coremark/src/lib.rs:1	53
 crates/counter_frequency_protocol/src/lib.rs:1	154

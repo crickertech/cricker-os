@@ -17,3 +17,6 @@ calef's; `script/names --unratified` lists each stem.*
   misspelling milestone 296 (the `initboot` feature was `shell`) found, the refusals, and the rule it settled, that a console marker
   takes the command's spelling. Moved from the crate's Name block.
 
+- [component-plan-name.md](component-plan-name.md): new, 2026-10-09, the ruled-but-unperformed
+  `capability_plan` name record (the capability-half argument, the `grant_plan` synonymy cost, the
+  `components/` collision, the refusals), moved from the crate's Name block.
