@@ -38,9 +38,9 @@
 //! **It wants a bigger stack than a small program does**, and a spawn site has to say so: a
 //! `grant_plan::Endowment` is about a kilobyte (mostly the name set a directory grant can carry) and
 //! the plan holds one per entry, so the working set is tens of kilobytes rather than hundreds of
-//! bytes. `system_tests/src/user/timetable_tests.rs` maps 48 pages and says why; eight died with a data
-//! abort whose faulting address was the stack pointer, which is what a stack overflow looks like
-//! from the kernel side and reads like a wild pointer if you have not seen it before.
+//! bytes. `system_tests/src/user/timetable_tests.rs` maps 48 pages and says why; a stack overflow
+//! here reads like a wild pointer from the kernel side, a data abort whose faulting address is the
+//! stack pointer.
 //!
 //! **And nothing else beyond that budget**, except in store mode below. No clock page, no
 //! directory, no console, no network, no device. That list is not modesty: it is why a scheduled `date` in `timetable.conf` is refused at
@@ -148,38 +148,15 @@
 //!   process already running the attacker's. One image per entry was refused on 2026-09-26 for
 //!   this reason (notes/scheduled-execution/one-image-per-entry.md).
 //!
-//! - **`--mem` entries are backed, and run one at a time, alone.** The roadmap's first sketch said
-//!   to split the grant out of the instance's own region "so a single `DESTROY` still reclaims
-//!   both", and that is wrong on its own terms: `regions::destroy_outcome` returns `Refused` for
-//!   any region with a live child, Kani proves it, and `sched::reap_supervised` hands that refusal
-//!   straight back, so a corpse whose region carries a nested grant can never be collected through
-//!   `reap` until the grant is destroyed first, by its own separate capability.
-//!
-//!   The nesting survives the correction for a better reason: it is the only thing that can ever
-//!   pair a death with a grant, because a builder is never told its child's tid
-//!   (`supervision_protocol::build_child` hands back a TCB capability, and `abi::thread_control_block`
-//!   has no method that reads one out), so the only fact this process has about a death is the tid
-//!   the kernel stamped on it. `fire_with_grant` keeps the split untyped's own capability rather
-//!   than `cap_delete`-ing it the way it does the region and the TCB, so `collect_grant` can destroy
-//!   it later, by name.
-//!
-//!   **What decides *how many* `--mem` instances may be outstanding at once is that correlation,
-//!   and the answer taken here is one.** A generation counter or a slot table could track more, but
-//!   nothing here needs its child's tid for any other reason, so paying for one would be
-//!   speculative machinery for a milestone whose document schedules exactly one such entry. With
-//!   one, the pairing needs no bookkeeping at all: `_start` drains everything already outstanding,
-//!   fires the grant-bearing instance alone, and blocks in `collect_grant` until it dies and its
-//!   grant is reclaimed before returning to the loop. Nothing else in the document can be firing
-//!   while that wait is blocked, which is what makes the next death on `DEATHS` unambiguous.
-//!
-//!   **The cost is real and is paid by every other entry, not by `--mem` ones.** While a grant is
-//!   outstanding this process is blocked in one syscall and cannot poll the clock at all, so an
-//!   interval entry due during that window is not skipped, it simply runs late once the loop
-//!   resumes; several periods elapsing during a slow instance still produce one fire on resumption
-//!   (`next_after`'s ordinary skip-not-catch-up rule, not a special case for this path).
-//!   `timetable.conf`'s `at-boot memory_grant_depleter --mem 4` fires before the first `every 150ms` tick can
-//!   even become due, so this cost is not exercised by the cross-ISA test; a document whose
-//!   `--mem` entry shares the clock with a fast interval would pay it.
+//! - **`--mem` entries are backed, and run one at a time, alone.** The grant nests inside the
+//!   instance's own region: `regions::destroy_outcome` refuses to destroy a region with a live
+//!   child (Kani proves it), so a split-out grant could never be collected through `reap`.
+//!   `fire_with_grant` keeps the grant capability so `collect_grant` can destroy it later, by
+//!   name. While a grant is outstanding the loop is blocked in one syscall and cannot poll the
+//!   clock, so interval entries due in that window run late on resumption, once (`next_after`'s
+//!   skip-not-catch-up rule). The refused first sketch, the tid argument, and why one at a time
+//!   is the answer are
+//!   [notes/scheduled-execution/mem-entries.md](../../notes/scheduled-execution/mem-entries.md).
 //!
 //! - **Without a registration page, the document is compiled in.** `include_str!`, and the shipped
 //!   boot-time test still runs that way. With a page the document is whatever the registrar sent,

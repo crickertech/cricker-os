@@ -11,6 +11,9 @@ work that page points at but does not need to carry whole.
   time-of-day entries. Both are settled in calendar-grammar-g5.md (2026-09-26, UTC).
 - [calendar-grammar-g5.md](calendar-grammar-g5.md): G5, a calendar grammar in words, checked
   against its sources and priced against G3 and G4. calef ruled "G5 full" on 2026-09-26 (UTC).
+- [mem-entries.md](mem-entries.md): why a `--mem` grant nests inside its instance's region, why
+  one is outstanding at a time, and what that costs the other entries. Moved from the program's
+  BUGS by milestone 862 (comments state the constraint as it is now), 2026-10-09 (UTC).
 
 *Name: provisional, minted 2026-09-26 (UTC) by the lane for milestone 129 (scheduled execution), for the directory and every
 stem in it. `calendar-grammar-g5` was minted the same day by the lane `proposal/129-calendar-grammar`. Naming is calef's; `script/names --unratified` lists each stem.*
