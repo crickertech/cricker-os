@@ -1,6 +1,6 @@
 # How other systems package software across languages
 
-An appendix of [a package declares what it needs at run time](../a-package-declares-what-it-needs-at-run-time.md),
+An appendix of [a package declares what it needs at run time](../0849-a-package-declares-what-it-needs-at-run-time.md),
 written 2026-10-07 (UTC) on calef's request: *"I would like prior art as part of that review."* It
 is a separate file because the table would put the proposal over §212 (a prose budget)'s cap.
 
@@ -68,3 +68,14 @@ Genode is the closest match and worth reading before milestone work starts. Its 
 already sits at the package level, holds `requires` and `provides` of services, and is what its
 deployer routes from. The difference this proposal argues for is that nife writes the need once,
 in the program's manifest, and builds the package-level record from it.
+
+## An ad hoc script at the prompt, prior art for the trial
+
+All read, for the `BUGS` entry's open usability risk: an installed program comes through `jig`
+with its block reviewed, while an ad hoc script typed at the shell runs on a subset of the shell's
+authority with no block.
+
+- Deno prompts at run time for a permission no `--allow-*` flag granted.
+- Android asks in a dialog for a manifest-declared permission when it is used.
+- `ffx component run` starts a component in the `ffx-laboratory` collection, whose narrowed
+  capabilities are unverified.

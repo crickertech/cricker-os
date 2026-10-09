@@ -4,7 +4,7 @@ calef ruled on 2026-10-07 (UTC), on pull request #1805: *"Start on cordoba."* Th
 (radon, xenon, and argon once it arrives) take their updates from an index served on the house
 network by cordoba, the always-on Ubuntu box. cordoba is the homelab agent's, not nife's, so a nife
 lane writes this and does nothing on cordoba. The plan it serves is
-[lab machines update themselves](../design/roadmap/proposals/lab-machines-update-themselves.md).
+[milestone 858 (lab machines update themselves)](../design/roadmap/0858-lab-machines-update-themselves.md).
 Name provisional.
 
 ## Goal and why

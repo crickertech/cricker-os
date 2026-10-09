@@ -1,19 +1,23 @@
 ---
-status: PROPOSED
+status: NOT-STARTED
 raised: 2026-10-07
+promoted_from: a-program-asks-whether-it-may-read-the-cycle-counter
 milestone_dependencies: 353, 75
 decision_dependencies: unwritten
 machine_requirements: none
 specific_machine: none
 needs_person: no
 ---
-# A program asks whether it may read the cycle counter
+# 856. A program asks whether it may read the cycle counter
+
+*(Minted 2026-10-09 (UTC) by lane/promote-proposals from the proposal `a-program-asks-whether-it-may-read-the-cycle-counter`. The number is provisional until the merge queue lands it; the title and slug are drafts.)*
+
 
 Written by the `milestone/353-cycle-read` lane, from the block of milestone 353 (the aarch64 half of 74).
 
 **In brief.** calef ruled decision B of milestone 353 as B4 in two steps on 2026-10-07 (UTC). Step
 1 is built: `user_mode_runtime::cycle_reading()` returns a count paired with an
-`abi::cycle_counter::CycleMeaning`. Step 2 is this proposal: a kernel-provided page or method that
+`abi::cycle_counter::CycleMeaning`. Step 2 is this block: a kernel-provided page or method that
 lets a program ask, before it reads, whether it may, so an ungranted read can fall back instead of
 being killed. calef called it a later syscall-surface fork, so it is written down and not built.
 
@@ -37,3 +41,7 @@ What has to be decided before building, and it is an architect's:
 Reuse: `counter_frequency_protocol`'s page and its parent-fills-child propagation through
 `supervision_protocol::build_child_space` were considered as the carrier and are the cheapest
 route for riscv64 and x86_64; the choice is the architect's because it widens an ambient page.
+
+## Index row
+
+A program asks whether it may read the cycle counter, and learns which counter the kernel's own probe reads, before an ungranted read kills it. It is step 2 of milestone 353 (the aarch64 half of 74)'s decision B, and page versus method is the architect's call.

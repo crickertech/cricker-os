@@ -1,27 +1,31 @@
 ---
-status: PROPOSED
+status: NOT-STARTED
 raised: 2026-10-07
+promoted_from: lab-machines-update-themselves
 milestone_dependencies: 198, 809, 805, 23, 666, 592, 593, 53
 decision_dependencies: unwritten
 machine_requirements: x86_64 and riscv64 silicon with a writable boot disk and a hardware watchdog
 specific_machine: radon (calef's preferred lab machine, and the one whose chooser, disk writes and watchdog are unbuilt)
 needs_person: yes
 ---
-# Lab machines update themselves through packages, and only a new kernel reboots them
+# 858. Lab machines update themselves through packages, and only a new kernel reboots them
+
+*(Minted 2026-10-09 (UTC) by lane/promote-proposals from the proposal `lab-machines-update-themselves`. The number is provisional until the merge queue lands it; the title and slug are drafts.)*
+
 
 calef asked on 2026-10-07 (UTC): *"We should have a milestone that lets our lab machines updated
 themselves for runs using our package management solution. Download their updates, apply them, and
 restart (if it is the kernel). Sound right? We want to be testing updates early."* Written by lane
 `lab-self-update-proposal`, which built nothing and touched no lab hardware. Every name here is
-provisional. Appendices: [the lab machines](lab-machines-update-themselves/the-lab.md),
-[prior art](lab-machines-update-themselves/prior-art.md), [the forks](lab-machines-update-themselves/forks.md)
-and [the TUF clients measured](lab-machines-update-themselves/tuf.md).
+provisional. Appendices: [the lab machines](0858-lab-machines-update-themselves/the-lab.md),
+[prior art](0858-lab-machines-update-themselves/prior-art.md), [the forks](0858-lab-machines-update-themselves/forks.md)
+and [the TUF clients measured](0858-lab-machines-update-themselves/tuf.md).
 
 ## Rulings
 
 calef ruled every fork on #1805 on 2026-10-07 (UTC), relayed by the maintainer in comments between
 05:51 and 13:32. Those comments are the record. The forks as he read them are in
-[the forks appendix](lab-machines-update-themselves/forks.md).
+[the forks appendix](0858-lab-machines-update-themselves/forks.md).
 
 | fork | ruling | his words |
 |---|---|---|
@@ -39,10 +43,11 @@ calef ruled every fork on #1805 on 2026-10-07 (UTC), relayed by the maintainer i
 
 Fork 6 and the owner-source requirement are recorded as calef's ruling in §250 (an image names its
 distribution's package index)'s amendment of 2026-10-07. The cordoba spec is
-[notes/lab-index-on-cordoba.md](../../../notes/lab-index-on-cordoba.md).
+[notes/lab-index-on-cordoba.md](../../notes/lab-index-on-cordoba.md).
 
-This file stays a proposal. #1796's all-ruled proposal stayed one with its worklist, and milestone
-809 was promoted only on calef's word. Promotion, and every number below, is an integrator's.
+This file stayed a proposal until 2026-10-09 (UTC). #1796's all-ruled proposal stayed one with its
+worklist, and milestone 809 was promoted only on calef's word. Every number below is the
+integrator's.
 
 ## A correction, first
 
@@ -180,3 +185,7 @@ hand is a TK1 that nife cannot run. radon's and argon's watchdogs are milestone 
 
 - Nothing here has run on silicon. The x86_64 rollback is proven under OVMF only.
 - A service that passes its probe can still be subtly wrong. That is the run's job.
+
+## Index row
+
+Lab machines update themselves through packages, and only a new kernel reboots them: generations get tries, fetches are TUF-verified, a supervisor restarts or live-swaps each service, and a basalt manifest pins a kernel with the base versions tested with it. Every fork is ruled on #1805; the worklist is one lane per item.

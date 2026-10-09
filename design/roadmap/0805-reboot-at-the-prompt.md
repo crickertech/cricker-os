@@ -266,8 +266,8 @@ picked A on 2026-10-06. Only exit criterion 6 still waits, on milestone 592.
 ## BUGS
 
 - A background job's write between `reboot`'s `SYNC` reply and the reset can be lost. calef ruled
-  option A knowing it (2026-10-06 UTC); orderly shutdown closes it:
-  `design/roadmap/proposals/orderly-shutdown-closes-the-sync-window.md`.
+  option A knowing it (2026-10-06 UTC); milestone 853 (orderly shutdown closes the sync window)
+  closes it.
 - radon's reset is unproven on silicon. 592 has a fix waiting on one bench run, and if that fails,
   592's options B and C (a nife PMIC write, or new firmware) come before this.
 - Who at the prompt may reboot is not decided here. Any session the progenitor endows can.
@@ -281,8 +281,7 @@ picked A on 2026-10-06. Only exit criterion 6 still waits, on milestone 592.
 - **Outstanding.** Exit criterion 6, `reboot` at radon's prompt with nobody at plug 2. It waits on
   milestone 592's bench reset; checked 2026-10-06 (UTC) that 592 is still PARTIAL with its
   `**Outstanding.**` bench run unchanged. calef at the bench; see the scope note.
-- **Proposed.** Orderly shutdown closes the sync window:
-  `design/roadmap/proposals/orderly-shutdown-closes-the-sync-window.md`.
+- **Milestone 853.** Milestone 853 (orderly shutdown closes the sync window), promoted 2026-10-09.
 - **Recorded.** The program does not exit non-zero on a refusal: `components/src/reboot.rs`'s
   `BUGS`.
 - **Recorded.** A refused reset leaves the kernel printing direct: `kernel/src/console.rs`'s

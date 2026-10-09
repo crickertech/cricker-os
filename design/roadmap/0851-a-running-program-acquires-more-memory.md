@@ -1,13 +1,17 @@
 ---
-status: PROPOSED
+status: NOT-STARTED
 raised: 2026-10-06
+promoted_from: a-running-program-acquires-more-memory
 milestone_dependencies: none
 decision_dependencies: unwritten
 machine_requirements: none
 specific_machine: none
 needs_person: no
 ---
-# A running program acquires more memory as it needs it
+# 851. A running program acquires more memory as it needs it
+
+*(Minted 2026-10-09 (UTC) by lane/promote-proposals from the proposal `a-running-program-acquires-more-memory`. The number is provisional until the merge queue lands it; the title and slug are drafts.)*
+
 
 calef asked for this on 2026-10-06 (UTC): a running program should get more memory when
 it needs it. A writing-only lane wrote it. calef ruled every fork on #1777 the same day.
@@ -85,7 +89,7 @@ Reuse: the broker is #1769's, the policy `user_mode_runtime::heap`'s.
 
 Seven, in ruling order; fork 7 came out of fork 3.
 
-### 1. Who a program asks
+### Fork 1. Who a program asks
 
 Ruled A, calef, 2026-10-06 (UTC): "Yes on Fork 1, broker accounts". A program asks the shared
 `memory_broker` on an account its spawner opens with a ceiling and closes at reap.
@@ -93,7 +97,7 @@ Ruled A, calef, 2026-10-06 (UTC): "Yes on Fork 1, broker accounts". A program as
 Refused: a parent relaying requests (Genode), a kernel method growing a region in place, and
 programs sharing the session's broker capability.
 
-### 2. The allocator's shape
+### Fork 2. The allocator's shape
 
 Ruled A, calef, 2026-10-06 (UTC): "Yes on Fork 2, one band with user_mode_heap". The existing 256
 MiB band is backed by successive regions, mapped at one cursor. The grow policy moves into
@@ -101,12 +105,12 @@ MiB band is backed by successive regions, mapped at one cursor. The grow policy 
 
 Refused: one arena per region. Refused for now: backing on fault, which needs a pager.
 
-### 3. Giving memory back while running
+### Fork 3. Giving memory back while running
 
 Ruled, calef, 2026-10-06 (UTC): "Approve Fork 3, but we need to be more like linux and make the
 limit [large] enough that nobody notices it." He had sent the first draft back because large programs
 spike, and memory they cannot return looks like a leak. Fork 7 takes the second half of the ruling.
-The [appendix](a-running-program-acquires-more-memory/returning-memory.md) has the arithmetic.
+The [appendix](0851-a-running-program-acquires-more-memory/returning-memory.md) has the arithmetic.
 
 A region is the smallest unit the kernel takes back; nife cannot `madvise` a page inside one.
 
@@ -135,11 +139,11 @@ Every region a program gets is at least 1 MiB, so its region count is at most it
 over 1 MiB. Fork 7 builds the limit on that. The broker never reclaims from a live
 program on its own; that is fork 4's revoke, and revoke kills.
 
-### 7. Limits nobody notices
+### Fork 7. Limits nobody notices
 
 Ruled A, calef, 2026-10-06 (UTC): "Approve Fork 7." The standard is Linux's `vm.max_map_count`
 (65,530, from memory): a limit no ordinary program meets.
-The [appendix](a-running-program-acquires-more-memory/returning-memory.md) has the measurements.
+The [appendix](0851-a-running-program-acquires-more-memory/returning-memory.md) has the measurements.
 
 - The region table grows to 16,384 slots (1.8 MiB, measured). Child links and a free-slot list
   make every walk visit only what it concerns, where a walk over a chain is quadratic today.
@@ -149,7 +153,7 @@ The [appendix](a-running-program-acquires-more-memory/returning-memory.md) has t
 - A program holds a region's capability only while mapping it, so 64 capability slots suffice.
 - Refused for now: a table-free design, seL4-style. Sizing the table from RAM comes first.
 
-### 4. What failure means
+### Fork 4. What failure means
 
 Ruled A, calef, 2026-10-06 (UTC): "Approve Fork 4 A with reserve/commit."
 
@@ -196,7 +200,7 @@ long-lived table region per program, because `DESTROY` cuts the tables a region 
 everything beneath them (`abi::page_frame::MAP`). That binds today's band trimming too. The
 appendix has the cost and the bound.
 
-### 5. How this meets #1769's caps and reserve
+### Fork 5. How this meets #1769's caps and reserve
 
 Ruled as written, calef, 2026-10-06 (UTC): "Approve Fork 5". Under fork 4's reserve and commit,
 every account counts committed memory only.
@@ -210,7 +214,7 @@ every account counts committed memory only.
 
 A program's default ceiling is its session's (fork 1); a spawner may set a lower one.
 
-### 6. Whether native programs get it
+### Fork 6. Whether native programs get it
 
 Ruled A, calef, 2026-10-06 (UTC): "Approve Fork 6 A with both follow-ons". The follow-ons are
 below.
@@ -225,29 +229,8 @@ C is wrong for servers like `net_stack`, whose fixed budget is part of their con
 
 ## How others do it
 
-All from memory and unchecked; the building lane owes a read of each.
-
-- seL4: the kernel allocates nothing, and a memory server hands out untyped. Fork 1 A's shape.
-- Genode: a child out of RAM quota asks its parent, which may upgrade it. Fork 1 B.
-- Linux: `brk` and `mmap` backed on fault, overcommit, an OOM killer, cgroup `memory.max`. Forks 2
-  C and 4 C.
-- Windows: `VirtualAlloc` reserves, then commits against a system commit limit. No overcommit and no
-  OOM killer: a commit past the limit fails. Fork 4's reserve and commit.
-- glibc: chunks of `M_MMAP_THRESHOLD` (128 KiB, rising dynamically) or more get their own `mmap`.
-  The heap top is trimmed, and `malloc_trim` `madvise`s free pages inside. Fork 3, plus `madvise`.
-- jemalloc and mimalloc: free pages inside the heap go back by `madvise` after a decay delay. nife
-  cannot do that below a region, which is why fork 3 separates large allocations at all.
-
-Also from memory:
-
-- KeyKOS, EROS and Coyotos: space banks, hierarchical capabilities to allocate storage with limits.
-  Destroying a bank reclaims all allocated from it. The closest ancestor of forks 1 and 5.
-- Fuchsia Zircon: VMARs reserve and VMOs back, like reserve and commit. Jobs form a tree with
-  memory limits, yet it added pressure signals and a component-level killer.
-- seL4 with CAmkES: each component's memory is fixed at build time, like fork 6's boot servers.
-- Linux cgroups: `memory.high` applies pressure and reclaim below `memory.max`.
-- Pressure notices: Android `onTrimMemory`, iOS `didReceiveMemoryWarning`, Windows memory resource
-  notifications, Linux PSI.
+In [the prior-art appendix](0851-a-running-program-acquires-more-memory/prior-art.md), all from
+memory and unchecked; the building lane owes a read of each.
 
 ## The first slice
 
@@ -259,7 +242,10 @@ other adds to it.
    slice and record why.
 1. The progenitor hands that remainder to `memory_broker`. The boot shell holds the owner's revoke.
 2. `memory_broker`: accounts, grants over a result endpoint, release, four named refusals, the
-   slot budget, close and revoke.
+   slot budget, close and revoke. Promoted with this pile, milestone 848 (a client pays for its
+   session in a server)'s fork 1 added the holder's verbs, ruled on #1777 (2026-10-06 UTC). An
+   account holder opens a child of its own account with a ceiling. A child's capability is
+   delegable by `SEND_CAP`. A donated child is closed by its holder.
 3. The grow policy moves into `user_mode_heap`. Both allocators ask the broker when `MAP` refuses,
    give large allocations their own regions, and trim the band from the top.
 4. `std_runtime_protocol` gains slot 9 for the broker account. Empty means "not given", and the
@@ -310,10 +296,11 @@ the `design/decisions/` section.
 
 ## Follow-ons, proposed, unnumbered
 
-Fork 6's two, each a proposal on #1786:
+Fork 6's two, each promoted with this pile:
 
-- `a-client-pays-for-its-session-in-a-server`: client-paid server memory, after Genode.
-- `a-program-is-asked-to-give-memory-back`: the advisory "please shrink" signal fork 4 named.
+- Milestone 848 (a client pays for its session in a server): client-paid server memory, after Genode.
+- Milestone 850 (a program is asked to give memory back before anyone is refused): the advisory
+  "please shrink" signal fork 4 named.
 
 Others:
 
@@ -328,3 +315,7 @@ Others:
 - Page tables built for a commit stay until the program exits, charged to its account.
 - The host measurements above are macOS figures. Nothing here measured a program on nife past its
   ceiling, because nothing can grow yet.
+
+## Index row
+
+A running program acquires more memory as it needs it: a `memory_broker` holds the pool left after the boot's carve, accounts are charged on commit, large allocations get their own regions, and the band is trimmed from the top. Every fork is ruled.

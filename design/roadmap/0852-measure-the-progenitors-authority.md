@@ -1,13 +1,17 @@
 ---
-status: PROPOSED
+status: NOT-STARTED
 raised: 2026-10-06
+promoted_from: measure-the-progenitors-authority
 milestone_dependencies: none
 decision_dependencies: none
 machine_requirements: none
 specific_machine: none
 needs_person: no
 ---
-# Measure the progenitor's authority
+# 852. Measure the progenitor's authority
+
+*(Minted 2026-10-09 (UTC) by lane/promote-proposals from the proposal `measure-the-progenitors-authority`. The number is provisional until the merge queue lands it; the title and slug are drafts.)*
+
 
 calef asked for this on 2026-10-06 (UTC): "Record a separate proposal to measure the progenitor's
 authority." He was ruling on #1783, milestone 805 (`reboot` at the prompt). That build had the
@@ -126,9 +130,9 @@ with the inventory in hand, per measure first. Some candidate remediations, as e
   forgets the original.
 - Releasing an item after its last use, where the inventory shows a lifetime capability with one
   use at boot.
-- Moving the installer out of the progenitor. The proposal that makes `jig` a program keeps the
-  installer there, because the progenitor alone reads the activation set; the inventory would say
-  what that costs.
+- Moving the installer out of the progenitor. Milestone 809 (the package client becomes a program)
+  keeps the installer there, because the progenitor alone reads the activation set; the inventory
+  would say what that costs.
 
 ## Parity
 
@@ -184,3 +188,7 @@ If no: a warning in the job summary, and the inventory decays at the rate nobody
 - A count of sends the progenitor makes on another program's behalf through no enumerated surface,
   and the gap's home if no mechanism can find them.
 - A summary for calef: which items have a narrower candidate and which have none. No changes.
+
+## Index row
+
+The progenitor's authority is inventoried: a checked-in table of every lifetime capability and proxied action with its reason, a generator, and gates that fail when a row is missing. Growth becomes a diff a reviewer reads rather than a slot count nobody can explain, which is the drift calef refused on #1783.

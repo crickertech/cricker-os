@@ -1,13 +1,17 @@
 ---
-status: PROPOSED
+status: NOT-STARTED
 raised: 2026-10-07
+promoted_from: crates-released-on-their-own
 milestone_dependencies: none
 decision_dependencies: unwritten
 machine_requirements: none
 specific_machine: none
 needs_person: yes
 ---
-# Crates released on their own, and proofs offered to the projects that already exist
+# 857. Crates released on their own, and proofs offered to the projects that already exist
+
+*(Minted 2026-10-09 (UTC) by lane/promote-proposals from the proposal `crates-released-on-their-own`. The number is provisional until the merge queue lands it; the title and slug are drafts.)*
+
 
 Raised 2026-10-07 (UTC) by lane/releasable-crates. calef, ruling fork 2 of #1803 (nife writes its
 own FAT crate): *"It seems like something we should build and prove and release on its own
@@ -17,7 +21,7 @@ other implementations are so that we could work with those owners to add the pro
 than jumping their missions."*
 
 The inventory and the survey are in
-[notes/releasable-crates-2026-10-07.md](../../../notes/releasable-crates-2026-10-07.md). This file
+[notes/releasable-crates-2026-10-07.md](../../notes/releasable-crates-2026-10-07.md). This file
 holds the forks and does not restate the numbers beyond what a fork needs. Names in it are
 provisional, this one included.
 
@@ -69,7 +73,7 @@ record of what was weighed, and its heading says how it was ruled.
   once per project at its crate review was offered and not taken for now. calef: *"Let's start
   with b."*
 
-No per-crate milestone is minted by this proposal. They come from the reviews below.
+No per-crate milestone is minted by this block. They come from the reviews below.
 
 ## The per-crate reviews, in order
 
@@ -237,3 +241,7 @@ own repository at first publication, under Fork 1's ruling; its name is ratified
 - The survey's activity and acceptance figures were looked up, not measured, and age fast.
 - Whether an outside project's code can be restructured for Kani was not tried. An offer can come
   back as "only if you rewrite our parser", which is §46's first rule seen from the other side.
+
+## Index row
+
+Crates are released on their own, and proofs are offered to the projects that already exist: one repository per crate, trusted publishing, harnesses and falsifications shipped inside each release, and each crate's disposition reviewed with calef one at a time. All eight forks ruled 2026-10-07 on #1806.

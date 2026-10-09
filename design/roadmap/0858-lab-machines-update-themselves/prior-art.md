@@ -1,6 +1,6 @@
 # Unattended update with rollback: the prior art behind the forks
 
-An appendix of [lab machines update themselves](../lab-machines-update-themselves.md). Read from
+An appendix of [lab machines update themselves](../0858-lab-machines-update-themselves.md). Read from
 primary sources on 2026-10-07 (UTC) unless marked. "Snippet" means the claim came from a search
 result quoting the official page, not a full read.
 

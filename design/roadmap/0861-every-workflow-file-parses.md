@@ -1,19 +1,23 @@
 ---
-status: PROPOSED
+status: NOT-STARTED
 raised: 2026-10-08
+promoted_from: every-workflow-file-parses
 milestone_dependencies: none
 decision_dependencies: none
 machine_requirements: none
 specific_machine: none
 needs_person: no
 ---
-# Every workflow file parses
+# 861. Every workflow file parses
+
+*(Minted 2026-10-09 (UTC) by lane/promote-proposals from the proposal `every-workflow-file-parses`. The number is provisional until the merge queue lands it; the title and slug are drafts.)*
+
 
 Raised by lane/codeql-advanced-setup (2026-10-08 UTC), which nearly shipped a workflow that did
 not. One comment line in `.github/workflows/codeql.yml` lost its `#` prefix to a line-wrap slip,
 and every text gate passed. `script/lint` reads workflows line by line and never parses one, the
 pin and swallow checks matched their regexes, and the pre-push hook waved it through. A local
-`ruby -ryaml` parse caught it before the push. The name of this proposal is provisional.
+`ruby -ryaml` parse caught it before the push. The name of this block is provisional.
 
 ## What almost happened
 
@@ -40,3 +44,7 @@ Either way the check is text-only, sits in `--no-cargo`, and costs milliseconds.
 Reuse: the check's shape is `helpers/workflow_swallows.py`'s section in `script/lint` (selftest
 first, then the tree); the parser itself is the fork above, and no existing tree helper parses
 YAML (searched `helpers/` and `script/`, 2026-10-08).
+
+## Index row
+
+Every workflow file parses: a `script/lint` section that parses each file under `.github/workflows/` and fails naming the file and the parser's error. A lane nearly shipped a workflow whose comment line had lost its `#` and every text gate passed. Text-only, in `--no-cargo`, milliseconds.

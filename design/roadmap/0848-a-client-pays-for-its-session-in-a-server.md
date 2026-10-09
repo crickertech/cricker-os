@@ -1,22 +1,28 @@
 ---
-status: PROPOSED
+status: NOT-STARTED
 raised: 2026-10-06
-milestone_dependencies: none
+promoted_from: a-client-pays-for-its-session-in-a-server
+milestone_dependencies: 851
 decision_dependencies: unwritten
 machine_requirements: none
 specific_machine: none
 needs_person: no
 ---
-# A client pays for its session in a server
+# 848. A client pays for its session in a server
 
-calef asked for this on 2026-10-06 (UTC), ruling fork 6 of #1777 (a running program acquires more
-memory): "Approve Fork 6 A with both follow-ons". Fork 6 kept boot servers on fixed budgets,
+*(Minted 2026-10-09 (UTC) by lane/promote-proposals from the proposal `a-client-pays-for-its-session-in-a-server`. The number is provisional until the merge queue lands it; the title and slug are drafts.)*
+
+
+calef asked for this on 2026-10-06 (UTC), ruling fork 6 of milestone 851 (a running program acquires
+more memory as it needs it): "Approve Fork 6 A with both follow-ons". Fork 6 kept boot servers on
+fixed budgets,
 because a server that grew from a shared pool would let one person's traffic spend another's
 memory. This is the first follow-on: a server whose load grows with its clients is paid by those
 clients. A writing-only lane wrote it and built nothing. calef ruled all four forks on #1786 the
 same day.
 
-It depends on #1777's `memory_broker` and its account tree (forks 1 and 5 there, both ruled). Every
+It depends on milestone 851's `memory_broker` and its account tree (forks 1 and 5 there, both
+ruled). Every
 name here is provisional: the donation, its verbs, and the fixture.
 
 ## Why, and its honest rank
@@ -32,7 +38,8 @@ Raising the server's budget moves the ceiling without removing it, and a connect
 spends it. Growing the server from the pool, as fork 6 refused, lets the flood spend the machine.
 The client paying is the shape where a flood drains the flooders.
 
-On principle 1, this is behind #1777's first slice and behind milestones 801 (packages over the
+On principle 1, this is behind milestone 851's first slice and behind milestones 801 (packages over
+the
 internet) and 802 (the trivial install). It is on the path to any network service a customer runs,
 since a server that holds six connections is not one. It moves no fatal-risk verdict by itself.
 It strengthens risk 7 (the confinement claim is false): it closes a resource channel between two
@@ -40,7 +47,7 @@ clients of one server.
 
 ## What the tree has, read on 2026-10-06 (UTC)
 
-- #1777's accounts form a tree: pool, then session, then program. A grant is charged to every
+- Milestone 851's accounts form a tree: pool, then session, then program. A grant is charged to every
   account above it. An account is a badged endpoint, and a program's spawner opens and closes it.
 - A region's `DESTROY` cuts the page tables it paid for and everything mapped beneath them
   (`abi::page_frame::MAP`). A server mapping pages a client can revoke can lose them while running.
@@ -48,14 +55,14 @@ clients of one server.
   recoverable fault.
 - `socket_protocol` opens a socket with a message that carries no capability today.
 
-Reuse: the broker and its accounts are #1777's. Genode's session quota donation lends the shape
+Reuse: the broker and its accounts are milestone 851's. Genode's session quota donation lends the shape
 and no code.
 
 ## The forks
 
 Four, all ruled.
 
-### 1. What the client hands the server
+### Fork 1. What the client hands the server
 
 Ruled A, calef, 2026-10-06 (UTC): "Yes".
 
@@ -73,7 +80,7 @@ A is Genode's shape (from memory): a client transfers quota to the server when i
 and the quota comes back when the session closes. Under A the server holds the only capability
 that spends the donation. The client cannot pull pages out from under it.
 
-What this needs from #1777's broker, which its first slice should build in so this is not a
+What this needs from milestone 851's broker, which its first slice should build in so this is not a
 protocol change later:
 
 - An account holder can open a child of its own account with a ceiling, not only a spawner. Today
@@ -82,11 +89,11 @@ protocol change later:
   from it. The broker attributes the charge by the tree, not by who holds the capability.
 - A donated child is closed by its holder. Its parent's close does not destroy it (fork 2).
 
-So the answer to "can part of an account be delegated?" is yes, as a child account. #1777 was
-already armed, so calef ruled that these three points land in its milestone and decision text at
-promotion, recorded in a comment on #1777.
+So the answer to "can part of an account be delegated?" is yes, as a child account. Milestone 851
+was already armed, so calef ruled that these three points land in its milestone and decision text at
+promotion, recorded in a comment on #1777. Its promotion wrote them into 851's first slice.
 
-### 2. When the client dies first
+### Fork 2. When the client dies first
 
 Ruled A, calef, 2026-10-06 (UTC): "Yes".
 
@@ -99,7 +106,7 @@ B is fork 1 B's crash by another route. Under A the server learns of the death a
 from a dead channel, and closes the session; the charge returns then. A server that never closes
 leaks only its clients' charge, which the owner's revoke on the server reclaims.
 
-### 3. How small a session can be
+### Fork 3. How small a session can be
 
 Ruled A, calef, 2026-10-06 (UTC): "Yes", on two conditions. The lag is bounded and gated: opening
 and closing 10,000 sessions must return the server's charge to baseline within one region, 1 MiB.
@@ -107,7 +114,7 @@ His motive is Linux memcg's "zombie cgroup" problem, where shared slab pages kep
 charged until per-object charging, around 5.9 (from memory; the building lane owes a read). And
 C is the recorded fallback if that test cannot pass.
 
-#1777's fork 7 bounds regions by memory because every region is at least 1 MiB. A TCP session
+Milestone 851's fork 7 bounds regions by memory because every region is at least 1 MiB. A TCP session
 needs a few KiB. One region per session would cost 1 MiB per connection.
 
 | option | what it is | verdict |
@@ -121,12 +128,12 @@ records "this session now holds N pages", the broker checks N against the donati
 moves N pages of charge from the server's account to the donation. Physical pages return to the
 pool when a server region empties, which can lag the charge. That lag is held on the server's own
 account, bounded by one region of slack per server. B is simple and costs 1,000 MiB for 1,000
-connections. C breaks #1777 fork 7's 1 MiB floor on regions, so it must charge each region's table
+connections. C breaks milestone 851 fork 7's 1 MiB floor on regions, so it must charge each region's table
 slot to the account to keep a flood from spending the region table.
 
 A is about elegance, not effort: B is less work.
 
-### 4. Which servers first
+### Fork 4. Which servers first
 
 Ruled, calef, 2026-10-06 (UTC): "Approve".
 
@@ -154,7 +161,7 @@ From memory, unchecked; the building lane owes a read of each.
 
 ## The first slice
 
-1. #1777's broker gains a holder-opened child account, delegable, closed by its holder.
+1. Milestone 851's broker gains a holder-opened child account, delegable, closed by its holder.
 2. The broker's charge ledger: a server moves charge between its account and a donation.
 3. `socket_protocol`'s open carries a donation capability. A socket without one is refused by name.
 4. `net_stack` keeps its fixed budget for itself and draws per-socket memory against donations.
@@ -179,3 +186,7 @@ x86_64:
 
 - A server that never closes a dead client's session holds that client's charge until the owner
   revokes the server.
+
+## Index row
+
+A server's per-session memory is paid by the clients that spend it: a donation account per session, a charge ledger in the broker, and `net_stack` drawing per-socket memory against donations. `net_stack` is the first slice, since its six-socket ceiling is the one a customer would meet. Waits on milestone 851 (a running program acquires more memory as it needs it).

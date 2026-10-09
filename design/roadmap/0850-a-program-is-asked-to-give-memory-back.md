@@ -1,33 +1,40 @@
 ---
-status: PROPOSED
+status: NOT-STARTED
 raised: 2026-10-06
-milestone_dependencies: none
+promoted_from: a-program-is-asked-to-give-memory-back
+milestone_dependencies: 851
 decision_dependencies: unwritten
 machine_requirements: none
 specific_machine: none
 needs_person: no
 ---
-# A program is asked to give memory back before anyone is refused
+# 850. A program is asked to give memory back before anyone is refused
 
-calef asked for this on 2026-10-06 (UTC), ruling fork 6 of #1777 (a running program acquires more
-memory): "Approve Fork 6 A with both follow-ons". It is the "please shrink" notice #1777's fork 4
-named. In his words from fork 3 of the same proposal: "Most of my professional work has involved
+*(Minted 2026-10-09 (UTC) by lane/promote-proposals from the proposal `a-program-is-asked-to-give-memory-back`. The number is provisional until the merge queue lands it; the title and slug are drafts.)*
+
+
+calef asked for this on 2026-10-06 (UTC), ruling fork 6 of milestone 851 (a running program acquires
+more memory as it needs it): "Approve Fork 6 A with both follow-ons". It is the "please shrink"
+notice milestone 851's fork 4 named. In his words from fork 3 of the same milestone: "Most of my
+professional work has involved
 large programs with spikes in memory that would need to be returned." A writing-only lane wrote
 it and built nothing. calef ruled all four forks on #1786 the same day.
 
-It depends on #1777's `memory_broker`, its accounts, and reserve and commit (forks 1, 4 and 5 there,
-ruled). Every name here is provisional: the signal, its levels, the runtime hook and the fixture.
+It depends on milestone 851's `memory_broker`, its accounts, and reserve and commit (forks 1, 4 and
+5 there, ruled). Every name here is provisional: the signal, its levels, the runtime hook and the
+fixture.
 
 ## Why, and its honest rank
 
-Under #1777, a program's memory comes back two ways. The allocator trims its band and frees large
+Under milestone 851, a program's memory comes back two ways. The allocator trims its band and frees
+large
 regions on its own. Or the owner revokes, which kills. Neither reaches memory a program holds on
 purpose: a garbage-collected heap sized for throughput, a database's buffer pool, a cache. That
 memory is the bulk of a large program's footprint, and it is the part the program could give back
 if asked. Without a signal, the next program's commit is refused while the memory it needed sits in
 someone's cache.
 
-On principle 1, this is behind #1777's first slice and milestones 801 (packages over the internet)
+On principle 1, this is behind milestone 851's first slice and milestones 801 (packages over the internet)
 and 802 (the trivial install). It matters to the
 first customer that runs a runtime with a collector or a cache, and to calef's own workloads. It
 moves no fatal-risk verdict.
@@ -36,7 +43,8 @@ moves no fatal-risk verdict.
 
 - Notification objects: a word a sender ORs bits into and a waiter collects, bindable so a thread
   waiting on an endpoint also wakes for it (§101 (notification objects), `abi::notification`).
-- #1777's broker counts committed memory per account, refuses a commit past the account's ceiling
+- Milestone 851's broker counts committed memory per account, refuses a commit past the account's
+  ceiling
   or the per-identity cap or when the pool is empty, and gives the owner a revoke.
 - No runtime here has a way to be told anything about memory.
 
@@ -46,7 +54,7 @@ Reuse: notification objects are the tree's. The levels borrow from cgroups and A
 
 Four, all ruled.
 
-### 1. When the signal fires
+### Fork 1. When the signal fires
 
 Ruled A, calef, 2026-10-06 (UTC): "approve A, and add PSI to the prior art."
 
@@ -65,7 +73,7 @@ the refusal it could have prevented.
 The soft limit defaults to 80% of an account's ceiling. The pool watermark defaults to 10% of the
 pool. Both are guesses to measure, not results.
 
-### 2. How it is delivered
+### Fork 2. How it is delivered
 
 Ruled A, calef, 2026-10-06 (UTC): "Yes", on the condition that a program can learn pressure has
 eased.
@@ -90,7 +98,7 @@ of level, up or down, and the program then asks its account for the current leve
 so a raise and a clear before the program wakes would arrive as one word that says both. The bits
 say something changed; the query says what is true now.
 
-### 3. Who may send it
+### Fork 3. Who may send it
 
 Ruled A, calef, 2026-10-06 (UTC): "A".
 
@@ -102,7 +110,7 @@ Ruled A, calef, 2026-10-06 (UTC): "A".
 The notification capability the broker keeps is the only one with `SIGNAL`. A program holds it
 with `WAIT` only. A peer cannot make another program shrink.
 
-### 4. What a program does with it
+### Fork 4. What a program does with it
 
 Ruled A, calef, 2026-10-06 (UTC): "Yes", on two conditions. A hook must not allocate, and the
 runtime enforces it. Purgeable memory is a follow-on.
@@ -112,7 +120,8 @@ runtime enforces it. Purgeable memory is a follow-on.
 | A | The runtime acts first: the allocator trims its band with no hysteresis and frees cached free increments. Then it calls hooks the program registered | ruled |
 | B | Hooks only | refused |
 
-A gives every program something for free, because #1777's band trimming keeps one free increment
+A gives every program something for free, because milestone 851's band trimming keeps one free
+increment
 in hand as hysteresis, and pressure is when to drop it. Hooks are for the memory the runtime cannot
 see: a collector's heap target, a buffer pool. `user_mode_runtime` gains a hook registry, and
 `std` gains one under `std::os::nife`, since Rust's `std` has no portable API for this. A
@@ -124,7 +133,7 @@ not at the moment memory is shortest.
 
 ## What it never does
 
-Ruled by #1777's fork 4 already, and restated so nobody builds it: the signal is advisory. It never
+Ruled by milestone 851's fork 4 already, and restated so nobody builds it: the signal is advisory. It never
 kills, never revokes, and never delays a refusal past the point fork 4 sets. A program that ignores
 it loses nothing it would not lose anyway. Killing stays the owner's revoke, a person's decision.
 
@@ -176,3 +185,7 @@ x86_64:
 ## BUGS
 
 - The default soft limit and watermark are guesses until the first slice measures them.
+
+## Index row
+
+A program is asked to give memory back before anyone is refused: a notification per broker account carrying pressure levels, and runtime hooks that may not allocate. The signal is advisory and never kills; the owner's revoke stays a person's decision. Waits on milestone 851 (a running program acquires more memory as it needs it).

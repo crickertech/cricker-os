@@ -1,21 +1,25 @@
 ---
-status: PROPOSED
+status: NOT-STARTED
 raised: 2026-10-06
+promoted_from: a-package-declares-what-it-needs-at-run-time
 milestone_dependencies: 597, 611
 decision_dependencies: unwritten
 machine_requirements: none
 specific_machine: none
 needs_person: no
 ---
-# A package declares what it needs at run time, apart from what it links
+# 849. A package declares what it needs at run time, apart from what it links
+
+*(Minted 2026-10-09 (UTC) by lane/promote-proposals from the proposal `a-package-declares-what-it-needs-at-run-time`. The number is provisional until the merge queue lands it; the title and slug are drafts.)*
+
 
 calef asked on 2026-10-06 (UTC) how a nife package says what it needs at run time, as distinct from
 what it links. Written by lane `package-runtime-requirements`, which built nothing but this file.
 Every name below is provisional. The forks at the end are what calef is asked to rule.
 
 Reuse: the per-program half reuses `grant_plan::Manifest` and `crates/manifest_note` as they
-stand, and the gate extends `helpers/packages.py`. No outside tool fits: Debian, Nix and Fuchsia
-each solve this inside their own package formats, so the ideas are taken and the code is not.
+stand, and the gate extends `helpers/packages.py`. No outside tool fits, for the reasons in
+[the appendix](0849-a-package-declares-what-it-needs-at-run-time/prior-art.md).
 
 ## The gap
 
@@ -62,8 +66,8 @@ Nothing joins these. No gate knows that `uuid` (in `core-tools`) declares `entro
 - No package file can name it: `helpers/packages.py:325` admits only in-tree binaries.
 - It carries no manifest note (`helpers/build-ripgrep.sh:67-69`).
 
-What it is handed, and by whom: the only thing that runs it is the kernel's test harness, not the
-progenitor. `system_tests/src/user/ripgrep_tests.rs:71` calls `fs_service::start_std_full`, which
+What it is handed, and by whom: the only thing that runs it is the kernel's test harness, not
+the progenitor. `system_tests/src/user/ripgrep_tests.rs:71` calls `fs_service::start_std_full`, which
 starts a RedoxFS server if none is running and spawns `rg` with three capabilities
 (`kernel/src/user/fs_service.rs:2005-2014`):
 
@@ -90,8 +94,8 @@ A need is a capability, not a process: a program needs a `WRITE` endpoint that a
 
 ## Options and prior art
 
-Options A to F, with prior art and rungs, are in the
-[appendix](a-package-declares-what-it-needs-at-run-time/prior-art.md):
+Options A to F are in the
+[appendix](0849-a-package-declares-what-it-needs-at-run-time/prior-art.md):
 
 - B duplicates the manifest, so a gate can prove two hand lists agree and never that they agree with
   the code.
@@ -218,7 +222,7 @@ A. Where a manifest travels. Revised by calef, 2026-10-07 (UTC), on his question
    the earlier draft's separate manifest file and its own entry in the activation set go away. The
    cost. `jig` and the spawner each need one small reader per format, so `jig` grows as language
    support grows. That belongs to milestone 809 (the package client becomes a program), and this
-   proposal does not edit that block.
+   block does not edit it.
 
    Prior art is in the appendix. Refused: a sidecar for every format, which separates the manifest
    from the bytes §197's option M2 hashes, and a stub ELF per script.
@@ -288,10 +292,12 @@ Every fork is ruled except fork 5. Names still provisional: `contracts`, `runner
   doesn't take a build step to get running and I worry we're creating just that."* The trial should
   test one distinction. An installed program comes through `jig`, needs its block, and its grant is
   reviewed. An ad hoc script typed at the shell (`python foo.py` in swish) could run with a subset
-  of what the shell itself holds and need no block. Prior art for that path, all read: Deno prompts
-  at run time for a permission no `--allow-*` flag granted. Android asks in a dialog for a
-  manifest-declared permission when it is used. `ffx component run` starts a component in the
-  `ffx-laboratory` collection, whose narrowed capabilities are unverified. It needs a measurement
-  once a first interpreter runs.
+  of what the shell itself holds and need no block. Prior art for that path is in
+  [the appendix](0849-a-package-declares-what-it-needs-at-run-time/prior-art.md). It needs a
+  measurement once a first interpreter runs.
 - Proposed milestone (candidate, not a fork): an ad hoc script runs from the prompt with a subset of
   the shell's authority and no block, measured against the installed path on the first interpreter.
+
+## Index row
+
+A program's manifest declares what it needs at run time, a package declares what it provides, and a gate proves a route from each need to a provider. Every fork is ruled except runner versioning.

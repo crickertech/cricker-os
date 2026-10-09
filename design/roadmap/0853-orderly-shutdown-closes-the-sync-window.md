@@ -1,13 +1,17 @@
 ---
-status: PROPOSED
+status: NOT-STARTED
 raised: 2026-10-06
+promoted_from: orderly-shutdown-closes-the-sync-window
 milestone_dependencies: 805
 decision_dependencies: 251
 machine_requirements: none
 specific_machine: none
 needs_person: no
 ---
-# Orderly shutdown closes the sync window
+# 853. Orderly shutdown closes the sync window
+
+*(Minted 2026-10-09 (UTC) by lane/promote-proposals from the proposal `orderly-shutdown-closes-the-sync-window`. The number is provisional until the merge queue lands it; the title and slug are drafts.)*
+
 
 Reuse: the design is borrowed from the prior art below; no code is taken, because nothing
 outside a service manager can own the order, and nife's would be written here.
@@ -85,13 +89,17 @@ Prior art for this shape, recalled, not re-read:
 - systemd stops units in reverse dependency order, remounts file systems read-only, syncs, then
   resets.
 
-## Open questions for whoever promotes it
+## Open questions for whoever builds it
 
 - Who may ask the service manager to stop the system, and is that the reboot object's holder or a
   separate capability?
 - What a server that does not acknowledge in time gets: a timeout and a forced reset, or a refusal.
 - Whether power-off (excluded from milestone 805) rides the same request.
-- #1786's memory-pressure signal is the same shape: a broker signals levels to subscribed
-  programs, which act and answer ([a program is asked to give memory
-  back](a-program-is-asked-to-give-memory-back.md)). At promotion, check whether shutdown is one
-  more level on that mechanism rather than a new protocol.
+- Checked at promotion against milestone 850 (a program is asked to give memory back before anyone
+  is refused): that signal is advisory, coalescing and unacknowledged. Shutdown needs every
+  server's acknowledgement in order, so this stays its own protocol rather than one more level on
+  that mechanism.
+
+## Index row
+
+Orderly shutdown closes the sync window `reboot` leaves open: a service manager owns stop order, `reboot` asks it to stop the system, servers stop writers, sync and acknowledge, and only then is the reboot object invoked. A hung server meets a deadline, not a hang.

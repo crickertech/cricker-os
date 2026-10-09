@@ -42,7 +42,7 @@ manifest's grant, so step 1 changes no syscall surface.
 Deferred: step 2 (a kernel-provided "may I read" page or method, a later syscall-surface fork) and
 the riscv64 flag for a kernel probe handed `hpmcounter3`, which a process cannot learn without that
 page or call. Both are proposed in
-[a program asks whether it may read the cycle counter](../roadmap/proposals/a-program-asks-whether-it-may-read-the-cycle-counter.md)
+[milestone 856 (a program asks whether it may read the cycle counter)](../roadmap/0856-a-program-asks-whether-it-may-read-the-cycle-counter.md)
 and not built.
 
 ## Names

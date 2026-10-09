@@ -1,6 +1,6 @@
 # Rust TUF clients on nife's targets, 2026-10-07
 
-An appendix of [lab machines update themselves](../lab-machines-update-themselves.md), for its
+An appendix of [lab machines update themselves](../0858-lab-machines-update-themselves.md), for its
 Fork 9. Measured 2026-10-07 (UTC) by build and link only, with
 [tuf-probe.sh](tuf-probe.sh), whose recipe is `notes/filesystem-crates-2026-10-07/probe.sh`'s
 (#1803). The farm was the main checkout's `target/nife-farm`, so this lane did not retake the

@@ -263,10 +263,10 @@ The riscv64 lane's handoff (2026-09-03) and the aarch64 lane that built the coun
 
 ## Follow-on
 
-- **Proposed.** *Step 2 of decision B, and the riscv64 flag that needs it.* A kernel-provided way for
+- **Milestone 856.** Milestone 856 (a program asks whether it may read the cycle counter):
+  *step 2 of decision B, and the riscv64 flag that needs it.* A kernel-provided way for
   a program to ask whether it may read the counter, and to learn which counter the kernel's own
   probe reads, is a syscall-surface fork calef deferred.
-  `design/roadmap/proposals/a-program-asks-whether-it-may-read-the-cycle-counter.md`.
 - **Recorded.** *No manifest field grants the cycle counter yet*, so no real aarch64 or riscv64
   program can call `cycle_reading` without being killed; only the kernel's test grants it, through
   a test-only door. DECISIONS §139 (who may read the cycle counter, and by what authority) put the

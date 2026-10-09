@@ -108,7 +108,7 @@ cheap option.
 ## Amendment, 2026-10-07 (UTC): the owner chooses the source and the moment
 
 calef ruled two things on pull request #1805, reading the lab self-update proposal
-(`design/roadmap/proposals/lab-machines-update-themselves.md`). They are recorded here because this
+(`design/roadmap/0858-lab-machines-update-themselves.md`). They are recorded here because this
 is the section that rules where an update comes from, and its first clause is the one they change.
 §208 (installing is granting) rules what an install changes, and §157 (a trivial install) rules how
 a stranger starts; neither names a source.

@@ -1421,8 +1421,8 @@ pub struct CycleReading {
 ///   side without a setter on purpose.
 /// - **riscv64 cannot say whether its counter is the kernel's.** The `cycle` CSR is `mcycle`, and the
 ///   kernel's bench probe may have been handed `hpmcounter3` by firmware instead. Flagging that in
-///   the reading needs a kernel-to-process channel that does not exist; it is proposed with step 2
-///   in `design/roadmap/proposals/a-program-asks-whether-it-may-read-the-cycle-counter.md`.
+///   the reading needs a kernel-to-process channel that does not exist; milestone 856 (a program
+///   asks whether it may read the cycle counter) proposes it with step 2.
 /// - **Under QEMU every count is emulator time**, an instruction count or a virtual clock, never a
 ///   measurement of a core.
 ///

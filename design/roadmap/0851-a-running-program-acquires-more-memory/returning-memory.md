@@ -1,6 +1,6 @@
 # Returning memory while running: the measurements behind forks 3 and 7
 
-An appendix of [a running program acquires more memory](../a-running-program-acquires-more-memory.md).
+An appendix of [a running program acquires more memory](../0851-a-running-program-acquires-more-memory.md).
 It holds the arithmetic, so the main text can state the decisions. Written 2026-10-06 (UTC).
 
 ## The region table's peak, per architecture
