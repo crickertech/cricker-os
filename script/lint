@@ -3208,6 +3208,23 @@ echo "==> the file-length ratchet (§266's 2,000-line ceiling on Rust files)"
 # outright.
 python3 helpers/file_length_ratchet.py --selftest
 python3 helpers/file_length_ratchet.py --check
+echo "==> the comment-block ratchet (calef's 40-line cap on a comment block, 2026-10-07)"
+# Milestone 860 (comments state the constraint as it is now). calef ruled the ruling on 2026-10-07
+# (UTC), deciding fork (c) of notes/comment-cost-2026-10-07.md (PR #1800), recorded as §267 (a
+# comment states the constraint as it is now): a comment states the constraint as it is now, in a
+# sentence or two; history goes in the commit message, semantics and rulings go in
+# design/decisions/ cited by §N, and a cap of about 40 lines per comment block is held by a ratchet
+# that only falls. The cost the note measured is not the median two-line comment (a uniform sample
+# kept 80% of blocks as written) but the long tail: blocks over 40 lines hold a fifth of all comment
+# lines, 2.5 million tokens of comment in a 4.3 million token tree. The block definition (a run of
+# adjacent comment lines of one kind), the rules, the ceiling-not-exact-match argument and the
+# failure messages live in helpers/comment_block_ratchet.py, whose header is the manual, as the
+# other two ratchets' are. Its lexer is adapted from the note's own, so the gate and the
+# measurement read the same tree. 338 blocks are over the cap today and are held one row each in
+# design/comment-block-baseline.tsv; they may only shrink, swept a milestone's worth at a time, and
+# an unlisted block meets the cap outright.
+python3 helpers/comment_block_ratchet.py --selftest
+python3 helpers/comment_block_ratchet.py --check
 echo "==> American spelling and metric units (calef, 2026-10-06)"
 # calef ruled on 2026-10-06 (UTC) that the tree's prose and names use American spelling and its
 # measurements are metric. On that day the tree held about 3,900 British forms, so this is a

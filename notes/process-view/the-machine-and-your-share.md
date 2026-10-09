@@ -140,3 +140,15 @@ which is where this change will be judged.
 2026-09-26 that nife refuses paging out for now (the refusal in pull request #1356), and a row of
 zeroes would say swap exists and is empty. Each program's `BUGS` section cites the refusal where the
 rows would have been.
+
+## `uptime` needed none of this
+
+A finding moved from `components/src/uptime.rs`'s module doc on 2026-10-09 (UTC) by milestone 860
+(comments state the constraint as it is now). Milestone 126's own BUGS had named `free`,
+`uptime` and `vmstat` together as machine statistics, assuming all three want kernel-side
+accounting nothing exposes. `uptime` does not: `monotonic_nanos` is the same counter `date`
+already reads, granted to every process unconditionally, as `kernel/src/arch/*/timer.rs`
+documents (the deliberate exception to §10 (process model: capability-based, microkernel)'s
+no-ambient-authority rule). So `uptime`'s manifest is `least_authority_demo`'s, not `date`'s: no
+memory, no file, no clock capability, no domain, nothing but the report channel every spawn
+carries. `free` and `vmstat` were the different body of work this appendix records.
