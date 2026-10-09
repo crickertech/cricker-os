@@ -228,7 +228,7 @@ past 5% since fixed anchors (calef, 2026-09-26). Every row and reason: [the drif
 report](project-metrics/baseline-drift.md).
 
 <!-- baseline-drift: script/metrics writes this -->
-2026W41: aarch64 `spawn_reap` +32.73%, riscv64 `spawn_reap` +27.88%, x86_64 `spawn_reap` +10.54%; 21 rows past 5%.
+2026W41: aarch64 `spawn_reap` +32.73%, riscv64 `spawn_reap` +27.87%, x86_64 `spawn_reap` +10.54%; 22 rows past 5%.
 <!-- /baseline-drift -->
 
 - 2026W39: milestone 447 (a thread's vector registers are its own), #1015, 2026-09-21, added 1 to 3% to switch and IPC rows, taking rows past 5% from 2 to 7 (aarch64), 3 to 6 (riscv64), 1 to 2 (x86_64). Nightly bump #1112 added less.

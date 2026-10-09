@@ -1,6 +1,7 @@
 ---
-status: NOT-STARTED
+status: BUILT
 raised: 2026-10-08
+built: 2026-10-09
 promoted_from: comments-state-the-constraint-as-it-is-now
 milestone_dependencies: none
 decision_dependencies: none
@@ -87,6 +88,56 @@ Everything measured above is in `notes/comment-cost-2026-10-07.md`, including th
 took each number (`notes/comment-cost-2026-10-07/`). The kept/moved judgments of the thirty-block
 sample are listed block by block there.
 
+## Follow-on
+
+- **Decision.** `design/decisions/0267-a-comment-states-the-constraint-as-it-is-now.md` records
+  the ruling this block files, including the cap and the ratchet; the number is provisional until
+  the merge queue lands it.
+- **Milestone 862.** Milestone 862 (the comment-block sweep's next worth): the 337
+  over-cap blocks the baseline still holds (login.rs's and rmle.rs's shrunken docs among them,
+  at 178 and 64), swept a milestone's worth at a time, worst first.
+
 ## Index row
 
 Comments state the constraint as it is now: the sweep moves history to commit messages and findings to notes, cites rulings by section number, and a ratchet caps comment blocks at about 40 lines. The cost being paid is measured: comment is 2.5 million tokens of a 4.3 million token tree.
+
+## Built, 2026-10-09 (UTC)
+
+One milestone's worth, by lane `milestone/860-comments-state-the-constraint-as-it-is-now`:
+
+- **§267 (a comment states the constraint as it is now)**, the decisions section recording calef's
+  #1800 fork (c) ruling in the sharper form, with the cap and the ratchet as this milestone's
+  gate. The section number is provisional until the merge queue lands it.
+- **The ratchet**: `helpers/comment_block_ratchet.py` (name provisional), mirroring §266's
+  file-length ratchet. Same verbs: a baseline that only falls, a merge-base comparison, a
+  selftest that runs before the check, a one-time `--init`. The note's own lexer is adapted in,
+  so the gate and the measurement read the same tree. Baseline
+  `design/comment-block-baseline.tsv` (provisional). Wired into `script/lint` beside the
+  file-length ratchet, text-only, no-cargo.
+- **The cap, measured** at base `2d59ddde1`: 28,950 blocks, median 2 lines, mean 4.77; blocks
+  over 40 hold 19.8% of comment lines (the note measured 20% a day earlier), over 30 holds
+  24.5%, over 50 holds 17.3%. 40 is where the tail's bulk sits, and the number calef named.
+  338 rows at `--init`; 337 after this worth's sweep.
+- **The sweep, the five blocks the note's samples judged "move" or tutorial:**
+  - `components/src/login.rs:1`, 689 lines to 178. The design argument and history moved to
+    `notes/login.md` and two new appendices, `notes/login/teardown-and-channels-history.md` and
+    `notes/login/boot-wiring-history.md` (beside a new `notes/login/README.md`), marked with
+    dated sections; the module doc keeps the constraints, the contract table, the Name block and
+    the living BUGS. `notes/login.md` was also corrected: its subtree, example and name-status
+    sections predated §117 (a principal's subtree is named by its identity string), channel-per-client and the 2026-09-15 ratification.
+  - `components/src/rmle.rs:1`: the naming search moved to
+    `design/naming/rmle-name-search.md` (a new appendix, indexed from `design/naming.md`); the
+    Name block keeps the ruling and a pointer.
+  - `components/src/uptime.rs:1`: the finding moved to `notes/process-view.md`; the doc keeps
+    the constraint and a pointer.
+  - `kernel/src/arch/x86_64/exceptions.rs:472`: the "TWO ways into the kernel" banner cut to its
+    constraint; the sentences that carry it already live on the items below.
+  - `std_exerciser/src/main.rs:1016`: the `remove_dir_all` history dropped (it restates records
+    in `design/roadmap/0122-a-directory-handle-std-can-hold.md` and
+    `notes/std/fs-descent.md`, and the history is in the lane's commit message); the living
+    constraint stays.
+
+What remains for later milestones' worth: 337 over-cap blocks the baseline holds, swept a
+milestone's worth at a time, worst first. The next worst after this worth:
+`kernel/src/testing.rs:240` (468), `crates/system_initializer/src/lib.rs:6` (406),
+`components/src/timetable.rs:1` (224), `crates/jh7110_entropy/src/lib.rs:2` (209).

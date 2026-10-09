@@ -7,3 +7,13 @@ measurements and histories behind the naming rules.
 *Name: provisional, minted 2026-09-24 by the lane that split the file (`2ea02d231`), for the
 directory and every stem in it. Each appendix's own preamble says the same of its stem. Naming is
 calef's; `script/names --unratified` lists each stem.*
+
+- [rmle-name-search.md](rmle-name-search.md): new, 2026-10-09, the `rmle` name search (every
+  SI-prefix and metalwork candidate was already taken), moved from the program's Name block.
+- [jh7110-entropy-name.md](jh7110-entropy-name.md): new, 2026-10-09, the `jh7110_entropy` name
+  record (the same-day supersession, the crates.io keep, the refused names, and the argument that
+  lost), moved from the crate's Name block.
+- [job-mix-name.md](job-mix-name.md): new, 2026-10-09, the `job_mix` name record: the `jobmix`
+  misspelling milestone 296 (the `initboot` feature was `shell`) found, the refusals, and the rule it settled, that a console marker
+  takes the command's spelling. Moved from the crate's Name block.
+

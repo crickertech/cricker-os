@@ -32,9 +32,9 @@
 //!   available without hardware" the milestone's brief asked for: a real, shipped, working Linux
 //!   driver's register sequence, not a guess from the block diagram.
 //! - **[ds]** `StarFive`, *JH7110 Datasheet*, v1.67 (2025-02-14),
-//!   `doc-en.rvspace.org/JH7110/PDF/JH7110_DS.pdf`, §2.8.2 "TRNG", fetched and extracted with
-//!   `pdftotext -layout` on 2026-08-24 (the `RVspace` TLS certificate had expired by then; a mirror
-//!   at `elecrow.com/download/product/DTN63002G/JH7110_Datasheet.pdf` served the same PDF). Quoted
+//!   `doc-en.rvspace.org/JH7110/PDF/JH7110_DS.pdf`, section 2.8.2 "TRNG", extracted with
+//!   `pdftotext -layout` on 2026-08-24 (the `RVspace` TLS certificate had expired; a mirror at
+//!   `elecrow.com/download/product/DTN63002G/JH7110_Datasheet.pdf` served the same PDF). Quoted
 //!   in full because it is short and it is the compliance claim (or its absence) this crate's
 //!   health-test story rests on:
 //!
@@ -67,9 +67,9 @@
 //!   independent driver for the same block, and the most useful one here because **it is the only
 //!   one that polls**. It supplies the bit positions mainline omits
 //!   (`IENABLE`/`ISTATUS`: `RAND_RDY` 0, `SEED_DONE` 1, `AGE_ALARM` 2, `RQST_LOCKUP` 3,
-//!   `LFSR_LOCKUP` 4, `GLOBAL` 31) and it is the source of the `SEEDED` gate this crate now
-//!   applies: its poll path reads `STAT` and only trusts `ISTAT.RAND_RDY` when `STAT.SEEDED` is
-//!   set, issuing a random reseed when it is not.
+//!   `LFSR_LOCKUP` 4, `GLOBAL` 31) and it is the source of the `SEEDED` gate this crate applies:
+//!   its poll path reads `STAT` and only trusts `ISTAT.RAND_RDY` when `STAT.SEEDED` is set,
+//!   issuing a random reseed when it is not.
 //!
 //! # The register file [driver]
 //!
@@ -128,11 +128,7 @@
 //! stage getting stuck), not a degraded-but-still-running ring oscillator, and neither [ds] nor
 //! [driver] document a built-in SP 800-90B-class test. Whether *this project* needs one before
 //! trusting these bytes for anything security-shaped is a real design question the datasheet does
-//! not resolve, and it is exactly the "open-ended judgment about cryptographic soundness" this
-//! milestone's brief said to write up rather than guess at. **It is not decided here.** See the
-//! roadmap doc and the final report for milestone 159's lane; the honest state of the question
-//! belongs in `design/decisions/` as a PROPOSED entry, which is an architect's call to write, not
-//! this lane's (AGENTS.md: a developer never edits `design/`).
+//! not resolve, and it is undecided: it is an architect's call, unwritten in `design/decisions/`.
 //!
 //! # Examples
 //!
@@ -168,40 +164,11 @@
 //! program that will eventually hold a `DeviceFrame` capability for that address is future work.
 //! See the roadmap doc for exactly what is and is not ready for a customer to pick up.
 //!
-//! Name: ratified 2026-09-13 (calef, working the unratified worklist), replacing
-//! `jh7110_entropy_source`, which he ratified earlier the same day and superseded on a second
-//! pass through the same worklist. Kept as the crates.io name by calef on 2026-10-07 (UTC), pull
-//! request #1806's publish-ours review, whose maintainer comment reads: "one milestone per crate,
-//! minted now, each keeping its tree name (all free on crates.io as of today) [...] Names are
-//! ratified now and permanent on first publication." His words: "Yes, one per crate". Milestone
-//! 818 (proven JH7110 TRNG logic, released on its own) publishes it. The stem was settled on
-//! 2026-09-13 and is not reopened here: TRNG expands to true random number generator, the expansion teaches, and that is the 2026-09-05
-//! acronym rule which retired `jh7110_trng`. What moved is the tail. `_source` appears **nowhere
-//! else in this tree**, so the crate and its program were the suffix's only two instances, and the
-//! chip prefix was already doing the work it was doing: saying which of the two backends for one
-//! contract this is. The peer backend, the virtio-rng one, is simply `entropy`, on milestone 63's
-//! resource-name pattern of naming a service for the resource it hands you; 63 cites that pattern
-//! as the one it departed from for `credentialer`, on the ground that a credential service never
-//! hands you a credential, and this one does hand you entropy, so the pattern holds. The chip
-//! prefix is settled precedent in the other direction too: `jh7110_clock_and_reset` was ruled in
-//! the same pass, and `jh7110` stays in both, because a part number is a proper noun no expansion
-//! test reaches. Refused `jh7110_entropy_driver` (it breaks the crate-and-program pair: this crate
-//! is not a driver, it is the register decode, the device-tree query and the byte pool,
-//! host-tested and Kani-reachable, and AGENTS.md says that shared name is worth seeing rather than
-//! splitting). That one was close, because it would have joined the ratified driver family in
-//! `components/`, whose own ratification wanted a reader scanning that directory to meet programs
-//! that say what they drive; what disqualifies it is the half of the pair that is not a program.
-//! Refused
-//! `jh7110_true_random_number_generator` (35 characters, and the spec's full name buys nothing,
-//! the reasoning that also gave `executable_format` its name rather than ELF's) and bare
-//! `entropy_source` (this tree will have a second system on a chip, and the chip qualifier keeps
-//! two drivers apart). **The argument that lost**, when the stem was decided, was the
-//! external-standard exemption, that `trng` follows `nvme` and `pci` as a spec-named device; the
-//! 2026-09-13 amendment to decision 113 ends that exemption for acronym crates. (`nvme` is kept
-//! here because it is the spelling the argument was made in; DECISIONS §154 later deratified it
-//! and the crate is `non_volatile_memory_express` now, which is that amendment arriving.) The name joins
-//! `entropy` and `entropy_protocol` rather than colliding with them: the service, the wire contract,
-//! and this, the hardware behind them.
+//! Name: ratified 2026-09-13 (calef), replacing `jh7110_entropy_source`, which he ratified earlier
+//! the same day and superseded on a second pass. Kept as the crates.io name by calef on
+//! 2026-10-07 (UTC, #1806: "Names are ratified now and permanent on first publication."). The stem
+//! argument, the refused names, and the pattern it joins are
+//! [design/naming/jh7110-entropy-name.md](../../../design/naming/jh7110-entropy-name.md).
 //!
 //! [binding]: https://github.com/torvalds/linux/blob/master/Documentation/devicetree/bindings/rng/starfive%2Cjh7110-trng.yaml
 //! [driver]: https://github.com/torvalds/linux/blob/master/drivers/char/hw_random/jh7110-trng.c
