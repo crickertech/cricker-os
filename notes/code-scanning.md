@@ -80,9 +80,9 @@ checks.
   still goes red. A same-job retry is impossible: the action refuses a second upload per job per
   tool and category (watched 2026-10-09, run 37863703201).
 - Alert continuity rests on the category match: the workflow uploads under `/language:<name>`,
-  default setup's own category (read from the analyses API, 2026-10-09 UTC). If the upload
-  rejects that string, the first post-toggle run will say so, and the 43 hand dismissals below
-  would need re-dismissing under whatever category replaces it.
+  default setup's own category (read from the analyses API, 2026-10-09 UTC). Accepted: the first
+  post-toggle uploads landed under those categories on 2026-10-09 (UTC, run 37867349621's
+  rerun), so the 43 hand dismissals below carry.
 - §35 asks for a dismissal's reason at the code. For the 17 false positives the existing `SAFETY`
   and provenance comments at each site carry the argument, and this note carries the rest; no
   per-line suppression comment was added, because CodeQL reads none.
@@ -101,5 +101,13 @@ it is calef's admin act in repository settings, outside this tree (§36 records 
 not committed). Until then every upload is rejected and the upload jobs are red on purpose;
 CodeQL is not a required check, so that red blocks no merge. The first observed rejection is run
 [37863703201](https://github.com/nifeos/nife/actions/runs/37863703201) (2026-10-09 UTC), on the
-lane that landed the workflow. calef toggled default setup off on ______ (UTC). The first push
-to `main` after it goes green with no change to the workflow.
+lane that landed the workflow. calef toggled default setup off on 2026-10-09 (UTC), between 00:52
+and 00:57: PR #1871 merged at 00:57:06 and its push run started two seconds later, so that run
+raced the change.
+
+It went green, with one wrinkle worth a rerun before a diagnosis. The merge run's uploads, at
+about 01:07, were still rejected with the same "default setup is enabled" message ten minutes
+after the toggle; GitHub's upload path lags the settings change. A rerun of the failed jobs
+alone, about 100 minutes later, went green on every language (run
+[37867349621](https://github.com/nifeos/nife/actions/runs/37867349621), rerun). So: a red upload
+soon after the toggle is propagation until a rerun says otherwise.

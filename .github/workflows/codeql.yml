@@ -6,6 +6,9 @@ name: codeql
 #   toggles default setup off. The same run exposed a second fact: a same-job upload retry is
 #   refused by the action itself ("only one run of the codeql/analyze or codeql/upload-sarif
 #   actions is allowed per job per tool/category"), which is why the retry below is its own job.
+#   Post-toggle, run 37867349621's uploads were still rejected with the same message ten minutes
+#   after the change; a rerun of the failed jobs went green. A red upload soon after the toggle is
+#   propagation until a rerun says otherwise (notes/code-scanning.md, 2026-10-09 UTC).
 
 # CodeQL advanced setup, decided 2026-10-08 (UTC). Until this file, scanning ran through default
 # setup, which DECISIONS §36 (the repository is part of the TCB) chose while the Rust extractor
