@@ -93,7 +93,7 @@ sample are listed block by block there.
 - **Decision.** `design/decisions/0267-a-comment-states-the-constraint-as-it-is-now.md` records
   the ruling this block files, including the cap and the ratchet; the number is provisional until
   the merge queue lands it.
-- **Proposed.** `design/roadmap/proposals/the-comment-block-sweeps-next-worth.md`: the 337
+- **Milestone 862.** Milestone 862 (the comment-block sweep's next worth): the 337
   over-cap blocks the baseline still holds (login.rs's and rmle.rs's shrunken docs among them,
   at 178 and 64), swept a milestone's worth at a time, worst first.
 
