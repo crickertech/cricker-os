@@ -259,7 +259,10 @@ jobs:
   # **Host-only report tools ride the same skip** (2026-10-07 UTC, after #1831 changed only
   # `script/metrics` and a page it writes and ran the whole kernel suite). `helpers/prose_only.py`
   # lists four tools that only `metrics.yml` runs, treats a named caller outside `script/` and
-  # `helpers/` as disqualifying, and leaves every other script running everything.
+  # `helpers/` as disqualifying, and leaves every other script running everything. Their generated
+  # records ride it too (2026-10-09 UTC, after #1878's weekly update ran the kernel suite for
+  # fourteen generated files): a changed file under `notes/project-metrics/` skips only when no
+  # gated file names it, so the `falsification-times.tsv` `script/verify` shards by still runs.
   #
   # **Fails toward running.** A classifier error leaves `prose` empty and `!= 'true'` admits it.
   gate:
