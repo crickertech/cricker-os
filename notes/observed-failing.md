@@ -127,3 +127,10 @@ pass either and fail the other.
   arm from an edited line.
 - Whether a red run was red for the right reason is a reading, stated in the record's prose. No check
   can tell a gate catching its defect from a runner falling over.
+- **A workflow new since the cutoff cannot cite the run it is about to raise.** The pre-push hook
+  runs this gate on the file's first push, and the run a `pull_request`-triggered workflow wants to
+  cite is raised by that same push. Both new workflows since have bootstrapped. `codeql.yml`
+  (2026-10-09 UTC) shipped a `by script` record stating the circularity, then watched its own pull
+  request's run and replaced the record with the run id. `verify-shard-refresh.yml` could not
+  stage a run at all, because its secrets are scoped to `main`. Nothing distinguishes a bootstrap
+  record from a final one, and nothing forces the replacement.
