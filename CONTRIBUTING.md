@@ -122,7 +122,7 @@ them costs more than getting them wrong.
 ## How to propose a change
 
 ```sh
-script/claim fix/short-description           # branch, worktree, empty commit, push, draft PR
+script/claim fix/short-description --debt-paydown  # or --new-work; branch, worktree, empty commit, push, draft PR
 # ...work in the worktree, committing and pushing as pieces prove out...
 script/ci-build                              # every local check a PR must pass, cheapest first
 gh pr ready && gh pr merge --auto --merge    # CI runs (a draft skips it); armed, it lands when green
@@ -131,7 +131,9 @@ gh pr ready && gh pr merge --auto --merge    # CI runs (a draft skips it); armed
 Claim before you work. §90 (the claim is a draft pull request) makes a draft pull request the
 claim, so two people cannot silently take the same milestone. `script/claim` makes it in one
 command: it refuses a malformed branch name, cuts a worktree, and pushes an empty commit behind a
-draft. The empty commit matters, because without it GitHub closes the draft as merged when its base
+draft. It also refuses a lane that does not say whether it repays debt: pass exactly one of
+`--debt-paydown` or `--new-work` ([notes/debt-paydown.md](notes/debt-paydown.md) has the line between
+them). The empty commit matters, because without it GitHub closes the draft as merged when its base
 lands. Any branch prefix is accepted except a near-miss of `milestone/<N>-<slug>`, the one prefix
 with a meaning: `script/lint` reads it to require that milestone's roadmap block be updated.
 

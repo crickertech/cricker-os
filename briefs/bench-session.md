@@ -70,7 +70,7 @@ state of the desk. Ask.
 
 ## Step 1: claim, then build on the host
 
-    script/claim milestone/<N>-<slug>
+    script/claim milestone/<N>-<slug> --new-work    # --debt-paydown if the milestone repays debt
 
 Build the image from the worktree, never from the main checkout: the maintainer may have deleted
 the main checkout's `target/` that day.

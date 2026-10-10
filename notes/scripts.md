@@ -19,7 +19,7 @@ Full rows: [build-test-and-gate.md](scripts/build-test-and-gate.md).
 | `script/bootstrap` | Install the pinned toolchain and QEMU. Idempotent. `NIFE_SKIP_LINT_TOOLS=1` skips the lint-only tools (cargo-machete, typos). |
 | `script/setup` | First run after a clone: `bootstrap`, then build. |
 | `script/update` | After a pull: `bootstrap`, then rebuild. |
-| `script/claim <branch-name>` | Cut a lane's branch and worktree, and make the draft pull request claim; `--debt-paydown` labels it ([debt-paydown.md](debt-paydown.md)). |
+| `script/claim <branch-name>` | Cut a lane's branch and worktree, and make the draft pull request claim; exactly one of `--debt-paydown` or `--new-work` is required ([debt-paydown.md](debt-paydown.md)). |
 | `script/test` | The suite: host-logic crates, then the kernel under QEMU. The gate. `--arch`, `--cpu`, `--hvf`, `--test` narrow it. |
 | `script/verify` | The Kani proofs over the pure-logic crates. |
 | `script/verify-riscv64` | The `kernel` row for riscv64, under Kani patched from `patches/`. Provisional name. |
