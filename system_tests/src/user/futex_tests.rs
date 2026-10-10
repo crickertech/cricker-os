@@ -34,7 +34,7 @@ const VA: u64 = address_space_map::pair_page(0x0060_0000);
 /// `WAIT(slot, VA, flags, expected 0)`, OR the result plus one into `+16`, count the return in
 /// `+8`.
 #[cfg(target_arch = "aarch64")]
-const WAITER: &[u32] = &[
+pub(super) const WAITER: &[u32] = &[
     0xAA00_03F3, // mov  x19, x0
     0xAA01_03F4, // mov  x20, x1
     0xAA02_03F5, // mov  x21, x2
@@ -55,7 +55,7 @@ const WAITER: &[u32] = &[
     0x17FF_FFF2, // b    loop
 ];
 #[cfg(target_arch = "riscv64")]
-const WAITER: &[u32] = &[
+pub(super) const WAITER: &[u32] = &[
     0x0005_0913, // mv   s2, a0
     0x0005_8993, // mv   s3, a1
     0x0006_0A13, // mv   s4, a2
@@ -81,7 +81,7 @@ const WAITER: &[u32] = &[
 /// packs its listings. The result is read from `rdi`, where this ABI returns it (§124 (the
 /// `x86_64` syscall ABI)); `rax` still holds the syscall number.
 #[cfg(target_arch = "x86_64")]
-const WAITER: &[u32] = &[
+pub(super) const WAITER: &[u32] = &[
     0x49FC_8949,
     0x8949_F589,
     0xE789_4CD6,

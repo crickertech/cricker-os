@@ -33,16 +33,27 @@ use super::*;
 const MAX_USER_SPACES: usize = crate::revoke::MAX_SPACES;
 const _: () = assert!(MAX_USER_SPACES >= crate::revoke::MAX_SPACES);
 
-/// **One registry entry: a space, and the thread bound to it if there is one** (§249; name
-/// provisional).
+/// **One registry entry: a space, and what holds it if anything does** (§249; name provisional).
 ///
-/// `bound` is ruling (b) of §249 made a field: `CONFIGURE` used to be stopped from binding a space
-/// twice only because it consumed the one name the space had, and §105 (`std::thread::spawn` stays
-/// declined) rested on that. The name survives a bind now, so the refusal is stated here instead,
-/// and [`bind_user_address_space`] reads it.
+/// One holder per space. Since milestone 812 (`std::thread::spawn` runs real threads in one address
+/// space) the holder is a process, and many threads share a space by joining that process
+/// (`BIND`); a thread configured with a space is a process of its own and holds the space itself,
+/// as every thread did before. So §249's amendment (b), which refused a second thread a bound space
+/// and on which §105 (`std::thread::spawn` stays declined) rested, retires as calef ruled on pull
+/// request #1892: threads share through their process, and a second *holder* is still refused.
 struct Registered {
     space: AddressSpace,
-    bound: Option<crate::thread::ThreadId>,
+    bound: Option<Holder>,
+}
+
+/// **What holds a space** (milestone 812; name provisional): a thread that is a process of its own,
+/// or a process object whose members run in it.
+#[derive(Clone, Copy, PartialEq, Eq, Debug)]
+pub enum Holder {
+    /// A thread configured with the space directly.
+    Thread(crate::thread::ThreadId),
+    /// A process created holding the space (`RETYPE_OBJ` of `objtype::PROCESS`).
+    Process(crate::sched::ProcessId),
 }
 
 /// **What a thread keeps of the space it is bound to** (§249; name provisional): the registry's
@@ -74,6 +85,20 @@ impl BoundSpace {
             ttbr0: space.ttbr0(),
             current_cpu_page: space.current_cpu_page.map(|(_, kernel_va)| kernel_va),
         }
+    }
+
+    /// **This copy with a thread's own current-CPU page** (milestone 812): a member of a process
+    /// takes the process's copy and replaces the page with the one its slot holds.
+    pub fn with_current_cpu_page(self, kernel_va: u64) -> Self {
+        BoundSpace {
+            current_cpu_page: Some(kernel_va),
+            ..self
+        }
+    }
+
+    /// Whether this copy carries a current-CPU page, which `CONFIGURE`'s result reports.
+    pub fn has_current_cpu_page(&self) -> bool {
+        self.current_cpu_page.is_some()
     }
 
     /// The registry's name for the space, which is what a thread's reaper takes it out by.
@@ -162,6 +187,8 @@ pub fn user_address_space_create(region: u64) -> Option<u64> {
         // which is the moment it becomes a thread's space and therefore the moment the question
         // "which CPU am I on" starts having an answer.
         current_cpu_page: None,
+        thread_pages: [None; current_cpu_protocol::THREAD_PAGE_SLOTS],
+        thread_pages_in_use: 0,
     };
 
     // The timebase page is **not** mapped unconditionally here (an earlier version of this
@@ -262,10 +289,10 @@ pub fn with_user_address_space<R>(name: u64, f: impl FnOnce(Option<&mut AddressS
 /// of §249's option A: a copy of the capability made before `CONFIGURE` still names the space while
 /// its thread runs.
 ///
-/// `NoSuchSlot` if the name does not resolve. **`WrongObject` if the space is already bound**, which
-/// is §249's amendment (b), the answer a second `CONFIGURE` of a started thread already gives:
-/// §105 (`std::thread::spawn` stays declined) stands because this refusal is stated rather than
-/// inherited from a consumed name.
+/// `NoSuchSlot` if the name does not resolve. **`WrongObject` if the space already has a holder**,
+/// which is §249's amendment (b), the answer a second `CONFIGURE` of a started thread already gives.
+/// Since milestone 812 (`std::thread::spawn` runs real threads in one address space) it keeps a space
+/// to one holder; threads share it by joining the holder's process.
 ///
 /// `bind` is called with the copy the thread will keep, under this registry's lock, and takes
 /// `IPC_TABLES` itself (60, below this one's 61, so the nesting is the rank order's own direction).
@@ -274,10 +301,12 @@ pub fn with_user_address_space<R>(name: u64, f: impl FnOnce(Option<&mut AddressS
 /// left unbound. The current-CPU page is attached first, because the copy carries its address; a
 /// space that goes on to be refused keeps it, which is harmless (the attach is idempotent, and the
 /// page dies with the space).
+///
+/// `bind` returns the holder to record: the embryo itself, or (milestone 812) the process that
+/// `RETYPE_OBJ` is creating around the space.
 pub fn bind_user_address_space(
     name: u64,
-    tid: crate::thread::ThreadId,
-    bind: impl FnOnce(BoundSpace) -> Result<(), abi::Error>,
+    bind: impl FnOnce(BoundSpace) -> Result<Holder, abi::Error>,
 ) -> Result<(), abi::Error> {
     let mut spaces = USER_SPACES.lock();
     let entry = spaces.get_mut(name).ok_or(abi::Error::NoSuchSlot)?;
@@ -285,9 +314,70 @@ pub fn bind_user_address_space(
         return Err(abi::Error::WrongObject);
     }
     entry.space.attach_current_cpu_page();
-    bind(BoundSpace::of(name, &entry.space))?;
-    entry.bound = Some(tid);
+    let holder = bind(BoundSpace::of(name, &entry.space))?;
+    // A thread that is a process of its own reads slot 0, the space's own page; a process's first
+    // member takes slot 0 when it joins (`take_thread_page`).
+    if matches!(holder, Holder::Thread(_)) {
+        entry.space.thread_pages_in_use |= 1;
+    }
+    entry.bound = Some(holder);
     Ok(())
+}
+
+/// **A current-CPU page for a thread joining the process that holds `name`** (milestone 812
+/// (`std::thread::spawn` runs real threads in one address space), §269 (how threads share a
+/// process) fork 6): the lowest free slot, its page made and mapped read-only if the slot has
+/// never been used, and rebuilt (unscheduled, with today's allowance) if it has. Returns
+/// `(slot, user address, kernel address)`. `None` when every slot is taken, which is the
+/// per-process thread limit (`current_cpu_protocol::THREAD_PAGE_SLOTS`), or no frame or table can
+/// be had.
+pub fn take_thread_page(name: u64) -> Option<(u8, u64, u64)> {
+    let mut spaces = USER_SPACES.lock();
+    let space = &mut spaces.get_mut(name)?.space;
+    let k = (!space.thread_pages_in_use).trailing_zeros() as usize;
+    let va = current_cpu_protocol::thread_page_va(k)?;
+    let bytes = current_cpu_protocol::build_page_allowing(u64::from(
+        crate::smp::online_harts_mask().count_ones(),
+    ));
+    let kernel_va = if k == 0 {
+        space.attach_current_cpu_page();
+        space.current_cpu_page?.1
+    } else if let Some((_, kernel_va)) = space.thread_pages[k] {
+        kernel_va
+    } else {
+        let frame = crate::memory::alloc_zeroed()?;
+        let kernel_va = mmu::phys_to_virt(frame.addr());
+        if space
+            .map_physical(
+                va,
+                frame.addr(),
+                Flags::user_rodata(),
+                crate::revoke::PageMapSource::NoCapability,
+            )
+            .is_err()
+        {
+            crate::memory::free(frame);
+            return None;
+        }
+        space.thread_pages[k] = Some((frame, kernel_va));
+        kernel_va
+    };
+    // SAFETY: the slot's own frame, owned by this space and not read by any thread while the slot
+    // is free; `PAGE_BYTES` is far under a frame.
+    unsafe {
+        core::ptr::copy_nonoverlapping(bytes.as_ptr(), kernel_va as *mut u8, bytes.len());
+    }
+    space.thread_pages_in_use |= 1 << k;
+    Some((k as u8, va, kernel_va))
+}
+
+/// **Give a thread's current-CPU page slot back** when the thread is reaped (milestone 812). The
+/// frame stays mapped, read-only and unread, for the next thread to take the slot. Nothing if the
+/// space is gone.
+pub fn give_back_thread_page(name: u64, slot: u8) {
+    if let Some(entry) = USER_SPACES.lock().get_mut(name) {
+        entry.space.thread_pages_in_use &= !(1u16 << slot);
+    }
 }
 
 /// **Put a space the kernel built into the registry, already bound to `tid`** (`sched::adopt_address_space`'s
@@ -307,8 +397,12 @@ pub fn register_bound_address_space(
         .insert_with(|name| {
             copy = Some(BoundSpace::of(name, &space));
             Registered {
-                space,
-                bound: Some(tid),
+                space: {
+                    let mut space = space;
+                    space.thread_pages_in_use |= 1; // the adopting thread reads slot 0
+                    space
+                },
+                bound: Some(Holder::Thread(tid)),
             }
         })
         .expect("the address-space registry is full, which MAX_USER_SPACES says cannot happen");
@@ -357,13 +451,13 @@ pub fn reap_address_spaces_in_region(base: u64, end: u64) {
     loop {
         let victim = {
             let spaces = USER_SPACES.lock();
-            crate::sched::with_binders(|binder| {
+            crate::sched::with_holders(|binder| {
                 spaces.iter().find_map(|(name, entry)| {
                     let root = entry.space.root.addr();
                     let in_span = base <= root && root < end;
                     let goes = match entry.bound {
                         None => in_span,
-                        Some(tid) => match binder(tid) {
+                        Some(holder) => match binder(holder) {
                             crate::sched::Binder::Gone => true,
                             crate::sched::Binder::Corpse => in_span,
                             crate::sched::Binder::CanRun => false,

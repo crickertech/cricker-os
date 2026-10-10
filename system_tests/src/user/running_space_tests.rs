@@ -11,8 +11,8 @@
 //!   core and the `UNMAP` comes from another, so only the TLB shootdown can stop it.
 //! - **Amendment (a)**: deleting every capability leaves the thread running on its space; the
 //!   thread's reaping ends the space, and every capability to it then fails.
-//! - **Amendment (b)**: a second bind of a bound space is refused, so §105 (`std::thread::spawn`
-//!   stays declined) stands.
+//! - **Amendment (b)**: a second bind of a bound space is refused. Since milestone 812 that keeps a
+//!   space to one holder; threads share it by joining the holder's process.
 //! - **The corpse gap** `notes/naming-a-running-address-space.md` reasoned about and did not drive:
 //!   a corpse whose root was in a destroyed region no longer outlives that region.
 //! - **Milestone 95's negative control**: a builder that holds its own space, as the progenitor does
@@ -144,8 +144,8 @@ fn start_reader(region: u64) -> (u64, u64, u64, u64, u64) {
             STACK_VA + page_frames::FRAME_SIZE,
             given,
         ),
-        Ok(0),
-        "premise: CONFIGURE refused the reader's space",
+        Ok(current_cpu_protocol::PAGE_VA as i64),
+        "premise: CONFIGURE refused the reader's space, or did not answer its current-CPU page",
     );
     assert!(
         sched::current_cap(given).is_err(),
@@ -319,8 +319,9 @@ fn unmap_on_another_core_faults_a_reader_spinning_on_the_page() {
 /// **A second bind of a bound space is refused, and a refused `CONFIGURE` consumes nothing**
 /// (§249's amendment (b)). Two embryos, one space, two capabilities to it made before either bind.
 /// The first binds; the second is answered `WrongObject`, the answer a second `CONFIGURE` of a
-/// started thread gives. Before §249 the consumed name was the only thing that stopped this, and
-/// §105 (`std::thread::spawn` stays declined) stood on it.
+/// started thread gives. Before §249 the consumed name was the only thing that stopped this. Since
+/// milestone 812 (`std::thread::spawn` runs real threads in one address space) threads share a
+/// space by joining its process, so what this refusal keeps is that a space has one holder.
 ///
 /// And the bound space does not outlive its embryo: reclaiming the region reaps both TCBs, and the
 /// space bound to one of them goes in the same `DESTROY`, collected by the sweep as a space whose
@@ -348,11 +349,15 @@ fn a_second_bind_of_a_bound_space_is_refused() {
         )
     };
 
-    assert_eq!(configure(tcbs[0], first), Ok(0), "premise: the first bind");
+    assert_eq!(
+        configure(tcbs[0], first),
+        Ok(current_cpu_protocol::PAGE_VA as i64),
+        "premise: the first bind"
+    );
     assert_eq!(
         configure(tcbs[1], second),
         Err(Error::WrongObject),
-        "a second thread was bound to a space already bound to one: §105 rests on this refusal",
+        "a second holder was bound to a space that already has one",
     );
     assert!(
         sched::current_cap(second).is_ok(),

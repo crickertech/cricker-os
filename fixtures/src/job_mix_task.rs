@@ -242,12 +242,12 @@ fn spawn_job(code_frame: u64) -> Result<u64, Refused> {
             0,
         ))?;
         // CONFIGURE consumes the address-space capability, so there is no slot to delete for it.
-        zero(user_mode_runtime::tcb_configure(
-            tcb,
-            CHILD_CODE_VA,
-            CHILD_STACK_VA + PAGE,
-            aspace,
-        ))?;
+        // Its result is the child's current-CPU page address since milestone 812
+        // (`std::thread::spawn` runs real threads in one address space), so success is
+        // any non-negative answer.
+        let configured =
+            user_mode_runtime::tcb_configure(tcb, CHILD_CODE_VA, CHILD_STACK_VA + PAGE, aspace);
+        zero(configured.min(0))?;
         zero(user_mode_runtime::tcb_start(tcb, 0, 0, 0))?;
         // The child's done word. Then reclaim: `DESTROY` refuses a region a live thread occupies,
         // and the child is between its `SEND` and its exit for a moment after this returns.

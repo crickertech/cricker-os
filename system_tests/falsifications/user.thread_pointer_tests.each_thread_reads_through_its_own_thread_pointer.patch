@@ -25,10 +25,10 @@ diff --git a/kernel/src/arch/riscv64/exceptions.rs b/kernel/src/arch/riscv64/exc
 diff --git a/kernel/src/sched.rs b/kernel/src/sched.rs
 --- a/kernel/src/sched.rs
 +++ b/kernel/src/sched.rs
-@@ -2614,12 +2614,6 @@ pub fn schedule() {
+@@ -2629,12 +2629,6 @@ pub fn schedule() {
+         // architecture's half.
          //
-         // SAFETY: `prev_ptr` and `next_tcb` are live threads' TCB pages from the table, under
-         // `IPC_TABLES`; the projection takes no reference to anything but the one field.
+         // SAFETY: live threads' TCB pages from the table, under `IPC_TABLES`; one field each.
 -        unsafe {
 -            crate::arch::thread_pointer::hand_over(
 -                &mut (*prev_ptr).thread_pointer,

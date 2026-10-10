@@ -32,7 +32,8 @@
 //!   rewritten to ask for a rendezvous, because a second thread running at a random entry, or a timer
 //!   firing on the clock, would make a seed's run depend on timing, and the seed is the reproducer.
 //!   Both object types, and every method on them, are therefore out of reach.
-//! - **`SYS_EXIT` is never drawn.** It would end the run, which teaches the oracle nothing.
+//! - **`SYS_EXIT` and `SYS_EXIT_THREAD` are never drawn.** Either would end the run, which teaches
+//!   the oracle nothing.
 //! - **It never touches the memory it maps.** A load or store into a mapped page is not a syscall,
 //!   and the page oracle reads the page tables directly instead.
 //!
@@ -168,13 +169,19 @@ fn draw(rng: &mut Rng) -> (u64, [u64; 6]) {
     } else if roll < 96 {
         (SYS_YIELD, [0; 6])
     } else {
-        // A number no syscall answers, or one a little past the last real one.
+        // A number no syscall answers, or one a little past the last real one (`SYS_EXIT_THREAD`,
+        // 4, since milestone 812 (`std::thread::spawn` runs real threads in one address space)).
         let nr = match rng.below(3) {
-            0 => 4 + rng.below(12),
+            0 => abi::SYS_EXIT_THREAD + 1 + rng.below(12),
             1 => rng.below(1 << 16),
             _ => rng.next(),
         };
-        let nr = if nr == SYS_EXIT { SYS_YIELD } else { nr };
+        // Neither exit is drawn: each would end the fuzzer, which teaches the oracle nothing.
+        let nr = if nr == SYS_EXIT || nr == abi::SYS_EXIT_THREAD {
+            SYS_YIELD
+        } else {
+            nr
+        };
         let mut words = [0; 6];
         for w in &mut words {
             *w = rng.word();

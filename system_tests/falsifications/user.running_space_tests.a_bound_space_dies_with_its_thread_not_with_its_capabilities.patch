@@ -9,15 +9,18 @@ and its revocation records held, for the life of the machine.
 
 Expected to fail: the assertion after the reader is reaped, that the space is gone.
 
+The context below names milestone 812 (`std::thread::spawn` runs real threads in one address
+space), whose process object changed the lines around this defect; the defect is unchanged.
+
 diff --git a/kernel/src/sched.rs b/kernel/src/sched.rs
 --- a/kernel/src/sched.rs
 +++ b/kernel/src/sched.rs
-@@ -2765,10 +2765,7 @@
-     // sweep already took it from under this corpse, which is the take-once removal working, not a
-     // leak. Taken and dropped as two statements so the registry's lock is released before the
-     // `Drop`, which takes the revocation, region and ASID locks.
--    if let Some(bound) = space {
--        let space = crate::user::take_user_address_space(bound.name());
+@@ -2933,10 +2933,7 @@ fn reap_switched_out(mut guard: crate::sync::IrqSafeGuard<'_, Option<IpcTables>>
+     if let Some((name, slot)) = page {
+         crate::user::give_back_thread_page(name, slot); // milestone 812: the slot is free again
+     }
+-    if let Some(name) = space {
+-        let space = crate::user::take_user_address_space(name);
 -        drop(space);
 -    }
 +    let _ = space;

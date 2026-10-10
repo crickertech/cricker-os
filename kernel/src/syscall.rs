@@ -1,4 +1,4 @@
-//! The syscall boundary. **Four calls <!--count:syscalls-->.**
+//! The syscall boundary. **Five calls <!--count:syscalls-->.**
 //!
 //! DECISIONS §4 rule 3 said the syscall surface stays narrow and explicit, *"a boundary, not a
 //! habit."* §8 said milestone 7 was a hard decision point and that hacking one in without the
@@ -8,12 +8,13 @@
 //!
 //! ```text
 //!   exit(code)                          authority over yourself
+//!   exit_thread(word)                   likewise, one thread of yourself (milestone 812)
 //!   yield()                             likewise
 //!   cap_delete(slot)                    likewise: your own capability table is your own
 //!   invoke(cap, method, a0, a1, a2)     EVERYTHING ELSE
 //! ```
 //!
-//! Three of the four are authority over yourself and the fourth is everything else, which is the
+//! All but one are authority over yourself and the last is everything else, which is the
 //! property worth remembering rather than the count. This header said "three calls" from
 //! 2026-07-14 until the 2026-08-17 documentation sweep, `abi::SYS_CAP_DELETE` having arrived on
 //! 2026-07-24 without it; the count is now a re-derived `<!--count:syscalls-->` claim.
@@ -43,6 +44,7 @@ use crate::sched;
 // source file stays under 2,000 lines)'s ceiling when milestone 812 (`std::thread::spawn` runs
 // real threads in one address space) added `SET_THREAD_POINTER`. They were already one
 // out-of-line seam; [`invoke`] reaches them through one call.
+mod retype;
 mod thread_control_block;
 use thread_control_block::thread_control_block_invoke;
 
@@ -87,6 +89,10 @@ pub fn dispatch(frame: &mut TrapFrame) {
     // `exit` never comes back, so it is not part of the result-writing path below.
     if nr == abi::SYS_EXIT {
         sched::exit();
+    }
+    // End this thread only (milestone 812): beside `exit`, and like it never back here.
+    if nr == abi::SYS_EXIT_THREAD {
+        sched::exit_thread(frame.arg(0));
     }
 
     let result: Result<i64, Error> = match nr {
@@ -404,40 +410,7 @@ pub fn invoke(
         // Another process's memory, under construction (19b). WRITE on the address space cap is the
         // authority to shape it; the frame's own rights gate what kind of mapping, exactly as
         // frame::MAP; the va gate is the proved paging::is_user_page_va, as everywhere.
-        Object::AddressSpace(name) => match method {
-            abi::address_space::MAP_INTO => address_space_map_into(cap, name, a0, a1, a2),
-            // List what this address space has mapped, one entry per call, without the ability
-            // to change any of it (milestone 126's `pmap`, DECISIONS §114): `Rendezvous::SURVEY`'s
-            // shape one object type over, and pointedly `ENUMERATE` rather than `WRITE`, which is
-            // what `MAP_INTO` above takes. See `abi::address_space::LIST` for the wire contract and
-            // DECISIONS §114 for why this method's mere existence is the thing that makes
-            // `ENUMERATE` live on every address-space capability minted since 2026-08-17 (the
-            // `Rights::ALL`-on-creation invariant): the audit that check required is in
-            // notes/process-view.md.
-            abi::address_space::LIST => {
-                if !cap.rights.allows(Rights::ENUMERATE) {
-                    return Err(Error::NotPermitted);
-                }
-                address_space_list(frame, name, a0)
-            }
-            // This space gives up the page it maps at `va` (milestone 95 (an unmap primitive),
-            // DECISIONS §162 (whether a holder can give up a mapping), option A).
-            // `WRITE`, the authority `MAP_INTO` takes: shaping a space is one right in both
-            // directions. See `abi::address_space::UNMAP` and notes/unmap.md.
-            abi::address_space::UNMAP => {
-                if !cap.rights.allows(Rights::WRITE) {
-                    return Err(Error::NotPermitted);
-                }
-                address_space_unmap(name, a0)
-            }
-            // Futex wait and wake (milestone 812 (`std::thread::spawn` runs real threads in one
-            // address space), §269 (how threads share a process) fork 2), out of line: neither is
-            // a step of the IPC round trip the fastpath footprint bounds.
-            abi::address_space::WAIT | abi::address_space::WAKE => {
-                address_space_futex(cap.rights, name, method, a0, a1, a2)
-            }
-            _ => Err(Error::BadMethod),
-        },
+        Object::AddressSpace(name) => address_space_invoke(frame, cap, name, method, [a0, a1, a2]),
 
         // A thread under construction (19c.3). WRITE on the TCB cap is the authority to shape
         // and start it. Every method refuses a thread that is not an embryo, in the scheduler.
@@ -454,6 +427,10 @@ pub fn invoke(
         // A timer (milestone 106, DECISIONS §147 (a timer a userspace service cannot hold)). Out of line for the notification arm's reason:
         // neither method is a step of the IPC round trip the fastpath footprint bounds.
         Object::Timer(id) => timer_invoke(cap.rights, id, method, a0, a1, a2),
+
+        // A process (milestone 812): its one method is the supervisor's kill. Out of line for the
+        // timer arm's reason.
+        Object::Process(pid) => process_invoke(cap.rights, pid, method),
 
         // The reboot object (milestone 805 (`reboot` at the prompt), DECISIONS §251 (restarting the
         // machine is a kernel object the progenitor hands out)). Out of line for the timer arm's
@@ -476,7 +453,7 @@ pub fn invoke(
                 if !cap.rights.allows(Rights::WRITE) {
                     return Err(Error::NotPermitted);
                 }
-                memory_region_retype_obj(region, a0)
+                retype::memory_region_retype_obj(region, a0, a1, a2)
             }
             abi::memory_region::RETYPE => {
                 if !cap.rights.allows(Rights::WRITE) {
@@ -803,68 +780,6 @@ fn rendezvous_badge(
     let slot = sched::grant(crate::cap::rendezvous_cap_badged(ep, rights, new_badge))
         .map_err(|_| Error::OutOfMemory)?;
     Ok(slot as i64)
-}
-
-/// `MemoryRegion::RETYPE_OBJ`: retype a page into a page-resident KERNEL OBJECT the caller now owns
-/// (19a). The object lives in the carved page, the region is pinned (a live endpoint's page must
-/// never be freed under a blocked thread), and the caller gets full rights on its own object,
-/// delegation narrowing them as ever. `#[inline(never)]` for the reason `memory_region_map` gives.
-#[inline(never)]
-fn memory_region_retype_obj(region: u64, kind: u64) -> Result<i64, Error> {
-    match kind {
-        abi::objtype::RENDEZVOUS => {
-            let ep = sched::create_rendezvous_from(region).ok_or(Error::OutOfMemory)?;
-            // `Rights::ALL`, not a list. The comment above has always said the creator gets full
-            // rights on its own object; spelling the set out meant "full" silently stopped being
-            // full the day `ENUMERATE` was added, and the symptom was three steps away: the progenitor
-            // could not narrow `deaths` to a right it did not itself hold, `CAP_INSERT` refused
-            // the widen, and the spawn surfaced as `OutOfMemory` at a prompt. A rights set that
-            // must be updated by hand whenever a right is added is rung four; `ALL` is the
-            // invariant.
-            let slot = sched::grant(crate::cap::rendezvous_cap(ep, Rights::ALL))
-                .map_err(|_| Error::OutOfMemory)?;
-            Ok(slot as i64)
-        }
-        // An address space (19b): the page becomes the L0 root, the untyped becomes the space's
-        // backing region for tables and records (one budget model; see the abi doc and
-        // design/init-and-granular-spawn.md).
-        abi::objtype::ADDRESS_SPACE => {
-            let name = crate::user::user_address_space_create(region).ok_or(Error::OutOfMemory)?;
-            // `Rights::ALL` for the RENDEZVOUS arm's reason: "full rights on its own object" is the
-            // invariant, and a hand-listed set stops being full the next time a right is added.
-            // `AddressSpace` does not consult `ENUMERATE` today and is expected to when `pmap` is
-            // built; holding a right nothing checks confers nothing, and not holding it is what
-            // blocks a future grant.
-            let slot = sched::grant(crate::cap::address_space_cap(name, Rights::ALL))
-                .map_err(|_| Error::OutOfMemory)?;
-            Ok(slot as i64)
-        }
-        // A thread (19c.3): the page holds an embryo TCB, born in no queue and not runnable
-        // until CONFIGURE + START. The page is the creator's region's.
-        abi::objtype::THREAD_CONTROL_BLOCK => {
-            let tid = sched::create_thread_control_block(region).ok_or(Error::OutOfMemory)?;
-            let slot = sched::grant(crate::cap::thread_control_block_cap(tid, Rights::ALL))
-                .map_err(|_| Error::OutOfMemory)?;
-            Ok(slot as i64)
-        }
-        // A notification (milestone 151, DECISIONS §101): a word and a wait queue in the page.
-        // `Rights::ALL` for the RENDEZVOUS arm's reason.
-        abi::objtype::NOTIFICATION => {
-            let id = sched::create_notification_from(region).ok_or(Error::OutOfMemory)?;
-            let slot = sched::grant(crate::cap::notification_cap(id, Rights::ALL))
-                .map_err(|_| Error::OutOfMemory)?;
-            Ok(slot as i64)
-        }
-        // A timer (milestone 106, DECISIONS §147): one deadline and its target in the page.
-        // `Rights::ALL` for the RENDEZVOUS arm's reason.
-        abi::objtype::TIMER => {
-            let id = sched::create_timer_from(region).ok_or(Error::OutOfMemory)?;
-            let slot = sched::grant(crate::cap::timer_cap(id, Rights::ALL))
-                .map_err(|_| Error::OutOfMemory)?;
-            Ok(slot as i64)
-        }
-        _ => Err(Error::BadMethod), // no such object type
-    }
 }
 
 /// `MemoryRegion::RETYPE`: retype `a0` pages (`0` meaning one) into one `PageFrame` capability the
@@ -1438,6 +1353,54 @@ fn page_frame_revoke(phys: u64, count: u64) -> Result<i64, Error> {
     Ok(0)
 }
 
+/// **Every `AddressSpace` method, out of line** (milestone 812 (`std::thread::spawn` runs real
+/// threads in one address space)): the futex arm it added put aarch64's flat `syscall_entry` over
+/// `script/fastpath-footprint`'s 5% bound while the methods were folded into [`invoke`], and none of
+/// them is a step of the IPC round trip that bound protects.
+#[inline(never)]
+fn address_space_invoke(
+    frame: &mut TrapFrame,
+    cap: crate::cap::Cap,
+    name: u64,
+    method: u64,
+    [a0, a1, a2]: [u64; 3],
+) -> Result<i64, Error> {
+    match method {
+        abi::address_space::MAP_INTO => address_space_map_into(cap, name, a0, a1, a2),
+        // List what this address space has mapped, one entry per call, without the ability
+        // to change any of it (milestone 126's `pmap`, DECISIONS §114): `Rendezvous::SURVEY`'s
+        // shape one object type over, and pointedly `ENUMERATE` rather than `WRITE`, which is
+        // what `MAP_INTO` above takes. See `abi::address_space::LIST` for the wire contract and
+        // DECISIONS §114 for why this method's mere existence is the thing that makes
+        // `ENUMERATE` live on every address-space capability minted since 2026-08-17 (the
+        // `Rights::ALL`-on-creation invariant): the audit that check required is in
+        // notes/process-view.md.
+        abi::address_space::LIST => {
+            if !cap.rights.allows(Rights::ENUMERATE) {
+                return Err(Error::NotPermitted);
+            }
+            address_space_list(frame, name, a0)
+        }
+        // This space gives up the page it maps at `va` (milestone 95 (an unmap primitive),
+        // DECISIONS §162 (whether a holder can give up a mapping), option A).
+        // `WRITE`, the authority `MAP_INTO` takes: shaping a space is one right in both
+        // directions. See `abi::address_space::UNMAP` and notes/unmap.md.
+        abi::address_space::UNMAP => {
+            if !cap.rights.allows(Rights::WRITE) {
+                return Err(Error::NotPermitted);
+            }
+            address_space_unmap(name, a0)
+        }
+        // Futex wait and wake (milestone 812 (`std::thread::spawn` runs real threads in one
+        // address space), §269 (how threads share a process) fork 2), out of line: neither is
+        // a step of the IPC round trip the fastpath footprint bounds.
+        abi::address_space::WAIT | abi::address_space::WAKE => {
+            address_space_futex(cap.rights, name, method, a0, a1, a2)
+        }
+        _ => Err(Error::BadMethod),
+    }
+}
+
 /// `AddressSpace::WAIT` and `WAKE`: the checks every futex method shares, then the scheduler.
 /// The order of the refusals is the contract `abi::address_space::WAIT` states: the flags first
 /// (`BadMethod`, a form this kernel does not answer), then the right (`NotPermitted`), the address
@@ -1470,6 +1433,21 @@ fn address_space_futex(
         sched::futex_wait(space, va, word as u32).map(|r| r as i64)
     } else {
         Ok(sched::futex_wake(space, va, word) as i64)
+    }
+}
+
+/// `Process::DESTROY` (milestone 812): end the process and every thread in it. `WRITE`.
+#[inline(never)]
+fn process_invoke(rights: Rights, pid: crate::sched::ProcessId, method: u64) -> Result<i64, Error> {
+    match method {
+        abi::process::DESTROY => {
+            if !rights.allows(Rights::WRITE) {
+                return Err(Error::NotPermitted);
+            }
+            sched::destroy_process(pid)?;
+            Ok(0)
+        }
+        _ => Err(Error::BadMethod),
     }
 }
 

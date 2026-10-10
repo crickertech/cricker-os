@@ -19,8 +19,9 @@ use super::{IPC_TABLES, State, ThreadId, current_thread_id};
 /// moved the space out of the registry into the thread, which retired the name, so no capability
 /// could name a running space and `UNMAP` could not reach the window milestone 95 (an unmap
 /// primitive) exists to close. Now the thread keeps a copy of what the context switch reads, and the
-/// registry records which thread the space is bound to, which is also what refuses a second bind
-/// (§249's amendment (b), `WrongObject`; §105 (`std::thread::spawn` stays declined) stands on it).
+/// registry records what holds the space, which is also what refuses a second holder (§249's
+/// amendment (b), `WrongObject`). Threads share a space by joining its process instead (milestone
+/// 812 (`std::thread::spawn` runs real threads in one address space)).
 ///
 /// The embryo check runs first, alone, so a TCB that is not an embryo answers `WrongObject` before
 /// a stale space name answers `NoSuchSlot`, the order this function has always refused in. It runs
@@ -32,6 +33,7 @@ pub fn configure_thread_control_block(
     aspace_name: u64,
 ) -> Result<(), abi::Error> {
     configure_thread_control_block_with_thread_pointer(tid, entry, user_sp, aspace_name, 0)
+        .map(|_| ())
 }
 
 /// **Grant an embryo the cycle counter** (milestone 229, DECISIONS 139 option 4): the thread this
@@ -118,7 +120,7 @@ pub fn configure_thread_control_block_with_thread_pointer(
     user_sp: u64,
     aspace_name: u64,
     thread_pointer: u64,
-) -> Result<(), abi::Error> {
+) -> Result<u64, abi::Error> {
     if !is_thread_pointer(thread_pointer) {
         return Err(abi::Error::BadPointer);
     }
@@ -136,7 +138,14 @@ pub fn configure_thread_control_block_with_thread_pointer(
     // `bind_user_address_space` attaches it before handing over the copy. The closure runs under the
     // registry's lock (`ADDRESS_SPACES`, 61) and takes `IPC_TABLES` (60) beneath it, so the
     // registry's bound mark and the thread's copy are written in one critical section.
-    crate::user::bind_user_address_space(aspace_name, tid, |bound| {
+    // The thread's current-CPU page is its space's slot 0, and its address is `CONFIGURE`'s result
+    // (milestone 812, §269 fork 6 and calef's answer to question 2 on #1892); zero if the space
+    // could not be given one, which a reader sees as an unmapped page.
+    let mut page = 0;
+    crate::user::bind_user_address_space(aspace_name, |bound| {
+        if bound.has_current_cpu_page() {
+            page = current_cpu_protocol::PAGE_VA;
+        }
         let mut guard = IPC_TABLES.lock();
         let sched = guard.as_mut().ok_or(abi::Error::NoSuchSlot)?;
         let t = sched.threads.get_mut(tid).ok_or(abi::Error::NoSuchSlot)?;
@@ -146,8 +155,55 @@ pub fn configure_thread_control_block_with_thread_pointer(
         t.space = Some(bound);
         t.entry = (entry, user_sp);
         t.thread_pointer = thread_pointer;
-        Ok(())
-    })
+        Ok(crate::user::Holder::Thread(tid))
+    })?;
+    Ok(page)
+}
+
+/// **`CONFIGURE` given a process capability with `BIND`** (milestone 812 (`std::thread::spawn` runs
+/// real threads in one address space), §269 (how threads share a process) fork 1 as ruled on pull
+/// request #1892): join the embryo `tid` to `pid` and set its entry, stack and thread pointer. The
+/// thread runs in the process's space with the process's capability table. `Gone` for a process
+/// that has ended; `WrongObject` for a thread that is not an embryo or that carries a slot the
+/// process's table already holds
+/// (`process::join`). Nothing changes on a refusal.
+///
+/// Name: provisional (milestone 812's lane, 2026-10-10 UTC).
+pub fn configure_thread_control_block_joining(
+    tid: ThreadId,
+    entry: u64,
+    user_sp: u64,
+    pid: super::ProcessId,
+    thread_pointer: u64,
+) -> Result<u64, abi::Error> {
+    if !is_thread_pointer(thread_pointer) {
+        return Err(abi::Error::BadPointer);
+    }
+    // The thread's own current-CPU page first (milestone 812, §269 fork 6), because the registry's
+    // lock ranks above `IPC_TABLES`. Every slot taken is the per-process thread limit:
+    // `OutOfMemory`, the answer for a resource the caller cannot have more of.
+    let space = super::process::space_name_of(pid).ok_or(abi::Error::Gone)?;
+    let (slot, page, kernel_va) =
+        crate::user::take_thread_page(space).ok_or(abi::Error::OutOfMemory)?;
+    let joined = (|| {
+        let mut guard = IPC_TABLES.lock();
+        let sched = guard.as_mut().ok_or(abi::Error::NoSuchSlot)?;
+        let t = sched.threads.get(tid).ok_or(abi::Error::NoSuchSlot)?;
+        if t.handshake.state != State::Embryo || t.space.is_some() {
+            return Err(abi::Error::WrongObject); // only an unconfigured embryo joins
+        }
+        let bound = super::process::join(sched, tid, pid)?;
+        let t = sched.threads.get_mut(tid).ok_or(abi::Error::NoSuchSlot)?;
+        t.space = Some(bound.with_current_cpu_page(kernel_va));
+        t.thread_page = Some((space, slot));
+        t.entry = (entry, user_sp);
+        t.thread_pointer = thread_pointer;
+        Ok(page)
+    })();
+    if joined.is_err() {
+        crate::user::give_back_thread_page(space, slot);
+    }
+    joined
 }
 
 /// **Is this a value a thread pointer may hold**: zero (none), or an address in the user half.

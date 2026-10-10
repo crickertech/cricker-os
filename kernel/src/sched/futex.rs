@@ -130,6 +130,43 @@ pub fn futex_wake(space: u64, va: u64, count: u64) -> u64 {
     n
 }
 
+/// **`SYS_EXIT_THREAD`'s word** (milestone 812): store zero in the calling thread's 32-bit word at
+/// `va` and wake every futex waiter on it, so a joiner waiting there may free the thread's stack.
+/// Called on the way out, before the thread departs; its user stack is not touched again, because
+/// the departure runs on the kernel stack. A word that is zero, misaligned, outside the user half,
+/// or not mapped writable is skipped: nothing stops a thread exiting.
+pub(super) fn clear_and_wake(va: u64) {
+    if va == 0
+        || !va.is_multiple_of(4)
+        || !<crate::arch::mmu::Format as paging::PageFormat>::is_in_half(paging::Half::Low, va)
+    {
+        return;
+    }
+    let space = {
+        let guard = IPC_TABLES.lock();
+        guard
+            .as_ref()
+            .and_then(|sched| sched.threads.get(current_thread_id()))
+            .and_then(|t| t.space.as_ref())
+            .map(|s| s.name())
+    };
+    let Some(space) = space else { return };
+    let Some((phys, flags)) = crate::arch::mmu::translate_user(va) else {
+        return;
+    };
+    if !flags.is_user_accessible() || !flags.is_writable() {
+        return;
+    }
+    // SAFETY: the frame this thread's own space maps writable at `va`, which is 4-aligned, through
+    // the direct map. The store is `Release`, so a joiner that wakes and reads zero also sees every
+    // write this thread made before it.
+    unsafe {
+        (*(crate::arch::mmu::phys_to_virt(phys) as *const core::sync::atomic::AtomicU32))
+            .store(0, Ordering::Release);
+    }
+    futex_wake(space, va, u64::MAX);
+}
+
 /// How many threads are linked on the futex table at all: for the tests, which must see a TCB
 /// left linked after its thread was torn down, which no longer has a key to be counted under.
 #[cfg_attr(not(feature = "system_tests"), allow(dead_code))]

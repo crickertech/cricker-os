@@ -17,7 +17,7 @@ is that a derivative's rights are a subset of the source's:
 if !rights.is_subset_of(src.rights) { return Err(NoRights); }
 ```
 
-`Rights` are four bits <!--count:rights-bits-->: `READ`, `WRITE`, `GRANT`, and `ENUMERATE`.
+`Rights` are five bits <!--count:rights-bits-->: `READ`, `WRITE`, `GRANT`, `ENUMERATE` and `BIND`.
 `is_subset_of` is the whole enforcement; there is no code path that widens rights, which is the
 point (DECISIONS §10 (process model: capability-based, microkernel)): if delegation could widen authority, the model is theater.
 

@@ -129,6 +129,19 @@ KEPT = {
     'kernel/src/syscall/thread_control_block.rs':
         ({'cap', 'CAP_INSERT', 'thread_control_block_cap_insert', 'current_cap',
           'delete_current_cap', 'thread_control_block_delegate_cap'}, _CALLS),
+    # The same lane's `RETYPE_OBJ` moved out of `kernel/src/syscall.rs` the same way, and its
+    # process and `std` thread tests call the existing APIs; the one name it minted for a process
+    # is spelled out (`process_capability`).
+    'kernel/src/syscall/retype.rs':
+        ({'cap', 'address_space_cap', 'current_cap', 'delete_current_cap', 'notification_cap',
+          'rendezvous_cap', 'thread_control_block_cap', 'timer_cap'}, _CALLS),
+    'system_tests/src/user/process_tests.rs':
+        ({'cap', 'Cap', 'CAP_INSERT', 'address_space_cap', 'current_cap', 'delete_current_cap',
+          'memory_region_cap', 'rendezvous_cap', 'thread_control_block_cap',
+          'thread_control_block_insert_cap'}, _CALLS),
+    'system_tests/src/user/std_threads_tests.rs':
+        ({'cap', 'address_space_cap', 'memory_region_cap', 'rendezvous_cap',
+          'thread_control_block_cap', 'thread_control_block_insert_cap'}, _CALLS),
 }
 
 EXCLUDED_PREFIXES = ('vendor/', 'patches/', 'target/')

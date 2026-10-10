@@ -4,13 +4,14 @@
 //! two files that agree by luck. If it changes, both sides fail to compile, which is the entire
 //! point: a boundary that can drift silently is not a boundary.
 //!
-//! # The surface is four calls <!--count:syscalls-->, and that is deliberate
+//! # The surface is five calls <!--count:syscalls-->, and that is deliberate
 //!
 //! DECISIONS §4 rule 3: *the syscall surface stays narrow and explicit. It is a boundary, not
 //! a habit.* And §10 chose capabilities, which is what makes so few enough:
 //!
 //! ```text
 //!   exit(code)                              you always have authority over yourself
+//!   exit_thread(word)                       likewise, for one thread of yourself (milestone 812)
 //!   yield()                                 likewise
 //!   cap_delete(slot)                        likewise: your own capability table is your own
 //!   invoke(cap, method, a0, a1, a2)         EVERYTHING ELSE
@@ -24,13 +25,10 @@
 //! *else*.** You do not need to be granted the right to stop running, or to be granted the right
 //! to make your own capability table forget something.
 //!
-//! **So three of the four are authority over yourself and the fourth is everything else**, which
-//! is the shape that matters rather than the number. This header said "three calls" from
-//! 2026-07-14 until the 2026-08-17 documentation sweep found it, because
-//! [`SYS_CAP_DELETE`] arrived on 2026-07-24 (milestone 19d) and nothing brought the summary with
-//! it. The count now carries a `<!--count:syscalls-->` marker, so `script/lint` re-derives it from
-//! the constants below and a fifth call cannot land without this sentence moving. See
-//! notes/counted-claims.md.
+//! **So all but one are authority over yourself and the last is everything else**, which
+//! is the shape that matters rather than the number. The count carries a `<!--count:syscalls-->`
+//! marker, so `script/lint` re-derives it from the constants below and a sixth call cannot land
+//! without this sentence moving. See notes/counted-claims.md.
 //!
 //! # The register convention
 //!
@@ -129,6 +127,22 @@ pub const SYS_INVOKE: u64 = 2;
 /// Dropping a capability is authority over your *own* table, so like `exit` and `yield` it is a
 /// bare syscall, not an invocation on some object. Deleting an empty slot is a harmless no-op.
 pub const SYS_CAP_DELETE: u64 = 3;
+
+/// `exit_thread(word)`: **end the calling thread, and only it** (milestone 812
+/// (`std::thread::spawn` runs real threads in one address space); calef's ruling on pull request
+/// #1892, 2026-10-10 UTC, question 3). Authority over yourself, so like [`SYS_EXIT`] it needs no
+/// capability. [`SYS_EXIT`] ends the caller's whole process; this ends one thread. When the caller
+/// is the last running thread of its process, the process ends with it, exactly as [`SYS_EXIT`]
+/// would end it.
+///
+/// `word`, if not zero, names a 32-bit word in the caller's own space: the kernel stores zero there
+/// and wakes every futex waiter on it once the thread has left user mode for good, so a joiner that
+/// waits on the word may free the thread's stack (Linux's `CLONE_CHILD_CLEARTID`). An unmapped or
+/// misaligned word is skipped, never a reason not to exit. Prior art: Linux `exit` beside
+/// `exit_group`, Zircon `zx_thread_exit` beside `zx_process_exit`, FreeBSD `thr_exit` (whose
+/// `state` word is this one). *(Number provisional; semantics owe a `design/decisions/` section at
+/// merge.)*
+pub const SYS_EXIT_THREAD: u64 = 4;
 
 /// An index into the calling thread's capability table. **Not a pointer, not a handle you can
 /// guess.** The kernel looks in *your* table, and if the slot is empty you get `NoSuchSlot`.
@@ -645,6 +659,14 @@ pub mod objtype {
     /// §147): one deadline and the notification it signals when
     /// the deadline passes. See [`crate::timer`]. Confirmed by calef on 2026-09-27 (UTC).
     pub const TIMER: u64 = 5;
+
+    /// **A process** (milestone 812 (`std::thread::spawn` runs real threads in one address space),
+    /// §269 (how threads share a process) forks 3 and 5): the capability table its threads share,
+    /// the address space they run in, its threads, and its supervision. The page is the creator's
+    /// region's, which is what pays for it. `RETYPE_OBJ`'s second word names the address space the
+    /// process holds, a `WRITE` capability that is consumed as `CONFIGURE` consumes one. See
+    /// [`super::process`]. *(Number provisional.)*
+    pub const PROCESS: u64 = 6;
 }
 
 /// Methods on the **reboot object** (milestone 805 (`reboot` at the prompt), DECISIONS §251
@@ -932,8 +954,9 @@ pub mod thread_control_block {
     /// from is destroyed, and every capability still naming it then fails; deleting a capability
     /// never frees it.
     ///
-    /// **A space already bound to a thread is refused with `WrongObject`** (§249's amendment (b)),
-    /// so one space never has two threads: §105 (`std::thread::spawn` stays declined) stands.
+    /// **A space that already has a holder is refused with `WrongObject`**: a thread that is a
+    /// process of its own, or a process. Threads share a space by joining its process (below), so
+    /// §249's amendment (b) no longer stands between a space and a second thread (#1892).
     ///
     /// **The sixth argument register is the thread's first thread pointer** (milestone 812
     /// (`std::thread::spawn` runs real threads in one address space), §269 (how threads share a
@@ -941,8 +964,19 @@ pub mod thread_control_block {
     /// kernel then keeps per thread. `CONFIGURE` is the one method that reads that register. Zero
     /// means none, which is what every caller built before 812 sends, since
     /// `user_mode_runtime::invoke6` zeroes the word. A value that is neither zero nor a user
-    /// address is refused with `BadPointer` and nothing is bound. *(Encoding provisional, awaiting
-    /// calef on pull request #1892.)*
+    /// address is refused with `BadPointer` and nothing is bound. *(Encoding ruled by calef on pull
+    /// request #1892, question 2; number unchanged.)*
+    ///
+    /// **The result is the thread's current-CPU page address** (milestone 812, §269 fork 6, the same
+    /// ruling), never negative: the page the kernel publishes this thread's core and its allowance
+    /// on. A thread configured with a space reads `current_cpu_protocol::PAGE_VA`; one that joins a
+    /// process reads its own slot below it (`current_cpu_protocol::thread_page_va`). Zero if the space
+    /// could not be given a page.
+    ///
+    /// **Given a process capability with [`rights::BIND`](super::rights::BIND) instead of an address
+    /// space**, the thread joins that process and the capability is not consumed (§269 fork 1, ruling
+    /// (b) on #1892): see [`super::process`]. `OutOfMemory` when the process already has
+    /// `current_cpu_protocol::THREAD_PAGE_SLOTS` threads.
     pub const CONFIGURE: u64 = 0;
 
     /// `invoke(cap, CAP_INSERT, cap_slot, rights, target)` -> `child_slot`. Copy the capability in
@@ -1118,11 +1152,39 @@ pub mod futex {
     }
 }
 
+/// Methods on a **process** capability (milestone 812 (`std::thread::spawn` runs real threads in one
+/// address space), §269 (how threads share a process) forks 1, 3 and 5, as ruled on pull request
+/// #1892). Created by [`memory_region::RETYPE_OBJ`] with [`objtype::PROCESS`], whose second word is
+/// the address space the process will hold.
+///
+/// A process is the capability table its threads share, the space they run in, its threads, its
+/// supervision and its end. A thread joins one through [`thread_control_block::CONFIGURE`] given
+/// this capability with [`rights::BIND`] in place of an address space; the capability is not
+/// consumed. A thread configured with an address space instead gets a process of its own, as every
+/// thread did before 812, and that process has no capability.
+///
+/// - **The supervision slot is the process's.** The first member's `START` takes the reserved
+///   [`fault::FAULT_EP_SLOT`] out of the shared table, and the process's death is reported there,
+///   whichever thread ends it. A member started later finds the slot empty.
+/// - **A process ends** when a member calls [`SYS_EXIT`] or faults, when its last
+///   running member calls [`SYS_EXIT_THREAD`], when [`DESTROY`](process::DESTROY) is invoked,
+///   or when its region is destroyed. Every other member is ended with it, and no thread may join
+///   or start in it afterwards (`Gone`).
+///
+/// *(Module, method and number provisional, milestone 812's lane, 2026-10-10 UTC.)*
+pub mod process {
+    /// `invoke(cap, DESTROY, _, _, _)` -> 0. **End the process and every thread in it**: the
+    /// supervisor's kill of §269 fork 5. Needs `WRITE`. A caller that is itself a member ends with
+    /// it and does not return, as [`SYS_EXIT`](super::SYS_EXIT) would. The page stays the region's
+    /// until that region is destroyed; an ended process answers `Gone` to a join.
+    pub const DESTROY: u64 = 0;
+}
+
 /// The rights bits, matching `capability::Rights`, so userspace can name the rights to narrow a
 /// delegated capability to (the `rights` argument to [`rendezvous::SEND_CAP`]) without depending on
 /// the kernel's `capability` crate.
 ///
-/// **Four bits <!--count:rights-bits-->, and rights only ever narrow.** `capability::Rights::ALL`
+/// **Five bits <!--count:rights-bits-->, and rights only ever narrow.** `capability::Rights::ALL`
 /// is the mask `from_bits` filters against, so a bit defined here and missing there is silently
 /// dropped at every delegation; the comment on that constant carries the warning.
 ///
@@ -1144,6 +1206,11 @@ pub mod rights {
     /// `filesystem_protocol`'s directory `ENUMERATE`; `capability::Rights::ENUMERATE` carries the full
     /// argument and the list of objects expected to grow it.
     pub const ENUMERATE: u64 = 1 << 3;
+
+    /// **Add a thread to a process** (milestone 812 (`std::thread::spawn` runs real threads in one
+    /// address space), §269 (how threads share a process) fork 1 as ruled on pull request #1892).
+    /// `capability::Rights::BIND` carries the argument; see [`super::process`].
+    pub const BIND: u64 = 1 << 4;
 }
 
 /// **The fault endpoint: thread death becomes a message a supervisor holds** (milestone 22,
@@ -1380,7 +1447,7 @@ pub mod memory_region {
     /// the run is spent, exactly as a single page always was.
     pub const RETYPE: u64 = 1;
 
-    /// `invoke(cap, RETYPE_OBJ, objtype, _, _)` -> slot. Retype one page out of the untyped into
+    /// `invoke(cap, RETYPE_OBJ, objtype, space, floor)` -> slot. Retype one page out of the untyped into
     /// a **kernel object** (milestone 19a; design/init-and-granular-spawn.md): the object lives
     /// in that page, in the caller's own memory, and the returned slot holds a full-rights
     /// capability to it. One object per page, deliberately (one memory rule for the whole object
@@ -1390,6 +1457,13 @@ pub mod memory_region {
     /// `RENDEZVOUS`. A region that has produced a kernel object is **pinned**: [`DESTROY`] reclaims
     /// it (object revocation) once the objects are torn down. `BadMethod` for an unknown objtype;
     /// `OutOfMemory` when the untyped is exhausted, the object registry is full, or the capability table is.
+    ///
+    /// `space` is read only for [`objtype::PROCESS`](super::objtype::PROCESS): the slot of the
+    /// address space the process holds (milestone 812 (`std::thread::spawn` runs real threads in one
+    /// address space)). **`floor`**, for every object type, is the lowest slot the new capability may
+    /// land in, `0` meaning the first free slot as before (milestone 812, provisional): a `std`
+    /// program passes `std_runtime_protocol::SLOTS` so nothing it makes lands in a fixed slot it was
+    /// not given.
     pub const RETYPE_OBJ: u64 = 2;
 
     /// `invoke(cap, SPLIT, pages, _, _)` -> slot. Carve `pages` off this untyped's unspent budget
@@ -1576,7 +1650,7 @@ pub enum Error {
     /// No such method on that object.
     BadMethod = -5,
 
-    /// The syscall number is not one of the four <!--count:syscalls-->.
+    /// The syscall number is not one of the five <!--count:syscalls-->.
     BadSyscall = -6,
 
     /// **The untyped region is exhausted.** The process ran out of the memory it was handed. The

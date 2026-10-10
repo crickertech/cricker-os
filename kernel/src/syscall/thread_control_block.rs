@@ -70,15 +70,32 @@ fn thread_control_block_configure(
     aspace_slot: u64,
     thread_pointer: u64,
 ) -> Result<i64, Error> {
-    // aspace_slot must name a WRITE AddressSpace cap, and it is consumed.
+    // aspace_slot names a WRITE AddressSpace cap, which is consumed; or, since milestone 812
+    // (`std::thread::spawn` runs real threads in one address space), a Process cap with BIND, which
+    // the thread joins and which is not consumed (calef's ruling (b) on pull request #1892).
     let aspace = sched::current_cap(aspace_slot).map_err(|_| Error::NoSuchSlot)?;
-    let Object::AddressSpace(aspace_name) = aspace.object else {
-        return Err(Error::WrongObject);
+    let aspace_name = match aspace.object {
+        Object::AddressSpace(name) => name,
+        Object::Process(pid) => {
+            if !aspace.rights.allows(Rights::BIND) {
+                return Err(Error::NotPermitted);
+            }
+            // The result is the thread's current-CPU page (milestone 812, question 2 on #1892).
+            let page = sched::configure_thread_control_block_joining(
+                tid,
+                entry,
+                stack,
+                pid,
+                thread_pointer,
+            )?;
+            return Ok(page as i64);
+        }
+        _ => return Err(Error::WrongObject),
     };
     if !aspace.rights.allows(Rights::WRITE) {
         return Err(Error::NotPermitted);
     }
-    sched::configure_thread_control_block_with_thread_pointer(
+    let page = sched::configure_thread_control_block_with_thread_pointer(
         tid,
         entry,
         stack,
@@ -91,7 +108,7 @@ fn thread_control_block_configure(
     // a second bind through some other copy is refused by the registry's bound mark, not by this
     // delete.
     let _ = sched::delete_current_cap(aspace_slot);
-    Ok(0)
+    Ok(page as i64)
 }
 
 /// `ThreadControlBlock::SET_THREAD_POINTER` (milestone 812): an embryo's or the caller's own

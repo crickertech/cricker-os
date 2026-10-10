@@ -102,10 +102,19 @@ impl Rights {
     /// speculative abstraction this tree declines.
     pub const ENUMERATE: Rights = Rights(1 << 3);
 
+    /// **The right to add a thread to a process** (milestone 812 (`std::thread::spawn` runs real
+    /// threads in one address space); §269 (how threads share a process) fork 1, calef's ruling
+    /// (b) on pull request #1892, 2026-10-10 UTC). Held on a process capability, it lets
+    /// `ThreadControlBlock::CONFIGURE` join an embryo to that process without consuming the
+    /// capability. Adding a thread is running code inside the process, so it is an authority that
+    /// can be withheld and narrowed on delegation, which a method form could not be. Only
+    /// `Process` consults it. Zircon's `ZX_RIGHT_MANAGE_THREAD` on a process handle is the shape.
+    pub const BIND: Rights = Rights(1 << 4);
+
     /// **Every defined bit.** [`from_bits`](Self::from_bits) masks against this, so a right that is
     /// missing here is silently dropped at every delegation: adding a constant above without
     /// widening this mask produces a right that cannot survive being passed on.
-    pub const ALL: Rights = Rights(0b1111);
+    pub const ALL: Rights = Rights(0b1_1111);
 
     /// The raw bit pattern, for carrying rights across a boundary as an integer (a syscall
     /// register). [`from_bits`](Self::from_bits) is the inverse.
@@ -347,6 +356,16 @@ mod storage {
             }
         }
 
+        /// The lowest empty slot at or above `floor`, or `None` when there is none.
+        pub(super) fn first_free_from(&self, floor: usize) -> Option<usize> {
+            let above = if floor >= 64 {
+                0
+            } else {
+                self.free & (u64::MAX << floor)
+            };
+            (above != 0).then(|| above.trailing_zeros() as usize)
+        }
+
         /// The free-slot word itself, for the proofs and the tests that check it against the array.
         #[cfg_attr(not(any(test, kani)), allow(dead_code))]
         pub(super) fn free_mask(&self) -> u64 {
@@ -460,6 +479,17 @@ impl<O: Copy, const N: usize> CapabilityTable<O, N> {
     pub fn insert(&mut self, cap: Cap<O>) -> Result<u64, Error> {
         let slot = self.first_free().ok_or(Error::NoFreeSlot)?;
         self.fill(slot, cap);
+        Ok(slot as u64)
+    }
+
+    /// Put a capability in the **first free slot at or above `floor`** (milestone 812
+    /// (`std::thread::spawn` runs real threads in one address space)). [`insert`](Self::insert) is
+    /// `floor` 0. A `std` program's low slots are fixed by number and an empty one means "not
+    /// granted", so what the program makes for itself must land above them.
+    pub fn insert_at_or_above(&mut self, floor: u64, capability: Cap<O>) -> Result<u64, Error> {
+        let floor = usize::try_from(floor).unwrap_or(usize::MAX);
+        let slot = self.first_free_from(floor).ok_or(Error::NoFreeSlot)?;
+        self.fill(slot, capability);
         Ok(slot as u64)
     }
 
@@ -1336,6 +1366,36 @@ mod tests {
     /// widening that mask is **silently dropped at every delegation**, and until now nothing
     /// checked it. Spelling the union out by hand is deliberate, because a derivation that read
     /// `ALL` to check `ALL` would pass whatever it was given.
+    /// **`insert_at_or_above` never lands below its floor**, finds the first free slot at or above
+    /// it, and is `insert` at floor 0 (milestone 812).
+    #[test]
+    fn insert_at_or_above_respects_its_floor() {
+        let mut t: CapabilityTable<u8, 64> = CapabilityTable::new();
+        let capability = |o| Cap {
+            object: o,
+            rights: Rights::ALL,
+        };
+        assert_eq!(t.insert_at_or_above(12, capability(1)), Ok(12));
+        assert_eq!(t.insert_at_or_above(12, capability(2)), Ok(13));
+        assert_eq!(
+            t.insert_at_or_above(0, capability(3)),
+            Ok(0),
+            "floor 0 is first free"
+        );
+        assert_eq!(
+            t.insert_at_or_above(64, capability(4)),
+            Err(Error::NoFreeSlot)
+        );
+        for s in 14..64 {
+            t.insert_at(s, capability(5)).unwrap();
+        }
+        assert_eq!(
+            t.insert_at_or_above(12, capability(6)),
+            Err(Error::NoFreeSlot),
+            "slots below the floor do not count"
+        );
+    }
+
     #[test]
     fn rights_bits_are_the_wire_format() {
         assert_eq!(
@@ -1343,9 +1403,10 @@ mod tests {
                 Rights::READ.bits(),
                 Rights::WRITE.bits(),
                 Rights::GRANT.bits(),
-                Rights::ENUMERATE.bits()
+                Rights::ENUMERATE.bits(),
+                Rights::BIND.bits()
             ],
-            [1, 2, 4, 8]
+            [1, 2, 4, 8, 16]
         );
         // Every defined bit is in ALL, and ALL defines nothing that is not a named right.
         assert_eq!(
@@ -1354,6 +1415,7 @@ mod tests {
                 | Rights::WRITE.bits()
                 | Rights::GRANT.bits()
                 | Rights::ENUMERATE.bits()
+                | Rights::BIND.bits()
         );
         // Undefined bits are dropped, never reinterpreted.
         assert_eq!(Rights::from_bits(!Rights::ALL.bits()), Rights::NONE);

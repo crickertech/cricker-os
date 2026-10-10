@@ -755,6 +755,13 @@ mod thread_pointer_tests;
 #[cfg(test)]
 mod futex_tests;
 
+/// **The process object** (milestone 812 (`std::thread::spawn` runs real threads in one address
+/// space), §269 (how threads share a process) forks 1, 3 and 5): threads joined by `BIND` share a
+/// space, a table and a futex; `exit`, `DESTROY` and a destroyed region end every member; and the
+/// contract's refusals hold. Cross-ISA (DECISIONS §19).
+#[cfg(test)]
+mod process_tests;
+
 /// **`free`, `vmstat` and `slabtop`'s two sources** (milestone 126 (the `procps` package),
 /// DECISIONS §225 (`free` sees the machine and your share)): `MemoryRegion::USAGE` under
 /// `ENUMERATE` alone, refused to a spender and answering a viewer, and the machine statistics page

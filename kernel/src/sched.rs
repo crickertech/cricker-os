@@ -76,6 +76,7 @@ fn current_thread_id() -> ThreadId {
 // here does.
 mod configure;
 mod futex;
+mod process;
 #[cfg(target_arch = "riscv64")]
 pub use configure::current_thread_pointer;
 #[cfg(any(test, feature = "system_tests", feature = "cycle_counter_grant"))]
@@ -84,12 +85,15 @@ pub use configure::grant_cycle_counter;
 #[cfg(feature = "system_tests")]
 pub use configure::grant_cycle_counter_to_current;
 pub use configure::{
-    configure_thread_control_block, configure_thread_control_block_with_thread_pointer,
-    set_thread_pointer,
+    configure_thread_control_block, configure_thread_control_block_joining,
+    configure_thread_control_block_with_thread_pointer, set_thread_pointer,
 };
 #[cfg_attr(not(feature = "system_tests"), allow(unused_imports))]
 pub use futex::{futex_queued, futex_waiters};
 pub use futex::{futex_wait, futex_wake, is_current_space};
+#[cfg(feature = "system_tests")]
+pub use process::process_state;
+pub use process::{ProcessId, create_process_from, destroy as destroy_process, with_holders};
 
 /// **The running thread's capability table, per core** (provisional name, 2026-10-04 UTC): what
 /// [`current_cap`] reads instead of taking `IPC_TABLES` to find the thread.
@@ -707,6 +711,8 @@ struct IpcTables {
     /// here is: the check of the word, the park, and a waker's take must be one order. See
     /// [`futex_wait`].
     futexes: inter_process_communication::futex::Futexes<Thread, FUTEX_BUCKETS>,
+    /// The process registry (milestone 812): each entry the physical address of a process's page.
+    processes: generational_table::Table<u64, { process::MAX_PROCESSES }>,
 }
 
 /// How many buckets the futex table hashes into. A wake walks one bucket, so this bounds the walk
@@ -934,6 +940,7 @@ const EMPTY_TABLES: IpcTables = IpcTables {
     notification_table: generational_table::Table::new(),
     timer_table: generational_table::Table::new(),
     futexes: inter_process_communication::futex::Futexes::new(),
+    processes: generational_table::Table::new(),
 };
 
 /// **Per-cpu ring of the last few scheduler events** (first-silicon diagnostics, 2026-08-14; the
@@ -2142,7 +2149,15 @@ pub fn yield_now() {
 
 /// The current thread exited cleanly (`SYS_EXIT`). Never returns.
 pub fn exit() -> ! {
-    depart(abi::fault::EVENT_EXIT, 0, 0)
+    depart(abi::fault::EVENT_EXIT, 0, 0, true)
+}
+
+/// **`SYS_EXIT_THREAD`** (milestone 812): end the calling thread, and its process only if no other
+/// member runs. `word`, if not zero, is cleared and its futex waiters woken first: see
+/// `futex::clear_and_wake`. Never returns.
+pub fn exit_thread(word: u64) -> ! {
+    futex::clear_and_wake(word);
+    depart(abi::fault::EVENT_EXIT, 0, 0, false)
 }
 
 /// The current thread faulted (a bad access, an illegal instruction) and is being killed. Never
@@ -2150,7 +2165,7 @@ pub fn exit() -> ! {
 /// carries none). The arch fault handlers call this from the faulting thread's kernel stack, the
 /// same context `exit` runs in, so the departure below is identical bar the event code and words.
 pub fn fault(pc: u64, addr: u64) -> ! {
-    depart(abi::fault::EVENT_FAULT, pc, addr)
+    depart(abi::fault::EVENT_FAULT, pc, addr, true)
 }
 
 /// **A thread's last act: report its death, then leave the CPU forever** (milestone 22, §26).
@@ -2168,16 +2183,16 @@ pub fn fault(pc: u64, addr: u64) -> ! {
 ///
 /// Either way we are still running on the thread's own kernel stack, so we cannot free it here; we
 /// only mark state and `schedule()`, exactly as `exit` always has.
-fn depart(event: u64, pc: u64, addr: u64) -> ! {
+fn depart(event: u64, pc: u64, addr: u64, whole: bool) -> ! {
     {
         let mut guard = IPC_TABLES.lock();
         let sched = guard.as_mut().expect("depart before sched::init");
         let current = current_thread_id();
 
-        let (fault_ep, label) = sched
-            .threads
-            .get(current)
-            .map_or((None, 0), |t| (t.fault_ep, t.fault_label));
+        // A member of a process ends it on `exit` or a fault, and on `exit_thread` when it was the
+        // last to run (milestone 812, `process::depart`); its own supervision is what it reports.
+        let (fault_ep, label) = process::depart(sched, current, whole, [event, pc, addr])
+            .map_or((None, 0), |(ep, label)| (Some(ep), label));
 
         // **A thread that departs answers nobody again** (milestone 254). Whatever `CALL` it
         // collected and never replied to is a caller parked on nothing, discoverable only through
@@ -2609,15 +2624,11 @@ pub fn schedule() {
         // `Threads::pointer` hands back the page cast unnarrowed and both addresses fall out of it.
         let prev_ptr = sched.threads.pointer(current).unwrap();
 
-        // **The thread pointer, handed from the outgoing thread to the incoming one** (milestone
-        // 812, §269 fork 4), here rather than after the lock drops because this core cannot return
-        // to user mode between now and the switch (interrupts are masked), and both `Thread`s are
-        // only touched under `IPC_TABLES`. aarch64 saves the outgoing register (EL0 can write it)
-        // and installs the incoming one; `x86_64` installs only when the value differs; riscv64
-        // does nothing, since `tp` rides each thread's trap frame. `arch::thread_pointer` has each.
+        // The thread pointer, from the outgoing thread to the incoming one (milestone 812), here
+        // because nothing returns to user mode before the switch; `arch::thread_pointer` has each
+        // architecture's half.
         //
-        // SAFETY: `prev_ptr` and `next_tcb` are live threads' TCB pages from the table, under
-        // `IPC_TABLES`; the projection takes no reference to anything but the one field.
+        // SAFETY: live threads' TCB pages from the table, under `IPC_TABLES`; one field each.
         unsafe {
             crate::arch::thread_pointer::hand_over(
                 &mut (*prev_ptr).thread_pointer,
@@ -2762,6 +2773,7 @@ fn finish_killed_current(sched: &mut IpcTables, current: ThreadId) {
         t.handshake.state = State::Finished;
     }
     strand_callers_of(sched, current);
+    process::on_killed(sched, current); // a supervised member reports its process's end
 }
 
 /// **The running thread came off its own run queue, which cannot legally happen.** [`schedule`]'s
@@ -2893,12 +2905,19 @@ fn reap_switched_out(mut guard: crate::sync::IrqSafeGuard<'_, Option<IpcTables>>
     let Some(sched) = guard.as_mut() else {
         return;
     };
-    let (space, stack) = match sched.threads.get_mut(prev) {
+    let (space, stack, page) = match sched.threads.get_mut(prev) {
         Some(t) => {
             t.being_reaped = true;
-            (t.space.take(), t.stack.take())
+            (t.space.take(), t.stack.take(), t.thread_page.take())
         }
         None => return,
+    };
+    // A member of a process does not hold its space; the process does, and gives it up when its
+    // last member leaves (milestone 812).
+    let space = if sched.threads.get(prev).is_some_and(|t| t.process.is_some()) {
+        process::leave(sched, prev)
+    } else {
+        space.map(|bound| bound.name())
     };
     drop(guard);
 
@@ -2911,8 +2930,11 @@ fn reap_switched_out(mut guard: crate::sync::IrqSafeGuard<'_, Option<IpcTables>>
     // sweep already took it from under this corpse, which is the take-once removal working, not a
     // leak. Taken and dropped as two statements so the registry's lock is released before the
     // `Drop`, which takes the revocation, region and ASID locks.
-    if let Some(bound) = space {
-        let space = crate::user::take_user_address_space(bound.name());
+    if let Some((name, slot)) = page {
+        crate::user::give_back_thread_page(name, slot); // milestone 812: the slot is free again
+    }
+    if let Some(name) = space {
+        let space = crate::user::take_user_address_space(name);
         drop(space);
     }
 
@@ -5104,6 +5126,14 @@ pub fn grant_at(slot: u64, capability: crate::cap::Cap) -> Result<u64, crate::ca
     })
 }
 
+/// [`grant`], into the first free slot at or above `floor` (milestone 812): `RETYPE_OBJ`'s third
+/// word, so a `std` program can make objects without filling a fixed slot it was not given.
+pub fn grant_from(floor: u64, capability: crate::cap::Cap) -> Result<u64, crate::cap::Error> {
+    current_capabilities().map_or(Err(crate::cap::Error::NoFreeSlot), |mut t| {
+        t.insert_at_or_above(floor, capability)
+    })
+}
+
 /// **A copy of a capability the running thread holds, narrowed, about to be filed somewhere.** The
 /// source slot and the rights the copy keeps; [`Delegation::derive`] is the rule. Name provisional.
 ///
@@ -5469,6 +5499,8 @@ fn reap_region_objects(base: u64, end: u64) -> Result<(), ()> {
     reap_region_notifications(sched, base, end);
     // And its timers (milestone 106), which have no waiters to abort: an armed one just never fires.
     reap_region_timers(sched, base, end);
+    // And its processes (milestone 812): ended, embryo members detached, forgotten once empty.
+    process::reap_region(sched, base, end);
 
     // --- Finish phase: end every resident the arm below could never reach (milestone 133). ---
     //
@@ -5630,10 +5662,11 @@ fn reap_region_objects(base: u64, end: u64) -> Result<(), ()> {
         // collected, and freeing the TCB is what makes them unreachable. `depart` and the kill
         // conversion in `schedule` cover the threads that ran; this covers the rest.
         strand_callers_of(sched, tid);
+        let _ = process::leave(sched, tid); // its process's space falls to the registry sweep
         sched.threads.remove(tid);
     }
 
-    Ok(())
+    process::forget_empty(sched, base, end)
 }
 
 /// **Reclaim an untyped region and every object retyped from it** (object revocation, the region-
@@ -5991,6 +6024,14 @@ pub fn start_thread_control_block(tid: ThreadId, args: [u64; 3]) -> Result<(), a
     let stack = crate::thread::KernelStack::new();
     let mut guard = IPC_TABLES.lock();
     let sched = guard.as_mut().ok_or(abi::Error::NoSuchSlot)?;
+    // A member of a process that has ended may not start (milestone 812): `Gone`.
+    if sched
+        .threads
+        .get(tid)
+        .is_some_and(|t| process::refuses_start(sched, t))
+    {
+        return Err(abi::Error::Gone);
+    }
     let (t, caps) = sched
         .threads
         .get_mut_with_capabilities(tid)
@@ -6117,12 +6158,18 @@ pub enum Binder {
 /// every bound space on every scan. Taken under the address-space registry's lock (61 above 60). A
 /// scheduler that does not exist yet has bound nothing, and answers `CanRun` so nothing is freed on
 /// a guess.
+#[cfg_attr(not(feature = "system_tests"), allow(dead_code))] // the region sweep uses `with_holders`
 pub fn with_binders<R>(f: impl FnOnce(&dyn Fn(ThreadId) -> Binder) -> R) -> R {
     let guard = IPC_TABLES.lock();
     let Some(sched) = guard.as_ref() else {
         return f(&|_| Binder::CanRun);
     };
-    f(&|tid| match sched.threads.get(tid) {
+    f(&|tid| binder_of(sched, tid))
+}
+
+/// [`with_binders`]'s answer for one thread, for `process::with_holders` too.
+fn binder_of(sched: &IpcTables, tid: ThreadId) -> Binder {
+    match sched.threads.get(tid) {
         None => Binder::Gone,
         Some(t)
             if matches!(t.handshake.state, State::Dead | State::Finished)
@@ -6131,7 +6178,7 @@ pub fn with_binders<R>(f: impl FnOnce(&dyn Fn(ThreadId) -> Binder) -> R) -> R {
             Binder::Corpse
         }
         Some(_) => Binder::CanRun,
-    })
+    }
 }
 
 /// The top of the current thread's kernel stack: **where its `TrapFrame` belongs.**

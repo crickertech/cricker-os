@@ -95,9 +95,9 @@ pub struct AddressSpace {
     /// named here rather than cited.) `crates/current_cpu_protocol` holds the layout and the
     /// argument; this field is the kernel's end of it.
     ///
-    /// **Per address space is per thread only because of §105 (`std::thread::spawn` stays
-    /// declined)**: `Tcb::CONFIGURE` refuses a space already bound to a thread (§249's amendment
-    /// (b)), so no two TCBs share one space. The crate's `BUGS` section carries what has to change if that ever stops being true.
+    /// **This is slot 0 of the space's thread pages** (milestone 812 (`std::thread::spawn` runs real
+    /// threads in one address space)): the page of a thread that is a process of its own, or of a
+    /// process's first member. Every other member of a process has its own, in [`Self::thread_pages`].
     ///
     /// Allocated from the global frame allocator rather than retyped from `backing`'s region, which
     /// is the one place this differs from every other page a space owns. A lent region is sized by
@@ -111,6 +111,16 @@ pub struct AddressSpace {
     /// (notes/overflow-checks.md), so recomputing `phys_to_virt` in `publish_current_cpu` put a
     /// check on the hottest path that the attach had already passed for the same frame.
     current_cpu_page: Option<(PageFrame, u64)>,
+
+    /// **The other threads' current-CPU pages** (milestone 812 (`std::thread::spawn` runs real
+    /// threads in one address space), §269 (how threads share a process) fork 6): slot `k`, for `k`
+    /// from 1, is mapped read-only at `current_cpu_protocol::thread_page_va(k)`, frame and
+    /// direct-map address. Slot 0 is [`Self::current_cpu_page`]. A slot's frame is kept once made and
+    /// reused by the next thread to take the slot, and freed with the space.
+    pub(crate) thread_pages: [Option<(PageFrame, u64)>; current_cpu_protocol::THREAD_PAGE_SLOTS],
+
+    /// Which slots (bit `k`, slot 0 included) a live thread is using now.
+    pub(crate) thread_pages_in_use: u16,
 }
 
 /// **Who returns the region an [`AddressSpace`] spends, and the reason this is a type rather
@@ -212,6 +222,8 @@ impl AddressSpace {
             asid,
             backing: Backing::Owned(region),
             current_cpu_page: None,
+            thread_pages: [None; current_cpu_protocol::THREAD_PAGE_SLOTS],
+            thread_pages_in_use: 0,
         };
 
         // Unconditional, here rather than at the six places that build a process by hand, for the
@@ -248,7 +260,11 @@ impl AddressSpace {
         // nobody wrote, and the sentinel makes "this thread has never run" a state rather than
         // CPU 0. `alloc_zeroed` rather than `alloc` because the *rest* of this frame is mapped
         // into the process too, and whatever the last owner left in it would go with it.
-        let bytes = current_cpu_protocol::build_page();
+        // The allowance (milestone 812, §269 fork 7): the cores this process may use, which is the
+        // online count until something grants fewer.
+        let bytes = current_cpu_protocol::build_page_allowing(u64::from(
+            crate::smp::online_harts_mask().count_ones(),
+        ));
         let kernel_va = mmu::phys_to_virt(frame.addr());
         // SAFETY: `frame` is freshly allocated and owned by nobody else yet, the direct map is
         // valid for it, and `PAGE_BYTES` (16) is far under `FRAME_SIZE`, so the copy stays inside
@@ -529,6 +545,9 @@ impl Drop for AddressSpace {
         // Safe to do here, after the root is no longer live: nothing can read the mapping any
         // more, and the only writer was the context switch of a thread that is gone.
         if let Some((frame, _)) = self.current_cpu_page.take() {
+            crate::memory::free(frame);
+        }
+        for (frame, _) in self.thread_pages.iter_mut().filter_map(Option::take) {
             crate::memory::free(frame);
         }
 
