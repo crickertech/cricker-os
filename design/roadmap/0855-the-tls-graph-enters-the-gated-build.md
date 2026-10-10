@@ -87,6 +87,10 @@ as none was for milestone 121 (`ripgrep` on nife)'s crates.io fetch in `swish-ch
   provider. Both were clean against `deny.toml` on 2026-10-10.
 - The helpers share one target directory, `target/tls-graph`, so the second reuses the first's
   `std` and provider graph.
+- `uefi-test` gives its boots a 180 s hang bound, where they had the runner's 90 s default. The
+  x86_64 `system_tests` boot under OVMF already took 86 s on main, and this milestone's three
+  tests took it to 89 s, then to the bound in run 38084427172, which killed it mid-transcript.
+  A passing boot exits as soon as its suite ends, so the bound costs nothing until something hangs.
 
 ## What it cost in CI, measured 2026-10-10 (UTC)
 

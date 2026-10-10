@@ -866,6 +866,17 @@ fn uefi_test_image(package: &str) -> bool {
         // above, so this inherits them; they are named here only for a bare `cargo xtask uefi-test`.
         .env("NIFE_DISK", disk_path())
         .env("NIFE_NVME", nvme_disk_path());
+    // **The bound is a hang detector, so it sits well above an honest run** (2026-10-10 (UTC),
+    // lane milestone/855-the-tls-graph-enters-the-gated-build). This boot used to take the
+    // runner's 90 s default. In CI the `system_tests` boot had grown to 86 s on main (run
+    // 38083088598), and milestone 855 (the TLS graph enters the gated build)'s three tests took it
+    // to 89 s in one run and past 90 in the next, where it was killed while printing its timing
+    // table. A passing boot exits through `isa-debug-exit` as soon as the suite ends, so a higher
+    // bound costs nothing until something hangs. 180 s, the deadline `uefi_boot`'s screen watch
+    // already uses. A caller's own `NIFE_UEFI_TIMEOUT` still wins.
+    if std::env::var_os("NIFE_UEFI_TIMEOUT").is_none() {
+        command.env("NIFE_UEFI_TIMEOUT", "180");
+    }
     // Timed and recorded (milestone 807 (the kernel suite reports what each test cost)). The
     // transcript used to be collected whole and printed at the end; it now streams as the other
     // legs' do, and stderr (QEMU's own, never the guest console) goes straight to ours rather
