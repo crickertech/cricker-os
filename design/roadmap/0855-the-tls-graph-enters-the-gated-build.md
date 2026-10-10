@@ -110,7 +110,10 @@ took after QEMU 11.1.2 (#1899) as QEMU being slower, projected 855 to 20.7 to 21
 asked calef how the job should make room. The premise was wrong, as the maintainer found: 265 to
 273 s of those runs was rebuilding QEMU on a cache miss (see `BUGS`), and the suite step itself
 went from about 731 s to 750 to 811 s. The question was withdrawn. The figure to judge 855 by is
-the job with a warm QEMU cache, below.
+the job with a warm QEMU cache. Run 38086259776, after the shared target directory, took 15.8
+minutes against the budget of 20. QEMU came from cache in 3 s, the programs built in 87.4 s, and
+the x86_64 `uefi-test` boot took 94 s. The longer `cpu-matrix` shard took 14.4
+minutes, up from about 12.8, for its one riscv64 triple.
 
 ## Architectural parity
 
