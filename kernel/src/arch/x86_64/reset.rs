@@ -106,6 +106,9 @@ fn wait_ms(millis: u64) {
 ///
 /// The arch contract `soak::draw_again` calls on all three architectures: one line per attempt,
 /// prefixed with `marker`, printed before the attempt. See the module header for the order and why.
+/// Each attempt drains the console first, because milestone 592 (radon's cold reboot dies in
+/// OpenSBI's PMIC write) found that a reset takes the machine with it, and an un-drained line is a
+/// line the transcript never shows.
 ///
 /// Name: provisional (milestone 249): calef names public items.
 pub fn reboot(marker: &str) -> abi::Error {
@@ -119,6 +122,10 @@ pub fn reboot(marker: &str) -> abi::Error {
             println!(
                 "{marker} attempt 1 of 3: FADT reset register, I/O port {port:#x} <- {value:#04x}"
             );
+            // Drain first (milestone 592, radon's cold reboot dies in OpenSBI's PMIC write): a
+            // reset register write takes the machine with it, and the line above is still in the
+            // transmitter otherwise.
+            crate::console::drain();
             // SAFETY: the port and value firmware's FADT names for exactly this purpose.
             unsafe { out8(port as u16, value) };
             wait_ms(100);
@@ -131,6 +138,8 @@ pub fn reboot(marker: &str) -> abi::Error {
                 "{marker} attempt 1 of 3: FADT reset register, PCI config 00:{device:02x}.{function} \
                  offset {offset:#x} <- {value:#04x}"
             );
+            // Drain first, for the FADT I/O-port twin's reason (milestone 592).
+            crate::console::drain();
             // SAFETY: the legacy configuration mechanism, addressing the bus-0 register the FADT
             // names for this purpose. The address write selects the dword; the data write lands on
             // the byte within it.
@@ -156,6 +165,8 @@ pub fn reboot(marker: &str) -> abi::Error {
         "{marker} attempt 2 of 3: chipset reset control, port {RESET_CONTROL_PORT:#x} <- \
          {RESET_CONTROL_SYSTEM:#04x} then {RESET_CONTROL_COLD:#04x} (full reset)"
     );
+    // Drain first (milestone 592): the writes below pulse the chipset into reset immediately.
+    crate::console::drain();
     // SAFETY: `RST_CNT`, whose only effect is the reset being asked for. Read-modify-write so the
     // reserved bits keep what firmware left in them, which is what Intel's datasheets ask.
     unsafe {
@@ -169,6 +180,8 @@ pub fn reboot(marker: &str) -> abi::Error {
     println!(
         "{marker} attempt 3 of 3: 8042 reset pulse, port {KBC_PORT:#x} <- {KBC_PULSE_RESET:#04x}"
     );
+    // Drain first (milestone 592): the pulse is the last route and takes the machine with it too.
+    crate::console::drain();
     // SAFETY: the keyboard controller's status read and its reset command. Bounded wait for the
     // input buffer, because a machine with no 8042 reads 0xff forever.
     unsafe {
