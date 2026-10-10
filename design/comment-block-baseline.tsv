@@ -51,7 +51,7 @@ components/src/swish.rs:1	100
 components/src/system_installer.rs:1	175
 components/src/system_log.rs:1	80
 components/src/terminal_sink_caretaker.rs:1	56
-components/src/timetable.rs:1	191
+components/src/timetable.rs:1	190
 components/src/top.rs:1	90
 components/src/usb_keyboard_driver.rs:1	55
 components/src/user_timetable_keeper.rs:1	69
