@@ -25,6 +25,10 @@ set -euo pipefail
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 SRC="$ROOT/cryptography_exerciser"
 OUT="$ROOT/target/cryptography-exerciser"
+# One target directory for both TLS helpers (build-pinned-tls-exerciser.sh names the same one), so
+# the second build reuses this one's `std` and the provider graph instead of compiling them again.
+# Measured in CI on 2026-10-10 (UTC), separate directories: 83 s here and 85 s there.
+BUILD="$ROOT/target/tls-graph"
 
 # The patched std lives in the `nife-dev` toolchain, which `xtask std-src` builds and links.
 # `RUSTUP_TOOLCHAIN` rather than `+nife-dev` for the reason `xtask::std_exerciser` records: the
@@ -39,16 +43,16 @@ OUT="$ROOT/target/cryptography-exerciser"
 for TRIPLE in ${NIFE_CRYPTO_TRIPLES:-aarch64-unknown-nife riscv64-unknown-nife x86_64-unknown-nife}; do
   (
     cd "$SRC"
-    # `CARGO_TARGET_DIR` is pinned because the copy below reads `$SRC/target`, and an exported
-    # one would put the build elsewhere (xtask::farm::exerciser_target_dir has the 2026-09-30
-    # story). `--locked` because a gate must build the graph the lockfile names, not a newer one.
-    CARGO_TARGET_DIR="$SRC/target" RUSTUP_TOOLCHAIN="$ROOT/target/nife-farm" cargo build --release --locked \
+    # `CARGO_TARGET_DIR` is pinned because the copy below reads `$BUILD`, and an exported one
+    # would put the build elsewhere (xtask::farm::exerciser_target_dir has the 2026-09-30 story).
+    # `--locked` because a gate must build the graph the lockfile names, not a newer one.
+    CARGO_TARGET_DIR="$BUILD" RUSTUP_TOOLCHAIN="$ROOT/target/nife-farm" cargo build --release --locked \
       -Zjson-target-spec \
       -Zbuild-std=core,alloc,std,panic_abort \
       -Zbuild-std-features=compiler-builtins-mem \
       --target "$ROOT/targets/$TRIPLE.json"
   )
   mkdir -p "$OUT/$TRIPLE"
-  cp "$SRC/target/$TRIPLE/release/cryptography_exerciser" "$OUT/$TRIPLE/cryptography_exerciser"
+  cp "$BUILD/$TRIPLE/release/cryptography_exerciser" "$OUT/$TRIPLE/cryptography_exerciser"
   echo "build-cryptography-exerciser: $OUT/$TRIPLE/cryptography_exerciser ($(wc -c <"$OUT/$TRIPLE/cryptography_exerciser") bytes)"
 done

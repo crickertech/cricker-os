@@ -1,7 +1,7 @@
 ---
-status: IN-PROGRESS
+status: BUILT
 raised: 2026-10-06
-branch: milestone/855-the-tls-graph-enters-the-gated-build
+built: 2026-10-10
 promoted_from: the-tls-graph-enters-the-gated-build
 milestone_dependencies: 501
 decision_dependencies: 196, 198
@@ -85,6 +85,27 @@ as none was for milestone 121 (`ripgrep` on nife)'s crates.io fetch in `swish-ch
   `$SRC/target`, and a gate builds the graph its lockfile names.
 - `script/supply-chain` scans `pinned_tls_client` and `pinned_tls_exerciser` beside the
   provider. Both were clean against `deny.toml` on 2026-10-10.
+- The helpers share one target directory, `target/tls-graph`, so the second reuses the first's
+  `std` and provider graph.
+
+## What it cost in CI, measured 2026-10-10 (UTC)
+
+Run 38078200852, on the base before QEMU 11.1.2. All three tests passed on every leg, none
+skipped: `package_fetch_exerciser` took 1.1 to 2.1 s per leg, `pinned_tls_exerciser` 1.1 to
+1.8 s, `cryptography_exerciser` 0.2 to 0.9 s.
+
+| | added to the `test` job |
+|---|---|
+| building the programs, three triples, cold | 169 s (83 s and 85 s, separate target directories) |
+| host tests, both workspaces, cold fetch and build | about 16 s |
+| the three kernel tests, five boots | about 18 s |
+| the job | 16.7 min, against a 13.4 min median on main the same day |
+
+That leaves the job over its budget. QEMU 11.1.2 (#1899) moved main's `test` job from about 13.3
+to 17.4 to 18.0 minutes on its own, past the 17-minute warning line, and 3.3 more projects 20.7 to
+21.3 against `helpers/job-budget.py`'s 20, which fails the job. The shared target directory
+should take back up to a minute of the build, which still leaves it at the limit. How the job
+makes room is calef's, asked on PR #1902.
 
 ## Architectural parity
 

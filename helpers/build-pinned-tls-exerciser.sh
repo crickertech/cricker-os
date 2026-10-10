@@ -18,6 +18,7 @@ set -euo pipefail
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 SRC="$ROOT/pinned_tls_exerciser"
 OUT="$ROOT/target/pinned-tls-exerciser"
+BUILD="$ROOT/target/tls-graph"  # shared with build-cryptography-exerciser.sh, which says why
 
 (cd "$ROOT" && cargo xtask std-src)
 
@@ -25,7 +26,7 @@ for TRIPLE in ${NIFE_CRYPTO_TRIPLES:-aarch64-unknown-nife riscv64-unknown-nife x
   (
     cd "$SRC"
     # Pinned and locked for build-cryptography-exerciser.sh's reasons.
-    CARGO_TARGET_DIR="$SRC/target" RUSTUP_TOOLCHAIN="$ROOT/target/nife-farm" cargo build --release --locked \
+    CARGO_TARGET_DIR="$BUILD" RUSTUP_TOOLCHAIN="$ROOT/target/nife-farm" cargo build --release --locked \
       -Zjson-target-spec \
       -Zbuild-std=core,alloc,std,panic_abort \
       -Zbuild-std-features=compiler-builtins-mem \
@@ -35,7 +36,7 @@ for TRIPLE in ${NIFE_CRYPTO_TRIPLES:-aarch64-unknown-nife riscv64-unknown-nife x
   # Both binaries of the workspace: the TLS client's own test, and milestone 801 (packages over the
   # internet)'s index client, which links the same provider and so shares this build's flags.
   for BIN in pinned_tls_exerciser package_fetch_exerciser; do
-    cp "$SRC/target/$TRIPLE/release/$BIN" "$OUT/$TRIPLE/$BIN"
+    cp "$BUILD/$TRIPLE/release/$BIN" "$OUT/$TRIPLE/$BIN"
     echo "build-pinned-tls-exerciser: $OUT/$TRIPLE/$BIN ($(wc -c <"$OUT/$TRIPLE/$BIN") bytes)"
   done
 done
