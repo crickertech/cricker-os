@@ -9,7 +9,7 @@
 //! and not novelty.
 //!
 //! ```text
-//! $ package install greeting
+//! $ jig install greeting@0.1.0
 //!   fetched and installed; generation 2 is live
 //! $ packages/greeting/0.1.0/greeting
 //! hello from a package this image never carried

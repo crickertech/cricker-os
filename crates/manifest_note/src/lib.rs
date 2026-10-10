@@ -216,8 +216,10 @@ const fn put8(out: &mut [u8; DESCRIPTOR_LEN], at: usize, v: u64) {
 /// declares ([`carry!`]). It panics on the manifests the layout has no spelling for, and in
 /// a constant that panic is a compile error rather than a note nobody can read: a declared second
 /// stream at a slot other than `grant_plan::DIAGNOSTICS_SLOT`, a subtree option that is not one of
-/// the declared letters (or is declared without a directory grant), and
-/// `grant_plan::Manifest::reboot` or `grant_plan::Manifest::sync`.
+/// the declared letters (or is declared without a directory grant),
+/// `grant_plan::Manifest::reboot` or `grant_plan::Manifest::sync`, and since milestone 809 (the
+/// package client becomes a program) `installer` and `catalog`, for the same reason: no image may
+/// be endowed them, and `jig` is endowed from the table.
 ///
 /// **`reboot` and `sync` have no byte on purpose** (milestone 805 (`reboot` at the prompt), DECISIONS §251
 /// (restarting the machine is a kernel object the progenitor hands out)). A note is how installed
@@ -233,6 +235,11 @@ pub const fn encode(m: &Manifest) -> [u8; DESCRIPTOR_LEN] {
     assert!(
         !m.sync,
         "a manifest note cannot carry `sync`: no image may be endowed a sync-only capability"
+    );
+    assert!(
+        !m.installer && !m.catalog,
+        "a manifest note cannot carry `installer` or `catalog`: only the owner's console grants them, \
+         and only to a program the image names"
     );
     let mut out = [0u8; DESCRIPTOR_LEN];
     let v = VERSION.to_le_bytes();
@@ -449,6 +456,8 @@ pub fn decode(d: &[u8]) -> Result<Manifest, Error> {
         // Never from a note: see `encode`.
         reboot: false,
         sync: false,
+        installer: false,
+        catalog: false,
         runtime,
     })
 }
@@ -613,6 +622,218 @@ macro_rules! carry_subtree_grants {
     };
 }
 
+// -------------------------------------------------------------------------------------------
+// The third note type: a program's verbs and what each is granted (milestone 809 (the package
+// client becomes a program), its option V2).
+// -------------------------------------------------------------------------------------------
+
+/// **The note type that carries a program's verb table**: `3`. A list of (verb, grants) pairs,
+/// `grant_plan::VerbGrant`'s bytes: each entry names one word a line may give after the program's
+/// name and which of the manifest's progenitor-endowed authorities that line is granted
+/// (`grant_plan::narrow_by_verb`). A word not in the table is granted none of them. It is its own
+/// note rather than a field of [`MANIFEST`] because a manifest is one fixed-length value every
+/// reader copies, and a table of words is not; most programs carry none.
+///
+/// The image's own `jig` is endowed from `grant_plan`'s table, which carries the same list, so
+/// nothing in the image carries this note yet. It is written here, with its decoder, so a
+/// distribution can declare one for a program it packages (basalt, at milestone 810 (`ripgrep` is
+/// packaged in basalt and installed with `jig`)). Until a reader honors it, the progenitor refuses
+/// installed bytes that carry it rather than endow them with every verb's grants at once.
+///
+/// Name and number provisional (milestone 809).
+pub const VERBS: u32 = 3;
+
+/// The version of the [`VERBS`] descriptor this crate writes and reads.
+pub const VERBS_VERSION: u32 = 1;
+
+/// **The most verbs a [`VERBS`] descriptor may hold**: 256. Room for a program the size of git
+/// (175 subcommands in git 2.56.0, calef's measure on #1903), and a bound on what a malformed count
+/// can make a reader walk.
+pub const MAX_VERBS: usize = 256;
+
+/// One verb's record: the word in `grant_plan::MAX_VERB` bytes, zero-padded; then the grants'
+/// bits, little-endian; then two zero bytes.
+pub const VERB_RECORD: usize = grant_plan::MAX_VERB + 4;
+
+/// **A [`VERBS`] descriptor's length for `count` verbs**: the version word, the count word, and
+/// exactly `count` records. Variable, as calef ruled on #1903 (2026-10-10 (UTC)); one table still
+/// has one encoding, because the records are sorted and each verb appears once.
+pub const fn verbs_len(count: usize) -> usize {
+    8 + count * VERB_RECORD
+}
+
+/// **The bytes of a verb table** (milestone 809). A `const fn`, so a program's table is computed by
+/// the compiler; `LEN` is [`verbs_len`] of the table's length, named by the caller's type:
+///
+/// ```
+/// const TABLE: &[grant_plan::VerbGrant] = grant_plan::Prog::Jig.verbs();
+/// const BYTES: [u8; manifest_note::verbs_len(TABLE.len())] = manifest_note::encode_verbs(TABLE);
+/// assert_eq!(manifest_note::decode_verbs(&BYTES).unwrap().len(), TABLE.len());
+/// ```
+///
+/// It panics, a compile error in a constant, on a `LEN` that is not that length, more than
+/// [`MAX_VERBS`] entries, an empty or too-long word, a word with a zero byte, or a table that is
+/// not sorted ascending by its words' bytes with each word once. Sorted is what makes one table
+/// one encoding.
+pub const fn encode_verbs<const LEN: usize>(verbs: &[grant_plan::VerbGrant]) -> [u8; LEN] {
+    assert!(
+        verbs.len() <= MAX_VERBS,
+        "a verb table holds at most 256 verbs"
+    );
+    assert!(
+        LEN == verbs_len(verbs.len()),
+        "LEN must be verbs_len(table.len())"
+    );
+    let mut out = [0u8; LEN];
+    let version = VERBS_VERSION.to_le_bytes();
+    let count = (verbs.len() as u32).to_le_bytes();
+    let mut k = 0;
+    while k < 4 {
+        out[k] = version[k];
+        out[4 + k] = count[k];
+        k += 1;
+    }
+    let mut i = 0;
+    while i < verbs.len() {
+        let word = verbs[i].verb.as_bytes();
+        assert!(
+            !word.is_empty() && word.len() <= grant_plan::MAX_VERB,
+            "a verb is one to sixteen bytes"
+        );
+        if i > 0 {
+            assert!(
+                before(verbs[i - 1].verb.as_bytes(), word),
+                "a verb table is sorted ascending by its words, each word once"
+            );
+        }
+        let at = 8 + i * VERB_RECORD;
+        let mut b = 0;
+        while b < word.len() {
+            assert!(word[b] != 0, "a verb holds no zero byte");
+            out[at + b] = word[b];
+            b += 1;
+        }
+        let bits = verbs[i].grants.bits().to_le_bytes();
+        out[at + grant_plan::MAX_VERB] = bits[0];
+        out[at + grant_plan::MAX_VERB + 1] = bits[1];
+        i += 1;
+    }
+    out
+}
+
+/// Whether `a` sorts strictly before `b`, bytewise, a shorter prefix first.
+const fn before(a: &[u8], b: &[u8]) -> bool {
+    let mut i = 0;
+    while i < a.len() && i < b.len() {
+        if a[i] != b[i] {
+            return a[i] < b[i];
+        }
+        i += 1;
+    }
+    a.len() < b.len()
+}
+
+/// **A decoded verb table**: a view of the descriptor [`decode_verbs`] checked whole, so a reader
+/// allocates nothing. Provisional name.
+#[derive(Clone, Copy, PartialEq, Eq, Debug)]
+pub struct Verbs<'a> {
+    records: &'a [u8],
+}
+
+impl<'a> Verbs<'a> {
+    /// How many verbs.
+    pub fn len(&self) -> usize {
+        self.records.len() / VERB_RECORD
+    }
+
+    /// Whether the table is empty, which a descriptor may say: a program whose every line is
+    /// granted nothing chosen by a verb.
+    pub fn is_empty(&self) -> bool {
+        self.records.is_empty()
+    }
+
+    /// What `verb` is granted, or `None` for a word that is no verb in the table. A binary search,
+    /// since the records are sorted.
+    pub fn grants_for(&self, verb: &[u8]) -> Option<grant_plan::Grants> {
+        let (mut lo, mut hi) = (0, self.len());
+        while lo < hi {
+            let mid = lo + (hi - lo) / 2;
+            let (word, grants) = self.record(mid);
+            match word.cmp(verb) {
+                core::cmp::Ordering::Equal => return Some(grants),
+                core::cmp::Ordering::Less => lo = mid + 1,
+                core::cmp::Ordering::Greater => hi = mid,
+            }
+        }
+        None
+    }
+
+    /// The verbs, in their sorted order, with their grants.
+    pub fn iter(&self) -> impl Iterator<Item = (&'a [u8], grant_plan::Grants)> + '_ {
+        (0..self.len()).map(|i| self.record(i))
+    }
+
+    /// Record `i`, which [`decode_verbs`] has already checked.
+    fn record(&self, i: usize) -> (&'a [u8], grant_plan::Grants) {
+        let r = &self.records[i * VERB_RECORD..(i + 1) * VERB_RECORD];
+        let word = &r[..grant_plan::MAX_VERB];
+        let len = word.iter().position(|&b| b == 0).unwrap_or(word.len());
+        let bits = u16::from_le_bytes([r[grant_plan::MAX_VERB], r[grant_plan::MAX_VERB + 1]]);
+        (
+            &word[..len],
+            grant_plan::Grants::from_bits(bits).unwrap_or(grant_plan::Grants::NONE),
+        )
+    }
+}
+
+/// **A [`VERBS`] descriptor, decoded**, or why not. One table has one encoding, as [`decode`]
+/// enforces for a manifest: an unknown version, a count past [`MAX_VERBS`], a length that is not
+/// [`verbs_len`] of the count, an empty word, a zero inside a word or a nonzero byte after it, a
+/// grant bit that names no authority, a nonzero pad, or records out of order or repeated, all
+/// refuse.
+pub fn decode_verbs(d: &[u8]) -> Result<Verbs<'_>, Error> {
+    let version = d.get(..4).ok_or(Error::NoVersion)?;
+    if u32::from_le_bytes([version[0], version[1], version[2], version[3]]) != VERBS_VERSION {
+        return Err(Error::UnknownVersion);
+    }
+    let count = d.get(4..8).ok_or(Error::WrongLength)?;
+    let count = u32::from_le_bytes([count[0], count[1], count[2], count[3]]) as usize;
+    if count > MAX_VERBS {
+        return Err(Error::BadField(4));
+    }
+    if d.len() != verbs_len(count) {
+        return Err(Error::WrongLength);
+    }
+    let mut previous: Option<&[u8]> = None;
+    for i in 0..count {
+        let at = 8 + i * VERB_RECORD;
+        let record = &d[at..at + VERB_RECORD];
+        let word = &record[..grant_plan::MAX_VERB];
+        let len = word.iter().position(|&b| b == 0).unwrap_or(word.len());
+        if len == 0 {
+            return Err(Error::BadField(at));
+        }
+        if let Some(k) = word[len..].iter().position(|&b| b != 0) {
+            return Err(Error::BadField(at + len + k));
+        }
+        let bits = u16::from_le_bytes([
+            record[grant_plan::MAX_VERB],
+            record[grant_plan::MAX_VERB + 1],
+        ]);
+        if grant_plan::Grants::from_bits(bits).is_none() {
+            return Err(Error::BadField(at + grant_plan::MAX_VERB));
+        }
+        if record[grant_plan::MAX_VERB + 2] != 0 || record[grant_plan::MAX_VERB + 3] != 0 {
+            return Err(Error::BadField(at + grant_plan::MAX_VERB + 2));
+        }
+        if previous.is_some_and(|p| !before(p, &word[..len])) {
+            return Err(Error::BadField(at));
+        }
+        previous = Some(&word[..len]);
+    }
+    Ok(Verbs { records: &d[8..] })
+}
+
 #[cfg(kani)]
 mod verification {
     use super::*;
@@ -643,6 +864,111 @@ mod verification {
         let len: usize = kani::any();
         kani::assume(len <= d.len());
         let _ = decode(&d[..len]);
+    }
+}
+
+#[cfg(test)]
+mod verb_tests {
+    extern crate std;
+
+    use grant_plan::{Grants, Prog, VerbGrant};
+
+    use super::*;
+
+    const JIG: &[VerbGrant] = Prog::Jig.verbs();
+    const JIG_BYTES: [u8; verbs_len(JIG.len())] = encode_verbs(JIG);
+
+    /// **`jig`'s verb table round-trips, and so does an empty one** (milestone 809, fork 2: a list
+    /// of (verb, grants) pairs). What a distribution writes is what the decoder reads back, entry
+    /// for entry, and the length is exactly the count's.
+    #[test]
+    fn a_verb_table_round_trips() {
+        assert_eq!(JIG_BYTES.len(), 8 + JIG.len() * VERB_RECORD);
+        let v = decode_verbs(&JIG_BYTES).unwrap();
+        assert_eq!(v.len(), JIG.len());
+        for (want, (word, grants)) in JIG.iter().zip(v.iter()) {
+            assert_eq!(word, want.verb.as_bytes());
+            assert_eq!(grants, want.grants);
+            assert_eq!(v.grants_for(word), Some(want.grants));
+        }
+        assert_eq!(v.grants_for(b"upgrade"), None);
+        let empty: [u8; verbs_len(0)] = encode_verbs(&[]);
+        assert!(decode_verbs(&empty).unwrap().is_empty());
+    }
+
+    /// **A table the size of git's** (calef on #1903: "How many verbs does git have?"): 175 sorted
+    /// verbs encode, decode, and are each found; the cap holds at 256.
+    #[test]
+    fn a_table_the_size_of_gits_round_trips() {
+        let words: std::vec::Vec<std::string::String> =
+            (0..175).map(|i| std::format!("verb{i:03}")).collect();
+        let mut d = std::vec![0u8; verbs_len(words.len())];
+        d[..4].copy_from_slice(&VERBS_VERSION.to_le_bytes());
+        d[4..8].copy_from_slice(&(words.len() as u32).to_le_bytes());
+        for (i, w) in words.iter().enumerate() {
+            let at = 8 + i * VERB_RECORD;
+            d[at..at + w.len()].copy_from_slice(w.as_bytes());
+            d[at + 16..at + 18].copy_from_slice(&Grants::CATALOG.bits().to_le_bytes());
+        }
+        let v = decode_verbs(&d).unwrap();
+        assert_eq!(v.len(), 175);
+        assert_eq!(v.grants_for(b"verb174"), Some(Grants::CATALOG));
+        assert_eq!(v.grants_for(b"verb175"), None);
+        let mut over = d.clone();
+        over[4..8].copy_from_slice(&257u32.to_le_bytes());
+        assert_eq!(decode_verbs(&over), Err(Error::BadField(4)));
+    }
+
+    /// **One table, one encoding**: every byte the layout fixes is checked, and the order too, so
+    /// no second spelling of a table decodes. Falsified: decoding `jig`'s records swapped, which
+    /// `encode_verbs` would refuse to write, is refused here.
+    #[test]
+    fn an_unsorted_or_respelled_table_is_refused() {
+        let good = JIG_BYTES;
+        let refused = |at: usize, b: u8| {
+            let mut d = good;
+            d[at] = b;
+            decode_verbs(&d).is_err()
+        };
+        assert!(refused(0, 2), "a later version");
+        assert!(refused(4, 9), "a count that is not the length's");
+        assert!(refused(8, 0), "an empty word");
+        assert!(refused(8 + 7 + 1, b'x'), "a byte after the word's end");
+        assert!(refused(8 + 17, 0x80), "a grant bit that names nothing");
+        assert!(refused(8 + 18, 1), "a nonzero pad");
+        // The first two records swapped: every byte valid, the order not.
+        let mut swapped = good;
+        let (a, b) = (8, 8 + VERB_RECORD);
+        let first: [u8; VERB_RECORD] = good[a..b].try_into().unwrap();
+        swapped.copy_within(b..b + VERB_RECORD, a);
+        swapped[b..b + VERB_RECORD].copy_from_slice(&first);
+        assert_eq!(decode_verbs(&swapped), Err(Error::BadField(b)));
+        // The same verb twice.
+        let mut twice = good;
+        twice.copy_within(a..b, b);
+        assert!(decode_verbs(&twice).is_err());
+        assert_eq!(decode_verbs(&good[..10]), Err(Error::WrongLength));
+        assert_eq!(
+            decode_verbs(&good[..good.len() - 1]),
+            Err(Error::WrongLength)
+        );
+    }
+
+    /// **`encode_verbs` refuses an unsorted table**, which in a constant is a compile error.
+    #[test]
+    #[should_panic(expected = "sorted")]
+    fn an_unsorted_table_is_not_encoded() {
+        let unsorted = [
+            VerbGrant {
+                verb: "remove",
+                grants: Grants::INSTALLER,
+            },
+            VerbGrant {
+                verb: "list",
+                grants: Grants::CATALOG,
+            },
+        ];
+        let _: [u8; verbs_len(2)] = encode_verbs(&unsorted);
     }
 }
 
@@ -683,8 +1009,8 @@ mod tests {
     fn every_compiled_in_manifest_round_trips() {
         for p in Prog::ALL {
             let m = p.manifest();
-            // The one manifest with no note, by design (milestone 805): see `encode`.
-            if m.reboot || m.sync {
+            // The two manifests with no note, by design (milestones 805 and 809): see `encode`.
+            if m.reboot || m.sync || m.installer || m.catalog {
                 continue;
             }
             assert_eq!(decode(&encode(&m)), Ok(m), "{}", p.name());

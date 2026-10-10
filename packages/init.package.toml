@@ -24,11 +24,5 @@ depends = ["timetable"]
 [[exception]]
 date = 2026-09-27
 member = "system_initializer"
-crate = "http_response"
-reason = "system_initializer builds the whole interactive image and so links every package's pieces; it is integration, not init"
-
-[[exception]]
-date = 2026-09-27
-member = "system_initializer"
 crate = "video_terminal"
-reason = "the same: integration living in init, and a base package reaching into the optional display package"
+reason = "system_initializer builds the whole interactive image and so links every package's pieces; it is integration living in init, and a base package reaching into the optional display package"

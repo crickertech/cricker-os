@@ -1177,7 +1177,6 @@ dependencies = [
  "filesystem_protocol",
  "grant_plan",
  "graphics_protocol",
- "http_response",
  "line_editor",
  "login_protocol",
  "machine_statistics_protocol",

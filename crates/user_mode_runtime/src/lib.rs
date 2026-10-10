@@ -891,6 +891,16 @@ pub fn retype_page_frame_run(memory_region_slot: u64, pages: u64) -> i64 {
     unsafe { invoke(memory_region_slot, abi::memory_region::RETYPE, pages, 0, 0) } // run wrapper
 }
 
+/// **`page_frame::SLICE`: a capability naming `count` pages of the run in `frame_slot`, from page
+/// `first`**, with that capability's rights (milestone 599 (a frame per filesystem client channel)).
+/// The new slot, or a negative `abi::Error`. Needs `GRANT`. `jig` reads a package into one run and
+/// hands the installer a page of it at a time (milestone 809 (the package client becomes a
+/// program)). Name follows the method; provisional.
+pub fn slice_page_frame(frame_slot: u64, first: u64, count: u64) -> i64 {
+    // SAFETY: `svc`/`ecall`; the kernel validates the capability, the range and the right.
+    unsafe { invoke(frame_slot, abi::page_frame::SLICE, first, count, 0) }
+}
+
 /// `RETYPE_OBJ` one page out of the untyped in `memory_region_slot` into a kernel object of
 /// `objtype` (see [`abi::objtype`]). Returns the slot holding a full-rights capability to the new
 /// object, or a negative `abi::Error` (`BadMethod` for an unknown `objtype`, `OutOfMemory` when the

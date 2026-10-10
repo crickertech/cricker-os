@@ -1424,25 +1424,24 @@ pub const HELLO_ENTRY: &str = "hello";
 /// larger than an ordinary process's one page. Also the stack of `hello`'s init roles and the
 /// riscv64 serial driver, which share this constant and are far shallower.
 ///
-/// **Twelve pages (48 KiB) since the progenitor's stack was first measured** (milestone
-/// progenitor-stack (provisional), 2026-09-27). It was eight, whose doc called 32 KiB "generous",
-/// and nothing measured it until `crate::progenitor_stack`'s gauge read these peaks on
-/// `script/swish-check`, out of 32,768:
+/// **Fourteen pages (56 KiB) since milestone 809 (the package client becomes a program)**, on
+/// 2026-10-10 (UTC); twelve from the first measurement (2026-09-27), eight before. Nothing measured
+/// it until `crate::progenitor_stack`'s gauge read peaks on `script/swish-check`. Debug, the build
+/// `swish-check` and CI boot, is the deep one, because `system_initializer::boot`'s frame stays
+/// live under the spawn service. The latest raise came with a second sender on the spawn loop (an
+/// installer endpoint) and a rollback that compares two generations. Measured on fourteen, debug:
 ///
-/// | | aarch64 | riscv64 |
-/// |---|---|---|
-/// | debug, at the prompt | 19,000 | 18,976 |
-/// | debug, `package install` | **32,440** | **32,184** |
-/// | release, `package install` | 16,432 | 16,544 |
+/// | | aarch64 | riscv64 | x86_64 |
+/// |---|---|---|---|
+/// | debug, at the prompt (twelve pages) | 19,000 | 18,976 | |
+/// | debug, after `jig rollback` | **44,224** | **43,744** | **42,480** |
+/// | spare of 57,344 | 13,120 | 13,600 | 14,864 |
 ///
-/// Debug, the build `swish-check` and CI boot, had 328 bytes to spare, which is why three lanes in
-/// a row hit it. It is twice release because `system_initializer::boot`'s own frame is 12,848
-/// bytes unoptimised (3,200 optimised) and stays live under the spawn service, which runs inside
-/// it. Twelve pages puts the debug peak at 66% and leaves twice the gauge's floor
-/// (`progenitor_stack::HEADROOM_FLOOR`, 8 KiB) before `swish-check` fails.
-/// notes/stack/progenitor-stack.md has the frames and why this is a raise rather than a trim.
+/// The gauge's floor (`progenitor_stack::HEADROOM_FLOOR`, 8 KiB) is what fails `swish-check`.
+/// notes/stack/progenitor-stack.md has the frames, the earlier tables, and why each was a raise
+/// rather than a trim (milestone 696 (the spawn service runs outside `boot`'s frame) is the trim).
 #[cfg_attr(not(any(test, feature = "system_tests")), allow(dead_code))]
-pub const INIT_STACK_PAGES: u64 = 12;
+pub const INIT_STACK_PAGES: u64 = 14;
 const _: () = assert!(INIT_STACK_PAGES <= address_space_map::MAX_STACK_PAGES);
 
 /// **The role that means "boot the system"**, as opposed to milestone 19d's test roles.

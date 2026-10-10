@@ -71,10 +71,6 @@ entropy_protocol = { version = "0.1.0", path = "../entropy_protocol" }
 # word: the inbound authority this
 # crate hands the `net_stack` it builds (`NO_LISTEN_GRANT`). Pure logic, no dependencies of its own.
 socket_protocol = { version = "0.1.0", path = "../socket_protocol" }
-# The HTTP request writer and response reader (milestone 198 (a package manager) rung 3a's fetch),
-# for `package install <name>`: the progenitor fetches the package over the stack it built. Pure
-# logic, no dependencies; what it costs this crate to parse network input is in notes/packages.md.
-http_response = { version = "0.1.0", path = "../http_response" }
 # The credential contract (milestone 49's boot-wiring update), for the request word `identity_provisioner`
 # needs staged and the provision opcodes (`PUT`, `SEAL`) this crate sends directly. Pure logic, no
 # non-dev dependencies of its own; `login_protocol` itself re-exports the same functions rather than

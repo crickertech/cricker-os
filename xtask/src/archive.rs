@@ -5,7 +5,7 @@
 
 use crate::disk::{mkfs_elf, redoxfs_server_elf};
 use crate::farm::{
-    C_PROGRAMS, c_program_elf, cryptography_exerciser_elf, package_fetch_exerciser_elf,
+    C_PROGRAMS, c_program_elf, cryptography_exerciser_elf, jig_elf, package_fetch_exerciser_elf,
     pinned_tls_exerciser_elf, ripgrep_elf, std_exerciser_elf, std_resolve_elf,
 };
 use crate::host::{bin_elf, workspace_root};
@@ -234,7 +234,7 @@ fn bin_names(manifest: &str) -> Result<Vec<String>, String> {
 /// **Archive entries packed from outside `components/` and `fixtures/`**, each present only when its
 /// own build ran (see the `initrd_*` functions). Hoisted out of the one test that used to hold it
 /// (milestone 595 (provisional)), because [`check_declared_programs`] now needs the same list.
-const BUILT_ELSEWHERE: [&str; 8] = [
+const BUILT_ELSEWHERE: [&str; 9] = [
     "redoxfs_server",
     "mkfs",
     "std_exerciser",
@@ -243,6 +243,9 @@ const BUILT_ELSEWHERE: [&str; 8] = [
     "pinned_tls_exerciser",
     "std_resolve",
     "package_fetch_exerciser",
+    // Milestone 809 (the package client becomes a program): the package manager, a `std` program
+    // in the image, built by `cargo xtask std-exerciser` beside the exerciser.
+    "jig",
 ];
 
 /// **A `std` program the shell can spawn, built by its own workspace rather than a `[[bin]]`**
@@ -356,6 +359,10 @@ pub(crate) fn initrd_riscv() -> bool {
             .to_string(),
     ) {
         blobs.push(("std_resolve", bytes));
+    }
+    // `jig` (milestone 809 (the package client becomes a program)), built by the same step.
+    if let Ok(bytes) = read_stripped(&jig_elf("riscv64-unknown-nife").display().to_string()) {
+        blobs.push(("jig", bytes));
     }
     // **Unmodified `ripgrep`** (milestone 121), on the same terms as aarch64's: present iff
     // `helpers/build-ripgrep.sh` has been run, absent from every ordinary build and from CI.
@@ -554,6 +561,10 @@ pub(crate) fn initrd_x86() -> bool {
     {
         blobs.push(("std_resolve", bytes));
     }
+    // `jig` (milestone 809 (the package client becomes a program)), built by the same step.
+    if let Ok(bytes) = read_stripped(&jig_elf("x86_64-unknown-nife").display().to_string()) {
+        blobs.push(("jig", bytes));
+    }
     // **Unmodified `ripgrep`** (milestones 121 and 184), present iff `helpers/build-ripgrep.sh` ran.
     if let Ok(bytes) = read_stripped(&ripgrep_elf("x86_64-unknown-nife").display().to_string()) {
         blobs.push(("rg", bytes));
@@ -595,7 +606,7 @@ pub(crate) fn initrd_x86() -> bool {
     }
     let mut files: Vec<(&str, &[u8])> = blobs.iter().map(|(n, b)| (*n, b.as_slice())).collect();
     // The image's package source, on the same terms as aarch64's (see there). Since milestone 198
-    // rung 3a's installer the progenitor reads it for `package install`, so x86_64 carries one too
+    // rung 3a's installer the progenitor reads it for every install, and `jig` (milestone 809) is handed a copy, so x86_64 carries one too
     // (§19 (architectural parity is a tenet)); no fetch test reads it here, because this runner attaches no network.
     let catalogue = match crate::package::image_catalogue("x86_64") {
         Ok(catalogue) => catalogue,
@@ -693,6 +704,11 @@ pub(crate) fn initrd_aarch64() -> bool {
     .ok();
     if let Some(bytes) = &std_resolve {
         files.push(("std_resolve", bytes.as_slice()));
+    }
+    // `jig` (milestone 809 (the package client becomes a program)), built by the same step.
+    let jig = read_stripped(&jig_elf("aarch64-unknown-nife").display().to_string()).ok();
+    if let Some(bytes) = &jig {
+        files.push(("jig", bytes.as_slice()));
     }
     // The FS server (milestone 32 phase 2) rides along IFF built (its own workspace/target; `test`
     // builds it). Absent for a plain interactive boot, which simply skips the FS-server test.

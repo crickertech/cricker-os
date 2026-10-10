@@ -4,7 +4,10 @@
 //! The script is a table of (command, expected substrings), so adding a line to the check is
 //! adding a row rather than writing a test.
 
+mod gauge;
 use std::process::Command;
+
+use gauge::*;
 
 use crate::archive::{initrd_path, initrd_riscv, riscv_initrd_path};
 use crate::disk::{SWISH_CHECK_DISK_MIB, disk_path, mkdisk, mkredoxfs_of, redoxfs_server_build};
@@ -284,11 +287,7 @@ const SWISH_CHECK_AFTER_REBOOT: &[Line] = &[
             "clock: held at slot 1, as its manifest note asked",
         ],
     ),
-    line(
-        0,
-        "package remove noteless",
-        &["removed; generation 5 is live"],
-    ),
+    line(1, "jig remove noteless", &["removed; generation 5 is live"]),
     // **Removed means unvouched, not unrunnable, for a session holding D2** (DECISIONS §219 gate
     // D2). Until D2 this line was a refusal. The boot prompt now holds the run-unvouched
     // capability (provisionally), so the bytes still run, with the ruling's endowment rather than
@@ -314,11 +313,7 @@ const SWISH_CHECK_AFTER_REBOOT: &[Line] = &[
             "clock: held at slot 1, as its manifest note asked",
         ],
     ),
-    line(
-        0,
-        "package rollback",
-        &["rolled back; generation 4 is live"],
-    ),
+    line(1, "jig rollback", &["rolled back; generation 4 is live"]),
     line(
         1,
         "packages/noteless/0.1.0/noteless",
@@ -618,13 +613,53 @@ const SWISH_CHECK_SCRIPT: &[Line] = &[
     // elapsed time is not asserted because a real boot's timing is not this check's business.
     line(1, "uptime", &["up "]),
     // **The installer** (milestone 198 (a package manager) rung 3a, DECISIONS §208 (installing a
-    // package is granting it, and the activation set is versioned)). A package with one byte of
-    // its program flipped, and its table of contents rewritten to agree, is refused by the image's
-    // catalog before anything is written: the catalog is the only thing that can tell
-    // (`disk::stage_installed`). Nothing is installed afterwards: the line after says generation 1.
+    // package is granting it, and the activation set is versioned)), asked by `jig` since milestone
+    // 809 (the package client becomes a program): a program holding an installer endpoint, where
+    // this was the shell's `package` builtin. A package with one byte of its program flipped, and
+    // its table of contents rewritten to agree, is refused by the image's catalog before anything
+    // is written: the catalog is the only thing that can tell (`disk::stage_installed`). Nothing
+    // is installed afterwards: the line after says generation 1.
+    //
+    // **What `jig` holds, before it runs** (DECISIONS §270 (a package manager holds an installer
+    // endpoint, not the spawn endpoint)): the installer endpoint, which cannot spawn or vouch.
     line(
         0,
-        "package install downloads/tampered.nifepkg",
+        "caps jig install greeting@0.1.0",
+        &[
+            "cap 2  endpoint  network  WRITE",
+            "cap 15 endpoint  installer  WRITE",
+            "cannot vouch for bytes, and cannot hand this on",
+            "cap 17 frame     catalog  read-only",
+        ],
+    ),
+    // **Grants by verb** (milestone 809, option V2): `jig list` holds the catalog and nothing
+    // else, which the next line shows by what it can do. `caps` of it shows no installer row, and
+    // a line can only assert what is printed, so the absence is proved by `jig list` running and
+    // `swish::tests`'s preview test.
+    line(
+        1,
+        "jig list",
+        &[
+            "packages this image vouches for (its catalog; no index yet):",
+            "  greeting 0.1.0",
+        ],
+    ),
+    // **A program without the installer grant is refused** (DECISIONS §270 (a package manager
+    // holds an installer endpoint, not the spawn endpoint)): the same bytes, run by path, are
+    // installed bytes nobody vouched for, endowed from their note, which asks for no installer and
+    // could not ask for one. So the slot is empty, and nothing reaches the progenitor.
+    line(
+        1,
+        "installed/jig rollback",
+        &["this jig holds no installer endpoint; only the owner's console grants one"],
+    ),
+    // **From inside `downloads`, because a word is designated at the current directory and the
+    // root cannot be narrowed** (`swish::designation`; `rm` meets the same refusal there). `./`
+    // makes each word a file rather than a package name, and designates that one file read-only.
+    line(0, "cd downloads", &[]),
+    line(
+        1,
+        "jig install ./tampered.nifepkg",
         &["refused: this image's catalog does not vouch for those bytes; nothing is installed"],
     ),
     // **A package cannot take a name the image carries** (DECISIONS §229, calef's ruling of
@@ -632,8 +667,8 @@ const SWISH_CHECK_SCRIPT: &[Line] = &[
     // it is refused and nothing is written. Under §235 (the OS is built and updated from packages)
     // a base program is updated through the boot slot, never by install, so this blocks no update.
     line(
-        0,
-        "package install downloads/uptime.nifepkg",
+        1,
+        "jig install ./uptime.nifepkg",
         &[
             "refused: the image carries a program of that name; a new base updates it, not \
              install; nothing is installed",
@@ -643,10 +678,11 @@ const SWISH_CHECK_SCRIPT: &[Line] = &[
     // progenitor writes the program under `packages/<stem>/`, writes generation 1, and renames
     // `current` onto it.
     line(
-        0,
-        "package install downloads/noteless.nifepkg",
+        1,
+        "jig install ./noteless.nifepkg",
         &["installed; generation 1 is live"],
     ),
+    line(0, "cd /", &[]),
     // **And what it installed runs, by its bytes** (DECISIONS §219 (how the shell names an
     // installed program to the spawner) option D). A path, so the shell reads the file into frames
     // and the progenitor hashes its own copy and finds the digest in the generation just written.
@@ -835,23 +871,25 @@ const SWISH_CHECK_SCRIPT: &[Line] = &[
         &["carries a manifest note that cannot be read"],
     ),
     // **Fetching, refused before the network is touched**: the catalog names no such package,
-    // so nothing is asked of the package source.
+    // so nothing is asked of the package source. `jig` reads its copy of the catalog and sends
+    // nothing, so it names no generation: it holds no view of the activation set.
     line(
-        0,
-        "package install nosuch",
-        &[
-            "refused: this image's catalog names no such package, so nothing was fetched; \
-             generation 1 is live",
-        ],
+        1,
+        "jig install nosuch",
+        &["refused: this image's catalog names no such package, so nothing was fetched"],
     ),
     // **A lying package source.** The gate serves this leg a copy of `uptime` whose program has one
     // byte flipped and whose table of contents agrees (`disk::stage_installed`), under the genuine
     // name: a whole, well-formed HTTP exchange of a well-formed package. Only the image's
-    // catalog can refuse it, and nothing is written.
+    // catalog can refuse it. `jig` checks the bytes against its copy before it sends them
+    // (milestone 809's item 8), so the installer is not asked.
     line(
-        0,
-        "package install uptime",
-        &["refused: this image's catalog does not vouch for those bytes; generation 1 is live"],
+        1,
+        "jig install uptime",
+        &[
+            "refused: this image's catalog does not vouch for those bytes; nothing was sent to \
+             the installer",
+        ],
     ),
     // **Fetched over the booted system's network and installed** (rung 3a's first gap): the
     // progenitor finds `greeting`'s stem in the catalog, fetches it from the gate's package
@@ -864,16 +902,19 @@ const SWISH_CHECK_SCRIPT: &[Line] = &[
     // and every leg that fetched answered "the package source did not send a whole package". The
     // catalog refuses before the network is asked.
     line(
-        0,
-        "package install greeting",
+        1,
+        "jig install greeting",
         &[
             "refused: this image's catalog vouches for several versions of that package; \
-             name one with <package>@<version>; generation 1 is live",
+             name one with <package>@<version>",
         ],
     ),
+    // **Fetched by `jig`, not by the progenitor** (milestone 809): `jig` holds the network and
+    // reads the package source itself, and the progenitor, which no longer links an HTTP reader,
+    // installs what `jig` sends exactly as it installs a file.
     line(
-        0,
-        "package install greeting@0.1.0",
+        1,
+        "jig install greeting@0.1.0",
         &["fetched and installed; generation 2 is live"],
     ),
     // **And it runs** (rung 3a's second gap): bytes no boot image carries, vouched only by the
@@ -920,11 +961,13 @@ const SWISH_CHECK_SCRIPT: &[Line] = &[
     // the table holds both. The gate installs from the disk on all three legs; the image's
     // catalog carries the stem because every archive build builds every recipe for its
     // architecture.
+    line(0, "cd downloads", &[]),
     line(
-        0,
-        "package install downloads/0.2.0/greeting.nifepkg",
+        1,
+        "jig install 0.2.0/greeting.nifepkg",
         &["installed; generation 3 is live"],
     ),
+    line(0, "cd /", &[]),
     // **And the new version runs by its path**, printing its own line, which is how the transcript
     // tells the two copies apart.
     line(
@@ -1016,11 +1059,7 @@ const SWISH_CHECK_SCRIPT: &[Line] = &[
     // the name it was recorded under, so the bare word reaches nothing.
     line(0, "unvouched", &["no such program"]),
     line(1, crate::disk::INSTALLED_UNVOUCHED, &["slots held: 0 7 9"]),
-    line(
-        0,
-        "package rollback",
-        &["rolled back; generation 3 is live"],
-    ),
+    line(1, "jig rollback", &["rolled back; generation 3 is live"]),
     line(
         0,
         "caps installed/unvouched",
@@ -1609,374 +1648,6 @@ fn yours_used_kib(transcript: &str) -> Option<u64> {
     row.split_whitespace().nth(1)?.parse().ok()
 }
 
-/// **Takes the kernel's progenitor stack gauge out of the transcript as it arrives**, and keeps it.
-///
-/// The gauge (`kernel::progenitor_stack`) speaks from the idle loop once the stack's mark has been
-/// still for a while, and on a healthy boot that is shortly after a command's prompt has come back.
-/// So it lands between `$ ` and the next line's echo, and every reader in this file assumes those
-/// two are adjacent: the first version with the gauge in it waited thirty seconds for a prompt that
-/// had already been printed, then read `echo hello world | wc` as having answered nothing. Rather
-/// than teach each reader about a third writer, the gauge never reaches them.
-///
-/// **Streaming, and prefix-stable on purpose.** The reader thread sees the UART in arbitrary
-/// chunks, so a gauge line can arrive in pieces, and the waits below take `seen.len()` as a cursor
-/// into text that is still growing. So this never emits text it might later want back: a tail that
-/// could be the start of a gauge line is held until it either is one (and is dropped, newline and
-/// all) or is not (and is emitted). What is emitted is only ever appended to.
-///
-/// It removes the kernel's line only when the kernel's line is whole. A gauge a userspace writer
-/// shuffled into is left in place, which fails the run in the way any shuffle does.
-///
-/// **The capability-slot gauge is taken out too** (2026-10-02 (UTC), milestone 152's lane). It
-/// speaks from the same idle loop once its own mark settles, and until then it always had settled
-/// before the first prompt. Milestone 152 moved the peak into the login block's tail, so the line
-/// landed after the first `$ ` and the gate waited thirty seconds for a prompt that had already
-/// been printed, reporting `the prompt never came back` for a shell that was waiting to be typed
-/// at. Its check reads the raw transcript, which still carries it.
-struct GaugeFilter {
-    pending: String,
-    needles: &'static [&'static str],
-}
-
-impl Default for GaugeFilter {
-    fn default() -> Self {
-        Self::with_needles(&Self::NEEDLES)
-    }
-}
-
-impl GaugeFilter {
-    /// What `kernel::progenitor_stack::announce` prints first, its leading indent included: the
-    /// kernel's own prefix for the line. Name provisional.
-    const NEEDLE: &'static str = "  progenitor stack:";
-    /// What `kernel::cap::report_peak` prints first, its leading indent included.
-    const SLOT_NEEDLE: &'static str = "  capability slots:";
-    /// Every kernel line this filter takes out. Both start with the kernel's two-space indent,
-    /// which the bare-prompt exception in [`GaugeFilter::feed`] relies on.
-    const NEEDLES: [&'static str; 2] = [Self::NEEDLE, Self::SLOT_NEEDLE];
-
-    /// A filter for other kernel lines with the same shape (milestone 342's flood probe).
-    fn with_needles(needles: &'static [&'static str]) -> Self {
-        GaugeFilter {
-            pending: String::new(),
-            needles,
-        }
-    }
-
-    /// Feed the next chunk. Text that is certainly not a gauge is appended to `out`; each whole
-    /// gauge line is pushed to `gauges` with the length `out` had when it was removed.
-    fn feed(&mut self, chunk: &str, out: &mut String, gauges: &mut Vec<(usize, String)>) {
-        self.pending.push_str(chunk);
-        loop {
-            if let Some(at) = self
-                .needles
-                .iter()
-                .filter_map(|n| self.pending.find(n))
-                .min()
-            {
-                out.push_str(&self.pending[..at]);
-                match self.pending[at..].find('\n') {
-                    Some(nl) => {
-                        let line = self.pending[at..at + nl].trim().to_string();
-                        gauges.push((out.len(), line));
-                        self.pending.drain(..at + nl + 1);
-                    }
-                    None => {
-                        self.pending.drain(..at);
-                        return;
-                    }
-                }
-            } else {
-                // Hold back the longest tail that is a proper prefix of the needle, except the
-                // space of a bare `$ `: the needle starts with the kernel's indent, so without
-                // this the prompt every wait below looks for would never be emitted whole.
-                let mut keep = self
-                    .needles
-                    .iter()
-                    .filter_map(|needle| {
-                        (1..needle.len())
-                            .rev()
-                            .find(|&n| self.pending.ends_with(&needle[..n]))
-                    })
-                    .max()
-                    .unwrap_or(0);
-                let before = &self.pending[..self.pending.len() - keep];
-                let after_dollar = if before.is_empty() {
-                    out.ends_with('$')
-                } else {
-                    before.ends_with('$')
-                };
-                if keep > 0 && after_dollar {
-                    keep -= 1;
-                }
-                let cut = self.pending.len() - keep;
-                out.push_str(&self.pending[..cut]);
-                self.pending.drain(..cut);
-                return;
-            }
-        }
-    }
-}
-
-/// One segment of a gauge sentence: literal text, or one of its numbers. A number is a wildcard
-/// (matched as "one or more digits") rather than a fixed value, because the value is not known
-/// ahead of time: [`degauge`] is asking "is a gauge here at all", not "is this exact gauge here".
-#[derive(Clone, Copy)]
-enum GaugeSeg {
-    Lit(&'static str),
-    Num,
-}
-
-/// Every sentence `kernel::progenitor_stack::announce` and `kernel::cap::announce_peak` can print,
-/// grepped from those two functions verbatim (2026-09-27). Longer variants first, so a `BELOW` or
-/// `ABOVE` sentence is matched whole rather than leaving its tail as unmatched noise once the
-/// shorter, common prefix has already been consumed. See [`degauge`].
-const GAUGE_TEMPLATES: &[&[GaugeSeg]] = &[
-    &[
-        GaugeSeg::Lit("  progenitor stack: "),
-        GaugeSeg::Num,
-        GaugeSeg::Lit(" of "),
-        GaugeSeg::Num,
-        GaugeSeg::Lit(" bytes at peak, "),
-        GaugeSeg::Num,
-        GaugeSeg::Lit(" spare, BELOW the "),
-        GaugeSeg::Num,
-        GaugeSeg::Lit("-byte floor in kernel/src/progenitor_stack.rs"),
-    ],
-    &[
-        GaugeSeg::Lit("  progenitor stack: "),
-        GaugeSeg::Num,
-        GaugeSeg::Lit(" of "),
-        GaugeSeg::Num,
-        GaugeSeg::Lit(" bytes at peak, "),
-        GaugeSeg::Num,
-        GaugeSeg::Lit(" spare"),
-    ],
-    &[
-        GaugeSeg::Lit("  capability slots: "),
-        GaugeSeg::Num,
-        GaugeSeg::Lit(" of "),
-        GaugeSeg::Num,
-        GaugeSeg::Lit(" at peak, ABOVE the "),
-        GaugeSeg::Num,
-        GaugeSeg::Lit(" recorded in kernel/src/cap.rs"),
-    ],
-    &[
-        GaugeSeg::Lit("  capability slots: "),
-        GaugeSeg::Num,
-        GaugeSeg::Lit(" of "),
-        GaugeSeg::Num,
-        GaugeSeg::Lit(" at peak"),
-    ],
-];
-
-/// Try `template` starting at `chars[start]`, tolerating intruder characters wedged between its
-/// own the way [`find_marker`] tolerates them in a flat needle, up to the same
-/// [`SWISH_CHECK_MARKER_SLACK`] budget. `None` if the template does not fit in the budget or runs
-/// off the end of `chars`. On success, returns where the match ended and, for every position from
-/// `start` to that end, whether it belongs to the gauge (`true`) or is an intruder byte that must
-/// be left alone (`false`).
-fn gauge_template_match(
-    chars: &[char],
-    start: usize,
-    template: &[GaugeSeg],
-) -> Option<(usize, Vec<bool>)> {
-    let mut mask = Vec::new();
-    let mut j = start;
-    let mut skipped = 0usize;
-    for seg in template {
-        match *seg {
-            GaugeSeg::Lit(word) => {
-                for want in word.chars() {
-                    loop {
-                        if j >= chars.len() {
-                            return None;
-                        }
-                        if chars[j] == want {
-                            mask.push(true);
-                            j += 1;
-                            break;
-                        }
-                        if skipped >= SWISH_CHECK_MARKER_SLACK {
-                            return None;
-                        }
-                        mask.push(false);
-                        skipped += 1;
-                        j += 1;
-                    }
-                }
-            }
-            GaugeSeg::Num => {
-                let mut got_digit = false;
-                loop {
-                    if j >= chars.len() {
-                        if got_digit {
-                            break;
-                        }
-                        return None;
-                    }
-                    if chars[j].is_ascii_digit() {
-                        mask.push(true);
-                        got_digit = true;
-                        j += 1;
-                    } else if got_digit {
-                        // The number ended: this character belongs to whatever comes next, not to
-                        // the digit run, so it is left for the following segment to see.
-                        break;
-                    } else if skipped >= SWISH_CHECK_MARKER_SLACK {
-                        return None;
-                    } else {
-                        mask.push(false);
-                        skipped += 1;
-                        j += 1;
-                    }
-                }
-            }
-        }
-    }
-    Some((j, mask))
-}
-
-/// Delete the best (fewest intruder characters) occurrence of any [`GAUGE_TEMPLATES`] template
-/// from `text`. `None` if no template appears at all within budget.
-fn strip_one_gauge(text: &str) -> Option<String> {
-    let chars: Vec<char> = text.chars().collect();
-    let mut best: Option<(usize, usize, Vec<bool>, usize)> = None;
-    for template in GAUGE_TEMPLATES {
-        let GaugeSeg::Lit(first_word) = template[0] else {
-            unreachable!("every gauge template starts with a literal");
-        };
-        let first_char = first_word.chars().next().expect("non-empty literal");
-        for start in 0..chars.len() {
-            if chars[start] != first_char {
-                continue;
-            }
-            if let Some((end, mask)) = gauge_template_match(&chars, start, template) {
-                let skipped = mask.iter().filter(|kept| !**kept).count();
-                if best.as_ref().is_none_or(|(_, _, _, s)| skipped < *s) {
-                    best = Some((start, end, mask, skipped));
-                }
-            }
-        }
-    }
-    best.map(|(start, end, mask, _)| {
-        let mut out = String::with_capacity(text.len());
-        out.extend(&chars[..start]);
-        for (offset, keep) in mask.iter().enumerate() {
-            if !keep {
-                out.push(chars[start + offset]);
-            }
-        }
-        // The kernel ends its line with a newline, and when the gauge was spliced into an echo that
-        // newline lands after the gauge's last word, splitting the echo in two (`echo h` and
-        // `ello world | wc` in #1377's riscv64 run of 2026-10-03). A newline right where the gauge
-        // ended is the kernel's, so it goes with the gauge.
-        let rest = if chars.get(end) == Some(&'\n') {
-            end + 1
-        } else {
-            end
-        };
-        out.extend(&chars[rest..]);
-        out
-    })
-}
-
-/// **Interim measure for §175 (where the kernel's own output goes once userspace owns the
-/// console), ruled 2026-09-27 to go through a ring a log service drains, and not yet built.**
-/// Takes a gauge's own characters out of a transcript
-/// even when a second writer spliced them in one at a time, rather than as the whole line
-/// [`GaugeFilter`] above assumes. That assumption held until #1371's CI run, where the
-/// progenitor-stack gauge landed character-by-character inside the shell's own echo of
-/// `package install`, producing `package   proinstgenitor sall tack: 31528 of 49152 bytes at
-/// peak, 17624 spare`: no contiguous `"progenitor stack:"` was ever there for `GaugeFilter` to
-/// find, `swish_check_leg`'s exact search for `"package install\n"` never matched either, and the
-/// run failed with "the prompt never echoed `package install`", a false report of a hung shell.
-/// The same race hit #1420 and is not particular to one command; anything typed while a gauge
-/// happens to print can be shuffled the same way.
-///
-/// Same asymmetry [`find_marker`] relies on: interleaving can destroy a known string, never
-/// manufacture one, so matching the gauge's own words (numbers as wildcards, since their values
-/// are not known ahead of time) has no false positives worth the name. Unlike `find_marker`, which
-/// only answers "is it there", this deletes just the matched characters and hands back everything
-/// else exactly where it was, because the caller needs the *rest* of the stream back in a shape its
-/// own exact-match waits can still recognize.
-///
-/// Remove once §175 is built: a kernel that no longer writes the UART directly once userspace owns
-/// it has nothing left here to splice.
-fn degauge(text: &str) -> String {
-    let mut out = text.to_string();
-    // Bounded rather than "until none found": a gate must not hang on a text that somehow keeps
-    // offering a match. A boot does not print more than a handful of gauge lines.
-    for _ in 0..64 {
-        match strip_one_gauge(&out) {
-            Some(next) => out = next,
-            None => break,
-        }
-    }
-    out
-}
-
-/// **Takes out the prompt lines the console drew a second time beneath a gauge** (2026-10-04 UTC,
-/// the noteless flake, `notes/swish-check-flake.md`). `filtered` is [`GaugeFilter`]'s output and
-/// `gauges` the offsets it removed lines at.
-///
-/// A kernel line that reaches the console mid-line waits for the line to end. If it is still
-/// waiting when the system log service's flush timer fires (`components/src/system_log.rs`'s
-/// `FLUSH_NANOS`), the console writes a line end, the kernel line, and the partial line again
-/// (`system_log_protocol::console::Inserter::flush`), which is milestone 342's design and what a
-/// person at the terminal should see. With the gauge taken out, a flush that fell after the echo
-/// of a typed line's last character and before the echo of its Enter leaves `$ line\n$ line\n`,
-/// and [`swish_check_answer`] read the first copy as a command that printed nothing.
-///
-/// Only an exact copy is removed: the line ending at a gauge's offset, starting `$ `, followed at
-/// that offset by the same line and its line end. A flush that fell mid-typing leaves a prefix
-/// (`$ pack\n$ packages/...\n`), which every reader already handles, and is left as it is. The one
-/// shape this could mistake for a redraw is a line typed twice in a row whose first run printed
-/// nothing, and `no_script_types_a_silent_line_twice_in_a_row` keeps every script free of it.
-///
-/// **Only gauges are taken out of the redraw's queue.** Another kernel line flushed above a redraw
-/// stays in the transcript and fails the line it lands in, loudly, which is the right default for a
-/// line nothing here expects.
-fn without_redraws(filtered: &str, gauges: &[(usize, String)]) -> String {
-    let mut cuts: Vec<(usize, usize)> = Vec::new();
-    let mut offsets: Vec<usize> = gauges.iter().map(|(at, _)| *at).collect();
-    offsets.dedup();
-    for at in offsets {
-        let Some(before) = filtered.get(..at).and_then(|b| b.strip_suffix('\n')) else {
-            continue;
-        };
-        let start = before.rfind('\n').map_or(0, |i| i + 1);
-        let partial = &before[start..];
-        if !partial.starts_with("$ ") {
-            continue;
-        }
-        let copy = &filtered[at..];
-        if copy.starts_with(partial) && copy[partial.len()..].starts_with('\n') {
-            cuts.push((start, at));
-        }
-    }
-    let mut out = String::with_capacity(filtered.len());
-    let mut from = 0;
-    for (start, end) in cuts {
-        if start >= from {
-            out.push_str(&filtered[from..start]);
-            from = end;
-        }
-    }
-    out.push_str(&filtered[from..]);
-    out
-}
-
-/// Which typed command a gauge removed at `at` belongs to: the last `$ ` line before it, skipping
-/// the bare prompt the gauge usually follows, since that prompt is the *next* command's.
-fn gauge_follows(transcript: &str, at: usize) -> &str {
-    let before = transcript[..at].trim_end_matches("$ ");
-    before
-        .lines()
-        .rev()
-        .find_map(|l| l.strip_prefix("$ ").filter(|c| !c.trim().is_empty()))
-        .unwrap_or("(boot)")
-}
-
 /// Where a marker was found in a transcript, and what it cost to find it.
 enum Marker<'a> {
     /// Present, contiguous. What a boot with one writer gives.
@@ -2510,6 +2181,18 @@ fn swish_check_boot(
     // than the boot, so the line is skipped and says why. **Not in CI**, where `test` always builds
     // it first: a missing image there means the build broke, and skipping would hide exactly that.
     let std_built = crate::farm::std_exerciser_elf(&format!("{arch}-unknown-nife")).exists();
+    // **`jig` is built by the same step, and is not skippable** (milestone 809 (the package client
+    // becomes a program)): every package line from the first install to the second boot's
+    // rollback goes through it, and each later line reads the generation the one before wrote, so
+    // skipping its lines would fail the rest for a reason nobody typed. Refused up front instead,
+    // naming the step, on both boots and everywhere.
+    if !crate::farm::jig_elf(&format!("{arch}-unknown-nife")).exists() {
+        eprintln!(
+            "swish-check ({arch}): no jig was built for this architecture, and every package line \
+             needs it; run `cargo xtask std-exerciser` (or `script/test`) first"
+        );
+        return false;
+    }
     // Said once per leg, on the first boot: the second boot types no `std` line.
     if fresh && !std_built {
         if std::env::var_os("CI").is_some() {
@@ -3332,7 +3015,7 @@ fn swish_check_boot(
     // time by overflowing it. The line must be there, and it must not say `BELOW`, which is the
     // kernel's word for a boot that left less than `kernel::progenitor_stack::HEADROOM_FLOOR` of
     // the stack unused. Every line is echoed with the prompt line it followed, which makes the
-    // transcript a per-command measurement: a line after `package install greeting` is that path.
+    // transcript a per-command measurement: a line after `jig install greeting@0.1.0` is that path.
     let gauges: Vec<(String, &str)> = gauges
         .lock()
         .expect("gauge lock")
@@ -4277,10 +3960,20 @@ $ outlaw
     /// (milestone 47's bare-name lane, 2026-09-27).
     #[test]
     fn the_noteless_install_line_names_the_seeded_file() {
-        let line = format!("package install {}", crate::disk::DOWNLOADED_NOTELESS);
+        // Typed from inside `downloads` (milestone 809: `jig` is granted the word's file there).
+        let inside = |path: &str| {
+            let name = path.strip_prefix("downloads/").expect("a seeded download");
+            if name.contains('/') {
+                format!("jig install {name}")
+            } else {
+                format!("jig install ./{name}")
+            }
+        };
+        let line = inside(crate::disk::DOWNLOADED_NOTELESS);
         assert!(SWISH_CHECK_SCRIPT.iter().any(|l| l.typed == line));
-        let refused = format!("package install {}", crate::disk::DOWNLOADED_PACKAGE);
+        let refused = inside(crate::disk::DOWNLOADED_PACKAGE);
         assert!(SWISH_CHECK_SCRIPT.iter().any(|l| l.typed == refused));
+        assert!(SWISH_CHECK_SCRIPT.iter().any(|l| l.typed == "cd downloads"));
     }
 
     /// **A job count names a program** ([`Line`]'s doc): no line may claim more jobs than it has
@@ -4298,7 +3991,12 @@ $ outlaw
     /// same pairing the two tests above hold for 0.1.0's lines.
     #[test]
     fn the_second_version_install_line_names_the_seeded_file() {
-        let line = format!("package install {}", crate::disk::DOWNLOADED_GREETING_0_2_0);
+        let line = format!(
+            "jig install {}",
+            crate::disk::DOWNLOADED_GREETING_0_2_0
+                .strip_prefix("downloads/")
+                .expect("a seeded download")
+        );
         assert!(SWISH_CHECK_SCRIPT.iter().any(|l| l.typed == line));
         // No leg omits it: the disk carries it everywhere, and no leg fetches it.
         for arch in ["aarch64", "riscv64", "x86_64"] {

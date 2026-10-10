@@ -307,6 +307,8 @@
 use core::sync::atomic::AtomicU16;
 use core::sync::atomic::Ordering::Relaxed;
 
+mod activation;
+use activation::{Activating, activate, package_manager_parts, serve_installer};
 use grant_plan::job_windows::{ReapsDue, Windows};
 use grant_plan::{Prog, spawnproto};
 use line_editor::proto;
@@ -2903,9 +2905,26 @@ fn spawn_service(
     // The spawn endpoint, its reaped messages, and the windows they free (milestone 685).
     let mut spawn = SpawnEndpoint::new(spawn_ep);
     loop {
-        let (w0, w1, w2) = spawn.request();
+        let (w0, w1, w2, badge) = spawn.request();
+        // **A request on an installer endpoint** (milestone 809 (the package client becomes a
+        // program), DECISIONS §270 (a package manager holds an installer endpoint, not the spawn
+        // endpoint)). Install, remove and rollback are served, as the owner's console's would be,
+        // and recorded under the holder's name; anything else is refused with nothing read past
+        // this first message, so a holder can neither spawn nor vouch. The answer goes to the
+        // holder's own reply endpoint, because the shell is reading `result_ep` while it runs.
+        if let Some(label) = spawnproto::installer_label(badge) {
+            serve_installer(
+                label,
+                (w0, w1, w2),
+                &mut spawn,
+                (own_ut, images_ut, fs, catalogue),
+                &mut fs_mapped,
+            );
+            continue;
+        }
         // **An edit to the activation set, not a spawn** (milestone 198 rung 3a's installer). Asked
-        // first, because under this bit no other bit of word 2 means anything.
+        // first, because under this bit no other bit of word 2 means anything. On the spawn
+        // endpoint this is the owner's console: `vouch`, and nothing else sends it since `jig`.
         if let Some(verb) = spawnproto::activation(w1, w2) {
             let (status, live) = activate(
                 verb,
@@ -2915,8 +2934,8 @@ fn spawn_service(
                     own_ut,
                     images_ut,
                     fs,
-                    catalogue,
-                    network,
+                    catalog: catalogue,
+                    manager: activation_set::OWNER,
                 },
                 &mut fs_mapped,
             );
@@ -3170,10 +3189,28 @@ fn spawn_service(
         // **The one manifest everything below reads**, so an image is endowed from what
         // `endowed_image` decided and never from a `Prog` row: `prog` stays `None` for it, and no
         // row's authority can reach it by a path this line does not name.
+        // **Narrowed by the line's verb** for a program with a verb table (milestone 809 (the
+        // package client becomes a program), option V2): `jig list` is endowed with the catalog
+        // alone. The verb is read from the shell's page here, before the region is split (an
+        // installer holder's region is sized and pooled from its manifest), and checked against
+        // the child's own copy when that is made ([`copy_args`]), so a frame changed between the
+        // two reads refuses the spawn rather than endowing for one verb and running another.
+        let mut verb = [0u8; grant_plan::MAX_VERB];
+        let verb_len = args_seen.and_then(|theirs| {
+            // SAFETY: `receive_args` mapped the shell's frame read-only at `theirs`, one page, and
+            // it stays mapped until the shell reclaims its frame after this request's answer.
+            let page = unsafe {
+                core::slice::from_raw_parts(theirs as *const u8, spawnproto::IMAGE_PAGE as usize)
+            };
+            let w = grant_plan::verb_of_page(page)?;
+            verb[..w.len()].copy_from_slice(w);
+            Some(w.len())
+        });
+        let verb = verb_len.map(|n| &verb[..n]);
         let manifest = if wiring.image {
             image_manifest
         } else {
-            prog.map(|p| p.manifest())
+            prog.map(|p| grant_plan::narrow_by_verb(&p.manifest(), p.verbs(), verb))
         };
         let failure = if unvouched && !presented {
             spawnproto::SPAWN_UNVOUCHED
@@ -3269,15 +3306,22 @@ fn spawn_service(
             // An image's region was split before its frames arrived, sized by the argv bit, which
             // `endowed_image` has checked against the note (milestone 205).
             let std_layout = manifest.is_some_and(|m| m.runtime == grant_plan::Runtime::Std);
+            // **An installer holder is built from the image pool** (milestone 809): its region
+            // carries a package's staging run beside its heap (`grant_plan::named_std_region_pages`
+            // says why), and the progenitor's own copy of that package is carved beside it.
+            let wants_installer = manifest.is_some_and(|m| m.installer);
             let region = if wiring.image {
                 // Split before the frames were taken; see `image_region` above.
                 image_region
+            } else if let (true, Some(m)) = (std_layout, manifest) {
+                spawn.split(
+                    if wants_installer { images_ut } else { jobs_ut },
+                    grant_plan::named_std_region_pages(&m),
+                )
             } else {
                 spawn.split(
                     jobs_ut,
-                    if std_layout {
-                        grant_plan::STD_REGION_PAGES
-                    } else if wiring.dir {
+                    if wiring.dir {
                         DIR_JOB_REGION_PAGES
                     } else {
                         JOB_REGION_PAGES
@@ -3358,6 +3402,33 @@ fn spawn_service(
                 _ => None,
             };
             let sync_failed = wants_sync && fs.is_some() && sync_ep.is_none();
+            // **The installer endpoint and its reply endpoint** (milestone 809 (the package client
+            // becomes a program), DECISIONS §270 (a package manager holds an installer endpoint,
+            // not the spawn endpoint)). Placed only for a request on the unbadged spawn endpoint,
+            // which the owner's console alone holds, so only the owner grants it; and only in the
+            // `std` layout, where `grant_plan` keeps every declaring manifest. The endpoint is a
+            // copy of the spawn endpoint badged with this job's label; the reply endpoint is made
+            // from the job's own region, so the reap frees it. Either failing refuses the spawn,
+            // `dir_failed`'s rule: a package manager started without its installer is told nothing.
+            //
+            // **The image's catalog, copied into a page of the child's own** (milestone 809), so
+            // the reap takes it back. A catalog larger than a page is refused rather than cut.
+            let wants_catalog = manifest.is_some_and(|m| m.catalog);
+            let (installer, catalog_page) = match (std_layout, region) {
+                (true, Some(r)) => package_manager_parts(
+                    r,
+                    (
+                        wants_installer && badge == 0 && spawn.has_reply_room(),
+                        wants_catalog,
+                    ),
+                    (spawn_ep, label),
+                    own_ut,
+                    catalogue,
+                ),
+                _ => (None, None),
+            };
+            let installer_failed = wants_installer && installer.is_none();
+            let catalog_failed = wants_catalog && catalog_page.is_none();
 
             // **Slot 0 is the output**, and milestone 50 is the whole of what changed here: it is
             // the shared result endpoint unless the shell delegated a sink, in which case the sink
@@ -3575,7 +3646,9 @@ fn spawn_service(
             // its frame taken above and hears nothing. A copy that could not be made fails the
             // spawn rather than running the program without the words its line gave it.
             let args_page = match (std_layout, region, args_seen) {
-                (true, Some(r), Some(theirs)) => copy_args(own_ut, r, theirs),
+                (true, Some(r), Some(theirs)) => copy_args(own_ut, r, theirs, |copy| {
+                    grant_plan::verb_of_page(copy) == verb
+                }),
                 _ => None,
             };
             let args_failed = std_layout && args_seen.is_some() && args_page.is_none();
@@ -3583,11 +3656,16 @@ fn spawn_service(
                 (true, Some(r)) => Some(StdLayout::new(
                     r,
                     out,
-                    narrowed.map(|ep| (ep, channel.map_or(0, |f| f.page))),
-                    wants_clock.then_some(clock_page),
-                    wants_config.then_some(config_page),
-                    entropy.filter(|_| wants_entropy),
-                    args_page,
+                    StdGrants {
+                        dir: narrowed.map(|ep| (ep, channel.map_or(0, |f| f.page))),
+                        clock: wants_clock.then_some(clock_page),
+                        config: wants_config.then_some(config_page),
+                        entropy: entropy.filter(|_| wants_entropy),
+                        args: args_page,
+                        network: network.filter(|_| wants_network),
+                        installer,
+                        catalog: catalog_page,
+                    },
                 )),
                 _ => None,
             };
@@ -3604,7 +3682,14 @@ fn spawn_service(
             };
             let fault = screen.or(labeled);
             let built = match (
-                elf.filter(|_| !dir_failed && !sync_failed && !args_failed && fault.is_some()),
+                elf.filter(|_| {
+                    !dir_failed
+                        && !sync_failed
+                        && !args_failed
+                        && !installer_failed
+                        && !catalog_failed
+                        && fault.is_some()
+                }),
                 region,
             ) {
                 (Some(e), Some(r)) if std_layout => std_parts.as_ref().and_then(|l| {
@@ -3686,6 +3771,20 @@ fn spawn_service(
             };
             if let Some(l) = labeled {
                 cap_delete(l);
+            }
+            // The child holds its badged copy; ours goes. The reply endpoint's `WRITE` is kept until
+            // the child's reap, filed by its label, which is how an answer finds it; a holder that
+            // did not start has its endpoint deleted now. There is room to file it: a spawn that
+            // found none made no installer, and was refused above.
+            if let Some((inst, reply)) = installer {
+                cap_delete(inst);
+                let kept = ok && prog.is_some_and(|p| spawn.hold_reply(label, reply, p.name()));
+                if !kept {
+                    cap_delete(reply);
+                }
+            }
+            if let Some(page) = catalog_page {
+                cap_delete(page);
             }
             // **The window and the wait, by whether a job came to hold them** (milestone 685). A
             // window whose job never started is free now, not at a reap that will never come. A
@@ -3802,9 +3901,10 @@ fn spawn_service(
 /// - slot 6: the entropy service, `WRITE`, if the manifest declared it and this boot built one.
 /// - slot 8 and a read-only page at `ARGS_PAGE`: the line's argv (milestone 205, DECISIONS §170),
 ///   if the shell sent one. The page is the child's own, copied out of the shell's frame.
-///
-/// Slots 2 and 3, the network, stay empty: `grant_plan`'s
-/// `a_std_program_declares_only_what_the_std_layout_can_hold` keeps any `std` manifest from asking.
+/// - slots 2 and 3: the network stack and the job's region again, both `WRITE`; the net PAL
+///   retypes each socket's page from the region (milestone 809 (the package client becomes a
+///   program)). Slots 15, 16 and 17: the installer endpoint, its reply endpoint and the catalog
+///   page, mapped at `CATALOG_PAGE` (milestone 809; `grant_plan::INSTALLER_SLOT` has the rights).
 ///
 /// Name: provisional.
 ///
@@ -3822,14 +3922,31 @@ fn spawn_service(
 ///   directories granted on a line bound what a word reaches, and granting one to a `std` program
 ///   from the prompt is milestone 205's designation half, not built yet. The kernel harness proves
 ///   the same slot and page from its side (`fs_service::start_std_full`).
-/// - **The network half is not wired.** The progenitor would have to mint slot 3's socket-frame
-///   budget as well as place slot 2, and nothing needs it yet.
 struct StdLayout {
     caps: [(u64, u64); 2],
-    placed: [(u64, u64, u64); 5],
+    placed: [(u64, u64, u64); 10],
     placed_n: usize,
-    maps: [(u64, u64, u64); 4],
+    maps: [(u64, u64, u64); 5],
     maps_n: usize,
+}
+
+/// **What a `std` child is granted beyond its heap and its output**, each `None` when the manifest
+/// did not ask or the boot has none: the pieces [`StdLayout::new`] places, named so the call site
+/// says which is which.
+struct StdGrants {
+    /// The directory grant's endpoint and the page it shares.
+    dir: Option<(u64, u64)>,
+    clock: Option<u64>,
+    config: Option<u64>,
+    entropy: Option<u64>,
+    /// The child's own copy of the argv page.
+    args: Option<u64>,
+    /// The network stack's endpoint (milestone 809).
+    network: Option<u64>,
+    /// The installer endpoint and its reply endpoint (milestone 809, §270).
+    installer: Option<(u64, u64)>,
+    /// The child's own copy of the image's catalog (milestone 809).
+    catalog: Option<u64>,
 }
 
 // `caps` lands in order from slot 0, so the two in-order slots must be 0 and 1. Checked here rather
@@ -3840,21 +3957,23 @@ const _: () = assert!(
 );
 
 impl StdLayout {
-    fn new(
-        region: u64,
-        out: (u64, u64),
-        dir: Option<(u64, u64)>,
-        clock: Option<u64>,
-        config: Option<u64>,
-        entropy: Option<u64>,
-        args: Option<u64>,
-    ) -> Self {
+    fn new(region: u64, out: (u64, u64), g: StdGrants) -> Self {
         use std_runtime_protocol as rt;
+        let StdGrants {
+            dir,
+            clock,
+            config,
+            entropy,
+            args,
+            network,
+            installer,
+            catalog,
+        } = g;
         let mut l = StdLayout {
             caps: [(region, abi::rights::WRITE), out],
-            placed: [(0, 0, 0); 5],
+            placed: [(0, 0, 0); 10],
             placed_n: 0,
-            maps: [(0, 0, 0); 4],
+            maps: [(0, 0, 0); 5],
             maps_n: 0,
         };
         let place = |l: &mut StdLayout, slot: u64, cap: u64, rights: u64| {
@@ -3883,6 +4002,33 @@ impl StdLayout {
         if let Some(page) = args {
             place(&mut l, rt::ARGS_SLOT, page, abi::rights::READ);
             map(&mut l, rt::ARGS_PAGE, page, abi::address_space::MAP_RO);
+        }
+        if let Some(stack) = network {
+            place(&mut l, rt::STACK_SLOT, stack, abi::rights::WRITE);
+            place(
+                &mut l,
+                rt::NET_MEMORY_REGION_SLOT,
+                region,
+                abi::rights::WRITE,
+            );
+        }
+        if let Some((endpoint, reply)) = installer {
+            place(
+                &mut l,
+                grant_plan::INSTALLER_SLOT,
+                endpoint,
+                abi::rights::WRITE,
+            );
+            place(
+                &mut l,
+                grant_plan::INSTALLER_REPLY_SLOT,
+                reply,
+                abi::rights::READ,
+            );
+        }
+        if let Some(page) = catalog {
+            place(&mut l, grant_plan::CATALOG_SLOT, page, abi::rights::READ);
+            map(&mut l, rt::CATALOG_PAGE, page, abi::address_space::MAP_RO);
         }
         l
     }
@@ -3942,7 +4088,7 @@ fn build_grant(
             .as_ref()
             .and_then(|e| build_caretaker(own_ut, region, e, fs, words, None)),
         Some(theirs) if hears_words => {
-            let set = copy_args(own_ut, region, theirs)?;
+            let set = copy_args(own_ut, region, theirs, |_| true)?;
             let ep = care
                 .nameset
                 .as_ref()
@@ -4739,9 +4885,17 @@ fn receive_args(spawn: &mut SpawnEndpoint, own_ut: u64) -> Option<u64> {
 }
 
 /// **Copy the argv at `theirs` into a page carved from the child's `region`**, and return that
-/// page's capability for [`StdLayout`] to place. The bytes are not parsed: §170 ruled that they
-/// carry no authority, and `std` refuses a page that does not parse whole on its own side.
-fn copy_args(own_ut: u64, region: u64, theirs: u64) -> Option<u64> {
+/// page's capability for [`StdLayout`] to place. §170 ruled that the bytes carry no authority, and
+/// `std` refuses a page that does not parse whole on its own side, so the copy is read for one
+/// thing only, by `agrees`: since milestone 809 (the package client becomes a program) a verb
+/// chooses among a manifest's grants, so an argv's copy must carry the verb the endowment was
+/// narrowed by, or it is refused and the spawn with it. A name set's copy is checked for nothing.
+fn copy_args(
+    own_ut: u64,
+    region: u64,
+    theirs: u64,
+    agrees: impl FnOnce(&[u8]) -> bool,
+) -> Option<u64> {
     let page = retype_page_frame(region).ok()?;
     // Fresh from the child's region, so reaping the child takes this mapping back.
     let Ok(ours) = supervision_protocol::map_scratch(page, true, own_ut) else {
@@ -4757,9 +4911,17 @@ fn copy_args(own_ut: u64, region: u64, theirs: u64) -> Option<u64> {
             spawnproto::IMAGE_PAGE as usize,
         );
     }
+    // SAFETY: `ours` is mapped read/write, one page, and was just written.
+    let copied =
+        unsafe { core::slice::from_raw_parts(ours as *const u8, spawnproto::IMAGE_PAGE as usize) };
+    let same_verb = agrees(copied);
     // Written, and the child's from here: give our window onto it up (milestone 95, §249). Without
     // a capability to our own space this does nothing, and the region's reap takes it back as before.
     supervision_protocol::give_up_own_page(ours);
+    if !same_verb {
+        cap_delete(page);
+        return None;
+    }
     Some(page)
 }
 
@@ -4787,23 +4949,46 @@ fn copy_args(own_ut: u64, region: u64, theirs: u64) -> Option<u64> {
 ///   blocks instead is never reaped, and a request that finds a pool short while it is due waits
 ///   with it, where until milestone 685 it was refused after 1,024 yields. `^C` does not reach it:
 ///   the shell is parked on the result endpoint.
-/// - **Only the boot shell may hold the other copy.** A request from a second holder that arrives
-///   during a wait is kept ([`stashed`](SpawnEndpoint::stashed)) and served next, and the wait gives
-///   up; the request in hand is refused. One slot is enough for the first message of one request,
-///   which is all a second holder can have sent while this process was not reading its follow-ups.
+/// - **A sender other than the one being served is held to one message.** Since milestone 809 (the
+///   package client becomes a program) a third kind of sender exists: a program holding an
+///   installer endpoint, a copy badged [`spawnproto::installer_badge`] of its job's label. A message
+///   from a sender this loop is not serving is a first message (each sender's next `SEND` waits
+///   for its last to be taken), so it is kept ([`stashed`](SpawnEndpoint::stashed)) and served
+///   next. [`STASHED`] of them at once; one more is dropped, and its sender's follow-ups then read
+///   as requests of their own and are refused. Only a pipeline of that many installer holders
+///   reaches it. A wait for a reap gives up while anything is kept, and the request in hand is
+///   refused.
 struct SpawnEndpoint {
     ep: u64,
     /// The file service's client windows, each held until its job is reaped.
     windows: Windows,
     /// The finished jobs whose reap a short pool may wait for.
     due: ReapsDue,
-    /// A request's first message that arrived while [`await_reap`](SpawnEndpoint::await_reap) was
-    /// waiting for a reap; the next request.
-    stashed: Option<(u64, u64, u64)>,
+    /// First messages, with their badges, from senders this loop was not serving when they arrived;
+    /// the next requests, oldest first.
+    stashed: [Option<(u64, u64, u64, u64)>; STASHED],
+    /// The badge of the sender whose request is in hand: `0` for the shell.
+    serving: u64,
+    /// **The request in hand came from an installer holder that has since died** (milestone 809):
+    /// its reaped message arrived mid-request. Every receive then answers at once with nothing,
+    /// so the request unwinds instead of waiting for frames nobody will send.
+    abandoned: bool,
+    /// The endpoint each live installer holder's answers go back on, by its job's label
+    /// (`grant_plan::INSTALLER_REPLY_SLOT`). Ours is `WRITE`; the holder's is `READ`. Deleted at
+    /// the holder's reap.
+    replies: [Option<(u64, u64, &'static str)>; INSTALLER_HOLDERS],
     /// The label the next job's supervision capability carries (DECISIONS §148 (resolves by asking
     /// the kernel)). Never `0`, which is "unlabeled".
     next_label: u64,
 }
+
+/// How many first messages [`SpawnEndpoint`] keeps from senders it is not serving.
+const STASHED: usize = 4;
+
+/// **How many installer holders may be alive at once** (milestone 809): one reply endpoint each.
+/// A spawn that would be one more is refused. `jig` is a foreground job, so one is the usual
+/// number and four is a pipeline of them.
+const INSTALLER_HOLDERS: usize = 4;
 
 impl SpawnEndpoint {
     fn new(ep: u64) -> Self {
@@ -4811,9 +4996,55 @@ impl SpawnEndpoint {
             ep,
             windows: job_windows(),
             due: ReapsDue::new(),
-            stashed: None,
+            stashed: [None; STASHED],
+            serving: 0,
+            abandoned: false,
+            replies: [None; INSTALLER_HOLDERS],
             next_label: 1,
         }
+    }
+
+    /// Keep a first message from a sender not being served; `false` if there is no room.
+    fn stash(&mut self, m: (u64, u64, u64, u64)) -> bool {
+        match self.stashed.iter_mut().find(|s| s.is_none()) {
+            Some(slot) => {
+                *slot = Some(m);
+                true
+            }
+            None => false,
+        }
+    }
+
+    /// Whether anything is kept for later.
+    fn any_stashed(&self) -> bool {
+        self.stashed.iter().any(Option::is_some)
+    }
+
+    /// File the reply endpoint for the installer holder labeled `label`; `false` if all
+    /// [`INSTALLER_HOLDERS`] are taken.
+    fn hold_reply(&mut self, label: u64, ep: u64, manager: &'static str) -> bool {
+        match self.replies.iter_mut().find(|r| r.is_none()) {
+            Some(slot) => {
+                *slot = Some((label, ep, manager));
+                true
+            }
+            None => false,
+        }
+    }
+
+    /// Whether another installer holder may be started: a reply endpoint has somewhere to be filed.
+    fn has_reply_room(&self) -> bool {
+        self.replies.iter().any(Option::is_none)
+    }
+
+    /// The reply endpoint of the installer holder labeled `label`, and the name its rows are
+    /// recorded under, if it is alive.
+    fn reply_for(&self, label: u64) -> Option<(u64, &'static str)> {
+        self.replies
+            .iter()
+            .flatten()
+            .find(|(l, ..)| *l == label)
+            .map(|&(_, ep, m)| (ep, m))
     }
 
     /// A fresh label for the next job.
@@ -4823,43 +5054,96 @@ impl SpawnEndpoint {
         l
     }
 
-    /// Job `label` is reaped: its memory is back in its pool, and its window is free.
+    /// Job `label` is reaped: its memory is back in its pool, and its window is free. An installer
+    /// holder's reply endpoint goes with it, and a request it was in the middle of is abandoned.
     fn reaped(&mut self, label: u64) {
         self.windows.reaped(label);
         self.due.reaped(label);
-    }
-
-    /// The first message of the next request.
-    fn request(&mut self) -> (u64, u64, u64) {
-        match self.stashed.take() {
-            Some(m) => m,
-            None => self.receive(),
+        for r in &mut self.replies {
+            if let Some((l, ep, _)) = *r
+                && l == label
+            {
+                cap_delete(ep);
+                *r = None;
+            }
+        }
+        if spawnproto::installer_label(self.serving) == Some(label) {
+            self.abandoned = true;
         }
     }
 
-    /// The shell's next plain message, with every reaped message before it taken out of the way.
+    /// The first message of the next request, and the badge it came with: `0` for the shell,
+    /// [`spawnproto::installer_badge`] for an installer holder. Every later receive in the request
+    /// takes only that sender's messages.
+    fn request(&mut self) -> (u64, u64, u64, u64) {
+        // Kept in arrival order from the front ([`stash`](SpawnEndpoint::stash) fills the first
+        // free entry), so the oldest is at 0 and taking it is a rotation.
+        let m = match self.stashed[0].take() {
+            Some(m) => {
+                self.stashed.rotate_left(1);
+                m
+            }
+            None => loop {
+                let (w0, w1, w2, badge) = receive_badged(self.ep);
+                if badge == spawnproto::UNDERTAKER_BADGE {
+                    self.reaped(w0);
+                    continue;
+                }
+                break (w0, w1, w2, badge);
+            },
+        };
+        // Set only once the message is in hand: a reaped message taken while waiting for it is
+        // for the request before, whose holder may be the one that just died, and must not mark
+        // this one abandoned.
+        self.serving = m.3;
+        self.abandoned = false;
+        m
+    }
+
+    /// The served sender's next plain message, with every reaped message before it taken out of
+    /// the way and any other sender's first message kept. `(0, 0, 0)` once the request is
+    /// [`abandoned`](SpawnEndpoint::abandoned).
     fn receive(&mut self) -> (u64, u64, u64) {
         loop {
+            if self.abandoned {
+                return (0, 0, 0);
+            }
             let (w0, w1, w2, badge) = receive_badged(self.ep);
             if badge == spawnproto::UNDERTAKER_BADGE {
                 self.reaped(w0);
+                continue;
+            }
+            if badge != self.serving {
+                self.stash((w0, w1, w2, badge));
                 continue;
             }
             return (w0, w1, w2);
         }
     }
 
-    /// The shell's next delegation, `(w0, slot, w1)` as `RECEIVE_CAP` returns them, with every
-    /// reaped message before it taken out of the way. A reaped message read here carries its label
-    /// in `x0` and no capability (`spawnproto::UNDERTAKER_BADGE` has the layout).
+    /// The served sender's next delegation, `(w0, slot, w1)` as `RECEIVE_CAP` returns them, with
+    /// every reaped message before it taken out of the way. A reaped message read here carries its
+    /// label in `x0` and no capability (`spawnproto::UNDERTAKER_BADGE` has the layout). Another
+    /// sender's first message is a plain `SEND` and is kept, as [`receive`](SpawnEndpoint::receive)
+    /// keeps it. No capability once the request is abandoned.
     fn receive_cap(&mut self) -> (u64, u64, u64) {
         loop {
+            if self.abandoned {
+                return (0, abi::rendezvous::NO_CAP, 0);
+            }
             let (w0, slot, w1, badge) = receive_cap_badged(self.ep);
             if badge == spawnproto::UNDERTAKER_BADGE {
                 if slot != abi::rendezvous::NO_CAP {
                     cap_delete(slot);
                 }
                 self.reaped(w0);
+                continue;
+            }
+            if badge != self.serving {
+                if slot != abi::rendezvous::NO_CAP {
+                    cap_delete(slot);
+                }
+                self.stash((w0, w1, 0, badge));
                 continue;
             }
             return (w0, slot, w1);
@@ -4870,7 +5154,7 @@ impl SpawnEndpoint {
     /// parked on the result endpoint. `false` if what arrived was a request instead, which is kept
     /// for [`request`](SpawnEndpoint::request).
     fn await_reap(&mut self) -> bool {
-        if self.stashed.is_some() {
+        if self.any_stashed() {
             return false;
         }
         let (w0, w1, w2, badge) = receive_badged(self.ep);
@@ -4878,7 +5162,7 @@ impl SpawnEndpoint {
             self.reaped(w0);
             true
         } else {
-            self.stashed = Some((w0, w1, w2));
+            self.stash((w0, w1, w2, badge));
             false
         }
     }
@@ -5106,6 +5390,16 @@ fn endowed_image(
         Ok(Some(d)) => Some(manifest_note::decode(d).ok()?),
         Err(_) => return None,
     };
+    // **A verb table is not honored for installed bytes yet** (milestone 809 (the package client
+    // becomes a program), `manifest_note::VERBS`): endowing from the manifest alone would hand
+    // every line every verb's grants, so bytes carrying one are refused instead. The image's own
+    // `jig` narrows by `grant_plan`'s table, and nothing installed carries the note.
+    if !matches!(
+        elf.note(manifest_note::OWNER, manifest_note::VERBS),
+        Ok(None)
+    ) {
+        return None;
+    }
     let m = grant_plan::image_manifest(declared, vouched).ok()?;
     grant_plan::image_request_fits(&m, arg, mem_pages, words).then_some(m)
 }
@@ -5320,7 +5614,7 @@ fn job_channel(
 }
 
 /// **The progenitor's calls on the file service**, through the page it maps at
-/// [`ACTIVATION_FS_VA`]. Shared by [`vouched`], which reads the activation set, and [`activate`],
+/// [`ACTIVATION_FS_VA`]. Shared by [`vouched`], which reads the activation set, and [`activate`](activation::activate),
 /// which writes it (milestone 198 rung 3a).
 ///
 /// What is mapped there is the whole client-window pool (milestone 599), and these calls use its
@@ -5475,6 +5769,12 @@ impl FsCalls {
             .and_then(|n| core::str::from_utf8(&line[..n]).ok())
             .and_then(activation_set::parse_current)
             .ok_or(())?;
+        Ok((number, self.generation(act, number, out)?))
+    }
+
+    /// **Generation `number`'s table**, read whole into `out`; its length. `Err` if it cannot be
+    /// opened or read, or fills the page.
+    fn generation(&self, act: u64, number: u32, out: &mut [u8; PAGE_BYTES]) -> Result<usize, ()> {
         let mut name = [0u8; 10];
         let t = self.named(
             fs_operation::OPEN,
@@ -5490,7 +5790,7 @@ impl FsCalls {
         // A page and not a byte more: a generation that fills one may have been cut short, and a
         // table that ends mid-line vouches for nothing. `activation_set`'s BUGS: forty entries fit.
         match n {
-            Some(n) if n < PAGE_BYTES => Ok((number, n)),
+            Some(n) if n < PAGE_BYTES => Ok(n),
             _ => Err(()),
         }
     }
@@ -5560,550 +5860,6 @@ impl FsCalls {
         );
         true
     }
-}
-
-/// What [`activate`] needs from the spawn service, named so the call site says it.
-struct Activating {
-    own_ut: u64,
-    /// [`IMAGE_POOL_PAGES`]: a package is staged where an image is.
-    images_ut: u64,
-    fs: Option<Fs>,
-    catalogue: &'static str,
-    /// The network stack's endpoint, for [`spawnproto::Activation::Fetch`]. `None` on a boot with
-    /// no stack, and then a fetch is refused as [`spawnproto::ActivationStatus::NoNetwork`].
-    network: Option<u64>,
-}
-
-/// **Serve one activation request** (milestone 198 (a package manager) rung 3a's installer,
-/// DECISIONS §208 (installing a package is granting it, and the activation set is versioned)).
-/// Returns the reply's status and the generation live afterwards.
-///
-/// - **Install**: the package's frames are staged exactly as an image's are ([`take_frames`], [`stage_frames`]), so
-///   what is checked is this process's copy. `package_archive::installable` decides on the bytes:
-///   the image's catalog must vouch for the whole file, and the member named after the package
-///   is the program. Its bytes go to `packages/<stem>/<program>`, a place per package version that
-///   is never rewritten with other bytes, and a new generation records the program's digest.
-/// - **Remove**: a new generation without the program. Its bytes stay where they are, so a rollback
-///   can bring it back; nothing collects them yet.
-/// - **Rollback**: `current` names the generation one below the live one. Nothing else is written.
-/// - **Fetch**: the name's stem is looked up in the image's catalog, the package is fetched over
-///   the network stack this process built at boot ([`fetch`]), and what arrived is installed as
-///   **Install** installs a file's bytes, with one more check: it must be the package asked for
-///   (`package_archive::installable_as`).
-/// - **Vouch** (DECISIONS §221 (the boot prompt is the owner's console)): the executable's frames
-///   are staged as an install's are, and a new generation records this process's hash of its own
-///   copy under the name that follows, marked `activation_set::OWNER`. Nothing is placed: the
-///   digest vouches for the bytes wherever they are, and a rollback undoes it.
-///
-/// Each of the five ends in [`FsCalls::commit`], so the only thing that ever changes what runs is
-/// one rename of `current`. **Who may do this** is whoever holds the spawn endpoint, which is the
-/// boot prompt alone, and DECISIONS §221 ruled that whoever holds that prompt is the machine's
-/// owner, who may also write `activation/` directly. `spawnproto`'s BUGS say what changes the day
-/// another session holds a spawn endpoint.
-fn activate(
-    verb: Option<spawnproto::Activation>,
-    w0: u64,
-    spawn: &mut SpawnEndpoint,
-    a: &Activating,
-    fs_mapped: &mut bool,
-) -> (spawnproto::ActivationStatus, u32) {
-    use spawnproto::{Activation, ActivationStatus as S};
-    // The request's own trailing messages come off the endpoint first, whatever happens next, so a
-    // refusal never leaves words behind that the next request would read as its own. The frames
-    // are copied only once the name after them is read too ([`take_frames`]).
-    let frames = match verb {
-        Some(Activation::Install | Activation::Vouch) => Some(take_frames(spawn, w0, a.own_ut)),
-        _ => None,
-    };
-    let mut named = [0u8; filesystem_protocol::grant::MAX_NAME];
-    // A vouch's name follows its frames, which `take_frames` has just taken.
-    let named_len = if matches!(
-        verb,
-        Some(Activation::Remove | Activation::Fetch | Activation::Vouch)
-    ) {
-        let (lo, hi, len) = spawn.receive();
-        filesystem_protocol::grant::unpack_name(lo, hi, len as usize, &mut named)
-    } else {
-        0
-    };
-    let staging = frames
-        .and_then(|f| stage_frames(spawn, &f, w0, a.own_ut, a.images_ut, true).map(|st| (st, w0)));
-    let named = &named[..named_len];
-    // What a fetch holds until the end of this request: the page it traded bytes with the stack
-    // through, and the staged package. Destroyed in the reverse of the order they were split, below.
-    let mut socket_region = None;
-    let mut fetched = None;
-
-    let outcome = (|| {
-        let Some(verb) = verb else {
-            return (S::Unknown, 0);
-        };
-        let Some(files) = FsCalls::map(a.fs, a.own_ut, fs_mapped) else {
-            return (S::StoreFailed, 0);
-        };
-        let act = files.directory(fs_operation::ROOT, activation_set::DIRECTORY);
-        if act < 0 {
-            return (S::StoreFailed, 0);
-        }
-        let act_h = act as u64;
-        let mut old = [0u8; PAGE_BYTES];
-        let answer = match files.live_generation(act_h, &mut old) {
-            Err(()) => (S::StoreFailed, 0),
-            // A live table that is not text is a table nothing can edit, the same answer as one
-            // that cannot be read.
-            Ok((live, n)) => match core::str::from_utf8(&old[..n]) {
-                // The fetch comes after the live generation is read, so a refusal still names
-                // what is in force, and before anything is written.
-                Ok(table) if verb == Activation::Fetch => {
-                    match fetch(a, named, &mut socket_region, &mut fetched) {
-                        Ok(stem) => edit(
-                            &files,
-                            act_h,
-                            Activation::Install,
-                            live,
-                            table,
-                            fetched,
-                            Some(stem),
-                            a.catalogue,
-                            named,
-                        ),
-                        Err(status) => (status, live),
-                    }
-                }
-                Ok(table) => edit(
-                    &files,
-                    act_h,
-                    verb,
-                    live,
-                    table,
-                    staging,
-                    None,
-                    a.catalogue,
-                    named,
-                ),
-                Err(_) => (S::StoreFailed, live),
-            },
-        };
-        files.close(act);
-        answer
-    })();
-
-    // The staged package first, then the socket page, because a region gives its pages back to
-    // the job pool only when it is the most recent carve (`memory_regions`' `return_to_parent`).
-    // Destroying the socket page's region also revokes it out of `net_stack`'s address space.
-    for region in [
-        staging.map(|(st, _)| st),
-        fetched.map(|(st, _)| st),
-        socket_region,
-    ]
-    .into_iter()
-    .flatten()
-    {
-        supervision_protocol::memory_region_destroy(region);
-        cap_delete(region);
-    }
-    outcome
-}
-
-/// The part of [`activate`] that decides and writes, with the live generation already read.
-#[allow(clippy::too_many_arguments)]
-fn edit(
-    files: &FsCalls,
-    act: u64,
-    verb: spawnproto::Activation,
-    live: u32,
-    table: &str,
-    staging: Option<(u64, u64)>,
-    wanted: Option<&str>,
-    catalogue: &str,
-    named: &[u8],
-) -> (spawnproto::ActivationStatus, u32) {
-    use spawnproto::{Activation, ActivationStatus as S};
-    // The next generation's number: the first one above the live generation with no file. After a
-    // rollback the numbers above the live one are taken, and a generation is never rewritten.
-    let next = || {
-        let mut m = live + 1;
-        while files.generation_exists(act, m) && m < u32::MAX {
-            m += 1;
-        }
-        m
-    };
-    let mut new = [0u8; PAGE_BYTES];
-    match verb {
-        // Never reaches here: [`activate`] fetches, then edits as an `Install` of what arrived.
-        Activation::Fetch => (S::Unknown, live),
-        Activation::Rollback => {
-            if live <= 1 {
-                return (S::NoEarlier, live);
-            }
-            let back = live - 1;
-            if !files.generation_exists(act, back) || !files.commit(act, back, None) {
-                return (S::StoreFailed, live);
-            }
-            (S::Done, back)
-        }
-        Activation::Remove => {
-            let Ok(operand) = core::str::from_utf8(named) else {
-                return (S::NotInstalled, live);
-            };
-            // **The verb's object is a program or a program at a version** (milestone 614 (two
-            // installed versions of one program, each runnable, and a caller granted the one it
-            // needs), ruling 5). `@` is the qualified form's separator and is reserved for it: a
-            // word with one is never a program name, so the two cannot be mistaken for each other.
-            let removed = match operand.split_once('@') {
-                Some((program, version)) if !program.is_empty() && !version.is_empty() => {
-                    activation_set::without_version(table, program, version, &mut new)
-                }
-                _ => activation_set::without_entry(table, operand, &mut new),
-            };
-            let n = match removed {
-                Ok(n) => n,
-                Err(activation_set::Error::NotInstalled) => return (S::NotInstalled, live),
-                Err(activation_set::Error::SeveralVersions) => return (S::Ambiguous, live),
-                Err(_) => return (S::StoreFailed, live),
-            };
-            let m = next();
-            if !files.commit(act, m, Some(&new[..n])) {
-                return (S::StoreFailed, live);
-            }
-            (S::Done, m)
-        }
-        // **The owner's vouch** (DECISIONS §221 ruling 1; §195 clause 3). The digest is this
-        // process's hash of its own copy, the one a spawn of the same file computes, so the entry
-        // is found by the next run of those bytes and by nothing else.
-        Activation::Vouch => {
-            let Some((_, len)) = staging else {
-                return (S::Unknown, live);
-            };
-            let bytes = staged_image(len);
-            let Ok(program) = core::str::from_utf8(named) else {
-                return (S::NotExecutable, live);
-            };
-            if elf::Elf::parse(bytes).is_err() {
-                return (S::NotExecutable, live);
-            }
-            let entry = activation_set::Entry {
-                program,
-                // **A vouch claims no version**: the owner vouches for bytes (DECISIONS §221
-                // (the boot prompt is the owner's console), ruling 1), so the version column
-                // carries `activation_set::NO_VERSION` and no pointer names the row.
-                version: activation_set::NO_VERSION,
-                package: activation_set::OWNER,
-                digest: measured_boot::sha256(bytes),
-            };
-            // A vouch claims no name, so whether the image carries one does not matter to it.
-            let n = match activation_set::with_entry(table, &entry, false, &mut new) {
-                Ok(n) => n,
-                Err(activation_set::Error::BadName) => return (S::NotExecutable, live),
-                Err(_) => return (S::StoreFailed, live),
-            };
-            let m = next();
-            if !files.commit(act, m, Some(&new[..n])) {
-                return (S::StoreFailed, live);
-            }
-            (S::Done, m)
-        }
-        Activation::Install => {
-            let Some((_, len)) = staging else {
-                return (S::Unknown, live);
-            };
-            let bytes = staged_image(len);
-            let decided = match wanted {
-                // Fetched by name: it must also be the package asked for.
-                Some(stem) => package_archive::installable_as(catalogue, stem, bytes),
-                None => package_archive::installable(catalogue, bytes),
-            };
-            let got = match decided {
-                Ok(got) => got,
-                Err(package_archive::Refusal::NoProgram) => return (S::NoProgram, live),
-                Err(_) => return (S::NotCataloged, live),
-            };
-            let Ok(package) = package_archive::Package::parse(bytes) else {
-                return (S::NotCataloged, live);
-            };
-            // The program's bytes, where a person can run them (DECISIONS §219 option D hashes
-            // whatever they run, so where they live is a convenience, not a trust decision).
-            let packages = files.directory(fs_operation::ROOT, activation_set::PACKAGES);
-            if packages < 0 {
-                return (S::StoreFailed, live);
-            }
-            // `packages/<name>/<version>/<program>`: one component per field, because a prompt
-            // component is at most sixteen bytes and a stem is longer. The architecture is this
-            // machine's; the generation's row does not carry it, because the digest is of
-            // target-specific bytes and two ISAs never collide in one table.
-            let name = files.directory(packages as u64, package.name());
-            let version = if name >= 0 {
-                files.directory(name as u64, package.version())
-            } else {
-                -1
-            };
-            let placed = version >= 0 && {
-                let f = files.open_or_create(version as u64, got.program);
-                let ok = f >= 0 && files.replace(f as u64, got.bytes);
-                if f >= 0 {
-                    files.close(f);
-                }
-                ok
-            };
-            for h in [version, name, packages] {
-                if h >= 0 {
-                    files.close(h);
-                }
-            }
-            if !placed {
-                return (S::StoreFailed, live);
-            }
-            let entry = activation_set::Entry {
-                program: got.program,
-                // **The row is digest-keyed; name and version are label columns** (milestone 614
-                // (two installed versions of one program, each runnable, and a caller granted the
-                // one it needs), ruling 2). The version is the upstream developer's claim as the
-                // package header carries it; the package column is the package's name, the
-                // stem's first field, because the version now has a column of its own and no row
-                // carries the architecture.
-                version: package.version(),
-                package: package.name(),
-                digest: got.digest,
-            };
-            // **A bare name belongs to one package, and never to one the image carries** (DECISIONS
-            // §229 (how a bare name at the prompt reaches an installed program), B2 and calef's
-            // ruling of 2026-09-27). Either is refused here, after the bytes are placed under
-            // `packages/` (where they still run by path) and before any generation names them. A
-            // base program is updated through the boot slot under §235 (the OS is built and updated
-            // from packages), so the image refusal blocks no update. The prompt still refuses a
-            // name that is both, because a later base can add a name a package already holds.
-            let image = Prog::from_name(got.program.as_bytes()).is_some();
-            let n = match activation_set::with_entry(table, &entry, image, &mut new) {
-                Ok(n) => n,
-                Err(activation_set::Error::ImageName) => return (S::ImageName, live),
-                Err(activation_set::Error::Taken) => return (S::NameTaken, live),
-                Err(_) => return (S::StoreFailed, live),
-            };
-            let m = next();
-            if !files.commit(act, m, Some(&new[..n])) {
-                return (S::StoreFailed, live);
-            }
-            (S::Done, m)
-        }
-    }
-}
-
-/// Where the progenitor maps the page it trades bytes with `net_stack` through during a fetch.
-/// Clear of [`ACTIVATION_FS_VA`] (one page) and of [`IMAGE_STAGING_VA`], where the body goes.
-/// Every page mapped here comes from a region [`activate`] destroys at the end of the request, so
-/// the window is empty again for the next fetch.
-const FETCH_SOCKET_VA: u64 = address_space_map::pair_page(0x0f50_0000);
-
-/// This machine's architecture as a package stem spells it.
-const ARCHITECTURE: &str = if cfg!(target_arch = "aarch64") {
-    "aarch64"
-} else if cfg!(target_arch = "riscv64") {
-    "riscv64"
-} else {
-    "x86_64"
-};
-
-/// **Fetch the package `name` over the network**, for [`spawnproto::Activation::Fetch`]
-/// (milestone 198 (a package manager) rung 3a's fetch). Returns the stem the image's catalog
-/// names it by, with the package staged at [`IMAGE_STAGING_VA`] and its region and length in
-/// `staging`, exactly where [`stage_frames`] leaves a file's bytes; [`edit`] then installs it.
-///
-/// In order, and the order is the argument:
-///
-/// 1. **The catalog first.** A name the image vouches for no package by is refused before a
-///    connection is opened, so a person cannot make this process fetch anything the image would
-///    not install, and the answer to a typo costs no network.
-/// 2. **A socket of its own, and one page shared with the stack.** The socket is a capability the
-///    stack hands back on `OPEN_TCP` (§255 (each socket is its own capability)), so no other client
-///    of the stack can reach it. The page is retyped from a region of its own and handed to that
-///    socket with `OPERATION_ATTACH_PAGE_FRAME`. The region is destroyed when the request ends,
-///    which revokes the page out of the stack too: nothing about a fetch outlives it.
-/// 3. **`GET /<stem>.nifepkg`** from the package source (`socket_protocol::fixture`), read through
-///    `http_response`, which holds only the head and refuses what it cannot read exactly. The body
-///    lands in pages split once the declared length is known and found to fit
-///    [`spawnproto::IMAGE_MAX_PAGES`].
-///
-/// **Nothing here decides whether the bytes may be installed.** A body that arrived whole is only
-/// bytes; [`edit`] checks them against the catalog as it checks a file a person pointed at, which
-/// is why plain HTTP is enough on this rung (DECISIONS §195 (a reviewed recipe vouches for a
-/// package)). What this adds to the progenitor is a parser of network input *before* that check:
-/// `http_response`'s head reader, a fixed 2 KiB buffer, host-tested. notes/packages.md weighs it
-/// against a fetching program.
-fn fetch(
-    a: &Activating,
-    name: &[u8],
-    socket_region: &mut Option<u64>,
-    staging: &mut Option<(u64, u64)>,
-) -> Result<&'static str, spawnproto::ActivationStatus> {
-    use socket_protocol::fixture::{PACKAGE_PEER_HOST, PACKAGE_PEER_IP, PACKAGE_PEER_PORT};
-    use socket_protocol::*;
-    use spawnproto::ActivationStatus as S;
-
-    // A bare name the catalog vouches for at several versions is refused here, before the
-    // network, like a name it vouches for at none: `name@version` picks one (milestone 614).
-    let name = core::str::from_utf8(name).map_err(|_| S::NoSuchPackage)?;
-    let stem = package_archive::cataloged_stem(a.catalogue, name, ARCHITECTURE).map_err(
-        |miss| match miss {
-            package_archive::CatalogMiss::NoSuchPackage => S::NoSuchPackage,
-            package_archive::CatalogMiss::SeveralVersions => S::Ambiguous,
-        },
-    )?;
-    let stack = a.network.ok_or(S::NoNetwork)?;
-
-    let region = memory_region_split(a.images_ut, 1).map_err(|()| S::FetchFailed)?;
-    *socket_region = Some(region);
-    let page = retype_page_frame(region).map_err(|()| S::FetchFailed)?;
-    // SAFETY: `invoke` is the syscall; the page is ours and fresh, the window is clear (see
-    // FETCH_SOCKET_VA), and the page tables come from our own budget.
-    let mapped = unsafe { invoke(page, abi::page_frame::MAP, FETCH_SOCKET_VA, 1, a.own_ut) } == 0;
-    let socket = match user_mode_runtime::call_receiving(stack, OPERATION_OPEN_TCP, 0) {
-        (REP_OK, _, Some(socket)) => Some(socket),
-        _ => None,
-    };
-    let attached = mapped
-        && socket.is_some_and(|socket| {
-            user_mode_runtime::send_cap(
-                socket,
-                page,
-                abi::rights::READ | abi::rights::WRITE,
-                OPERATION_ATTACH_PAGE_FRAME,
-            ) >= 0
-        });
-    // The mapping and the stack's copy outlive this capability, and the slot is what is scarce.
-    cap_delete(page);
-    let Some(socket) = socket else {
-        return Err(S::FetchFailed);
-    };
-    if !attached {
-        let _ = call(socket, OPERATION_CLOSE, 0);
-        cap_delete(socket);
-        return Err(S::FetchFailed);
-    }
-    let window = |off: u64| (FETCH_SOCKET_VA + off) as *mut u8;
-
-    let got = (|| {
-        // SAFETY: (and for every access through `window` below) the page is mapped read/write at
-        // FETCH_SOCKET_VA for the whole of this request, and the stack writes it only while this
-        // process is blocked in a `CALL` to it.
-        unsafe {
-            core::ptr::copy_nonoverlapping(PACKAGE_PEER_IP.as_ptr(), window(OFF_DST_IP), 4);
-            core::ptr::copy_nonoverlapping(
-                PACKAGE_PEER_PORT.to_le_bytes().as_ptr(),
-                window(OFF_DST_PORT),
-                2,
-            );
-        }
-        if call(socket, OPERATION_CONNECT, 0).0 != CONNECT_ESTABLISHED {
-            return Err(S::FetchFailed);
-        }
-        let mut path = [0u8; 1 + package_archive::STEM_LEN + 8];
-        let mut at = 0;
-        for part in ["/", stem, ".nifepkg"] {
-            path[at..at + part.len()].copy_from_slice(part.as_bytes());
-            at += part.len();
-        }
-        let path = core::str::from_utf8(&path[..at]).map_err(|_| S::FetchFailed)?;
-        let mut request = [0u8; 160];
-        let n = http_response::get_request(PACKAGE_PEER_HOST, path, &mut request)
-            .ok_or(S::FetchFailed)?;
-        // SAFETY: as above; `n` is at most 160, well inside the payload area.
-        unsafe { core::ptr::copy_nonoverlapping(request.as_ptr(), window(OFF_PAYLOAD), n) };
-        if call(socket, OPERATION_SEND, n as u64).0 != n as u64 {
-            return Err(S::FetchFailed);
-        }
-        receive_body(a, socket, staging)
-    })();
-    // Closed before the answer is judged, so a failed fetch still gives the socket back.
-    let _ = call(socket, OPERATION_CLOSE, 0);
-    cap_delete(socket);
-    got.map(|()| stem)
-}
-
-/// The response half of [`fetch`]: read until `http_response` says the body is whole, splitting the
-/// staging region once the head has declared a length that fits, and copying each read's body into
-/// it. `Ok` only for a complete `200` whose body is non-empty and fits an image.
-fn receive_body(
-    a: &Activating,
-    socket: u64,
-    staging: &mut Option<(u64, u64)>,
-) -> Result<(), spawnproto::ActivationStatus> {
-    use socket_protocol::*;
-    use spawnproto::ActivationStatus as S;
-    let max = spawnproto::IMAGE_MAX_PAGES * spawnproto::IMAGE_PAGE;
-    let mut response = http_response::Response::new();
-    let mut filled = 0u64;
-    while !response.is_complete() {
-        let (n, _) = call(socket, OPERATION_RECEIVE, 0);
-        if n == 0 || n > DATA_MAX as u64 {
-            // The peer went away, or the stack failed, before the body was whole.
-            return Err(S::FetchFailed);
-        }
-        // SAFETY: the stack just wrote `n` bytes at OFF_PAYLOAD of the page mapped at
-        // FETCH_SOCKET_VA, and it does not write it again until this process calls it.
-        let read = unsafe {
-            core::slice::from_raw_parts((FETCH_SOCKET_VA + OFF_PAYLOAD) as *const u8, n as usize)
-        };
-        let body = response.feed(read).map_err(|_| S::FetchFailed)?;
-        if response.status().is_some_and(|s| s != 200) {
-            return Err(S::FetchFailed);
-        }
-        if staging.is_none()
-            && let Some(len) = response.content_length()
-        {
-            if len == 0 || len > max {
-                return Err(S::FetchFailed);
-            }
-            *staging = Some((stage_pages(a, len)?, len));
-        }
-        if !body.is_empty() {
-            // `feed` hands back no more body than the head declared, and the staging region was
-            // sized from that declaration, so this copy stays inside it.
-            // SAFETY: `stage_pages` mapped `image_pages(len)` pages read/write from
-            // IMAGE_STAGING_VA, and `filled + body.len()` is at most `len`.
-            unsafe {
-                core::ptr::copy_nonoverlapping(
-                    body.as_ptr(),
-                    (IMAGE_STAGING_VA + filled) as *mut u8,
-                    body.len(),
-                );
-            }
-            filled += body.len() as u64;
-        }
-    }
-    Ok(())
-}
-
-/// Split a staging region for `len` bytes and map every page of it at [`IMAGE_STAGING_VA`], as
-/// [`stage_frames`] does for a caller's frames. The region, or `FetchFailed` with nothing held.
-fn stage_pages(a: &Activating, len: u64) -> Result<u64, spawnproto::ActivationStatus> {
-    let pages = spawnproto::image_pages(len);
-    let st = memory_region_split(a.images_ut, pages)
-        .map_err(|()| spawnproto::ActivationStatus::FetchFailed)?;
-    for i in 0..pages {
-        let mapped = match retype_page_frame(st) {
-            Ok(page) => {
-                // SAFETY: as in `stage_frames`: the page is ours, fresh, and mapped read/write.
-                let ok = unsafe {
-                    invoke(
-                        page,
-                        abi::page_frame::MAP,
-                        IMAGE_STAGING_VA + i * spawnproto::IMAGE_PAGE,
-                        1,
-                        a.own_ut,
-                    )
-                } == 0;
-                cap_delete(page);
-                ok
-            }
-            Err(()) => false,
-        };
-        if !mapped {
-            supervision_protocol::memory_region_destroy(st);
-            cap_delete(st);
-            return Err(spawnproto::ActivationStatus::FetchFailed);
-        }
-    }
-    Ok(st)
 }
 
 fn memory_region_split(ut: u64, pages: u64) -> Result<u64, ()> {

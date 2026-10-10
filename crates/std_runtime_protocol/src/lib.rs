@@ -103,6 +103,14 @@ pub const ARGS_PAGE: u64 = 0x1400_0000;
 /// beside the network. Provisional, like [`RESOLVER_SLOT`].
 pub const RESOLVER_PAGE: u64 = 0x1500_0000;
 
+/// **Where the loader maps a copy of the image's package catalog**, read-only, for a program that
+/// declares `grant_plan::Manifest::catalog` (milestone 809 (the package client becomes a program)):
+/// `package_archive::CATALOG`'s `<stem> <digest>` lines, padded with zero bytes to the page's end.
+/// The page is the child's own, carved from its region, so its reap takes it back; its capability
+/// is at `grant_plan::CATALOG_SLOT`, above the ten fixed slots, for the program to probe. One page
+/// above the resolver's. Provisional.
+pub const CATALOG_PAGE: u64 = 0x1600_0000;
+
 /// Where the heap starts: the start of the address-space map's heap band, and the same value as
 /// `user_mode_runtime::heap::DEFAULT_BASE`.
 pub const HEAP_BASE: u64 = 0x4000_0000;
@@ -162,7 +170,14 @@ mod tests {
     /// aliasing one page in a child.
     #[test]
     fn the_shared_pages_are_page_aligned_and_clear_of_each_other_and_the_heap() {
-        let pages = [FS_PAGE, CLOCK_PAGE, CONFIG_PAGE, ARGS_PAGE, RESOLVER_PAGE];
+        let pages = [
+            FS_PAGE,
+            CLOCK_PAGE,
+            CONFIG_PAGE,
+            ARGS_PAGE,
+            RESOLVER_PAGE,
+            CATALOG_PAGE,
+        ];
         for (i, a) in pages.iter().enumerate() {
             assert_eq!(a % PAGE, 0, "{a:#x} is not page aligned");
             assert!(

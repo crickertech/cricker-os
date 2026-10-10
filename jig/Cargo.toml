@@ -1,0 +1,50 @@
+# `jig`, the package manager (milestone 809 (the package client becomes a program)): a `std`
+# program built for the `*-unknown-nife` targets with `-Zbuild-std` against the patched rust-src
+# (patches/std-nife; `cargo xtask std-src`), as `std_exerciser` is, and for that crate's reason not
+# a member of the main workspace: it builds under the farm's toolchain with flags the workspace's
+# crates must never inherit. `cargo xtask std-exerciser` builds it beside that workspace, into the
+# same target directory, so the standard library is compiled once for both.
+#
+# Name: ratified 2026-10-06 (calef): the guide that makes flat-pack assembly come out the same
+# every time. The record is `grant_plan::Prog::Jig`'s doc.
+
+[package]
+name = "jig"
+version = "0.1.0"
+edition = "2024"
+license = "MIT OR Apache-2.0"
+publish = false
+
+[workspace]
+
+# **Only the public contracts** (milestone 809's "other package managers can emerge": a second
+# manager on these crates can do what `jig` can). The request wire and the manifest
+# (`grant_plan`'s `spawnproto`), the package format and the catalog's lookup rule
+# (`package_archive`), how a name travels on that wire (`filesystem_protocol::grant`), the plain
+# HTTP reader the progenitor used to run (`http_response`, which left the progenitor's graph in the
+# same change), where the package source answers (`socket_protocol::fixture`), the `std` layout's
+# pages (`std_runtime_protocol`), and the syscalls a `std` program has no binding for
+# (`user_mode_runtime`, `abi`, `address_space_map`).
+[dependencies]
+abi = { path = "../crates/abi" }
+address_space_map = { path = "../crates/address_space_map" }
+filesystem_protocol = { path = "../crates/filesystem_protocol" }
+grant_plan = { path = "../crates/grant_plan" }
+http_response = { path = "../crates/http_response" }
+manifest_note = { path = "../crates/manifest_note" }
+package_archive = { path = "../crates/package_archive" }
+socket_protocol = { path = "../crates/socket_protocol" }
+std_runtime_protocol = { path = "../crates/std_runtime_protocol" }
+user_mode_runtime = { path = "../crates/user_mode_runtime" }
+
+# `std_exerciser`'s profile, for its reasons: overflow checks in release (calef, 2026-10-04 (UTC),
+# notes/overflow-checks.md), a small deterministic image, no unwinding.
+[profile.release]
+overflow-checks = true
+opt-level = "s"
+debug = false
+strip = "debuginfo"
+panic = "abort"
+
+[profile.dev]
+panic = "abort"
