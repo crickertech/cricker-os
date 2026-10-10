@@ -1,6 +1,5 @@
 ---
-status: IN-PROGRESS
-branch: milestone/871-a-sixth-outsider-pass-attacks-the-confinement-claim
+status: PARTIAL
 raised: 2026-10-10
 milestone_dependencies: none
 decision_dependencies: none
@@ -13,11 +12,14 @@ needs_person: no
 *(Minted 2026-10-10 (UTC) by this lane as the maintainer's delegate, the way milestone 800 (a
 non-Anthropic model attacks the confinement claim) was minted. The number 871 is provisional; other
 lanes are minting nearby, so expect renumbering at merge. Title, slug and every name below are
-drafts.)*
+drafts. Renumbered from 868 on 2026-10-10 (UTC), because a concurrently merged lane, relibc's seed
+coming under the unsafe gates, took 868 on main and 869 went the same day. The branch and pull
+request #1901 keep the old number: GitHub closes a pull request whose head branch is renamed, and
+#1901 carries calef's ruling.)*
 
 **Reuse:** the counting rule, the report format and the refusal log are milestone 800's, unchanged,
 so the passes compare row for row. This pass is by GLM 5.3, the non-Anthropic model that ran pass 4
-(milestone 800), so it serves criterion (c)'s non-Anthropic half: if the fifth pass (PR #1895,
+(milestone 800), so it serves criterion (c)'s non-Anthropic half. If the fifth pass (PR #1895,
 Anthropic, unmerged when this was written) lands clean, this pass can be the second of the two
 consecutive clean passes.
 
@@ -25,8 +27,8 @@ consecutive clean passes.
 
 The sixth outsider pass at risk 7's confinement claim, by GLM 5.3 (non-Anthropic). It attacks the
 newest shipped surfaces first, the milestone 801 (packages over the internet) fetch path, then the
-§255 (each socket is its own capability) socket-capability model as variants of pass 5's ground,
-counts an attack only when it boots, and keeps the standing refusal log.
+§255 (each socket is its own capability) socket-capability model as variants of pass 5's ground.
+It counts an attack only when it boots, and keeps the standing refusal log.
 
 ## Why
 
@@ -44,9 +46,9 @@ Informed, the posture milestone 800 set: the whole tree and its history are in h
 attacker of a public repository has them. Variant analysis against each fixed escape, and new
 ground where nothing has been found. The surfaces, newest first:
 
-- The milestone 801 package fetch path, shipped 2026-10-10 in PRs #1884 and #1890:
+- The milestone 801 package fetch path, shipped 2026-10-10 in PRs #1884 and #1890. Its parts:
   `package_index`'s admission of a hostile index (Q1's private and link-local refusal, the "moved
-  to" field), the client's two index addresses, digest admission through
+  to" field) and the client's two index addresses. Then digest admission through
   `package_archive::installable_as`, the §252 (a resolver grant is one zone per client badge)
   resolver badge behind std's `ToSocketAddrs`, and the fetch pinned to one TLS root.
 - The §255 socket-capability model, as variants of pass 5's booted row-34 ground.
@@ -54,8 +56,20 @@ ground where nothing has been found. The surfaces, newest first:
 
 ## Result
 
-See `notes/confinement-outsider-pass-6.md` for the full pass, the per-row table and the refusal
-log.
+PARTIAL, 2026-10-10 (UTC). The pass booted one escape on its first surface and stopped there. The
+milestone 801 (packages over the internet) package client checked one resolution of a listed
+location's host, then connected by name, which resolved again. A rebinding name server answered
+the check public and the connect private, and the client reached the private peer Q1 forbids. The
+failing test went in first. calef ruled on #1901 (21:04 UTC): "Yes, it is an escape on a shipped
+path. It was literally just shipped, but counts." Criterion (c)'s count restarted at zero. Then
+"Yes, launch the fix": `package_index::Location::check` hands back the one resolution it passed as a
+`CheckedLocation`, and the client dials only those addresses and keeps the host name for TLS. The
+test is green on aarch64, riscv64 and x86_64, and red on all three when connect-by-name is patched
+back.
+
+Not done: the 34-row sweep and the variant work against the fixed escapes. With the count already
+at zero, they could no longer make this pass a clean one. See
+`notes/confinement-outsider-pass-6.md` for the escape, the fix and the refusal log.
 
 ## Done means
 
@@ -68,6 +82,14 @@ log.
 
 ## Follow-on
 
+- **Outstanding.** The rest of this pass: the 34-row sweep and the variant work, unrun. A seventh
+  pass starts criterion (c)'s count afresh and would cover the same rows, so this remainder is
+  likely superseded by it rather than run on its own; that is the maintainer's call when it is
+  minted.
+- **Milestone 855.** A claims-table row for the package fetch: "A listed location never reaches a
+  private or link-local address" has no row in `notes/confinement-claims.md`. Criterion (b) wants
+  every row replayable, and this test's falsification can only be `attested` until milestone 855
+  (the TLS graph enters the gated build) puts the exerciser in a gate, so the row waits on 855.
 - **Milestone 198.** A human review, or a public bounty once a stranger can install nife, is the
   stronger form and waits on milestone 198 (a package manager, and the trivial install that makes
   a second customer possible).

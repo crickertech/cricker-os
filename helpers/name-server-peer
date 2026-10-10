@@ -27,19 +27,21 @@ describes for the inbound gate's prober.
                        asked, which a resolver must not hand back
   loop.nife.test       an answer whose owner is a compression pointer to itself
   basalt.test          A 10.0.2.9: the stand-in for basalt.nifeos.org, the
-                        package index's host (milestone 801 (packages over the
-                        internet)); helpers/tls-peer answers there on 8443
+                       package index's host (milestone 801 (packages over the
+                       internet)); helpers/tls-peer answers there on 8443
   packages.basalt.test A 10.0.2.9: where the stand-in index lists the bytes as
-                        also living; a private address, so the client must refuse it
+                       also living; a private address, so the client must refuse it
   rebind.basalt.test   A 192.0.2.1 on the FIRST query this QEMU makes for it, then
-                        10.0.2.9 on every later one: DNS rebinding, the shape
-                        milestone 871 (a sixth outsider pass attacks the confinement
-                        claim) boots against the client's check-then-connect gap.
-                        192.0.2.1 is RFC 5737 documentation space, public to
-                        package_index::public_address and unroutable, and the first
-                        answer is never connected to: only the second answer is.
+                       10.0.2.9 on every later one: DNS rebinding, the shape
+                       milestone 871 (a sixth outsider pass attacks the confinement
+                       claim) booted against the client's check-then-connect gap.
+                       192.0.2.1 is RFC 5737 documentation space, public to
+                       package_index::public_address and unroutable. A client
+                       that connects by name reaches the second answer; the
+                       fixed client dials the first, the one it checked, and
+                       slirp refuses it.
   gone.basalt.test     falls to REFUSED below: the image's first index address,
-                        lost, so the client moves to its backup (basalt.test)
+                       lost, so the client moves to its backup (basalt.test)
   anything else        REFUSED
 
 The rebind counter is keyed to the boot, not to this process: slirp runs each

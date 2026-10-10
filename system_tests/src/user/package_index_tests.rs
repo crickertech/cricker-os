@@ -38,15 +38,23 @@ const NO_PROGRAM: &str = "no package_fetch_exerciser in this archive: build it w
 ///
 /// **The rebinding half (milestone 871 (a sixth outsider pass attacks the confinement claim),
 /// 2026-10-10): the address check and the connection must agree.** The index lists `rebound` under
-/// `rebind.basalt.test`, whose name answers 192.0.2.1 (public, never connected to) on the first
-/// query and the private peer on every later one. The client checks the first resolution, then
-/// `TcpStream::connect((host, port))` resolves the name a second time, and the resolver has no
-/// cache (components/src/name_resolver.rs), so the two resolutions are two queries a rebinding
-/// server answers differently. The assertion below is red while the connection can disagree with
-/// the check: a `Tls(...)` reason on a listed location means a TLS server answered, and the only
-/// one in slirp is the peer at the private 10.0.2.9:8443, so the client reached a private address
-/// Q1 forbids a listed location from reaching. Observed exactly so on aarch64 2026-10-10 (UTC):
+/// `rebind.basalt.test`, whose name answers 192.0.2.1 (public) on the first query and the private
+/// peer on every later one. The resolver has no cache (`components/src/name_resolver.rs`), so a
+/// client that checks one resolution and then connects by name asks twice, and a rebinding server
+/// answers the two apart. A `Tls(...)` reason on a listed location means a TLS server answered, and
+/// the only one in slirp is the peer at the private 10.0.2.9:8443, so the client reached a private
+/// address Q1 forbids a listed location from reaching. That is what the client before the fix
+/// printed on aarch64, 2026-10-10 (UTC):
 /// `Tls(InvalidCertificate(NotValidForNameContext { expected: DnsName("rebind.basalt.test"), ...`.
+/// The fixed client dials only the address its check passed (`package_index::Location::check`),
+/// slirp has nothing at 192.0.2.1, and the reason is `ConnectionRefused`.
+///
+/// Falsification: attested 2026-10-10. On patagonia, with the fix in, `get` in
+/// `pinned_tls_exerciser/src/bin/package_fetch_exerciser.rs` patched to connect by name again
+/// (`TcpStream::connect((server_name, to[0].port()))`), the exerciser rebuilt, and this test booted
+/// on aarch64, riscv64 and x86_64: red on all three with the certificate error above, green on all
+/// three with the patch reverted. A replay needs `package_fetch_exerciser` in the archive, which
+/// no gate builds until milestone 855 (the TLS graph enters the gated build).
 #[test_case]
 fn a_package_is_fetched_through_the_index_by_name_over_tls_and_judged_by_its_digest() {
     let Some(exerciser) = program("package_fetch_exerciser") else {

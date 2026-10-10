@@ -273,6 +273,37 @@ hang. The refusal log's one shipped-path entry is the redoxfs name-window TOCTOU
 consecutive clean passes; the second must be a non-Anthropic model or a human, so (c) is not yet
 met. The verdict is unchanged, and moving the color stays calef's.
 
+### The sixth outsider pass (2026-10-10, milestone 871)
+
+Added under §216, from milestone 871 (a sixth outsider pass attacks the confinement claim), whose
+number is PROVISIONAL, and PR #1901. The sixth pass was by GLM 5.3, the non-Anthropic model of pass
+4, informed. The record is
+[`notes/confinement-outsider-pass-6.md`](../../notes/confinement-outsider-pass-6.md).
+
+It went at the milestone 801 (packages over the internet) package fetch first, shipped the same day
+in #1884 and #1890, and booted an escape there. calef's ruling Q1 on #1884 says a location an index
+lists may never reach a private or link-local address. The client checked every address a listed
+host resolved to, then handed the name to `TcpStream::connect`, which resolved it again. The
+resolver keeps no cache, so a rebinding name server answered the check with a public address and
+the connect with the private peer. The proof is the refusal the client printed: a certificate
+name error, which only a TLS server that answered can produce, and slirp's only TLS server is the
+private one. The digest admission held, so no untrusted bytes were taken; the escape is the reach
+Q1 forbids.
+
+calef's verdict (2026-10-10, 21:04 UTC, on #1901): "Yes, it is an escape on a shipped path. It was
+literally just shipped, but counts." Criterion (c)'s count restarted at zero. On the same ruling the
+fix landed with the pass: `package_index::Location::check` takes one resolution and returns a
+`CheckedLocation` holding exactly the addresses it passed, the client dials only those, and the
+host name is kept for TLS alone (curl's `CURLOPT_RESOLVE` and Go's `net.Dialer.Control` are the
+prior art). The check now refuses an IPv6 answer it cannot judge, which it used to pass. The test,
+committed red before the fix, is green on aarch64, riscv64 and x86_64, and red on all three with
+connect-by-name patched back. That falsification is `attested`: the exerciser is outside every gate
+until milestone 855 (the TLS graph enters the gated build), so the claims table gains no row for it
+yet.
+
+The 34-row sweep did not run; with the count at zero it could not have made this pass clean. The
+verdict is unchanged, and moving the color stays calef's.
+
 ### Added 2026-10-03: row 27's hand-off was tested on one of the two `x86_64` boots
 
 From 2026-09-23 to 2026-10-03 (UTC), `port_holder_transmits_then_a_non_holder_faults` (row 27 of
