@@ -8,9 +8,9 @@ and two threads share one space, which §105 (`std::thread::spawn` stays decline
 
 Expected to fail: the `WrongObject` assertion, which gets `Ok(0)`.
 
-diff --git a/kernel/src/user.rs b/kernel/src/user.rs
---- a/kernel/src/user.rs
-+++ b/kernel/src/user.rs
+diff --git a/kernel/src/user/address_space_registry.rs b/kernel/src/user/address_space_registry.rs
+--- a/kernel/src/user/address_space_registry.rs
++++ b/kernel/src/user/address_space_registry.rs
 @@ -730,9 +730,6 @@
  ) -> Result<(), abi::Error> {
      let mut spaces = USER_SPACES.lock();

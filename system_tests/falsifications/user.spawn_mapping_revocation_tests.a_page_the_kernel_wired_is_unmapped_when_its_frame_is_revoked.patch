@@ -203,6 +203,9 @@ index a10844624..cac467a71 100644
      }
  
      /// [`Self::map_physical`] under a [`MappingHold`](crate::revoke::MappingHold) the caller already
+diff --git a/kernel/src/user/address_space_registry.rs b/kernel/src/user/address_space_registry.rs
+--- a/kernel/src/user/address_space_registry.rs
++++ b/kernel/src/user/address_space_registry.rs
 @@ -551,6 +552,10 @@ pub fn user_address_space_map(
      // remembered to record, which is exactly why it is now the one caller with nothing extra to
      // remember. See that function's own docs for the defect the other callers carried.

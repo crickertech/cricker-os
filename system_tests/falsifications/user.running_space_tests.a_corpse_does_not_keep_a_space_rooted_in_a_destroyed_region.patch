@@ -9,9 +9,9 @@ root and the log pages the region just handed back.
 
 Expected to fail: the assertion after the region's `DESTROY`, that the corpse's space is gone.
 
-diff --git a/kernel/src/user.rs b/kernel/src/user.rs
---- a/kernel/src/user.rs
-+++ b/kernel/src/user.rs
+diff --git a/kernel/src/user/address_space_registry.rs b/kernel/src/user/address_space_registry.rs
+--- a/kernel/src/user/address_space_registry.rs
++++ b/kernel/src/user/address_space_registry.rs
 @@ -814,7 +814,7 @@
                          None => in_span,
                          Some(tid) => match binder(tid) {
