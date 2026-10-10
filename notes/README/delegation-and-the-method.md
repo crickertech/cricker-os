@@ -12,3 +12,4 @@ Part of [the notes index](../README.md), which says how to add a line.
   bake-off shortlist, measured and not yet run. Name provisional.
 - [Reviewing the work of one model](../model-attribution-review.md): a plan for reviewing one model's commits fairly. Name provisional.
 - [Comparing models as lanes and maintainer](../model-comparison.md): a pre-registered pilot, Opus 5 against Opus 5.5. Name provisional.
+- [Can GLM-5.3 Flash do lane work?](../glm-5.3-flash-for-lanes.md): a retrospective and a six-run trial against GLM-5.3. Name provisional.
