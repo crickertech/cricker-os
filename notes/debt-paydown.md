@@ -24,8 +24,8 @@ Label a pull request when its title and opening paragraph give one of these as i
    fact correction, a stale status, date, path or claim brought current, an owed record or
    falsification backfilled, a citation or provenance added where it was missing, knowledge landed
    from a branch that was holding it.
-4. Compliance. Bringing the tree up to a standard it has already written down: prose budget (§212),
-   writing standards (§213), bold, heading, spelling and comment-block sweeps, a ratified rename
+4. Compliance. Bringing the tree up to a standard it has already written down: §212 (a prose budget),
+   §213 (writing standards), bold, heading, spelling and comment-block sweeps, a ratified rename
    applied, survivor triage, coverage and lint ratchets, an audit and its findings closed, an
    architectural parity gap closed (rule 5), and a gate whose purpose is enforcing a rule decided
    before the pull request that adds it.
@@ -54,7 +54,7 @@ From the first pass, 2026-10-10 (UTC), so the next labeler can match them:
 | #1534 | labeled | an existing claim proved on the two ISAs that lacked it: parity |
 | #1409 | labeled | an unmeasured stack risk given headroom and a gate; repair of a recorded risk |
 | #1447, #1486 | labeled | measurements, but of a named flake and a named drift |
-| #1868 | labeled | ratchet for §266, which #1867 decided first |
+| #1868 | labeled | ratchet for §266 (a Rust source file stays under 2,000 lines), decided first in #1867 |
 | #1735, #1791 | not labeled | each records a new rule and ratchets it in the same pull request |
 | #1589 | not labeled | a new check for a rule not written before it, and it found nothing |
 | #1444, #1458 | not labeled | existing CI checks copied into pre-push: throughput, not compliance |
