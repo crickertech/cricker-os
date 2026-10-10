@@ -71,8 +71,8 @@ Product full SN: VF7110B1-2253-D008E000-00004584
 data version: 0x2
 PCB revision: 0xb2
 BOM revision: A
-Ethernet MAC0 address: 6c:cf:39:00:47:2c
-Ethernet MAC1 address: 6c:cf:39:00:47:2d
+Ethernet MAC0 address: [redacted]
+Ethernet MAC1 address: [redacted]
 --------EEPROM INFO--------
 
 In:    serial@10000000
@@ -109,13 +109,13 @@ Found U-Boot script /boot.scr.uimg
 1595 bytes read in 8 ms (194.3 KiB/s)
 ## Executing script at 43900000
 nife: boot.scr is driving this boot, milestones 218 and 257
-nife: tftp server is 192.168.8.206, setenv nife_boot_server to point somewhere else
+nife: tftp server is [redacted], setenv nife_boot_server to point somewhere else
 ethernet@16030000 Waiting for PHY auto negotiation to complete...... done
 BOOTP broadcast 1
 BOOTP broadcast 2
-DHCP client bound to address 192.168.8.200 (258 ms)
+DHCP client bound to address [redacted] (258 ms)
 Using ethernet@16030000 device
-TFTP from server 192.168.8.206; our IP address is 192.168.8.200
+TFTP from server [redacted]; our IP address is [redacted]
 Filename 'nife-vf2.img'.
 Load address: 0x40200000
 Loading: *#################################################################
@@ -126,7 +126,7 @@ Loading: *#################################################################
 done
 Bytes transferred = 3222748 (312cdc hex)
 Using ethernet@16030000 device
-TFTP from server 192.168.8.206; our IP address is 192.168.8.200
+TFTP from server [redacted]; our IP address is [redacted]
 Filename 'nife-initrd.img'.
 Load address: 0x90000000
 Loading: *#################################################################
