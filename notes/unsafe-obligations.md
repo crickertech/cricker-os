@@ -625,17 +625,12 @@ Raised from 23 to 24 by milestone 835 (a C library, stage 1: files, clock and me
 (UTC): `OneThread`, the C library's descriptor table, sound because a stage-1 C process has one
 thread. Milestone 836 (a C library, stage 2: threads) takes it back out.
 
-Raised from 11 to 12 by milestone 812 (`std::thread::spawn` runs real threads in one address
-space), 2026-10-10 (UTC): the host tests of `inter_process_communication::futex` give their test
-thread an `intrusive_fifo::Node` impl, the same field-storage assertion the crate's notification
-and rendezvous tests already make for their own, since a test module cannot reach another's.
-
 Other than `Send`/`Sync`, at most 12 <!--count-at-most:unsafe-trait-claims--> `unsafe impl`s of
 an unsafe trait, at the tree's exact value for the reason the line above
 gives (milestone 139 round 9, 2026-10-07 UTC; the marker's name is provisional). The census once
 counted `unsafe impl` as one number and the gate watched only its `Send`/`Sync` half. This is the
-rest (`GlobalAlloc`, `intrusive_fifo::Node`, `ns16550::RegisterSpace`). It read 7, 9, 9, 9 and 11
-at five dates from 2026-08-18 to 2026-10-07: two moves in seven weeks.
+rest (`GlobalAlloc`, `intrusive_fifo::Node`, `ns16550::RegisterSpace`). It read 7, 9, 9, 9, 11
+and 12 from 2026-08-18 to 2026-10-10, the last for the futex host tests.
 
 No target for `kernel/src/arch/`, which is 139 blocks and rising. Driving that number down means
 either writing assembly wrong or moving it out of `arch/`, and DECISIONS rule 1 says arch code
