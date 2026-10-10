@@ -539,10 +539,14 @@ supporting observation and a plausible mechanism.
 ### A smaller effect, inside one boot
 
 Detaching `script/board-console` mid-run took the 13:04 boot from a steady 183,130/s to a steady
-194,000/s, about 6%. Same boot, so placement was constant and the comparison is fair, which is
-more than can be said for the eightfold figure above. It is recorded because a rate owes the
+194,000/s, about 6%. Same boot, so placement was constant and the comparison is fair,
+unlike the eightfold figure above. It is recorded because a rate owes the
 regime it was measured in: whether a reader was draining the serial port is part of the
-measurement. It has been seen once and is not confirmed.
+measurement. Seen once, unconfirmed.
+
+## radon, 2026-10-09 to 10
+
+Run table: [soak/radon-2026-10-10.md](soak/radon-2026-10-10.md).
 
 ## Why this extends `board_console` and not the other two instruments
 
