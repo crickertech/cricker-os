@@ -42,7 +42,7 @@ components/src/printenv.rs:1	67
 components/src/ps.rs:1	83
 components/src/reboot.rs:1	50
 components/src/rm.rs:1	54
-components/src/rmle.rs:1	64
+components/src/rmle.rs:1	63
 components/src/serial_driver.rs:1	42
 components/src/socket_squatter.rs:1	44
 components/src/socket_test_client.rs:1	53
@@ -85,8 +85,8 @@ crates/calendar/src/lib.rs:1	113
 crates/capability/src/lib.rs:1	55
 crates/capability_witness_protocol/src/lib.rs:1	83
 crates/clock_protocol/src/lib.rs:1	118
-crates/component_plan/src/lib.rs:1	159
-crates/component_plan/src/lib.rs:850	46
+crates/component_plan/src/lib.rs:1	158
+crates/component_plan/src/lib.rs:849	46
 crates/compositor/src/lib.rs:1	138
 crates/coremark/src/lib.rs:1	53
 crates/counter_frequency_protocol/src/lib.rs:1	154
@@ -134,10 +134,10 @@ crates/inter_process_communication/src/lib.rs:1	138
 crates/inter_process_communication/src/notification.rs:1	73
 crates/inter_process_communication/src/timer.rs:1	58
 crates/intrusive_fifo/src/lib.rs:1	148
-crates/jh7110_clock_and_reset/src/lib.rs:2	184
-crates/jh7110_entropy/src/lib.rs:2	176
-crates/jh7110_entropy/src/lib.rs:370	44
-crates/jh7110_entropy/src/lib.rs:604	41
+crates/jh7110_clock_and_reset/src/lib.rs:2	103
+crates/jh7110_entropy/src/lib.rs:2	175
+crates/jh7110_entropy/src/lib.rs:369	44
+crates/jh7110_entropy/src/lib.rs:603	41
 crates/job_mix/src/lib.rs:1	140
 crates/line_editor/src/lib.rs:1	142
 crates/loaded_image_check/src/lib.rs:1	76
@@ -165,7 +165,7 @@ crates/memory_regions/src/table.rs:568	50
 crates/name_resolution_protocol/src/lib.rs:1	83
 crates/network_time_protocol/src/lib.rs:1	149
 crates/nifefs/src/lib.rs:1	91
-crates/non_volatile_memory_express/src/lib.rs:2	92
+crates/non_volatile_memory_express/src/lib.rs:2	91
 crates/package_archive/src/lib.rs:1	144
 crates/page_frames/src/lib.rs:1	73
 crates/paging/src/lib.rs:1	150
@@ -190,9 +190,9 @@ crates/swish/src/complete.rs:1	57
 crates/swish/src/lib.rs:1	84
 crates/swish/src/lib.rs:598	45
 crates/swish/src/sequence.rs:1	82
-crates/system_initializer/src/lib.rs:6	301
-crates/system_initializer/src/lib.rs:1260	41
-crates/system_initializer/src/lib.rs:3787	41
+crates/system_initializer/src/lib.rs:6	300
+crates/system_initializer/src/lib.rs:1259	41
+crates/system_initializer/src/lib.rs:3786	41
 crates/system_log/src/lib.rs:1	96
 crates/test_times/src/lib.rs:1	64
 crates/thread_wake_handshake/src/lib.rs:1	131
