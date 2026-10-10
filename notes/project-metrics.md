@@ -39,6 +39,14 @@ not a caption, it is a register entry.
 
 - 2026W41: risk 4 went green on 2026-10-05 UTC (calef); milestones 761 and 766 cut the null syscall's growth to four tasks from 48 to 10 ticks.
 
+## Rust file size
+
+![Share of Rust lines in files over 2,000](project-metrics/file-size.svg)
+
+<!-- file-size: script/metrics writes this -->
+**File size:** 19 Rust files over 2,000 lines, holding 21.0% of all Rust lines; largest kernel/src/sched.rs (8,921); 95th percentile 1,484.
+<!-- /file-size -->
+
 ## unsafe blocks outside kernel/src/arch/
 
 ![unsafe density](project-metrics/unsafe.svg)
@@ -54,14 +62,6 @@ and only the ratio is about soundness.
 The same census split by what confines the code: kernel privilege, userspace confinement, both, and
 the pre-kernel boot chain. Before 2026W38 the `unclassified` band is crates whose names have since
 changed, so read those weeks as undercounts of both sides.
-
-## Rust file size
-
-![Share of Rust lines in files over 2,000](project-metrics/file-size.svg)
-
-<!-- file-size: script/metrics writes this -->
-**File size:** 19 Rust files over 2,000 lines, holding 21.0% of all Rust lines; largest kernel/src/sched.rs (8,921); 95th percentile 1,484.
-<!-- /file-size -->
 
 ## Milestones built each week
 
