@@ -500,6 +500,26 @@ pub fn cataloged_stem<'c>(
     name: &str,
     architecture: &str,
 ) -> Result<&'c str, CatalogMiss> {
+    matching_stem(
+        measured_boot::manifest_entries(catalogue)
+            .flatten()
+            .map(|(stem, _)| stem),
+        name,
+        architecture,
+    )
+}
+
+/// **[`cataloged_stem`]'s rule over any list of stems**, for a reader whose lines are not the
+/// catalog's: milestone 801 (packages over the internet)'s index carries a location after each
+/// stem and digest, so `measured_boot::manifest_entries` would refuse its lines, and the rule for
+/// what `name` and `name@version` mean must still be this one, written once.
+///
+/// Name: provisional 2026-10-09 (UTC), milestone 801's lane.
+pub fn matching_stem<'c>(
+    stems: impl IntoIterator<Item = &'c str>,
+    name: &str,
+    architecture: &str,
+) -> Result<&'c str, CatalogMiss> {
     let (name, wanted) = match name.split_once('@') {
         Some((name, version)) => (name, Some(version)),
         None => (name, None),
@@ -508,10 +528,7 @@ pub fn cataloged_stem<'c>(
         return Err(CatalogMiss::NoSuchPackage);
     }
     let mut found: Option<&'c str> = None;
-    for stem in measured_boot::manifest_entries(catalogue)
-        .flatten()
-        .map(|(stem, _)| stem)
-    {
+    for stem in stems {
         let version = stem
             .strip_suffix(architecture)
             .and_then(|s| s.strip_suffix('-'))

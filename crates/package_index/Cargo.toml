@@ -1,0 +1,18 @@
+[package]
+name = "package_index"
+version = "0.1.0"
+edition = "2024"
+license.workspace = true
+
+[lints]
+workspace = true
+
+# Name: provisional 2026-10-09 (UTC), milestone 801 (packages over the internet)'s lane. The words
+# are §250 (an image names its distribution's package index)'s.
+
+[dependencies]
+# The digest's text form and its one parser (§197 (a package is one archive file)'s digest ruling).
+measured_boot = { version = "0.1.0", path = "../measured_boot" }
+# What `name` and `name@version` mean, and whether fetched bytes may be installed: the same two
+# functions the progenitor's catalog lookup and installer call, so an index cannot disagree with them.
+package_archive = { version = "0.1.0", path = "../package_archive" }
