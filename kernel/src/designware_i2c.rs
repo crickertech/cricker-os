@@ -199,7 +199,11 @@ impl DesignWareI2c {
                 core::hint::spin_loop();
                 spins -= 1;
             }
-            let stop = if read.is_empty() && n == last_write { STOP_CMD } else { 0 };
+            let stop = if read.is_empty() && n == last_write {
+                STOP_CMD
+            } else {
+                0
+            };
             self.wr(DATA_CMD, u32::from(*byte) | stop);
         }
         for n in 0..read.len() {

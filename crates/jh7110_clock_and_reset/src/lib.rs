@@ -692,7 +692,11 @@ pub struct IcClkWords {
 /// should carry rather than a divide-by-zero).
 #[must_use]
 pub const fn one_based_div(word: u32, width: u32) -> u64 {
-    let mask = if width >= 32 { u32::MAX } else { (1 << width) - 1 };
+    let mask = if width >= 32 {
+        u32::MAX
+    } else {
+        (1 << width) - 1
+    };
     let value = (word & mask) as u64;
     if value == 0 { 1 } else { value }
 }
@@ -772,10 +776,17 @@ pub const fn standard_mode_100k(ic_clk: u64) -> StandardMode {
     let fall = counts(ic_clk, 300);
     let thigh = counts(ic_clk, 4_000);
     let tlow = counts(ic_clk, 4_700);
-    let period = if ic_clk >= 100_000 { ic_clk / 100_000 } else { 1 };
+    let period = if ic_clk >= 100_000 {
+        ic_clk / 100_000
+    } else {
+        1
+    };
 
     let mut hcnt = thigh.saturating_sub(fall + 7);
-    let mut lcnt = tlow.saturating_sub(rise).saturating_add(fall).saturating_sub(1);
+    let mut lcnt = tlow
+        .saturating_sub(rise)
+        .saturating_add(fall)
+        .saturating_sub(1);
 
     let tot = hcnt + lcnt + 7 + rise + 1;
     if tot < period {
@@ -1861,7 +1872,8 @@ mod tests {
     #[test]
     fn reg_cells_parse_in_both_spellings() {
         // The vendor and mainline bus nodes: <0x0 0x12050000 0x0 0x10000>.
-        let four = 0x0000_0000u32.to_be_bytes()
+        let four = 0x0000_0000u32
+            .to_be_bytes()
             .iter()
             .chain(0x1205_0000u32.to_be_bytes().iter())
             .chain(0x0000_0000u32.to_be_bytes().iter())

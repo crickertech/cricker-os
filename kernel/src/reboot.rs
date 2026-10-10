@@ -82,8 +82,9 @@ pub fn cold_reset(marker: &str) -> abi::Error {
 #[cfg(target_arch = "riscv64")]
 fn pmic_reset_attempt(marker: &str) {
     use jh7110_clock_and_reset::{
-        i2c5_ic_clk, one_based_div, standard_mode_100k, IcClkWords, PMIC_RESET_BIT, PMIC_RESET_REG,
-        SYS_SYSCON_BASE, SYSCLK_APB_BUS_FUNC, SYSCLK_AXI_CFG0, SYSCLK_BUS_ROOT, SYSCLK_STG_AXIAHB,
+        IcClkWords, PMIC_RESET_BIT, PMIC_RESET_REG, SYS_SYSCON_BASE, SYSCLK_APB_BUS_FUNC,
+        SYSCLK_AXI_CFG0, SYSCLK_BUS_ROOT, SYSCLK_STG_AXIAHB, i2c5_ic_clk, one_based_div,
+        standard_mode_100k,
     };
 
     let Some((sys, bus)) = crate::memory::jh7110_pmic_bus() else {
@@ -131,7 +132,7 @@ fn pmic_reset_attempt(marker: &str) {
     );
 
     let i2c = crate::designware_i2c::DesignWareI2c::new(
-        crate::arch::mmu::phys_to_virt(controller) as usize,
+        crate::arch::mmu::phys_to_virt(controller) as usize
     );
     // The register is read first so the write sets the reset bit alone and the PMIC's other bits
     // keep whatever they hold, which is the difference between option B and the power-off bit 7
