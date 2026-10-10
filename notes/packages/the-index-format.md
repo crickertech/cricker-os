@@ -55,79 +55,46 @@ Neither builds for nife's targets yet (858's appendix: `aws-lc-sys` and `ring`).
 - Nobody but TUF has a "moved to" for the index itself. The rest move the index by editing every
   client's configuration, and Debian hides moves behind a CNAME.
 
-## What is left to rule
+## What calef ruled, 2026-10-10 (UTC)
 
-Each question says what is blocked, and what a "no" would mean.
+All five questions were put on #1884 with options, and calef ruled each there; those comments are
+the record and quote him. In short, with what milestone 801 built under QEMU and where the rest
+lives:
 
-### Q1. Where a package's bytes are named (a format fork)
+| Question | Ruling | Built in `crates/package_index` | Not 801's, and where it goes |
+|---|---|---|---|
+| Q1. Where a package's bytes are named | "L1, with the safeguards": a signed, ordered `custom.locations` list per target as additional sources; basalt always keeps a copy in its own `targets/`, the fallback; HTTPS only; no private or link-local addresses; an owner may pin one mirror | `Entry::locations` (HTTPS only), `Index::sources` (listed, then the repository; a pinned mirror alone), `public_address` | Who signs location changes: decided with the signing setup (milestone 858) |
+| Q2. What "moved to" means | "M1 plus a backup address": only a signed root names a new location, followed once the new place serves a root chaining to the trusted one; each image carries a second index address | The client tries the image's addresses in order (`package_fetch_exerciser`) | Following a root's move is the TUF client's (milestone 858); §250's wording is question A below |
+| Q3. basalt's root in an image | "K4, a default owner trust line": the root's SHA-256 in the form of §220 (signed builds: a vendor signs, a developer self-signs, and trusting a key is scoped), removable by the owner; §220 clause 1 and §195 (a reviewed recipe vouches for a package) clause 4 amended | nothing | The amendments are the integrator's text; the trust line is proposed as a milestone (`design/roadmap/proposals/an-image-carries-its-distributions-root-as-a-default-trust-line.md`) |
+| Q4. The path on the host | "Channel prefix, no architecture": `/<channel>/metadata/`, `/<channel>/targets/`, each channel its own TUF repository, all three architectures in one index | `Repository` and its paths; `PROVISIONAL_CHANNEL` is `rolling`, a name calef has not given | Naming the channel is calef's |
+| Q5. `jig`'s resolver grant | "Yes, root zone, any repository": `jig` holds the root zone, recorded where granted, with Q1's safeguards; any repository whose root is an owner trust line with a §220 ceiling | The test grants the root zone, and `public_address` is what bounds listed locations | Granting it at the prompt is the proposed std-at-the-prompt milestone; installing from any repository is milestone 809 (the package client becomes a program)'s `add-index` |
 
-| Option | Shape | Cost |
-|---|---|---|
-| L1 | `custom.locations` per target: an ordered list of absolute URLs, the targets role signs it | Moving the bytes re-signs `targets.json`, which a rolling release does every day anyway |
-| L2 | TUF's own: bytes at `<targets base>/<hash>.<path>`, and the targets base compiled into the image | Moving the bytes ships an image, which §250 clause 2 refuses |
-| L3 | The targets base in a signed root's `custom` field | Moving the bytes is a root rotation, the heaviest act TUF has |
+The stand-in encoding stays until the TUF client exists: a line is the catalog's line followed by
+zero or more HTTPS locations.
 
-Recommended: L1, with TUF's own layout as the floor. A client tries the listed locations in order
-and then the repository's `targets/`, so a mirror that copies the repository (cordoba, or local
-media for an air-gapped machine) works with no locations at all. This is §250 clause 1 as written,
-and it is the one place basalt's index differs from a plain TUF repository. It would be the same
-choice at equal cost: the reason is clause 2, not effort.
+## Two questions the rulings raise
 
-Blocked on it: replacing `package_index::Index::parse`. If no, L2 needs §250 clause 2 amended.
+**A. Does the backup address touch §250's wording?** Yes, in two places. Clause 1 says "An image
+carries one fixed name", and Q2 gives it two. Clause 3 pins ISRG Root X1 "to the index host only".
+Recommended: amend clause 1 to one index at up to two addresses, the second under a different
+registrable domain so one domain's loss cannot take both, and let clause 3's pin cover both
+addresses. If no: the backup cannot be on another domain, and a domain loss still strands a machine.
 
-### Q2. What "moved to" means (a format fork)
+**B. Which root must a listed HTTPS location's certificate chain to?** §196 (nife carries TLS)
+clause 4 holds one root per source and no system store, and Q1 makes every location HTTPS.
 
-§250 clause 4 asks for the field, and its BUGS line leaves the semantics to this ruling.
-
-| Option | Who may move the index | Client behavior |
-|---|---|---|
-| M1 | Root keys: a signed root carries the new location | Every update reads it; the client rewrites its own source only after the new place serves a root chaining to the trusted one |
-| M2 | The timestamp key, online, in `timestamp.json`'s `custom` | Same, signed by the key most exposed to theft |
-| M3 | The host, by an HTTP redirect | TUF still verifies the content, but nothing signed says the move was meant |
-
-Recommended: M1. The index's identity is what root keys exist to vouch for. A client that follows
-without verifying would let anyone holding the old name move every machine. Blocked on it: nothing
-until the first move. If no, the old name must answer forever.
-
-### Q3. An image would carry basalt's TUF root, and two rulings say no key ships
-
-The amendment says every copy of the index verifies "against basalt's root", so an image carries
-that root or something that pins it. §220 (signed builds: a vendor signs, a developer self-signs, and trusting a key is scoped) clause 1 says "No
-key ships in any image", and §195 (a reviewed recipe vouches for a package) clause 4 that no
-long-lived signing key is held for now.
-
-| Option | What the image carries |
+| Option | What it costs |
 |---|---|
-| K1 | `1.root.json` itself |
-| K2 | Nothing new: the first root is fetched over the pinned TLS connection and trusted on first use |
-| K3 | The SHA-256 of `1.root.json`, beside the catalog in the measured archive |
+| R1. The index's own pin, ISRG Root X1 | A location on another authority fails and the client falls back to `targets/`. GitHub's release asset host was measured on Let's Encrypt (§250) |
+| R2. A small root store for package bytes only | The store §196 clause 4 refused, and the circularity it names |
+| R3. Encryption without verifying the certificate | The digest already decides integrity, so TLS buys only privacy from a passive observer, and a client that accepts any certificate is a pattern worth not having |
 
-Recommended: K3, said plainly: it is K1 in effect, since pinning the root's digest pins its keys.
-The question for calef is whether §250's amendment amends §220 clause 1 and §195 clause 4 for a
-distribution's root. K3 keeps the image a list of digests, as every other trust root here is. K2
-makes the WebPKI the root of package trust, which TUF exists to avoid. Blocked on it: any TUF
-verification at all, and the key custody it implies (who holds basalt's root keys, and how many).
-
-### Q4. The index's path on `basalt.nifeos.org` (calef's, already pending)
-
-Under TUF the file names are TUF's (`root.json`, `timestamp.json`, `<N>.snapshot.json`,
-`<N>.targets.json`), so what is left is a prefix. P1 is the host's root (`/metadata/`,
-`/targets/`). P2 is a channel prefix, `/<channel>/metadata/`, which the cordoba spec already uses
-as `/lab/` (`notes/lab-index-on-cordoba.md`). Recommended: P2, so a second channel needs no new name.
-The stand-in path is `package_index::STAND_IN_INDEX_PATH`, one line to change.
-
-### Q5. A resolver grant is a zone, and bytes may live anywhere
-
-Not a format question, found while building item 3. §252 (a resolver grant is one zone per client
-badge) bounds which names a client may resolve, and L1's locations are on any host. Z1 grants the
-package client the root zone, which §252's protocol crate names as the grant for a client that needs every name. Z2 requires
-locations under the index's own zone. Z3 has the client ask its spawner for each location's zone,
-which the spawner cannot judge before the index is verified. Recommended: Z1 for `jig`, recorded
-where the grant is made. The resolver grant then bounds nothing the socket grant does not, which is
-the honest statement of what "bytes anywhere" costs.
+Recommended: R1. It keeps one root per source and costs nothing but a fallback. The exerciser pins
+listed locations to the test authority now, which is R1's shape. If no: R2 or R3 is a decision on
+§196 clause 4 first.
 
 ## What this does not decide
 
-The TUF client itself is 858's items 4 and 5 and milestone 809 (the package client becomes a
-program)'s. Signing and key custody are 858's and milestone 666 (a signed build installs up to its
-key's ceiling)'s. This note decides nothing; the stand-in in `crates/package_index` waits on Q1 and Q2.
+The TUF client and verifier are milestone 858's items 4 and 5, and the trust table is milestone
+666 (a signed build installs up to its key's ceiling)'s. `crates/package_index`'s stand-in
+encoding waits on the TUF client, and nothing above `Index::parse` should change when it lands.

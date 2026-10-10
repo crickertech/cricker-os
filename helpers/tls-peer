@@ -24,11 +24,16 @@ answers from one port:
 After the handshake it answers one HTTP/1.0 GET:
 
   GET /index          a short fixed body (milestone 501's test)
-  GET /stand-in/index milestone 801 (packages over the internet)'s stand-in
+  GET /rolling/metadata/stand-in-index
+                      milestone 801 (packages over the internet)'s stand-in
                       package index, composed from the build's catalog: one
-                      line per package, the catalog's line and then where its
-                      bytes live, on helpers/package-http-peer. The path is a
-                      stand-in too (package_index::STAND_IN_INDEX_PATH).
+                      line per package, the catalog's line and then one
+                      listed location on packages.basalt.test, which resolves
+                      to this private address and so must be refused
+  GET /rolling/targets/<stem>.nifepkg
+                      the repository's own copy, the fallback; `uptime`'s has
+                      one byte flipped halfway, a lying repository only the
+                      index's digest can refuse
   GET /bytes/<n>      n bytes of a repeating pattern, for measuring throughput
   anything else       404, with a Content-Length like every reply
 
@@ -54,13 +59,13 @@ BYTES = re.compile(rb"^/bytes/([0-9]{1,8})$")
 PACKAGE_SOURCE = os.environ.get("NIFE_PACKAGE_SOURCE") or os.path.join(
     os.path.dirname(os.path.abspath(__file__)), "..", "target", "packages"
 )
-PACKAGE_HOST = "http://packages.basalt.test:8080"
+LISTED = "https://packages.basalt.test:8443"
+CHANNEL = "rolling"
+TARGET = re.compile(rb"^/rolling/targets/([A-Za-z0-9._-]+\.nifepkg)$")
 
 
 def stand_in_index():
-    """Every catalog line, with a location after it. `uptime`'s location is the
-    peer's tampered copy, so the index vouches for the real digest and the
-    bytes it points at are a lying mirror's: only the digest can refuse them."""
+    """Every catalog line, with one listed location after it."""
     lines = []
     try:
         with open(os.path.join(PACKAGE_SOURCE, "catalog"), "rb") as f:
@@ -72,9 +77,20 @@ def stand_in_index():
         if len(parts) != 2:
             continue
         stem, digest = parts
-        where = "/tampered/" if stem.startswith("uptime-") else "/"
-        lines.append("%s %s %s%s%s.nifepkg\n" % (stem, digest, PACKAGE_HOST, where, stem))
+        lines.append("%s %s %s/%s/targets/%s.nifepkg\n" % (stem, digest, LISTED, CHANNEL, stem))
     return "".join(lines).encode("ascii")
+
+
+def target(name):
+    """The repository's copy of one package, or None. `uptime` is served altered."""
+    try:
+        with open(os.path.join(PACKAGE_SOURCE, name.decode()), "rb") as f:
+            body = bytearray(f.read())
+    except OSError:
+        return None
+    if name.startswith(b"uptime-") and body:
+        body[len(body) // 2] ^= 0x01
+    return bytes(body)
 
 
 def context(stem):
@@ -155,8 +171,10 @@ def main():
     path = parts[1]
     if path == b"/index":
         reply(conn, b"200 OK", INDEX)
-    elif path == b"/stand-in/index":
+    elif path == b"/rolling/metadata/stand-in-index":
         reply(conn, b"200 OK", stand_in_index())
+    elif TARGET.match(path) and target(TARGET.match(path).group(1)) is not None:
+        reply(conn, b"200 OK", target(TARGET.match(path).group(1)))
     elif BYTES.match(path):
         n = int(BYTES.match(path).group(1))
         pattern = bytes(range(256))

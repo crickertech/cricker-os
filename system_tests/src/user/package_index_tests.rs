@@ -3,10 +3,10 @@
 //! and 4).
 //!
 //! The kernel plays the spawner: `net_stack` over the `e1000e`, `name_resolver` told to ask the
-//! runners' name server, a badge granted `package_index::fixture::ZONE`, and `package_fetch_exerciser`
-//! holding that badge, the network, a clock and entropy. The index host is `helpers/tls-peer` as
-//! `basalt.test`, standing in for `basalt.nifeos.org`; the package host is
-//! `helpers/package-http-peer` as `packages.basalt.test`. Nothing leaves slirp.
+//! runners' name server, a badge granted the root zone (`package_index::fixture::ZONE`, as `jig`'s
+//! is under calef's Q5), and `package_fetch_exerciser` holding that badge, the network, a clock and
+//! entropy. The repository is `helpers/tls-peer` as `basalt.test`, the image's backup index
+//! address, standing in for `basalt.nifeos.org`. Nothing leaves slirp.
 //!
 //! Skips unless somebody built the program, on `pinned_tls_tests`' terms and for its reason:
 //! `helpers/build-pinned-tls-exerciser.sh` fetches `rustls` and the provider's graph, which no gate
@@ -21,18 +21,20 @@ const GRANTED: u32 = 0x8010;
 const NO_PROGRAM: &str = "no package_fetch_exerciser in this archive: build it with \
      helpers/build-pinned-tls-exerciser.sh (milestone 801), which fetches the TLS graph from crates.io";
 
-/// **The index arrives over TLS from the host the client resolved by name, a package it names is
-/// fetched from another host and admitted by the index's digest, a location serving altered bytes
-/// is refused, and a name the index does not list fetches nothing.**
+/// **The index arrives over TLS from the image's backup address once the first is lost, a listed
+/// location on a private address is refused, the repository's own copy is fetched instead and
+/// admitted by the index's digest, an altered copy is refused, and a name the index does not list
+/// fetches nothing** (calef's Q1, Q2, Q4 and Q5 of 2026-10-10 (UTC) on #1884).
 ///
-/// The refusal is what gives the fetch its meaning: the tampered response is a complete, correct
-/// HTTP exchange of a well-formed package, so only the digest the index carried can refuse it.
+/// The refusal is what gives the fetch its meaning: the altered copy is a complete, correct HTTPS
+/// exchange of a well-formed package, so only the digest the index carried can refuse it.
 ///
-/// Falsification: attested 2026-10-09. Not replayable: no sweep builds the TLS graph. With
-/// `package_index::accept` hashing the fetched bytes instead of reading the entry's digest (on
-/// aarch64), `uptime` was refused as `MemberMismatch` rather than `NotCataloged`, and the test went
-/// red on that line. The peer's flipped byte is also caught by the package's own
-/// table of contents, which is why the test names the refusal and not merely that one happened.
+/// Falsification: attested 2026-10-10. Not replayable: no sweep builds the TLS graph. With
+/// `package_index::public_address` admitting every address (on aarch64), the client connected to
+/// the listed location at 10.0.2.9 and the test went red on the private-address line. Earlier, with
+/// `accept` hashing the fetched bytes instead of reading the entry's digest, `uptime` was refused
+/// as `MemberMismatch` rather than `NotCataloged`: the flipped byte is also caught by the package's
+/// own table of contents, which is why the test names the refusal.
 #[test_case]
 fn a_package_is_fetched_through_the_index_by_name_over_tls_and_judged_by_its_digest() {
     let Some(exerciser) = program("package_fetch_exerciser") else {
@@ -75,17 +77,27 @@ fn a_package_is_fetched_through_the_index_by_name_over_tls_and_judged_by_its_dig
     crate::println!("    package_fetch_exerciser printed {len} bytes:\n{text}");
 
     let arch = crate::arch::NAME;
+    let mut passed_over = [0u8; 128];
     let mut fetched = [0u8; 64];
     let mut refused = [0u8; 64];
-    let lines: [&str; 6] = [
+    let lines: [&str; 8] = [
         "package_fetch_exerciser start",
-        "index ok ",
+        "index unreachable at gone.basalt.test",
+        "from basalt.test over TLS",
+        format_into(
+            &mut passed_over,
+            &[
+                "passed over https://packages.basalt.test:8443/rolling/targets/greeting-0.1.0-",
+                arch,
+                ".nifepkg: a private address (10.0.2.9)",
+            ],
+        ),
         format_into(
             &mut fetched,
             &[
                 "fetched greeting-0.1.0-",
                 arch,
-                " from packages.basalt.test:8080",
+                " from basalt.test's targets",
             ],
         ),
         format_into(

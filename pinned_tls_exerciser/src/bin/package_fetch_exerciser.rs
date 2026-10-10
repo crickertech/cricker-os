@@ -1,100 +1,115 @@
-//! **A package fetched through the distribution's index: the index by host name over pinned TLS,
-//! the bytes from wherever it says over plain HTTP, believed only by the index's digest**, for
-//! milestone 801 (packages over the internet), items 1, 3 and 4 together.
+//! **A package fetched through the distribution's index, under calef's five rulings of 2026-10-10
+//! (UTC) on #1884**, for milestone 801 (packages over the internet), items 1, 3 and 4.
 //!
 //! `system_tests/src/user/package_index_tests.rs` starts it holding the network, a clock, entropy
-//! and a resolver badge granted `package_index::fixture::ZONE`. It then:
+//! and a resolver badge granted the root zone, as `jig`'s is (Q5). It then:
 //!
 //! | line | what it proves |
 //! |---|---|
-//! | `index ok ...` | `basalt.test` resolved through the grant, TLS 1.3 to the pinned root, the stand-in index read |
-//! | `fetched greeting-...` | the bytes came from another host the index named, and the index's digest admitted them |
-//! | `refused uptime-...: NotCataloged` | a location serving a tampered copy: only the digest can tell |
+//! | `index unreachable at gone.basalt.test` | the image's first address is lost, so it tries the second (Q2) |
+//! | `index ok ... from basalt.test` | the backup resolved by name, TLS 1.3 to the pinned root, the index read from `/<channel>/metadata/` (Q4) |
+//! | `passed over https://packages.basalt.test...` | a listed location resolving to a private address is refused (Q1) |
+//! | `fetched greeting-... from basalt.test's targets` | the repository's own copy is the fallback, admitted by the index's digest |
+//! | `refused uptime-...: NotCataloged` | a repository copy with one byte flipped: only the digest can tell |
 //! | `refused nosuch: not in the index` | nothing is fetched for a name the index does not list |
 //!
-//! It installs nothing. The installer is the progenitor's, and taking an index's word for what may
-//! be installed is milestone 809 (the package client becomes a program)'s `jig`.
+//! It installs nothing: installing from an index is milestone 809 (the package client becomes a
+//! program)'s `jig`. Under slirp every listed location is private, so taking bytes from one is
+//! proved only by `package_index`'s host tests.
 //!
 //! Name: provisional 2026-10-09 (UTC), milestone 801's lane, `pinned_tls_exerciser`'s shape.
 
-use std::io::{Read, Write};
-use std::net::TcpStream;
+use std::net::{SocketAddr, TcpStream, ToSocketAddrs};
 
 use entropy_backend as _;
-use package_index::fixture::{ABSENT, GENUINE, INDEX_HOST, INDEX_PORT, TAMPERED};
-use package_index::{Entry, Index, Miss, STAND_IN_INDEX_PATH, Scheme, accept};
+use package_index::fixture::{ABSENT, BACKUP_HOST, GENUINE, INDEX_PORT, PRIMARY_HOST, TAMPERED};
+use package_index::{
+    Entry, Index, Location, Miss, PATH_MAX, PROVISIONAL_CHANNEL, Repository, STAND_IN_INDEX_FILE,
+    Source, accept, public_address,
+};
 use pinned_tls_client::{PinnedPeer, Session};
 
-/// The test authority `helpers/tls-peer` chains `basalt.test` to. Test-only.
+/// The test authority `helpers/tls-peer` chains `basalt.test` to. Test-only. Listed locations are
+/// pinned to it too: §196 (nife carries TLS) holds one root per source, and which root a listed
+/// location's host must chain to is a question this lane put back on #1884.
 const PINNED_ROOT: &[u8] = include_bytes!("../../../pinned_tls_client/fixtures/pinned-root.der");
 
-/// The index, over TLS from the pinned host, reached by name.
-fn fetch_index() -> String {
-    let peer = PinnedPeer::new(INDEX_HOST, PINNED_ROOT).expect("the test pin is well formed");
-    let tcp = TcpStream::connect((INDEX_HOST, INDEX_PORT))
-        .unwrap_or_else(|e| panic!("could not reach {INDEX_HOST}:{INDEX_PORT} by name: {e}"));
-    let session = Session::handshake(&peer, tcp)
-        .unwrap_or_else(|e| panic!("the index host's handshake was refused: {e:?}"));
+/// One `GET` over TLS to `host:port`, pinned to the test root. The body, or why not.
+fn get(host: &str, port: u16, path: &str) -> Result<Vec<u8>, String> {
+    let peer = PinnedPeer::new(host, PINNED_ROOT).map_err(|e| format!("{e:?}"))?;
+    let tcp = TcpStream::connect((host, port)).map_err(|e| format!("{:?}", e.kind()))?;
+    let session = Session::handshake(&peer, tcp).map_err(|e| format!("{e:?}"))?;
     let mut body = Vec::new();
-    let status = session
-        .get(STAND_IN_INDEX_PATH, |part| body.extend_from_slice(part))
-        .unwrap_or_else(|e| panic!("the index request failed: {e:?}"));
-    assert_eq!(status, 200, "the index host answered {status}");
-    String::from_utf8(body).expect("the index is not text")
+    match session.get(path, |part| body.extend_from_slice(part)) {
+        Ok(200) => Ok(body),
+        Ok(status) => Err(format!("status {status}")),
+        Err(e) => Err(format!("{e:?}")),
+    }
 }
 
-/// One package's bytes from where its entry says, over plain HTTP. An HTTPS location would need a
-/// pin for that host, and §250 (an image names its distribution's package index) pins only the
-/// index host, so it is refused here (see BUGS in
-/// `notes/packages/over-the-internet.md`).
-fn fetch_bytes(entry: &Entry<'_>) -> Result<Vec<u8>, String> {
-    let at = entry.location;
-    if at.scheme == Scheme::Https {
-        return Err("an https location, and this client pins only the index host".into());
-    }
-    let mut tcp = TcpStream::connect((at.host, at.port)).map_err(|e| format!("{:?}", e.kind()))?;
-    let mut request = [0u8; 512];
-    let n = http_response::get_request(at.host, at.path, &mut request)
-        .ok_or("the request did not fit")?;
-    tcp.write_all(&request[..n]).map_err(|e| format!("{:?}", e.kind()))?;
-    let mut response = http_response::Response::new();
-    let mut body = Vec::new();
-    let mut buf = vec![0u8; 16 * 1024];
-    while !response.is_complete() {
-        let got = tcp.read(&mut buf).map_err(|e| format!("{:?}", e.kind()))?;
-        if got == 0 {
-            return Err("the connection ended before the body did".into());
+/// The index from the first of the image's addresses that answers (Q2).
+fn fetch_index<'r>(addresses: &'r [Repository<'r>]) -> (String, &'r Repository<'r>) {
+    for repo in addresses {
+        let mut buf = [0u8; PATH_MAX];
+        let path = repo.metadata_path(STAND_IN_INDEX_FILE, &mut buf).unwrap();
+        match get(repo.host, repo.port, path) {
+            Ok(body) => return (String::from_utf8(body).expect("the index is not text"), repo),
+            Err(why) => println!("index unreachable at {}: {why}", repo.host),
         }
-        let part = response.feed(&buf[..got]).map_err(|e| format!("{e:?}"))?;
-        body.extend_from_slice(part);
     }
-    match response.status() {
-        Some(200) => Ok(body),
-        other => Err(format!("status {other:?}")),
-    }
+    panic!("no index address answered");
 }
 
-/// Ask the index for `name` on this architecture, fetch it, and say what happened.
-fn install_check(index: &Index<'_>, name: &str, architecture: &str) {
-    let entry = match index.find(name, architecture) {
+/// A listed location, if every address its host resolves to is public (Q1's safeguard).
+fn from_location(at: &Location<'_>) -> Result<Vec<u8>, String> {
+    let addresses: Vec<SocketAddr> = (at.host, at.port)
+        .to_socket_addrs()
+        .map_err(|e| format!("{:?}", e.kind()))?
+        .collect();
+    for a in &addresses {
+        if let SocketAddr::V4(v4) = a {
+            if !public_address(v4.ip().octets()) {
+                return Err(format!("a private address ({})", v4.ip()));
+            }
+        }
+    }
+    get(at.host, at.port, at.path)
+}
+
+/// Ask the index for `name`, try its sources in order, and say what happened.
+fn install_check(index: &Index<'_>, from: &Repository<'_>, name: &str, architecture: &str) {
+    let entry: Entry<'_> = match index.find(name, architecture) {
         Ok(entry) => entry,
         Err(Miss::NoSuchPackage) => return println!("refused {name}: not in the index"),
         Err(Miss::SeveralVersions) => return println!("refused {name}: several versions"),
     };
-    let bytes = match fetch_bytes(&entry) {
-        Ok(bytes) => bytes,
-        Err(why) => return println!("refused {}: fetch failed: {why}", entry.stem),
-    };
-    match accept(&entry, &bytes) {
-        Ok(ok) => println!(
-            "fetched {} from {}:{}, {} bytes, program {}",
-            entry.stem,
-            entry.location.host,
-            entry.location.port,
-            bytes.len(),
-            ok.program
-        ),
-        Err(why) => println!("refused {}: {why:?}", entry.stem),
+    for source in Index::sources(&entry, from, None) {
+        let (bytes, whence) = match source {
+            Source::Listed(at) => match from_location(&at) {
+                Ok(bytes) => (bytes, format!("{}:{}", at.host, at.port)),
+                Err(why) => {
+                    println!("passed over https://{}:{}{}: {why}", at.host, at.port, at.path);
+                    continue;
+                }
+            },
+            Source::Repository(repo) => {
+                let mut buf = [0u8; PATH_MAX];
+                let path = repo.target_path(entry.stem, &mut buf).unwrap();
+                match get(repo.host, repo.port, path) {
+                    Ok(bytes) => (bytes, format!("{}'s targets", repo.host)),
+                    Err(why) => return println!("refused {}: fetch failed: {why}", entry.stem),
+                }
+            }
+        };
+        return match accept(&entry, &bytes) {
+            Ok(ok) => println!(
+                "fetched {} from {whence}, {} bytes, program {}",
+                entry.stem,
+                bytes.len(),
+                ok.program
+            ),
+            Err(why) => println!("refused {}: {why:?}", entry.stem),
+        };
     }
 }
 
@@ -105,15 +120,20 @@ fn main() {
         std::process::exit(101);
     }));
     println!("package_fetch_exerciser start");
-    let text = fetch_index();
+    let addresses = [
+        Repository::new(PRIMARY_HOST, INDEX_PORT, PROVISIONAL_CHANNEL).unwrap(),
+        Repository::new(BACKUP_HOST, INDEX_PORT, PROVISIONAL_CHANNEL).unwrap(),
+    ];
+    let (text, from) = fetch_index(&addresses);
     let index = Index::parse(&text).unwrap_or_else(|bad| panic!("index line refused: {bad:?}"));
     println!(
-        "index ok {} packages from {INDEX_HOST} over TLS",
-        index.entries().count()
+        "index ok {} packages from {} over TLS",
+        index.entries().count(),
+        from.host
     );
     let architecture = std::env::consts::ARCH;
     for name in [GENUINE, TAMPERED, ABSENT] {
-        install_check(&index, name, architecture);
+        install_check(&index, from, name, architecture);
     }
     println!("package_fetch_exerciser done");
 }

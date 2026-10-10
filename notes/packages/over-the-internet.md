@@ -8,31 +8,42 @@ card a PC actually has) on silicon.
 
 ## What a fetch over the internet does now
 
-From a program holding the network, a clock, entropy and a resolver grant:
+From a program holding the network, a clock, entropy and a resolver grant of the root zone (calef's
+Q5 on #1884), under the five rulings `the-index-format.md` records:
 
-1. `TcpStream::connect(("basalt.test", 8443))` resolves the name through the resolver badge.
-2. TLS 1.3 to that host, trusting one pinned root (`pinned_tls_client`, milestone 501 (a TLS
-   client that speaks to one pinned peer)).
-3. `GET` the index, and `package_index::Index::parse` reads every line or refuses it whole.
-4. `Index::find` picks the one entry a name asks for, and the client fetches its bytes from the
-   location the entry names: another host, plain HTTP.
+1. Try the image's index addresses in order (Q2): `gone.basalt.test` stands in for a lost first
+   address, `basalt.test` for the backup. Each is a `package_index::Repository`, one channel.
+2. TLS 1.3 to the first that answers, trusting one pinned root (`pinned_tls_client`, milestone 501
+   (a TLS client that speaks to one pinned peer)), and `GET /<channel>/metadata/stand-in-index`
+   (Q4). `Index::parse` reads every line or refuses the index whole.
+3. `Index::find` picks the one entry a name asks for, and `Index::sources` gives where to fetch it
+   (Q1): its listed HTTPS locations, then the repository's own `/<channel>/targets/`, or only the
+   mirror an owner pinned.
+4. A listed location whose host resolves to a private or link-local address is passed over
+   (`package_index::public_address`).
 5. `package_index::accept` admits the bytes only if they are the package asked for and hash to the
    index's digest.
 
 ### EXAMPLES
 
-`package_fetch_exerciser`'s transcript on aarch64, 2026-10-09 (UTC). riscv64 and x86_64 print the
+`package_fetch_exerciser`'s transcript on aarch64, 2026-10-10 (UTC). riscv64 and x86_64 print the
 same lines for their own architecture.
 
 ```
 $ script/test --arch aarch64 --test package_is_fetched_through
 package_fetch_exerciser start
+index unreachable at gone.basalt.test: Other
 index ok 12 packages from basalt.test over TLS
-fetched greeting-0.1.0-aarch64 from packages.basalt.test:8080, 83875 bytes, program greeting
+passed over https://packages.basalt.test:8443/rolling/targets/greeting-0.1.0-aarch64.nifepkg: a private address (10.0.2.9)
+fetched greeting-0.1.0-aarch64 from basalt.test's targets, 83875 bytes, program greeting
+passed over https://packages.basalt.test:8443/rolling/targets/uptime-0.1.0-aarch64.nifepkg: a private address (10.0.2.9)
 refused uptime-0.1.0-aarch64: NotCataloged
 refused nosuch: not in the index
 package_fetch_exerciser done
 ```
+
+Under slirp every listed location is a private address, so this run proves the refusal and the
+fallback; taking bytes from a public listed location is proved only by `package_index`'s host tests.
 
 `std_resolve` shows the std half of the name, with a grant and then without one:
 
@@ -82,22 +93,23 @@ two things the image's catalog holds together today.
 - `accept` hands the bytes to `package_archive::installable_as` with the entry as a one-line
   catalog. The progenitor's installer calls the same function with the image's catalog.
 
-The format is not ruled, so the crate reads a stand-in: the catalog's line with a location after
-it. A ruling replaces `Index::parse` and nothing above it. The survey and the five open questions
-are [the-index-format.md](the-index-format.md).
+Until the TUF client of milestone 858 (lab machines update themselves through packages) exists,
+the crate reads a stand-in: the catalog's line
+followed by zero or more HTTPS locations. That client replaces `Index::parse` and nothing above it.
+The survey and calef's rulings are [the-index-format.md](the-index-format.md).
 
 ```
-greeting-0.1.0-aarch64 sha256:<64 hex> http://packages.basalt.test:8080/greeting-0.1.0-aarch64.nifepkg
+greeting-0.1.0-aarch64 sha256:<64 hex> https://packages.basalt.test:8443/rolling/targets/greeting-0.1.0-aarch64.nifepkg
 ```
 
 ## The seams, each stubbed behind a test host
 
 | Production | Under QEMU | Whose |
 |---|---|---|
-| `basalt.nifeos.org` | `basalt.test`, `helpers/tls-peer` at 10.0.2.9:8443 | DNS and hosting: calef's hands |
-| The index's path and file name | `package_index::STAND_IN_INDEX_PATH` | calef's ruling (§250's unwritten part) |
-| ISRG Root X1 | the test authority in `pinned_tls_client/fixtures/` | ruled; X1 meets a real chain only in 501's ignored host test |
-| The index's format | the stand-in encoding | the format proposal |
+| `basalt.nifeos.org` and a backup address | `gone.basalt.test` (refused by the name server), then `basalt.test`, `helpers/tls-peer` at 10.0.2.9:8443 | DNS and hosting: calef's hands; the backup's wording is question A in the-index-format.md |
+| The channel's name | `package_index::PROVISIONAL_CHANNEL`, `rolling` | calef's |
+| ISRG Root X1, for the index and (if question B is ruled so) listed locations | the test authority in `pinned_tls_client/fixtures/` | ruled for the index; X1 meets a real chain only in 501's ignored host test |
+| The index's format | the stand-in encoding | the TUF client, milestone 858 |
 | The resolver started from the lease | the test harness starts it, pointed at `helpers/name-server-peer` | identified work (milestone 801's block) |
 | `jig` installing what it fetched | the program fetches and judges, and installs nothing | milestone 809 |
 
@@ -108,14 +120,17 @@ greeting-0.1.0-aarch64 sha256:<64 hex> http://packages.basalt.test:8080/greeting
 - No program at the prompt can do this yet. The booted system does not start the resolver, and the
   progenitor does not give a std program the network (milestone 595 (the shell runs a `std`
   program)'s BUGS).
-- The stand-in has no "moved to" field, which §250 clause 4 requires, and no version, expiry or
-  signature. Each is the format ruling's.
+- The stand-in has no signed root, so no "moved to" (Q2's move is a signed root's), and no
+  version, expiry or signature. Each is the TUF client's.
 - No producer in this tree. The test host composes the stand-in from the build's catalog, in
   Python, apart from the reader on purpose.
-- One location per package, and it must be plain HTTP. An HTTPS location would need a pin for its
-  host, and §196 (nife carries TLS) holds one root per source.
-- A location's host name goes through the resolver the client was granted. A location outside
-  that grant's zone cannot be fetched, and the-index-format.md's Q5 holds the question.
+- A listed location is pinned to the index's root. Which root it must chain to is question B in
+  the-index-format.md, since §196 (nife carries TLS) holds one root per source.
+- An address literal in a location is checked when the index is read, a host name only after it
+  resolves. A name that resolves to a public address and later to a private one is checked again
+  on every fetch, never cached.
+- The owner's pinned mirror (`Index::sources`) is proved by host tests only: no owner setting
+  exists for it yet.
 - The peer's tampered copy flips one byte and leaves the package's own table of contents alone, so
   the member digest would also refuse it. The test asserts `NotCataloged`, which only the index's
   digest gives, and the falsification shows the difference.

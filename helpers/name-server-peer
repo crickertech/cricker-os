@@ -29,8 +29,10 @@ describes for the inbound gate's prober.
   basalt.test          A 10.0.2.9: the stand-in for basalt.nifeos.org, the
                        package index's host (milestone 801 (packages over the
                        internet)); helpers/tls-peer answers there on 8443
-  packages.basalt.test A 10.0.2.9: where the stand-in index says the bytes live;
-                       helpers/package-http-peer answers there on 8080
+  packages.basalt.test A 10.0.2.9: where the stand-in index lists the bytes as
+                       also living; a private address, so the client must refuse it
+  gone.basalt.test     falls to REFUSED below: the image's first index address,
+                       lost, so the client moves to its backup (basalt.test)
   anything else        REFUSED
 
 BUGS: one query per connection, and nothing past the first question is read,

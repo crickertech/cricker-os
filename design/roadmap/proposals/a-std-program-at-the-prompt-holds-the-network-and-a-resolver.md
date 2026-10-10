@@ -39,6 +39,8 @@ Three pieces exist and are not joined at the prompt.
 3. A manifest names the zone it may resolve; the progenitor grants a fresh badge that zone and
    places it at slot 9. Whether the zone is the manifest's word or the owner's is a fork: a manifest
    can only ask, and §252 (a resolver grant is one zone per client badge) says a spawner grants.
+   For `jig` it is ruled: the root zone, recorded where it is granted (calef's Q5 on #1884,
+   2026-10-10 (UTC)).
 4. A `script/swish-check` line: an in-tree std program run at the prompt resolves a name in its zone
    and is refused one outside it, on all three architectures.
 
@@ -46,5 +48,4 @@ Reuse: everything named above is in the tree; this is wiring.
 
 ## BUGS
 
-- Item 3's fork is real. `jig` fetching bytes from anywhere wants the root zone, which
-  `notes/packages/the-index-format.md` (Q5) recommends and which an architect has not ruled.
+- Item 3's fork is open for every program but `jig`.

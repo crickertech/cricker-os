@@ -539,7 +539,6 @@ name = "pinned_tls_exerciser"
 version = "0.1.0"
 dependencies = [
  "entropy_backend",
- "http_response",
  "package_index",
  "pinned_tls_client",
  "rustls",
