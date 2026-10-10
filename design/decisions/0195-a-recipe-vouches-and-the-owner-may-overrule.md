@@ -1,11 +1,13 @@
 ---
-status: DECIDED
+status: AMENDED
 raised: 2026-09-19
 decided: 2026-09-19
 ratified_by: calef
 ---
 
 # 195. A reviewed recipe vouches for a package, and the machine's owner may overrule it
+
+*Amended 2026-10-10 (UTC) by calef, on #1884: basalt holds long-lived root keys (clause 4), and an image carries its root, amending §220 too. See the amendment at the end.*
 
 calef, 2026-09-19 (21:51 UTC), after reading the prior art with the maintainer:
 Homebrew's shape, with the owner-vouches escape hatch. *(Section number provisional until the
@@ -160,3 +162,29 @@ premise §135 rests on, checked.
 
 Packages remain build inputs to images, which is the first slice. Runtime install, and therefore
 §135's channel for `git` and `nano` reaching a machine by the user's own act, waits. *(2026-09-19: that first slice is superseded by DECISIONS §157; see milestone 198's "Rescoped 2026-09-19". Under §157 a "no" here also stops rung 3.)*
+
+## Amendment, 2026-10-10 (UTC): basalt holds a root key, and its images carry it
+
+calef, on pull request #1884, for milestone 801 (packages over the internet), ruling Q3: *"K4, a
+default owner trust line."* It amends this section's clause 4 and clause 1 of §220 (signed builds:
+a vendor signs, a developer self-signs), and is recorded here for both.
+
+1. Clause 4 here, "No long-lived signing key is held by anyone, for now", is replaced: basalt holds
+   long-lived TUF root keys, and its index is signed under them. That is the signature over a
+   source's catalog clause 4 left room for, added per source as it said, so clauses 1 to 3 are
+   unchanged.
+2. §220 clause 1's "No key ships in any image" is narrowed: an image carries exactly one key, its
+   own distribution's TUF root (for basalt, basalt's root), identified by its SHA-256. It is
+   installed as a default owner trust line in §220's form, and the owner may remove or replace it
+   like any other line. No other key ships.
+3. A further repository the owner adds is trusted the same way: its root is an owner trust line
+   with a ceiling (#1884, Q5).
+
+The irreversibility named under "Reversibility" above is therefore taken, and bounded: the owner
+holds the line and may remove it without reimaging, and nothing outside the owner's table trusts
+the key. A machine whose owner never removes it trusts basalt's root until that root rotates under
+TUF's rule (root N+1 signed by N's threshold).
+
+Not ruled here, and owed: who holds the keys, how many, and the threshold (no root key exists yet);
+the default line's ceiling; and the line's format for a TUF root, which is a digest rather than an
+Ed25519 public key. The last two are provisional in the milestone that builds the default line.

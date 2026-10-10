@@ -311,7 +311,7 @@ place instead of moving text between two systems. Numbers 68 to 73 are the six t
 | 192 | PROPOSED | [Does the ACPI walk's direct-map read take a bound, and is the bound per-read or a region it holds?](0192-a-checked-direct-map-reader-for-the-acpi-walk.md) |
 | 193 | PROPOSED | [What a block-roster entry calls an NVMe disk, and whether it carries more than virtio does](0193-nvme-in-the-block-roster.md) |
 | 194 | DECIDED | [Sessions interleave rather than serialize, and a renumber is the price](0194-sessions-interleave-rather-than-serialize.md) |
-| 195 | DECIDED | [A reviewed recipe vouches for a package, and the machine's owner may overrule it](0195-a-recipe-vouches-and-the-owner-may-overrule.md) |
+| 195 | AMENDED | [A reviewed recipe vouches for a package, and the machine's owner may overrule it](0195-a-recipe-vouches-and-the-owner-may-overrule.md) |
 | 196 | DECIDED | [nife carries TLS: `rustls` for the protocol, and a crypto provider we make work](0196-nife-carries-tls-and-builds-the-provider.md) |
 | 197 | DECIDED | [A package is one archive file, named and vouched for by its recipe](0197-a-package-is-one-archive-file.md) |
 | 198 | DECIDED | [The glue is ours, the primitives are not](0198-the-glue-is-ours-the-primitives-are-not.md) |
@@ -336,7 +336,7 @@ place instead of moving text between two systems. Numbers 68 to 73 are the six t
 | 217 | DECIDED | [Every architect holds the whole role](0217-every-architect-holds-the-whole-role.md) |
 | 218 | DECIDED | [Carry a Kani patch so riscv64 is proved, and send it upstream](0218-carry-a-kani-patch-so-riscv64-is-proved.md) |
 | 219 | DECIDED | [How the shell names an installed program to the spawner](0219-naming-an-installed-program-to-the-spawner.md) |
-| 220 | DECIDED | [Signed builds: a vendor signs, a developer self-signs, and trusting a key is scoped](0220-signed-builds-and-scoped-key-trust.md) |
+| 220 | AMENDED | [Signed builds: a vendor signs, a developer self-signs, and trusting a key is scoped](0220-signed-builds-and-scoped-key-trust.md) |
 | 221 | AMENDED | [The boot prompt is the owner's console](0221-the-boot-prompt-is-the-owners-console.md) |
 | 222 | AMENDED | [Who holds a user's schedule, and how it is changed while their session lives](0222-who-holds-a-users-schedule.md) |
 | 223 | DECIDED | [The process view is the supervision domain](0223-the-process-view-is-the-supervision-domain.md) |

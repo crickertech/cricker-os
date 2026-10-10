@@ -16,6 +16,8 @@ manager) decision review, question 1, researched 2026-10-05 against `main` at `8
 
 *Amended 2026-10-07 (UTC) by calef, on #1805: basalt's index is an image's default source, not its only one, and CI never deploys. See the amendment at the end.*
 
+*Amended again 2026-10-10 (UTC) by calef, on #1884: two index addresses, the channel path, and X1 for download hosts. See the second amendment.*
+
 ## The ruling
 
 1. **An image carries one fixed name: its own distribution's package index, which for basalt
@@ -139,3 +141,36 @@ Prior art named with the ruling, recalled rather than read for this amendment: D
 WSUS; and Uptane, whose Director repository is a per-fleet source. This binds milestone 809 (the
 package client becomes a program), whose source is compiled in today as QEMU's `10.0.2.9:8080`.
 
+
+## Amendment, 2026-10-10 (UTC): two addresses, one path, and what a download host must present
+
+calef ruled these on pull request #1884, for milestone 801 (packages over the internet), recorded there
+as rulings Q1, Q2, Q4, A and B. Each changes a clause above; the clause's text is left as first
+ruled so the change can be read against it.
+
+6. Clause 1 now reads: an image carries one index at up to two addresses. The first is
+   `basalt.nifeos.org`. The second is on a different registrable domain, so losing one domain
+   cannot take both, and the client tries it when the first stops answering. calef chose this as
+   A1, *"two domains"*, after his Q2 ruling, *"M1 plus a backup address."* The second domain is not
+   chosen yet; choosing and registering it is calef's.
+7. The index's path, pending under clause 1, is ruled (Q4, *"Channel prefix, no architecture"*):
+   the index lives at `/<channel>/metadata/` and packages at `/<channel>/targets/`, each channel its
+   own TUF repository, one index for all three architectures. The channel's name is calef's;
+   milestone 801 ships a provisional one.
+8. Clause 4's "moved to" field becomes a root's act (Q2, M1). Only a signed root may name the
+   index's new location, and a client follows only after the new place serves a root that chains to
+   the one it trusts.
+9. Clause 2 is narrowed (Q1, *"L1, with the safeguards"*). A package may list further locations,
+   tried in order, and basalt always keeps a copy under its own `targets/`, which is tried last.
+   Listed locations are HTTPS only, and the client refuses private and link-local addresses. An
+   owner may pin one mirror instead of the listed locations. Plain HTTP is no longer allowed for a
+   listed location, though local media and an owner's own source (clause 3 of the 2026-10-07
+   amendment) are unchanged.
+10. Clause 3's single pin, ISRG Root X1, now covers both index addresses and every listed download
+    location (B, *"X1 only"*). A location whose certificate chains elsewhere is skipped, and the
+    client falls back to basalt's own copy. A per-location root named in the signed index was
+    left open as a later field; a bundled root store (against §196's one root per source) and no
+    certificate check (which voids the HTTPS-only safeguard) were refused.
+
+The digest in the signed index still decides whether a package is authentic. What clause 10 adds
+is that the client reached the host the index named.
