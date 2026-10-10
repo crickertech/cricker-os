@@ -79,6 +79,11 @@ pub fn cold_reset(marker: &str) -> abi::Error {
 /// The AXP15060 direct-write route, on the machines that have the plan for it. A no-op with no
 /// output everywhere else, including every machine CI boots. Returns only to say the attempt
 /// failed and the firmware route is next; a write the PMIC honours never comes back.
+// The JH7110's polled I2C master, used only by the direct AXP15060 route below, so riscv64-only
+// too. See kernel/src/reboot/designware_i2c.rs.
+#[cfg(target_arch = "riscv64")]
+mod designware_i2c;
+
 #[cfg(target_arch = "riscv64")]
 fn pmic_reset_attempt(marker: &str) {
     use jh7110_clock_and_reset::{
@@ -133,9 +138,8 @@ fn pmic_reset_attempt(marker: &str) {
         mode.sda_hold,
     );
 
-    let i2c = crate::designware_i2c::DesignWareI2c::new(
-        crate::arch::mmu::phys_to_virt(controller) as usize
-    );
+    let i2c =
+        designware_i2c::DesignWareI2c::new(crate::arch::mmu::phys_to_virt(controller) as usize);
     // The register is read first so the write sets the reset bit alone and the PMIC's other bits
     // keep whatever they hold, which is the difference between option B and the power-off bit 7
     // radon's OpenSBI sets unconditionally.
