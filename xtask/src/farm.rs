@@ -23,7 +23,7 @@ const STD_TARGETS: [&str; 3] = [
 const NIFE_TOOLCHAIN: &str = "nife-dev";
 
 /// Bump to force every farm to rebuild after a change to the patch logic itself (not the inputs).
-const STD_SRC_PATCH_VERSION: u32 = 10;
+const STD_SRC_PATCH_VERSION: u32 = 11;
 
 fn farm_dir() -> PathBuf {
     workspace_root().join("target/nife-farm")
@@ -52,6 +52,21 @@ pub(crate) fn std_exerciser_elf(triple: &str) -> PathBuf {
 /// by path.
 pub(crate) fn std_echo_elf(triple: &str) -> PathBuf {
     workspace_root().join(format!("std_exerciser/target/{triple}/release/std_echo"))
+}
+
+/// **`std_threads`**, milestone 812 (`std::thread::spawn` runs real threads in one address
+/// space)'s exit test as an ordinary `std` program: built by the same `cargo xtask std-exerciser`
+/// and packed into each archive beside `std_exerciser`.
+pub(crate) fn std_threads_elf(triple: &str) -> PathBuf {
+    workspace_root().join(format!("std_exerciser/target/{triple}/release/std_threads"))
+}
+
+/// **`std_heap_contention`**, milestone 812's measurement of the `std` heap's spinlock under four
+/// threads, packed beside `std_threads`.
+pub(crate) fn std_heap_contention_elf(triple: &str) -> PathBuf {
+    workspace_root().join(format!(
+        "std_exerciser/target/{triple}/release/std_heap_contention"
+    ))
 }
 
 /// **`std_grep`**, the workspace's third binary (milestone 205's designation half), put on the disk
@@ -183,6 +198,11 @@ pub(crate) fn std_inputs_stamp() -> u64 {
         // the two architectures with no register stating the rate, and its layout is generated
         // verbatim into the PAL like every contract above.
         root.join("crates/counter_frequency_protocol/src/lib.rs"),
+        // The current-CPU page and the map it is placed by (milestone 812 (`std::thread::spawn`
+        // runs real threads in one address space)): `available_parallelism` reads the allowance
+        // off it, so a change to either must rebuild the farm.
+        root.join("crates/current_cpu_protocol/src/lib.rs"),
+        root.join("crates/address_space_map/src/lib.rs"),
     ];
     collect_files(&root.join("patches/std-nife/overlay"), &mut files);
     files.sort();
@@ -598,6 +618,18 @@ fn std_generate_modules() -> bool {
             root.join("crates/counter_frequency_protocol/src/lib.rs"),
             farm_std_src().join("sys/pal/nife/counterfreqproto.rs"),
         ),
+        // The current-CPU page (milestone 812): a thread's allowance, which is
+        // `available_parallelism`'s answer, at the layout the kernel builds it with. It names one
+        // constant of the address-space map, so the map comes too, and the copy below points the
+        // name at it.
+        (
+            root.join("crates/address_space_map/src/lib.rs"),
+            farm_std_src().join("sys/pal/nife/addressmap.rs"),
+        ),
+        (
+            root.join("crates/current_cpu_protocol/src/lib.rs"),
+            farm_std_src().join("sys/pal/nife/currentcpuproto.rs"),
+        ),
     ];
     for (src, dst) in jobs {
         let Ok(text) = std::fs::read_to_string(&src) else {
@@ -616,6 +648,9 @@ fn std_generate_modules() -> bool {
         if let Some(parent) = dst.parent() {
             let _ = std::fs::create_dir_all(parent);
         }
+        // The one generated file that names another workspace crate: inside std the map is a
+        // sibling module, not a crate.
+        let body = body.replace("address_space_map::", "super::addressmap::");
         if let Err(e) = std::fs::write(&dst, body) {
             eprintln!("std-src: cannot write {}: {e}", dst.display());
             return false;
@@ -829,12 +864,50 @@ fn std_patch_dispatch() -> bool {
         // Single-threaded, no native TLS: storage is a plain static (no_threads).
         &sys.join("thread_local/mod.rs"),
         "cfg_select! {",
-        "    target_os = \"nife\" => {\n        mod no_threads;\n        pub use no_threads::{EagerStorage, LazyStorage, thread_local_inner};\n        pub(crate) use no_threads::{LocalPointer, local_pointer};\n    }",
+        "    target_os = \"nife\" => {\n        mod os;\n        pub(crate) use os::{LocalPointer, local_pointer};\n        pub use os::{Storage, thread_local_inner, value_align};\n    }",
     ) && patch_after(
         // ... and the TLS-destructor guard is a no-op.
         &sys.join("thread_local/mod.rs"),
         "pub(crate) mod guard {\n    cfg_select! {",
         "        target_os = \"nife\" => {\n            pub(crate) fn enable() {}\n        }",
+    ) && patch_after(
+        // Thread-local keys through the thread pointer (milestone 812 (`std::thread::spawn` runs
+        // real threads in one address space)): xous's shape, `sys/thread_local/key/nife.rs`.
+        &sys.join("thread_local/mod.rs"),
+        "pub(crate) mod key {\n    cfg_select! {",
+        "        target_os = \"nife\" => {\n            mod racy;\n            pub(crate) mod nife;\n            pub(super) use racy::LazyKey;\n            pub(super) use nife::{Key, get, set};\n            use nife::{create, destroy};\n        }",
+    ) && patch_replace(
+        // ... and reachable from `sys/thread/nife.rs`, whose join waits on the word a thread's
+        // `SYS_EXIT_THREAD` clears (milestone 812).
+        &sys.join("sync/mod.rs"),
+        "\nmod futex;",
+        "\npub(crate) mod futex;",
+        1,
+    ) && patch_after(
+        // The futex every lock below is built on (milestone 812): `sys/sync/futex/nife.rs`.
+        &sys.join("sync/futex/mod.rs"),
+        "cfg_select! {",
+        "    target_os = \"nife\" => {\n        mod nife;\n        pub use nife::*;\n    }",
+    ) && patch_after(
+        &sys.join("sync/mutex/mod.rs"),
+        "cfg_select! {",
+        "    target_os = \"nife\" => {\n        mod futex;\n        pub use futex::Mutex;\n    }",
+    ) && patch_after(
+        &sys.join("sync/condvar/mod.rs"),
+        "cfg_select! {",
+        "    target_os = \"nife\" => {\n        mod futex;\n        pub use futex::Condvar;\n    }",
+    ) && patch_after(
+        &sys.join("sync/rwlock/mod.rs"),
+        "cfg_select! {",
+        "    target_os = \"nife\" => {\n        mod futex;\n        pub use futex::RwLock;\n    }",
+    ) && patch_after(
+        &sys.join("sync/once/mod.rs"),
+        "cfg_select! {",
+        "    target_os = \"nife\" => {\n        mod futex;\n        pub use futex::{Once, OnceState};\n    }",
+    ) && patch_after(
+        &sys.join("sync/thread_parking/mod.rs"),
+        "cfg_select! {",
+        "    target_os = \"nife\" => {\n        mod futex;\n        pub use futex::Parker;\n    }",
     ) && patch_after(
         // std::env::consts::OS. `cfg_unordered!` turns each arm's cfg into the fallback's
         // exclusion set, so adding a nife arm both defines OS and keeps the fallback off it.
@@ -1169,39 +1242,20 @@ const ABORTS_ACCEPTED: &[(&str, &str, &str)] = &[
         "path_separator_bytes must be ASCII bytes",
         "a `const` assertion inside the separator macro, evaluated at compile time",
     ),
-    // ---- no answer exists: single-threaded ----------------------------------------------------
+    // ---- the same on every platform -------------------------------------------------------------
+    // (Until milestone 812 (`std::thread::spawn` runs real threads in one address space) this
+    // section held the `no_threads` locks' aborts, a wait with no other thread to end it. nife
+    // compiles the futex locks now, and those files no longer.)
     (
-        "sys/sync/condvar/no_threads.rs",
-        "condvar wait not supported",
-        "a wait with no other thread to notify it can only block forever. Upstream ends the process \
-         instead, and there is no third answer to build until milestone 64's `thread::spawn` fork is \
-         decided. Recorded in notes/std.md rather than fixed",
-    ),
-    (
-        "sys/sync/once/no_threads.rs",
-        "not implementable on this target",
-        "`Once::wait` waits for another thread's initialisation; same reason as the condvar above",
-    ),
-    (
-        "sys/sync/once/no_threads.rs",
+        "sys/sync/once/futex.rs",
         "Once instance has previously been poisoned",
         "poison propagation, which is `Once`'s documented behaviour on every platform",
     ),
     (
-        "sys/sync/once/no_threads.rs",
-        "one-time initialization may not be performed recursively",
-        "a recursive `call_once`, which is a bug in the caller on every platform",
-    ),
-    (
-        "sys/sync/rwlock/no_threads.rs",
-        "rwlock locked for writing",
-        "taking a read lock while this same thread holds the write lock. On a threaded platform it \
-         deadlocks; here it is caught and named, which is strictly better",
-    ),
-    (
-        "sys/sync/rwlock/no_threads.rs",
-        "rwlock locked for reading",
-        "the mirror case, and the same argument",
+        "sys/thread_local/os.rs",
+        "Allocation failure",
+        "upstream's key-based thread-local storage failing to allocate a value, the same on every \
+         platform that uses keys (milestone 812 moved nife from `no_threads` to keys)",
     ),
     (
         "sys/thread_local/mod.rs",
@@ -1219,6 +1273,18 @@ const ABORTS_ACCEPTED: &[(&str, &str, &str)] = &[
         "a slicing bounds assertion, the `OsStr` twin of `str`'s",
     ),
     // ---- ours, and deliberate ------------------------------------------------------------------
+    (
+        "sys/thread_local/key/nife.rs",
+        "no memory for the main thread's thread-local block",
+        "the heap cannot give the main thread its first two kilobytes, so no thread-local can work \
+         and the allocator would end the process the same way a moment later (milestone 812)",
+    ),
+    (
+        "sys/thread_local/key/nife.rs",
+        "out of thread-local keys",
+        "a process has a fixed number of keys and never reuses one, as on xous; recorded in that \
+         file's BUGS (milestone 812)",
+    ),
     (
         "sys/random/nife.rs",
         "panic!(",

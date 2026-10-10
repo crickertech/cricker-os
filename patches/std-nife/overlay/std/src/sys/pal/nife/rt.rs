@@ -190,6 +190,30 @@ pub fn call_receiving(slot: u64, w0: u64, w1: u64) -> (u64, u64, Option<u64>) {
 }
 
 /// Drop the capability in `slot` (`SYS_CAP_DELETE`). A twin of `user_mode_runtime::cap_delete`.
+/// **`ThreadControlBlock::CONFIGURE` joining a process** (milestone 812 (`std::thread::spawn` runs
+/// real threads in one address space)): the process capability in `process` with `BIND`, and the new
+/// thread's thread pointer in the sixth register. The answer is the thread's current-CPU page, or a
+/// negative `abi::Error`.
+pub fn configure_joining(tcb: u64, entry: u64, user_sp: u64, process: u64, thread_pointer: u64) -> i64 {
+    let w = unsafe {
+        trap6(
+            abi::SYS_INVOKE,
+            [tcb, abi::thread_control_block::CONFIGURE, entry, user_sp, process, thread_pointer],
+        )
+    };
+    w[0] as i64
+}
+
+/// **`SYS_EXIT_THREAD`** (milestone 812): end the calling thread, and its process only if it was
+/// the last to run. `word`, if not zero, is cleared and its futex waiters woken once this thread
+/// has left user mode for good.
+pub fn exit_thread(word: u64) -> ! {
+    let _ = unsafe { trap6(abi::SYS_EXIT_THREAD, [word, 0, 0, 0, 0, 0]) };
+    loop {
+        core::hint::spin_loop();
+    }
+}
+
 pub fn cap_delete(slot: u64) {
     let _ = unsafe { trap6(abi::SYS_CAP_DELETE, [slot, 0, 0, 0, 0, 0]) };
 }

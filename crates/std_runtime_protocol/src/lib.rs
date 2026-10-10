@@ -1,9 +1,7 @@
 //! **The std runtime contract**: where a `std` program on nife finds each authority it was given.
 //!
-//! Name: provisional. Introduced 2026-09-25 by milestone 595 (provisional), when the progenitor
-//! became a fourth place the numbers were written (with the std PAL's `rt.rs` and the kernel test
-//! harness twice). The `_protocol` suffix follows `environment_protocol` and `clock_protocol`, the
-//! contracts the same PAL already reads; the stem says which runtime.
+//! Name: provisional, from milestone 595 (provisional), 2026-09-25. The `_protocol` suffix follows
+//! `environment_protocol` and `clock_protocol`, which the same PAL reads; the stem says which runtime.
 //!
 //! A native nife program is handed its capabilities in the order its spawner lists them, and
 //! reads them by position. A `std` program cannot work that way, because the code reading the
@@ -24,11 +22,13 @@
 //!   slot 7  page frame  TZ, LANG and TERM, READ      only if given configuration; page at CONFIG_PAGE
 //!   slot 8  page frame  the argv, READ               only if its line had words; page at ARGS_PAGE
 //!   slot 9  endpoint    a name resolver, badged      only if given names to resolve; page at RESOLVER_PAGE
+//!   slot 10 process     its own process, with BIND   only if it may spawn threads (milestone 812)
+//!   slot 11 thread      its own first thread, WRITE  with slot 10
+//!   slot 12 space       its own address space, READ  for futex waits; without it locks yield
 //! ```
 //!
-//! What each slot means to std, and what std does when it is empty, is `rt.rs`'s documentation,
-//! beside the code that reads them. This crate is the numbers, so the PAL, the progenitor and the
-//! kernel test harness cannot disagree about them.
+//! What each slot means to std, and what std does when it is empty, is `rt.rs`'s documentation.
+//! This crate is the numbers, so the PAL, the progenitor and the kernel test harness cannot disagree.
 //!
 //! **Generated verbatim into the PAL** by `cargo xtask std-src` (as `sys/pal/nife/runtimeproto.rs`),
 //! the same discipline as `abi` and every other contract the PAL reads, so this file must stay a
@@ -83,9 +83,23 @@ pub const ARGS_SLOT: u64 = 8;
 /// internet).
 pub const RESOLVER_SLOT: u64 = 9;
 
+/// **This program's own process, with `BIND`** (milestone 812 (`std::thread::spawn` runs real
+/// threads in one address space)): what `std::thread::spawn` joins a new thread to. Only if the
+/// program may have threads; without it, a spawn answers `Unsupported`.
+pub const PROCESS_SLOT: u64 = 10;
+
+/// **This program's own first thread, with `WRITE`** (milestone 812): what the main thread sets its
+/// own thread pointer through (`ThreadControlBlock::SET_THREAD_POINTER`), which `x86_64` can do no
+/// other way. Given with [`PROCESS_SLOT`].
+pub const THREAD_SLOT: u64 = 11;
+
+/// **This program's own address space, with `READ`** (milestone 812): the capability futex `WAIT`
+/// and `WAKE` are invoked on, so `std`'s locks sleep rather than spin. Without it they yield.
+pub const SPACE_SLOT: u64 = 12;
+
 /// How many slots the contract fixes. A loader places a std program's capabilities at these slot
 /// numbers and nowhere else; the reserved fault slot is last in the table and far above them.
-pub const SLOTS: u64 = 10;
+pub const SLOTS: u64 = 13;
 
 /// Where the loader maps the page a std program shares with its file service: one file block,
 /// carrying a name out on `OPEN` and file bytes both ways on `READ` and `WRITE`.
@@ -144,6 +158,9 @@ mod tests {
             CONFIG_SLOT,
             ARGS_SLOT,
             RESOLVER_SLOT,
+            PROCESS_SLOT,
+            THREAD_SLOT,
+            SPACE_SLOT,
         ];
         for (i, a) in slots.iter().enumerate() {
             assert!(

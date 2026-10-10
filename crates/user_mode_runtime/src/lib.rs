@@ -998,8 +998,10 @@ pub fn tcb_cap_insert(tcb_slot: u64, cap_slot: u64, rights: u64, target: u64) ->
 /// `CONFIGURE`: bind the address space in `aspace_slot` to the (embryo) TCB in `tcb_slot`, and set
 /// where EL0 execution begins (`entry`) and on what user stack (`user_sp`). The capability in
 /// `aspace_slot` is consumed; the space keeps its name, so a copy made first still names it while
-/// the thread runs (§249 (a running address space stays nameable)). `0` on success; a negative
-/// `abi::Error`, `WrongObject` for a space already bound.
+/// the thread runs (§249 (a running address space stays nameable)). On success, the address of the
+/// child's current-CPU page (milestone 812 (`std::thread::spawn` runs real threads in one address
+/// space)), never negative; a negative `abi::Error` otherwise, `WrongObject` for a space already
+/// bound.
 pub fn tcb_configure(tcb_slot: u64, entry: u64, user_sp: u64, aspace_slot: u64) -> i64 {
     // SAFETY: `svc`/`ecall`. The kernel validates `WRITE` on both capabilities before it binds them.
     unsafe {

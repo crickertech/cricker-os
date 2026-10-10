@@ -319,6 +319,12 @@ pub mod std_service;
 #[cfg(all(test, initrd))]
 mod std_tests;
 
+/// **Milestone 812 (`std::thread::spawn` runs real threads in one address space)'s exit test**: an
+/// ordinary `std` program's four threads share an atomic, a mutex and a space, and each keeps its
+/// own thread-local. Cross-ISA (DECISIONS §19).
+#[cfg(all(test, initrd))]
+mod std_threads_tests;
+
 /// **Unmodified `ripgrep` from crates.io** (milestone 121), which skips unless somebody ran
 /// `helpers/build-ripgrep.sh`. Every ISA the `std` port ships on, per DECISIONS §19, which is all
 /// three since milestone 184 built `x86_64-unknown-nife`.

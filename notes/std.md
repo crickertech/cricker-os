@@ -58,7 +58,7 @@ std by `cargo xtask std-src`. Each file binds one std concept to the ABI:
 | `stdout` / `stderr` | `endpoint::SEND` on slot 1 (`sys/stdio/nife.rs`) |
 | `Instant`, `SystemTime` | the virtual counter, `CNTVCT_EL0` / `rdtime` (`sys/time/nife.rs`) |
 | `panic!` | print, then `brk`/`ebreak`: a fault the kernel attributes. No unwinding. |
-| `thread::spawn` | `Unsupported` in phase one; `sleep`/`yield` are real |
+| `thread::spawn` | a TCB joined to the program's own process, slots 10 to 12 ([threads](std/threads.md)) |
 | `net` (`TcpStream`, outbound `UdpSocket`) | net_stack's socket contract on slots 2/3 (`sys/net/connection/nife.rs`), or `Unsupported` when not granted |
 | `fs` (`File`, `metadata`, `read`/`write`) | the FS service's file contract on slot 4 (`sys/fs/nife.rs`), or `Unsupported` when no directory was granted |
 | `std::random::SystemRng` | the entropy service's endpoint on slot 6 (`sys/random/nife.rs`), or a **panic** when not granted |
@@ -160,9 +160,9 @@ The load-bearing fields:
 
 - `"os": "nife"` selects our `sys` backend through every dispatcher.
 - `"panic-strategy": "abort"` means unwinding machinery is never linked; `panic!` prints and faults.
-- `"singlethread": true` turns off `target_has_threads`, so std uses its `no_threads` sync
-  primitives and single-`static` TLS, honest for phase one (one thread of execution per
-  process, `thread::spawn` is `Unsupported`); it flips off when real threads arrive.
+- `"singlethread": false` since milestone 812 (`std::thread::spawn` runs real threads in one
+  address space): futex locks, key-based thread-locals through the thread pointer, and real
+  threads. [The threads appendix](std/threads.md) has the PAL.
 - softfloat (aarch64 `-neon`, riscv `lp64`, x86_64 `-mmx,-sse...,+soft-float` with
   `"rustc-abi": "softfloat"`) matches EL0/U-mode/ring 3 with no FP save area, the same choice the
   `no_std` programs make. On x86_64 this is a correctness requirement, not a preference:
@@ -259,8 +259,8 @@ and compare its output byte for byte on both ISAs. What each branch asserts is i
 One line each. The full entry is in
 [the caveats appendix](std/caveats.md) unless another link is given.
 
-- `thread::spawn` returns `Unsupported`, and `Condvar::wait` and `Once::wait` end the process. Both
-  wait on milestone 64's `thread::spawn` fork.
+- A spawned thread's stack has no guard page, and a timed wait spins on `yield`. See
+  [the threads appendix](std/threads.md).
 - `std::process::exit` exits cleanly, but the kernel drops the code. A supervisor can tell exit from
   crash and cannot tell `exit(0)` from `exit(1)`. Carrying it is a wire-format change.
 - `SystemTime::now()` and `std::random` panic when the process holds no clock or entropy grant,
