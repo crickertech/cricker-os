@@ -315,6 +315,85 @@ fn release(process: &mut ProcessPage) -> Option<u64> {
     }
 }
 
+/// Free a finished thread that no core stands on: its stack, its thread page, and its space or its
+/// share of its process's. Takes the held `guard` and releases it before any `Drop`.
+pub(super) fn reap_corpse(
+    mut guard: crate::sync::IrqSafeGuard<'_, Option<IpcTables>>,
+    prev: ThreadId,
+) {
+    let Some(sched) = guard.as_mut() else {
+        return;
+    };
+    let (space, stack, page) = match sched.threads.get_mut(prev) {
+        Some(t) => {
+            t.being_reaped = true;
+            (t.space.take(), t.stack.take(), t.thread_page.take())
+        }
+        None => return,
+    };
+    // A member of a process does not hold its space; the process does, and gives it up when its
+    // last member leaves (milestone 812).
+    let space = if sched.threads.get(prev).is_some_and(|t| t.process.is_some()) {
+        leave(sched, prev)
+    } else {
+        space.map(|bound| bound.name())
+    };
+    drop(guard);
+
+    #[cfg(feature = "lock_wait")]
+    let t0 = crate::arch::timer::now();
+    drop(stack);
+    #[cfg(feature = "lock_wait")]
+    crate::lock_wait::stack_freed(crate::arch::timer::now() - t0);
+    // The thread kept a copy; the registry owns the space (§249). `None` here means the region
+    // sweep already took it from under this corpse, which is the take-once removal working, not a
+    // leak. Taken and dropped as two statements so the registry's lock is released before the
+    // `Drop`, which takes the revocation, region and ASID locks.
+    if let Some((name, slot)) = page {
+        crate::user::give_back_thread_page(name, slot); // milestone 812: the slot is free again
+    }
+    if let Some(name) = space {
+        let space = crate::user::take_user_address_space(name);
+        drop(space);
+    }
+
+    let mut guard = IPC_TABLES.lock();
+    if let Some(sched) = guard.as_mut() {
+        #[cfg(feature = "lock_wait")]
+        let t0 = crate::arch::timer::now();
+        sched.threads.remove(prev);
+        #[cfg(feature = "lock_wait")]
+        crate::lock_wait::reaped(crate::arch::timer::now() - t0);
+    }
+}
+
+/// **Reap the members `end` finished where they were blocked** (milestone 812). A member that ends
+/// itself is reaped at its own switch-out; one finished in place is never switched again, so this
+/// frees it instead: it runs after the departing member's reap and after `DESTROY`. Without it a
+/// `std` program whose idle workers sleep on a futex at `exit` keeps its space until its region is
+/// destroyed. A supervised member is `Dead`, not `Finished`, and waits for its supervisor's `REAP`.
+pub(super) fn reap_corpses(pid: ProcessId) {
+    loop {
+        let mut guard = IPC_TABLES.lock();
+        let corpse = guard.as_mut().and_then(|sched| {
+            sched
+                .threads
+                .iter_mut()
+                .find(|t| {
+                    t.process == Some(pid)
+                        && t.handshake.state == State::Finished
+                        && !t.handshake.on_cpu
+                        && !t.being_reaped
+                })
+                .map(|t| t.id)
+        });
+        let Some(tid) = corpse else {
+            return;
+        };
+        reap_corpse(guard, tid);
+    }
+}
+
 /// **`Process::DESTROY`**: the supervisor's kill (§269 fork 5). Ends the process and every member,
 /// and releases the space at once if no member remains. A caller that is itself a member ends with
 /// it, by `exit`. `Gone` if the name no longer resolves.
@@ -332,7 +411,7 @@ pub fn destroy(pid: ProcessId) -> Result<(), abi::Error> {
     if member {
         super::exit();
     }
-    let released = {
+    {
         let mut guard = IPC_TABLES.lock();
         let sched = guard.as_mut().ok_or(abi::Error::Gone)?;
         end(
@@ -341,6 +420,11 @@ pub fn destroy(pid: ProcessId) -> Result<(), abi::Error> {
             crate::cpu::NO_TID,
             [abi::fault::EVENT_EXIT, 0, 0],
         );
+    }
+    reap_corpses(pid);
+    let released = {
+        let mut guard = IPC_TABLES.lock();
+        let sched = guard.as_mut().ok_or(abi::Error::Gone)?;
         process_of(sched, pid).and_then(release)
     };
     if let Some(name) = released {

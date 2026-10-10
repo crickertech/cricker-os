@@ -10,12 +10,14 @@ and its revocation records held, for the life of the machine.
 Expected to fail: the assertion after the reader is reaped, that the space is gone.
 
 The context below names milestone 812 (`std::thread::spawn` runs real threads in one address
-space), whose process object changed the lines around this defect; the defect is unchanged.
+space), whose process object changed the lines around this defect and moved the reaper's body to
+`kernel/src/sched/process.rs`; the defect is unchanged.
 
-diff --git a/kernel/src/sched.rs b/kernel/src/sched.rs
---- a/kernel/src/sched.rs
-+++ b/kernel/src/sched.rs
-@@ -2933,10 +2933,7 @@ fn reap_switched_out(mut guard: crate::sync::IrqSafeGuard<'_, Option<IpcTables>>
+diff --git a/kernel/src/sched/process.rs b/kernel/src/sched/process.rs
+index b75060a18..1dbb7c970 100644
+--- a/kernel/src/sched/process.rs
++++ b/kernel/src/sched/process.rs
+@@ -352,10 +352,7 @@ pub(super) fn reap_corpse(
      if let Some((name, slot)) = page {
          crate::user::give_back_thread_page(name, slot); // milestone 812: the slot is free again
      }

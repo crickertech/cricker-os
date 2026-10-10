@@ -2901,50 +2901,14 @@ pub(crate) fn finish_switch() {
 ///   is the natural place to count a space that is still being dropped.
 #[cold]
 #[inline(never)]
-fn reap_switched_out(mut guard: crate::sync::IrqSafeGuard<'_, Option<IpcTables>>, prev: ThreadId) {
-    let Some(sched) = guard.as_mut() else {
-        return;
-    };
-    let (space, stack, page) = match sched.threads.get_mut(prev) {
-        Some(t) => {
-            t.being_reaped = true;
-            (t.space.take(), t.stack.take(), t.thread_page.take())
-        }
-        None => return,
-    };
-    // A member of a process does not hold its space; the process does, and gives it up when its
-    // last member leaves (milestone 812).
-    let space = if sched.threads.get(prev).is_some_and(|t| t.process.is_some()) {
-        process::leave(sched, prev)
-    } else {
-        space.map(|bound| bound.name())
-    };
-    drop(guard);
-
-    #[cfg(feature = "lock_wait")]
-    let t0 = crate::arch::timer::now();
-    drop(stack);
-    #[cfg(feature = "lock_wait")]
-    crate::lock_wait::stack_freed(crate::arch::timer::now() - t0);
-    // The thread kept a copy; the registry owns the space (§249). `None` here means the region
-    // sweep already took it from under this corpse, which is the take-once removal working, not a
-    // leak. Taken and dropped as two statements so the registry's lock is released before the
-    // `Drop`, which takes the revocation, region and ASID locks.
-    if let Some((name, slot)) = page {
-        crate::user::give_back_thread_page(name, slot); // milestone 812: the slot is free again
-    }
-    if let Some(name) = space {
-        let space = crate::user::take_user_address_space(name);
-        drop(space);
-    }
-
-    let mut guard = IPC_TABLES.lock();
-    if let Some(sched) = guard.as_mut() {
-        #[cfg(feature = "lock_wait")]
-        let t0 = crate::arch::timer::now();
-        sched.threads.remove(prev);
-        #[cfg(feature = "lock_wait")]
-        crate::lock_wait::reaped(crate::arch::timer::now() - t0);
+fn reap_switched_out(guard: crate::sync::IrqSafeGuard<'_, Option<IpcTables>>, prev: ThreadId) {
+    let process = guard
+        .as_ref()
+        .and_then(|s| s.threads.get(prev))
+        .and_then(|t| t.process);
+    process::reap_corpse(guard, prev);
+    if let Some(pid) = process {
+        process::reap_corpses(pid); // members its end finished where they were blocked
     }
 }
 

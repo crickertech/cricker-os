@@ -267,7 +267,7 @@ impl AddressSpace {
         ));
         let kernel_va = mmu::phys_to_virt(frame.addr());
         // SAFETY: `frame` is freshly allocated and owned by nobody else yet, the direct map is
-        // valid for it, and `PAGE_BYTES` (16) is far under `FRAME_SIZE`, so the copy stays inside
+        // valid for it, and `PAGE_BYTES` (24) is far under `FRAME_SIZE`, so the copy stays inside
         // the frame.
         unsafe {
             core::ptr::copy_nonoverlapping(bytes.as_ptr(), kernel_va as *mut u8, bytes.len());
@@ -733,7 +733,7 @@ fn timebase_page_phys() -> Option<u64> {
         Some(hz) => {
             let bytes = counter_frequency_protocol::build_page(hz);
             // SAFETY: `dst` names a freshly allocated frame, reachable through the direct map and
-            // owned by nobody else yet; `bytes` is `PAGE_BYTES` (16) bytes, far under the frame's
+            // owned by nobody else yet; `bytes` is `PAGE_BYTES` (24) bytes, far under the frame's
             // `FRAME_SIZE`, so the copy does not run past it.
             unsafe { core::ptr::copy_nonoverlapping(bytes.as_ptr(), dst, bytes.len()) };
         }
