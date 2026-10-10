@@ -754,12 +754,11 @@ that needs distinct GitHub identities rather than a better log; the proposal is
 [design/roadmap/0642-who-took-the-step.md](../design/roadmap/0642-who-took-the-step.md)
 (name provisional) and it is an architect's call.
 
-- A′ lets `main`'s Actions caches go stale. `Swatinem/rust-cache` saves on the ref that ran, and
-  a pull request can restore only its own ref's caches and the base branch's. Merge-group refs are
-  neither, so once most pushes to `main` skip, the `main` caches that pull requests fall back to stop
-  being refreshed by CI and verify. Pushes that still run in full refresh them: commits landed outside
-  the queue, and any tip whose merge-group run did not succeed. Expect slower cold builds on pull
-  requests, not wrong ones. Nobody has measured it yet.
+- A′ lets `main`'s Actions caches go stale: a pull request restores only its own ref's caches and
+  `main`'s, and most pushes to `main` now skip every cache step. rust-cache was measured in
+  notes/actions-cache-budget-2026-10-07.md and ruled on in #1814. QEMU and the patched Kani are
+  saved on every push by ci.yml's `main-caches` job (milestone 870 (`main` keeps its CI caches
+  warm), provisional), after #1899's `.qemu-version` change cost every QEMU job about 270 s.
 - A′ trusts a merge-group run's overall conclusion, which is stricter than what the queue
   requires. The queue lands on the required checks alone. A merge-group run can conclude
   `cancelled` or `failure` because of a non-required job and still land: `0b72f673` (#1156) did,

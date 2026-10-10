@@ -25,8 +25,10 @@ by its `uses:` line and looks for `save-if:` before the next step begins.
 # BUGS
 
 - Only rust-cache is covered. `actions/cache` steps (QEMU, the patched Kani, the vendor pins) use
-  stable keys that hit `main`'s entries, so they save only on a miss. After a key change, though, a
-  merge group's save is just as unreachable; the note records that as an open question.
+  stable keys that hit `main`'s entries, so they save only on a miss. After a key change a merge
+  group's save is just as unreachable, so ci.yml's `main-caches` job saves the QEMU and
+  patched-Kani keys on every push to `main` (milestone 870 (`main` keeps its CI caches warm),
+  provisional). The vendor pins are left to miss: one HTTP request.
 - The check accepts any `save-if:` that mentions `merge_group`, so `== 'merge_group'` passes too. It
   catches a step that forgot the scope, not one that inverted it.
 """
