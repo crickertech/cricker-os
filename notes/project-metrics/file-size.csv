@@ -11,4 +11,4 @@ week,files_over_2000,lines_share_over_2000_pct,largest_file,largest_file_lines,f
 2026W38,11,17.1,kernel/src/sched.rs,6513,1484,44.5
 2026W39,16,20.8,kernel/src/sched.rs,7776,1452,46.7
 2026W40,19,22.6,kernel/src/sched.rs,8066,1518,49.0
-2026W41,20,21.6,kernel/src/sched.rs,8921,1511,48.3
+2026W41,19,21.0,kernel/src/sched.rs,8921,1484,48.1

@@ -11,18 +11,18 @@ Sorted by breaking changes in the last four weeks (2026W38 to 2026W41), then by 
 | `globally_unique_identifier_partition_table` | 66 | 29 | 67 | 219 | 34 | 27 (79%) |
 | `grant_plan` | 48 | 214 | 92 | 845 | 141 | 118 (84%) |
 | `socket_protocol` | 17 | 21 | 19 | 59 | 26 | 24 (92%) |
-| `login_protocol` | 14 | 68 | 14 | 83 | 30 | 30 (100%) |
+| `login_protocol` | 14 | 68 | 14 | 83 | 31 | 30 (97%) |
 | `package_archive` | 14 | 109 | 14 | 109 | 17 | 12 (71%) |
 | `line_editor` | 11 | 73 | 12 | 118 | 29 | 25 (86%) |
 | `swap_protocol` | 11 | 34 | 12 | 124 | 42 | 41 (98%) |
 | `filesystem_protocol` | 10 | 54 | 42 | 454 | 101 | 92 (91%) |
-| `abi` | 7 | 52 | 37 | 149 | 96 | 91 (95%) |
+| `abi` | 7 | 52 | 37 | 149 | 97 | 92 (95%) |
 | `byte_sink_protocol` | 5 | 10 | 6 | 48 | 27 | 27 (100%) |
 | `activation_set` | 5 | 53 | 5 | 53 | 17 | 17 (100%) |
 | `clock_protocol` | 5 | 4 | 5 | 54 | 27 | 25 (93%) |
 | `credential_protocol` | 4 | 12 | 30 | 67 | 31 | 28 (90%) |
 | `graphics_protocol` | 3 | 2 | 11 | 33 | 27 | 27 (100%) |
-| `component_plan` | 3 | 14 | 3 | 126 | 21 | 17 (81%) |
+| `component_plan` | 3 | 14 | 3 | 126 | 23 | 18 (78%) |
 | `entropy_protocol` | 3 | 3 | 3 | 18 | 22 | 20 (91%) |
 | `supervision_protocol` | 2 | 8 | 22 | 68 | 48 | 43 (90%) |
 | `nifefs` | 2 | 0 | 7 | 41 | 37 | 26 (70%) |
@@ -31,17 +31,17 @@ Sorted by breaking changes in the last four weeks (2026W38 to 2026W41), then by 
 | `environment_protocol` | 1 | 0 | 1 | 44 | 8 | 8 (100%) |
 | `user_mode_heap` | 1 | 0 | 1 | 11 | 0 | 0 |
 | `compositor` | 0 | 1 | 4 | 93 | 27 | 22 (81%) |
-| `elf` | 0 | 4 | 3 | 53 | 39 | 32 (82%) |
+| `elf` | 0 | 4 | 3 | 53 | 41 | 33 (80%) |
 | `argument_protocol` | 0 | 29 | 0 | 29 | 0 | 0 |
 | `boot_slot` | 0 | 52 | 0 | 52 | 10 | 6 (60%) |
 | `capability_witness_protocol` | 0 | 10 | 0 | 10 | 13 | 11 (85%) |
-| `current_cpu_protocol` | 0 | 13 | 0 | 13 | 5 | 3 (60%) |
+| `current_cpu_protocol` | 0 | 13 | 0 | 13 | 6 | 3 (50%) |
 | `manifest_note` | 0 | 40 | 0 | 40 | 12 | 8 (67%) |
 | `std_runtime_protocol` | 0 | 17 | 0 | 17 | 5 | 4 (80%) |
 
 ## What broke in 2026W41
 
-Read at `160d3331652a` against the week before. Each line is one removed or changed public item, quoted as it stood that week; a crate rename is one line for the whole crate.
+Read at `7d0e8299ec32` against the week before. Each line is one removed or changed public item, quoted as it stood that week; a crate rename is one line for the whole crate.
 
 > - `abi`: syscall changed, method or encoding `CAPABILITY_TABLE_SLOTS`
 > - `abi`: changed `Error`

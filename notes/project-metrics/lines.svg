@@ -77,11 +77,11 @@
 <text class="mut" x="562.1" y="342" font-size="10" text-anchor="middle">2026W40</text>
 <text class="fg val" x="562.1" y="113.6" font-size="10" text-anchor="middle">308.9</text>
 <rect class="seg s0" x="601.4" y="297.9" width="38.7" height="26.1"><title>2026W41, kernel/src code: 39.3</title></rect>
-<rect class="seg s1" x="601.4" y="272.7" width="38.7" height="25.2"><title>2026W41, kernel/src comments: 37.9</title></rect>
-<rect class="seg s2" x="601.4" y="162.9" width="38.7" height="109.8"><title>2026W41, other code: 165.1</title></rect>
-<path class="seg s3" d="M601.4,162.9 V97.9 Q601.4,93.9 605.4,93.9 H636.0 Q640.0,93.9 640.0,97.9 V162.9 Z"><title>2026W41, other comments: 103.7</title></path>
+<rect class="seg s1" x="601.4" y="273.0" width="38.7" height="24.9"><title>2026W41, kernel/src comments: 37.4</title></rect>
+<rect class="seg s2" x="601.4" y="163.2" width="38.7" height="109.8"><title>2026W41, other code: 165.1</title></rect>
+<path class="seg s3" d="M601.4,163.2 V98.9 Q601.4,94.9 605.4,94.9 H636.0 Q640.0,94.9 640.0,98.9 V163.2 Z"><title>2026W41, other comments: 102.6</title></path>
 <text class="mut" x="620.7" y="342" font-size="10" text-anchor="middle">2026W41</text>
-<text class="fg val" x="620.7" y="88.9" font-size="10" text-anchor="middle">346.0</text>
+<text class="fg val" x="620.7" y="89.9" font-size="10" text-anchor="middle">344.4</text>
 <rect class="s0" x="672" y="64" width="11" height="11" rx="2"/>
 <text class="fg" y="74" font-size="11"><tspan x="689" dy="0">kernel/src code</tspan></text>
 <rect class="s1" x="672" y="83" width="11" height="11" rx="2"/>

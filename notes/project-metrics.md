@@ -60,7 +60,7 @@ changed, so read those weeks as undercounts of both sides.
 ![Share of Rust lines in files over 2,000](project-metrics/file-size.svg)
 
 <!-- file-size: script/metrics writes this -->
-**File size:** 20 Rust files over 2,000 lines, holding 21.6% of all Rust lines; largest kernel/src/sched.rs (8,921); 95th percentile 1,511.
+**File size:** 19 Rust files over 2,000 lines, holding 21.0% of all Rust lines; largest kernel/src/sched.rs (8,921); 95th percentile 1,484.
 <!-- /file-size -->
 
 ## Milestones built each week
@@ -241,7 +241,7 @@ Public items removed or changed each week: [definitions](interface-stability.md)
 [per crate](project-metrics/interface-stability.md).
 
 <!-- interface-stability: script/metrics writes this -->
-interface, 2026W38 to 2026W41: 235 breaking changes (953 additions); 5 syscall numbers changed, 0 format bumps; 75% co-change.
+interface, 2026W38 to 2026W41: 235 breaking changes (953 additions); 5 syscall numbers changed, 0 format bumps; 74% co-change.
 <!-- /interface-stability -->
 
 ## Kani proof harnesses, and what can falsify them
