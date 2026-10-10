@@ -187,8 +187,9 @@ holds the line and may remove it without reimaging, and nothing outside the owne
 the key. A machine whose owner never removes it trusts basalt's root until that root rotates under
 TUF's rule (root N+1 signed by N's threshold).
 
-Not ruled here, and owed: who holds the keys, how many, and the threshold (no root key exists yet);
-the line's format for a TUF root, which is a digest rather than an Ed25519 public key, provisional
-in the milestone that builds the default line; and how a ceiling covers the grants added since
-§220 named its three: the machine and job views of §225 (`free` sees the machine and your share)
-and the reboot object of §251 (restarting the machine is a kernel object the progenitor hands out).
+Not ruled here, and owed. Who holds the keys, how many there are, and the threshold are open, and
+no root key exists yet. The line's format for a TUF root, a digest rather than an Ed25519 public
+key, is provisional in the milestone that builds the default line. Also open is how a ceiling covers
+the grants added since §220 named its three: the machine and job views of §225 (`free` sees the
+machine and your share) and the reboot object of §251 (restarting the machine is a kernel object
+the progenitor hands out).
