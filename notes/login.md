@@ -12,14 +12,9 @@ Corrected and extended 2026-10-09 (UTC) by milestone 860 (comments state the con
 now). Sections below still described the slice as first built: one subtree for everyone, one
 shared staging page, no terminal, no reclamation. The module doc's design argument and history
 moved here the same day, and the sections now say what holds, with the ruling that changed each
-thing linked where it changed it. The resolved records moved whole into [login/](login/):
-
-- [login/teardown-and-channels-history.md](login/teardown-and-channels-history.md): the logout
-  ticket's two refused candidates, the rendezvous leak, the capability-table leak, the destroy
-  order found by a test that passed.
-- [login/boot-wiring-history.md](login/boot-wiring-history.md): the milestone 233 (`login` dies on every boot) every-real-boot
-  death, measured boot's resolution, the entropy grant chain, the three pieces still missing
-  between the prompt and a real password.
+thing linked where it changed it. The resolved records this note used to carry as appendices
+were removed on 2026-10-10 under the amendment to §267 (a comment states the constraint as it is
+now): history lives in git, not in documents. The removal commit's message says what each held.
 
 ## The problem this exists to solve
 
@@ -92,8 +87,7 @@ result, real work this slice did not build.
 
 ## Reclaiming a session: the design argument
 
-Moved here 2026-10-09 from the module doc; the resolved history is in
-[login/teardown-and-channels-history.md](login/teardown-and-channels-history.md).
+Moved here 2026-10-09 from the module doc; the resolved history is in git.
 
 A successful login delegates four (or five, with the terminal) capabilities, and the fourth is
 the client's **logout ticket**. It is `mint`'s own construction region, undropped and narrowed
@@ -124,8 +118,7 @@ client retries a bounded few times rather than treat one refusal as final.
 
 ## The terminal: the design argument
 
-Moved here 2026-10-09 from the module doc; the 2026-08-27 resolution executing the roadmap's own
-recorded recommendation is in [login/boot-wiring-history.md](login/boot-wiring-history.md).
+Moved here 2026-10-09 from the module doc; the 2026-08-27 resolution is in git.
 
 A terminal in this system is a singleton hardware-backed resource, wired once at interactive boot
 (`crates/system_initializer::boot`), so handing it to a login-authenticated principal has to say
@@ -175,9 +168,8 @@ not been done, on the record, because it is a change to a boot path the changing
 gating. The check's trust root is the progenitor's hand-over (both the bytes and the table arrive
 from it, already verified there), so what remains is a consistency check; it is kept because it
 costs one hash and catches a spawner that pairs the wrong two blobs. Why the fold into `DENIED` is
-not anti-oracle reasoning here (a failed measurement varies with nothing a caller controls) and
-what an operator loses by it are in
-[login/boot-wiring-history.md](login/boot-wiring-history.md), with the proof test and its limit.
+not anti-oracle reasoning here (a failed measurement varies with nothing a caller controls). The
+proof test and its limit are recorded at the check itself.
 
 ## What attribution means here, and what it does not
 

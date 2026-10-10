@@ -6,10 +6,8 @@
 //! instead, a fresh directory, a fresh budget, a **logout ticket** (see "Reclaiming a session"
 //! below) and, when it is free, **the terminal** (see "The terminal: single-session, deny
 //! cleanly" below). It is the powerbox pattern with the human at one end, deciding at run time
-//! what `crates/system_initializer` used to bake in at build time. The design argument, and the
-//! history of every resolved item, are in notes/login.md and notes/login/ (moved there
-//! 2026-10-09 UTC by milestone 860 (comments state the constraint as it is now), comments state the constraint as it is now, §267 (a comment
-//! states the constraint as it is now)). The constraints, as they are now:
+//! what `crates/system_initializer` used to bake in at build time. notes/login.md holds the design
+//! argument; the history of the resolved items is in git. The constraints, as they are now:
 //!
 //! - A successful login **builds** a fresh `fs_subtree_caretaker` per principal, the same
 //!   construction `crates/system_initializer` performs for a directory-granted spawn, never a
@@ -85,8 +83,9 @@
 //! [`measured_boot::verify_in_manifest`] against the same table `crates/system_initializer`
 //! checks against; zero length means nothing vouched-for was handed over and every login answers
 //! [`login_protocol::DENIED`] (see BUGS). Each minted channel maps one page above
-//! [`CONNECT_VA_BASE`], never unmapped or reused in this slice (the channel history in
-//! notes/login/ records why). A durable session maps its two timetable images at
+//! [`CONNECT_VA_BASE`], never unmapped or reused in this slice: the page holds a prior client's
+//! staged secret, and the channel's region, which reclaims it, is destroyed once and never
+//! split again. A durable session maps its two timetable images at
 //! `login_protocol::USER_TIMETABLE_KEEPER_ELF_VA` and `login_protocol::TIMETABLE_ELF_VA`, the
 //! lengths in `x2` ([`login_protocol::schedule_lengths`]), checked against the table above; no
 //! job's program travels with them (Fork 8 ruled D by calef 2026-09-27, #1377: a job runs what

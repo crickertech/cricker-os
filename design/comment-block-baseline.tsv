@@ -29,7 +29,7 @@ components/src/jh7110_entropy.rs:1	112
 components/src/job_undertaker.rs:1	86
 components/src/keyboard_driver.rs:1	69
 components/src/line_editor.rs:1	56
-components/src/login.rs:1	178
+components/src/login.rs:1	177
 components/src/login_audit_receiver.rs:1	65
 components/src/mdr.rs:1	116
 components/src/name_resolver.rs:1	92
