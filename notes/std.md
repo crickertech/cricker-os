@@ -301,4 +301,5 @@ One line each. The full entry is in
 | [fs-descent](std/fs-descent.md) | nested paths, `std::fs::Dir`, and the write-path correction |
 | [caveats](std/caveats.md) | the full caveat list behind BUGS above |
 | [std-aborts](std/std-aborts.md) | the calls that ended a process, and the check that finds them |
+| [allocation](std/allocation.md) | the heap under threads: a cache per thread, the allocators surveyed, the measurement |
 | [the-proof](std/the-proof.md) | what `std_exerciser` asserts under each grant |

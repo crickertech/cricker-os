@@ -1,0 +1,15 @@
+[package]
+name = "allocation_cache"
+version = "0.1.0"
+edition = "2024"
+license.workspace = true
+
+[lints]
+workspace = true
+
+[dependencies]
+
+[dev-dependencies]
+# Only to hold this crate's grid to the heap's (see `GRID`); the std overlay generates both files as
+# sibling modules, so neither may depend on the other at build time.
+user_mode_heap = { path = "../user_mode_heap" }
