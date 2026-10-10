@@ -146,6 +146,13 @@ baseline records what it was saved against) merged on 2026-09-23 (#1126): each b
 a `# why:` line, and `script/bench --save` requires `--why "<reason>"`. The current files' `# why:`
 line reads "unrecorded, predates milestone 302", because the saves they hold came before it.*
 
+*2026-10-10: the pin moved again, 11.1.1 to 11.1.2, after Homebrew upgraded this machine (calef ruled
+it the same day, as its own pull request apart from any nightly bump). The emulator term was measured
+rather than assumed: one tree and one nightly under both emulators, 11.1.1 built from source for the
+comparison. Every row on all three architectures read the same count on both, so the term is zero for
+that binary, as it was for 11.0.2 to 11.1.1. The floors were re-saved to stamp `# qemu: 11.1.2`; their
+`# why:` lines carry what moved against the old floors and why none of it was the emulator.*
+
 ## 2026-07-28: the day `--check` failed on every primitive, and why it was the harness
 
 Roughly eight merges landed on `main` in one day. They were milestone 32 (a real filesystem) phase 1 block writes, 16b

@@ -214,8 +214,10 @@ forever, by design, exactly like real hardware. So every interactive run must be
   and `script/ci-qemu` refuses to run on macOS, so a Mac runs whatever Homebrew has and
   `script/qemu-check` warns. Milestone 117's sixth stranger run built the pinned 11.0.2 by hand and
   found that `script/ci-qemu`'s configure line does not link on this SDK: `hw/display/apple-gfx.m`
-  needs `--disable-cocoa --disable-pvg`. Nothing in the tree says so, because nothing in the tree has
-  built QEMU on a Mac. And a QEMU installed into `$HOME/.cache/nife-qemu` is honored by
+  needs `--disable-cocoa --disable-pvg`. On 2026-10-10 11.1.1 was built here that way for a
+  same-tree comparison, into a scratch prefix, and configure also needed `--python=` pointed at
+  Homebrew's `python3` (its `libexec/bin`), because Apple's 3.9 cannot install QEMU's own Python
+  package editable and configure stops in `mkvenv`. And a QEMU installed into `$HOME/.cache/nife-qemu` is honored by
   `helpers/qemu-path.sh` on macOS too, for every checkout on the account, which is how a build meant
   for one clone changes the emulator under every other lane.
 - `cargo xtask uefi-boot`'s screen read used to be a race, and is now a handshake (milestone

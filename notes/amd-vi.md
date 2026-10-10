@@ -12,7 +12,7 @@ proved where. The code is `kernel/src/arch/x86_64/amd_vi.rs`; its header and BUG
 Every format here is from AMD document 48882 revision 2.62 (February 2015), read for this work. That
 revision predates several features (newer IVHD types, a 5-level walk on more parts), none of which
 this driver uses. QEMU's model is `hw/i386/amd_iommu.c` at QEMU 11.1.1, the version `.qemu-version`
-pins.
+pinned when it was read. The pin moved to 11.1.2 on 2026-10-10 (UTC), and the model was not re-read.
 
 ## How it fits behind the seam VT-d already uses
 
