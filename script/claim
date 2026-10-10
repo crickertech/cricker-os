@@ -4,6 +4,7 @@
 #
 #     script/claim milestone/238-a-thing
 #     script/claim maintainer/some-fix --worktree ../nife-worktrees/somefix --no-claim
+#     script/claim maintainer/bold-sweep --debt-paydown
 #
 # # Why this exists
 #
@@ -39,6 +40,10 @@
 # The claim commit carries a Co-Authored-By trailer because .githooks/commit-msg requires one of any
 # agent's commit; without it this script died at its own first commit (found 2026-10-05 UTC).
 #
+# `--debt-paydown` opens the draft with the `debt-paydown` label on, so a lane known at the claim to
+# be repaying debt is counted without anyone remembering to label it later (notes/debt-paydown.md
+# has the definition). Flag and label name provisional, 2026-10-10 UTC.
+#
 # See notes/scripts.md.
 
 set -eu
@@ -50,7 +55,7 @@ repo_root="$(cd "$(dirname "$0")/.." && pwd)"
 
 usage() {
     cat >&2 <<'EOF'
-usage: script/claim <branch-name> [--worktree <dir>] [--title <text>] [--no-claim]
+usage: script/claim <branch-name> [--worktree <dir>] [--title <text>] [--debt-paydown] [--no-claim]
 
   <branch-name>     e.g. milestone/238-a-thing or maintainer/some-fix. Checked against the same
                      shape rule script/lint's check 4 enforces, before anything is created.
@@ -61,6 +66,9 @@ usage: script/claim <branch-name> [--worktree <dir>] [--title <text>] [--no-clai
   --title <text>    the draft pull request's title, and the text after "claim: " in the empty
                      commit. Default: the branch name itself; `gh pr edit` renames the pull
                      request later if a better title turns up mid-work.
+  --debt-paydown    open the draft with the debt-paydown label: the work repairs, cleans up, fixes
+                     a record or brings the tree up to a standard it already has (definition in
+                     notes/debt-paydown.md). Ignored with --no-claim.
   --no-claim        stop once the branch and worktree exist. Skip the empty commit, the push, and
                      the draft pull request (AGENTS.md §90's claim). Without this flag the claim is
                      made, because that is every lane's documented first act and a front door that
@@ -72,6 +80,7 @@ branch=""
 worktree=""
 title=""
 make_claim=yes
+label=""
 
 while [ $# -gt 0 ]; do
     case "$1" in
@@ -82,6 +91,7 @@ while [ $# -gt 0 ]; do
             [ $# -ge 2 ] || { echo "claim: --title needs text" >&2; exit 2; }
             title="$2"; shift 2 ;;
         --no-claim) make_claim=no; shift ;;
+        --debt-paydown) label=debt-paydown; shift ;;
         -h|--help) usage; exit 0 ;;
         -*)
             echo "claim: unknown argument $1" >&2
@@ -166,7 +176,7 @@ Co-Authored-By: ${NIFE_CLAIM_MODEL:-Claude Code} <noreply@anthropic.com>"
     else
         account="$(gh api user --jq .login 2>/dev/null || echo "the \`gh\` user")"
     fi
-    gh pr create --draft --title "$claim_text" --body "**Lane:** \`$branch\`, written by an agent; $account's account is the author GitHub shows.
+    gh pr create --draft ${label:+--label "$label"} --title "$claim_text" --body "**Lane:** \`$branch\`, written by an agent; $account's account is the author GitHub shows.
 
 Claim commit only so far."
 )
