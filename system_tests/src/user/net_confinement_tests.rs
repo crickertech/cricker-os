@@ -40,6 +40,9 @@ const SQUATTER_ARMED: u64 = 1;
 const SQUATTER_QUIET: u64 = 0;
 /// Every one of the squatter's ten attempts refused (its header lists them in bit order).
 const SQUATTER_ALL_REFUSED: u64 = (1 << 10) - 1;
+/// Both kernel-IPC probes on the squatter's own socket capability refused (risk 7's fifth outsider
+/// pass): bit 0 a plain `RECEIVE`, bit 1 a `RECEIVE_CAP`, word 2 of the squatter's armed report.
+const SQUATTER_RECV_REFUSED: u64 = 0b11;
 
 /// Budget pages per spawned client: one frame plus its page tables, `spawn_stack_client`'s number.
 const BUDGET_PAGES: u64 = 16;
@@ -212,6 +215,14 @@ fn a_squatter_at_a_shared_stack_endpoint_cannot_capture_the_clients_traffic() {
          front door; minting with BADGE; re-badging its own; its closed socket; opening through \
          its closed socket)",
         !armed[1] & SQUATTER_ALL_REFUSED,
+    );
+    assert_eq!(
+        armed[2],
+        SQUATTER_RECV_REFUSED,
+        "CONFINEMENT ESCAPE: a socket holder reached the stack's own incoming queue through a \
+         kernel receive on its socket capability; of RECEIVE (bit 0) and RECEIVE_CAP (bit 1) these \
+         were NOT refused: {:#b}. The minted socket capability must carry no READ right.",
+        !armed[2] & SQUATTER_RECV_REFUSED,
     );
 
     // Now the honest exchange, while the squatter watches its page.
