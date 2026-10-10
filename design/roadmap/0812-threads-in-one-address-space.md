@@ -2,7 +2,7 @@
 status: NOT-STARTED
 raised: 2026-10-07
 milestone_dependencies: none
-decision_dependencies: 16, 19, 263
+decision_dependencies: 16, 19, 263, 269
 machine_requirements: none
 specific_machine: none
 needs_person: no
@@ -97,7 +97,9 @@ second. Search for more before building; this list is what a grep found on 2026-
 
 ## The forks, for calef
 
-None is decided here. Each needs a ruling before its code, since 1, 2, 3 and 6 are syscall surface
+Ruled 2026-10-09 (UTC) by calef, all seven, in [§269 (how threads share a process)](../decisions/0269-how-threads-share-a-process.md). Forks 4, 5 and 6 went differently from the recommendations below, and forks 2 and 7 were widened; §269 is the record, and the list below is kept as the question calef was asked. One consequence is open: fork 5 makes a thread join a process object, so whether fork 1's `BIND` right moves onto it comes back to calef before that code.
+
+As first written: none is decided here. Each needs a ruling before its code, since 1, 2, 3 and 6 are syscall surface
 under §10 (process model: capability-based, microkernel), and the rest are agreements between the
 kernel and `std`.
 
