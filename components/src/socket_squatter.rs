@@ -20,12 +20,8 @@
 //!    none;
 //! 3. tries to mint a socket's capability itself with `BADGE`, which its front door has no `GRANT`
 //!    for;
-//! 4. opens a socket of its own; before closing it, tries a kernel plain `RECEIVE` and
-//!    `RECEIVE_CAP` on that socket's capability, both of which must be refused because the capability
-//!    the stack mints is a `READ`-less copy of the stack's serve endpoint (a permissive endpoint
-//!    would let a socket holder drain the stack's incoming queue, every other client's request); then
-//!    tries to re-badge the socket into another, closes it, and tries the closed capability, which
-//!    must reach nothing and must not open a socket either;
+//! 4. opens a socket of its own and tries a kernel `RECEIVE` and `RECEIVE_CAP` on its capability,
+//!    refused as minted without `READ`; re-badges it, closes it, and tries the closed one (nothing);
 //! 5. arms a valid TFTP read request in its own page, reports which of those were refused, and
 //!    watches its page for the victim's traffic, bounded.
 //!

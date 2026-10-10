@@ -271,7 +271,7 @@ a shipped path. Row 26 is no longer unattacked; passes 3 and 4 made its own test
 hang. The refusal log's one shipped-path entry is the redoxfs name-window TOCTOU, homed in milestone
 825. By criterion (c) this is a clean pass by an Anthropic model, so it can be the first of the two
 consecutive clean passes; the second must be a non-Anthropic model or a human, so (c) is not yet
-met. The verdict is unchanged, and moving the colour stays calef's.
+met. The verdict is unchanged, and moving the color stays calef's.
 
 ### Added 2026-10-03: row 27's hand-off was tested on one of the two `x86_64` boots
 

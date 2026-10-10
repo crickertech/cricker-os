@@ -48,7 +48,7 @@ See `notes/confinement-outsider-pass-5.md` for the full pass, the per-row table 
 - Every escape is a failing test committed before any fix (none found this pass).
 - The pass-5 note exists with its refusal log, and every finding has a home.
 - Risk 7's appendix cites the pass through the maintainer under §216 (fatal-risk facts are
-  correctable, and verdicts are the architect's). Moving the colour stays calef's.
+  correctable, and verdicts are the architect's). Moving the color stays calef's.
 
 ## Follow-on
 

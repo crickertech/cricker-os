@@ -119,7 +119,7 @@ It is a clean pass with no escape found on a shipped path, by Claude. It can be 
 criterion (c)'s two consecutive clean passes. It does not by itself move the count to met: the
 second must be a non-Anthropic model or a human, and the refusal log's shipped-path entries must not
 be left unexamined. The two shipped-path refusals below (redoxfs TOCTOU, the resolver CNAME limit)
-are each homed, not unexamined. Moving the colour is calef's.
+are each homed, not unexamined. Moving the color is calef's.
 
 ## Refusal log
 
