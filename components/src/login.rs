@@ -157,10 +157,10 @@
 //!
 //! **This program spells measured boot's load-or-refuse decision itself** ([`_start`] runs
 //! [`measured_boot::verify_in_manifest`] and folds absent, refused and not-an-ELF into `None`)
-//! rather than calling `measured_boot::verdict`, which milestone 246 (measured boot's refusal path is tested by nothing) moved the same decision
-//! into a crate for: switching buys the tested refusal branch at the cost of a `Verdict` whose
-//! `unvouched` field this program has nothing to do with; not done, on the record, because it is
-//! a boot path this lane was not gating. The check's trust root is the progenitor's hand-over
+//! rather than calling `measured_boot::verdict`, the crate milestone 246 (measured boot's
+//! refusal path is tested by nothing) moved the decision into. Switching buys the tested refusal
+//! branch at the cost of a `Verdict` whose `unvouched` field this program has nothing to do with;
+//! not done, on the record, because it is a boot path this lane was not gating. The check's trust root is the progenitor's hand-over
 //! (bytes and table arrive already verified there), so it is a consistency check, kept because
 //! it costs one hash and catches a spawner that pairs the wrong two blobs.
 //!
