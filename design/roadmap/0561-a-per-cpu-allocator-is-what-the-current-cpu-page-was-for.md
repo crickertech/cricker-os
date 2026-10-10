@@ -55,8 +55,8 @@ surface question. Finding that out early is a good outcome of starting it.
 ## The consumer, measured
 
 2026-10-10 (UTC), by milestone 812 (`std::thread::spawn` runs real threads in one address space):
-`std` programs now have threads, and the `std` heap is one spinlock. Allocation is 2.1 to 3.2 times
-slower with four threads than with one. That is 200,000 small allocations and frees, split four
+`std` programs now have threads, and the `std` heap is one spinlock. Allocation is 1.5 to 3.2 times
+slower with four threads than with one, across two runs. That is 200,000 small allocations and frees, split four
 ways, under QEMU's TCG with four emulated cores, on all three architectures. The program is
 `std_exerciser/src/bin/std_heap_contention.rs`, run by
 `std_threads_tests::the_std_heap_is_measured_under_four_threads`, from commit `26ee75bae` (pull

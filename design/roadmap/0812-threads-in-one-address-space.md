@@ -183,7 +183,7 @@ exit. A second check runs `rayon`'s parallel sum to the same answer.
 - **Items 9, 10, 12 and 15 were checked, not changed**:
   - the `static mut` and `MappedWindow` comments now argue that a native program cannot be given a
     second thread;
-  - the heap's spinlock was measured under four threads: allocation is 2.1 to 3.2 times slower
+  - the heap's spinlock was measured under four threads: allocation is 1.5 to 3.2 times slower
     than with one thread (`notes/std/threads.md`). That is a BUG of this block's `std` and belongs
     to milestone 561 (a per-CPU allocator is what the current-CPU page was for), whose block now
     carries the measurement as the consumer it was waiting for;

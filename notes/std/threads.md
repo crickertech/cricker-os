@@ -67,6 +67,11 @@ Emulated time is a ratio to read, not a speed. The ratio says the lock is conten
 that four threads do the same work slower than one: a thread preempted holding it makes the others
 spin out their time slices.
 
+A second run at commit `691cb473c`, on a quieter host, read 46.0 ms against 116.2 ms on aarch64
+(2.5 times), 65.1 ms against 96.5 ms on riscv64 (1.5 times) and 29.6 ms against 70.7 ms on
+`x86_64` (2.4 times). The ratio moves with the host's load. That four threads are slower than one
+does not.
+
 ## BUGS
 
 - The heap's one spinlock makes allocation slower with four threads than with one (the table
