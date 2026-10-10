@@ -11,8 +11,8 @@ transitive crates, a filesystem walk, gitignore semantics, memory maps, and thre
 
 ## The answer, in one paragraph
 
-Unmodified `ripgrep` searches a directory it was granted, on all three architectures, with zero
-source changes. Told `rg --threads 1 --no-mmap --stats 'walk entry'` over milestone 121's priced
+Unmodified `ripgrep` searches a directory it was granted, on all three architectures, with no
+change to its own source. One dependency carries one patch, `ignore`'s parallel walker (below). Told `rg --threads 1 --no-mmap --stats 'walk entry'` over milestone 121's priced
 tree, it finds the 138 matches in 141 files that are there, reads all 333,984 bytes, and prints
 3,813 bytes that are byte for byte what the same `rg` prints on macOS. Through a grant that lacks
 `ENUMERATE` it says the capability does not carry the right, searches nothing, and prints no match.
@@ -73,8 +73,14 @@ loader ignores it, as it does for `std_exerciser`.
 ## Building it
 
 `helpers/build-ripgrep.sh` downloads the published crate and builds every target in one pass, with
-no patch, no vendored copy and no fork. What differs from a Linux build is on the command line: the
-target spec (`panic=abort`, `singlethread`), `-Zbuild-std` against the patched `std` (notes/std.md),
+no vendored copy and no fork. `ripgrep` is untouched. Since 2026-10-10 (UTC) one dependency is
+patched: `ignore` 0.4.23, fetched from crates.io by its checksum and given
+`helpers/ripgrep-ignore-walk.patch`, about ten lines. Milestone 812 (`std::thread::spawn` runs real
+threads in one address space) gave `rg` threads, so it walks in parallel, and `ignore`'s parallel
+walker answered "unsupported platform" for every path on a target that is neither `unix` nor
+`windows`. calef ruled the patch on pull request #1892, and nife maintains it until upstream fixes
+the bug by any route. What else differs from a Linux build is on the command line: the
+target spec (`panic=abort`), `-Zbuild-std` against the patched `std` (notes/std.md),
 the link script, and `-Copt-level=s -Cstrip=debuginfo`, because ripgrep's own release profile sets
 `debug = 1` and a 25 MB ELF rides into RAM in the initrd. About 25 seconds a target from cold.
 
@@ -196,6 +202,10 @@ sh bench/host/run_linux_rg.sh         # needs rustup target add aarch64-unknown-
 
 ## BUGS
 
+- **`ignore` carries nife's own patch**: `helpers/ripgrep-ignore-walk.patch`, the parallel walker on
+  a target that is neither `unix` nor `windows` (milestone 812, #1892). nife maintains it until
+  upstream fixes the bug by any route, and re-checks it whenever ripgrep or `ignore` is bumped. The
+  upstream issue: (link pending).
 - Spawning `rg` at the prompt is slow, and where the time goes is unmeasured. Lines that stop at
   argument parsing took 3.8 to 30.1 s on aarch64 under HVF, and the `caps` line that hashes the
   2.8 MiB image up to 38.7 s on `x86_64`, with other lanes loading the host (2026-10-07). The

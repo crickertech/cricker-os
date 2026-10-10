@@ -1,0 +1,85 @@
+The one patch `helpers/build-ripgrep.sh` applies: `ignore` 0.4.23's parallel walker on a target that
+is neither `unix` nor `windows`. Applied with `patch -p1` inside the unpacked `ignore-0.4.23.crate`.
+
+Milestone 812 (`std::thread::spawn` runs real threads in one address space) gave `std` threads, so
+`available_parallelism` reports the online cores and `rg` picks `ignore`'s parallel walker, whose
+`DirEntryRaw::from_entry_os` and `from_path` were placeholders on such a target that answered
+"unsupported platform" for every path. They become the `windows` versions without the stored
+metadata, which only `windows` keeps, on every such target except wasm, which keeps the stubs
+(`wasm32-wasip1` cannot spawn, so a parallel walk past its roots would panic instead). Ruled (a)
+by calef on pull request #1892, 2026-10-10 (UTC).
+The sequential walker never needed this: it uses `walkdir`.
+
+nife maintains this patch (calef, 2026-10-11 UTC). It is carried until upstream fixes the bug by any
+route, and re-checked whenever ripgrep or `ignore` is bumped. The upstream issue: (link pending).
+
+Falsification: attested 2026-10-10 (UTC), on aarch64. With this patch reversed inside the unpacked
+`ignore-0.4.23` and `rg` rebuilt, `script/swish-check --arch aarch64` failed on
+`/installed/rg needle docs ../hay/secret.txt`, which answered "rg: unsupported platform" twice; with
+it applied the same run passed. Not replayable by `script/falsifications --sweep`: that boots
+`script/swish-check` against the `rg` already on disk and does not rebuild it. By hand:
+
+    patch -R -p1 -d "$TMPDIR/nife-ripgrep-<hash>/ignore-0.4.23" < helpers/ripgrep-ignore-walk.patch
+    NIFE_RIPGREP_HOST=0 NIFE_RIPGREP_TRIPLES=aarch64-unknown-nife helpers/build-ripgrep.sh
+    script/swish-check --arch aarch64     # must fail that line
+    rm "$TMPDIR/nife-ripgrep-<hash>/ignore-0.4.23/.nife-patch"   # the next build re-patches
+
+Name: provisional (milestone 812's lane, 2026-10-10 UTC).
+
+--- a/src/walk.rs
++++ b/src/walk.rs
+@@ -366,9 +366,21 @@
+         })
+     }
+ 
+-    // Placeholder implementation to allow compiling on non-standard platforms
+-    // (e.g. wasm32).
+-    #[cfg(not(any(windows, unix)))]
++    // Targets that are neither unix nor windows, other than wasm: the same
++    // entry, without the per-platform extras.
++    #[cfg(not(any(windows, unix, target_family = "wasm")))]
++    fn from_entry_os(
++        depth: usize,
++        ent: &fs::DirEntry,
++        ty: fs::FileType,
++    ) -> Result<DirEntryRaw, Error> {
++        Ok(DirEntryRaw { path: ent.path(), ty, follow_link: false, depth })
++    }
++
++    // Placeholder implementation to allow compiling on wasm32. It stays an
++    // error there: wasm32-wasip1 cannot spawn threads, so a parallel walk that
++    // got past its roots would panic in `std::thread::scope` instead.
++    #[cfg(all(target_family = "wasm", not(any(windows, unix))))]
+     fn from_entry_os(
+         depth: usize,
+         ent: &fs::DirEntry,
+@@ -416,9 +428,26 @@
+         })
+     }
+ 
+-    // Placeholder implementation to allow compiling on non-standard platforms
+-    // (e.g. wasm32).
+-    #[cfg(not(any(windows, unix)))]
++    // Targets that are neither unix nor windows, other than wasm.
++    #[cfg(not(any(windows, unix, target_family = "wasm")))]
++    fn from_path(
++        depth: usize,
++        pb: PathBuf,
++        link: bool,
++    ) -> Result<DirEntryRaw, Error> {
++        let md =
++            fs::metadata(&pb).map_err(|err| Error::Io(err).with_path(&pb))?;
++        Ok(DirEntryRaw {
++            path: pb,
++            ty: md.file_type(),
++            follow_link: link,
++            depth,
++        })
++    }
++
++    // Placeholder implementation to allow compiling on wasm32 (see
++    // `from_entry_os` above for why it stays an error there).
++    #[cfg(all(target_family = "wasm", not(any(windows, unix))))]
+     fn from_path(
+         depth: usize,
+         pb: PathBuf,

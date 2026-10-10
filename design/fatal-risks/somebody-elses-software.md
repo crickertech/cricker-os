@@ -48,6 +48,11 @@ x86_64.
   through `std::process::exit`. Zero patches, and the three transcripts are byte for byte identical
   from three separately built binaries. Everything that differs from a Linux build is on the command
   line.
+  Correction, 2026-10-10 (UTC): since milestone 812 (`std::thread::spawn` runs real threads in one
+  address space) `rg` walks in parallel, and its `ignore` dependency carries one ten-line
+  build-time patch for that walker (calef, #1892). `ripgrep`'s own source is still untouched, and
+  the patch is nife's to maintain until upstream fixes the bug
+  ([`notes/ripgrep-on-nife.md`](../../notes/ripgrep-on-nife.md)).
 - x86_64 took two more milestones and the second was a disk. Milestone 184 (extend the `std` port to
   x86_64) made `std_exerciser` pass there on 2026-09-14 and `ripgrep` build. And a build is not a
   transcript: the run needed a RedoxFS disk the FS service could find, which `q35` could not offer

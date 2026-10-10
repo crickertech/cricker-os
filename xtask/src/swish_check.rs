@@ -769,12 +769,12 @@ const SWISH_CHECK_SCRIPT: &[Line] = &[
     // xtask foreign-note` linked in. `docs` is granted read-only because a word named it, and the
     // match is found there. `../hay/secret.txt` names the same directory's other file by a path
     // whose first component is not an entry here, so nothing is granted for it and `rg` cannot
-    // open it, though the needle is in it: the caretaker refuses the `..` by name. With no word
-    // naming anything `rg` holds no directory, and searches nothing. It asks for its working
-    // directory first, and the PAL refuses that by design for a process holding no directory
-    // (`patches/std-nife/overlay/std/src/sys/paths/nife.rs`), so the refusal reaches the person in
-    // `rg`'s words, which add a guess ("did your CWD get deleted?") that is wrong here. Typed only
-    // when `helpers/build-ripgrep.sh` has run, which CI's rows do (see `swish_check_boot`).
+    // open it, though the needle is in it: the caretaker refuses the `..` by name, in the parallel
+    // walker's words when milestone 812 (`std::thread::spawn` runs real threads in one address
+    // space) gives `rg` more than one core. With no word naming anything `rg` holds no directory and asks for its working
+    // directory, which the PAL refuses by design (its `sys/paths/nife.rs`),
+    // so `rg` says so with a wrong guess ("did your CWD get deleted?"). Typed only when
+    // `helpers/build-ripgrep.sh` has run, as CI's rows do.
     line(0, "echo the needle outside the grant > secret.txt", &[]),
     line(
         0,
@@ -791,8 +791,8 @@ const SWISH_CHECK_SCRIPT: &[Line] = &[
         "/installed/rg needle docs ../hay/secret.txt",
         &[
             "docs/n.txt:find the needle here",
-            "rg: ../hay/secret.txt: IO error for operation on ../hay/secret.txt: `..` would \
-             leave the granted directory, which no capability designates",
+            "rg: ../hay/secret.txt: ", // then walkdir's "IO error for operation on", one core only
+            "`..` would leave the granted directory, which no capability designates",
         ],
     ),
     line(

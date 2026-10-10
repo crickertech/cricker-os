@@ -11,11 +11,16 @@
 # It is pinned twice so a gate cannot drift: the `.crate` must match the SHA-256 below, and cargo
 # builds with `--locked` against the `Cargo.lock` the crate ships.
 #
-# The whole point of milestone 121 is that the source is somebody else's and is untouched. There is
-# no patch, no vendored copy, and no fork. What differs from a Linux build is entirely on the
-# command line below: the target spec, `-Zbuild-std` against the patched `nife-dev` toolchain, and
-# the three link arguments `std_exerciser/build.rs` supplies for a program built in-tree (the shared
-# linker script, `-u_start`, and no build id).
+# The whole point of milestone 121 is that the source is somebody else's. `ripgrep` itself is
+# untouched, with no vendored copy and no fork. **One dependency carries one patch**: `ignore`
+# 0.4.23's parallel walker had placeholders on a target that is neither `unix` nor `windows`, which
+# `rg` reaches once it has threads (milestone 812 (`std::thread::spawn` runs real threads in one
+# address space); calef ruled (a) on pull request #1892, 2026-10-10 UTC). It is
+# `helpers/ripgrep-ignore-walk.patch`, about ten lines, nife's to maintain until upstream fixes the
+# bug by any route, and re-checked whenever ripgrep or `ignore` is bumped. Everything else that differs from a Linux build is on the command line below:
+# the target spec, `-Zbuild-std` against the patched `nife-dev` toolchain, and the three link
+# arguments `std_exerciser/build.rs` supplies for a program built in-tree (the shared linker script,
+# `-u_start`, and no build id).
 #
 # All three architectures, because DECISIONS §19 makes parity a gate rather than an aspiration: a
 # capability ships on every supported target or a scope note records the gap and the plan. x86_64
@@ -68,6 +73,30 @@ if [ ! -f "$SRC/Cargo.toml" ]; then  # a half-unpacked tree from an interrupted 
   tar xzf "$BUILD/ripgrep-$VERSION.crate" -C "$BUILD"
 fi
 
+# **`ignore`, fetched the same way and patched** (milestone 812; see the header). Pinned by the
+# checksum ripgrep 14.1.1's own `Cargo.lock` carries for it, unpacked beside `ripgrep`, and
+# patched once per version of the patch: the marker holds the patch's hash, so editing or emptying
+# the patch file (its falsification) re-unpacks a clean copy rather than patching twice.
+IGNORE_VERSION=0.4.23
+SHA256_IGNORE_0_4_23=6d89fd380afde86567dfba715db065673989d6253f42b88179abd3eae47bda4b
+IGNORE="$BUILD/ignore-$IGNORE_VERSION"
+IGNORE_PATCH="$ROOT/helpers/ripgrep-ignore-walk.patch"
+patch_hash="$(shasum -a 256 "$IGNORE_PATCH" | cut -d' ' -f1)"
+if [ "$(cat "$IGNORE/.nife-patch" 2>/dev/null)" != "$patch_hash" ]; then
+  echo "build-ripgrep: fetching ignore $IGNORE_VERSION from crates.io and applying $IGNORE_PATCH"
+  curl -sSfL --retry 3 --max-time 120 -o "$BUILD/ignore-$IGNORE_VERSION.crate" \
+    "https://static.crates.io/crates/ignore/ignore-$IGNORE_VERSION.crate"
+  got="$(shasum -a 256 "$BUILD/ignore-$IGNORE_VERSION.crate" | cut -d' ' -f1)"
+  if [ "$got" != "$SHA256_IGNORE_0_4_23" ]; then
+    echo "build-ripgrep: ignore-$IGNORE_VERSION.crate has SHA-256 $got, not $SHA256_IGNORE_0_4_23; refusing it" >&2
+    exit 1
+  fi
+  rm -rf "$IGNORE"
+  tar xzf "$BUILD/ignore-$IGNORE_VERSION.crate" -C "$BUILD"
+  patch -p1 -s -d "$IGNORE" < "$IGNORE_PATCH"
+  printf %s "$patch_hash" > "$IGNORE/.nife-patch"
+fi
+
 # The patched std lives in the `nife-dev` toolchain, which `xtask std-src` builds and links.
 # `RUSTUP_TOOLCHAIN` rather than `+nife-dev` for the reason `xtask::std_exerciser` records: the
 # cargo proxy exports `RUSTUP_TOOLCHAIN=nightly`, which would override a `+` selector. And by
@@ -95,6 +124,18 @@ fi
 # program that hears nothing. The source is still untouched; the note is one more link argument.
 mkdir -p "$OUT"
 
+# The patched `ignore` is a path dependency, which `Cargo.lock` records without a registry source or
+# checksum. So the lock ripgrep ships is restored from its `.crate` and those two lines of the
+# `ignore` entry are dropped, and nothing else: `cargo update -p ignore` would also move ignore's
+# own dependencies (it moved `serde` and `syn` when tried), and `--locked` exists to stop exactly
+# that. Every other package stays at the version and checksum ripgrep pinned.
+tar xzf "$BUILD/ripgrep-$VERSION.crate" -C "$BUILD" "ripgrep-$VERSION/Cargo.lock"
+awk '/^name = "ignore"$/ { in_ignore = 1 }
+     /^$/ { in_ignore = 0 }
+     in_ignore && (/^source = / || /^checksum = /) { next }
+     { print }' "$SRC/Cargo.lock" > "$SRC/Cargo.lock.nife" && mv "$SRC/Cargo.lock.nife" "$SRC/Cargo.lock"
+IGNORE_PATCH_CONFIG="patch.crates-io.ignore.path=\"$IGNORE\""
+
 for TRIPLE in ${NIFE_RIPGREP_TRIPLES:-aarch64-unknown-nife riscv64-unknown-nife x86_64-unknown-nife}; do
   mkdir -p "$OUT/$TRIPLE"
   (cd "$ROOT" && cargo xtask foreign-note "$TRIPLE" "$OUT/$TRIPLE/note.o")
@@ -105,6 +146,7 @@ for TRIPLE in ${NIFE_RIPGREP_TRIPLES:-aarch64-unknown-nife riscv64-unknown-nife 
   RUSTUP_TOOLCHAIN="$ROOT/target/nife-farm" \
   RUSTFLAGS="-Clink-arg=-T$ROOT/crates/user_mode_runtime/link.ld -Clink-arg=-u_start -Clink-arg=--build-id=none -Clink-arg=$OUT/$TRIPLE/note.o -Cstrip=debuginfo -Copt-level=s" \
     cargo build --release --locked \
+      --config "$IGNORE_PATCH_CONFIG" \
       -Zjson-target-spec \
       -Zbuild-std=core,alloc,std,panic_abort \
       -Zbuild-std-features=compiler-builtins-mem \
@@ -122,7 +164,7 @@ done
 # reference and not a nife program. `NIFE_RIPGREP_HOST=0` skips it.
 if [ "${NIFE_RIPGREP_HOST:-1}" != 0 ]; then
   cd "$SRC"
-  cargo build --release --locked --target-dir "$SRC/target/host"
+  cargo build --release --locked --config "$IGNORE_PATCH_CONFIG" --target-dir "$SRC/target/host"
   mkdir -p "$OUT/host"
   cp "$SRC/target/host/release/rg" "$OUT/host/rg"
   echo "build-ripgrep: $OUT/host/rg ($("$OUT/host/rg" --version | head -1))"

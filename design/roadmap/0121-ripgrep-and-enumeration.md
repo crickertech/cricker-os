@@ -212,14 +212,14 @@ ripgrep working beautifully and confinement being decorative.
   a deliberate choice. A directory with very many entries therefore costs memory proportional to its
   size, and a recursive walk meets many directories. Unmeasured, and this milestone is what would
   measure it.
-- Single-threaded only, per §105. Any published number that does not say so is dishonest, and any
-  comparison that does not pin the other side to one thread is worse.
+- Threaded since milestone 812 (`std::thread::spawn` runs real threads in one address space). A
+  published number states its thread count; a comparison pins both sides to it.
 - ripgrep memory-maps large files by default and this system has no `mmap`, which milestone 99 (`git` on
   nife)'s block also names as a gap. Measured 2026-10-07: it costs nothing to correctness, since
   `memmap2`'s stub fails and `ripgrep` reads instead, so `--no-mmap` is a measurement pin and not a
   requirement. What a map would have bought on a large file is unmeasured, because there is none.
-- The benchmark measures this tree, not a class of systems. One microkernel's IPC cost is not
-  "microkernels are slow at walks", and the note that records it must say so.
+- The benchmark measures this tree, not a class of systems: one microkernel's IPC cost is not
+  "microkernels are slow at walks".
 - `ignore` building is not `ignore` behaving. 64's probe proved it compiles. Whether its
   metadata-heavy paths and gitignore semantics behave identically here is a separate question that
   only running it answers. The correction above is the sharp version of this: it compiles, and it
@@ -242,6 +242,8 @@ ripgrep working beautifully and confinement being decorative.
 
 ## Follow-on
 
+- **Outstanding.** nife maintains `helpers/ripgrep-ignore-walk.patch`, re-checked at every `rg` or
+  `ignore` bump. Upstream issue: (link pending).
 - **Milestone 205.** The ABI has no argument vector, which is what stops `rg` after it loads and
   resolves its own directory. `design/roadmap/0205-foreign-program-arguments.md` was minted from
   this lane on 2026-08-31 and carries the wire-format fork.
