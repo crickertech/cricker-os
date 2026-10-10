@@ -47,12 +47,11 @@ is now) asked the sweep to remove.
 
 ## Follow-on
 
-- **Proposed.** `design/roadmap/proposals/the-comment-block-sweep-closes.md`: worth six, the
-  closing worth. It takes the next three (`crates/login_protocol/src/lib.rs:2` 169,
-  `crates/jh7110_entropy/src/lib.rs:2` 169, `kernel/src/arch/x86_64/iommu.rs:1` 164), expects
-  floors, and if the worth confirms that, closes the sweep. The ratchet and the baseline remain as
-  the standing tripwire against new over-cap blocks; the rows that stay over cap are the recorded
-  cost of the constraints they carry.
+- **Milestone 866.** Milestone 866 (the comment-block sweep closes, worth six). It took the next
+  three (`crates/login_protocol/src/lib.rs:2` 169, `crates/jh7110_entropy/src/lib.rs:2` 169,
+  `kernel/src/arch/x86_64/iommu.rs:1` 164), found floors, and milestone 866 closed the sweep. The ratchet and
+  the baseline remain as the standing tripwire against new over-cap blocks; the rows that stay
+  over cap are the recorded cost of the constraints they carry.
 
 ## Index row
 

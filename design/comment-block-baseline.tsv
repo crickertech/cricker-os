@@ -141,7 +141,7 @@ crates/jh7110_entropy/src/lib.rs:597	41
 crates/job_mix/src/lib.rs:1	140
 crates/line_editor/src/lib.rs:1	142
 crates/loaded_image_check/src/lib.rs:1	76
-crates/login_protocol/src/lib.rs:2	169
+crates/login_protocol/src/lib.rs:2	164
 crates/machine_discovery/src/aarch64.rs:1	47
 crates/machine_discovery/src/acpi.rs:1	61
 crates/machine_discovery/src/acpi/ivrs.rs:1	47
