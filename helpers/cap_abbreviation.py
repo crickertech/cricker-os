@@ -106,7 +106,7 @@ KEPT = {
     # Milestone 800 (a non-Anthropic model attacks the confinement claim), 2026-10-07 (UTC): the
     # outsider pass's fixture and test call these APIs by their existing names and mint no
     # cap-named identifier of their own.
-    'components/src/socket_squatter.rs': ({'send_cap'}, _CALLS),
+    'components/src/socket_squatter.rs': ({'send_cap', 'receive_cap'}, _CALLS),
     'system_tests/src/user/net_confinement_tests.rs':
         ({'cap', 'memory_region_cap', 'rendezvous_cap'}, _CALLS),
     # The same pass's chatty reshape: `spawn_swapper`'s two new slots call the same family.
