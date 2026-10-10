@@ -1,11 +1,13 @@
 ---
-status: DECIDED
+status: AMENDED
 raised: 2026-09-26
 decided: 2026-09-26
 ratified_by: calef
 ---
 
 # 220. Signed builds: a vendor signs, a developer self-signs, and trusting a key is scoped
+
+*Amended 2026-10-10 (UTC) by calef, on #1884: an image carries its own distribution's root as a removable owner trust line. See §195's amendment.*
 
 Raised 2026-09-26 (UTC) by calef: *"I do wonder if there is a case for software vendors signing
 their builds in their manifest and local developers would just self sign. Does that make sense?"*
@@ -47,10 +49,8 @@ Deferred, not ruled: expiring trust statements (TUF's shape), until the verifier
 trust. Not ruled either, and kept as a recommendation: build no signer on nife until a build made on
 nife must run somewhere else.
 
-For the architect, three things this record found and did not settle:
+For the architect, two things this record found and did not settle:
 
-- `CLAUDE.md` rule 6 still says "vendor the crypto", which §46's 2026-07-31 amendment contradicts.
-  This lane may not edit `CLAUDE.md`.
 - The ruling as relayed said the dropped programs are runnable by a D2 holder "under §170's option
   A". §170's A is an argv and §170 is `PROPOSED`, so the record above cites §219's D2 alone. Correct
   it if another section was meant.
