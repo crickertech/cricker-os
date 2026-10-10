@@ -28,22 +28,15 @@ attack only when it boots on three ISAs, and keeps the standing refusal log.
 
 ## Why
 
-Risk 7 (the confinement claim is false) is AMBER. Its criterion (c) for green is two consecutive
-independent attacks with no escape on a shipped path, at least one by a non-Anthropic model or a
-human, and a pass that leaves a refusal on a shipped path unexamined does not count (calef, "Add the
-refusal log."). Pass 4 (milestone 800, GLM 5.3) booted the socket capture of milestone 649 (every
-client of a network stack shares its socket numbers), ruled an escape on a shipped path, so the
-two-consecutive count is at zero. This pass can be the first of the two; the second must be
+Risk 7 (the confinement claim is false) is AMBER. Its criterion (c) for green is two consecutive independent attacks with no escape on a shipped path, at least one by a non-Anthropic model or a human. A pass that leaves a refusal on a shipped path unexamined does not count (calef, "Add the
+refusal log."). Pass 4 (milestone 800, GLM 5.3) booted the socket capture of milestone 649 (every client of a network stack shares its socket numbers). calef ruled it an escape on a shipped path, so the two-consecutive count is at zero. This pass can be the first of the two; the second must be
 non-Anthropic or human.
 
 ## The attack
 
 Informed, the posture milestone 800 set: the whole tree and its history are in hand, as any attacker
 of a public repository has them. Variant analysis against each fixed escape, and new ground where
-nothing has been found. The brief's targets: rows not attacked before, the newest surfaces (the
-§255 socket capabilities, std at the prompt, the §252 (a resolver grant is one zone per client
-badge) resolver grant, the package fetch path of milestone 801 (packages over the internet) if it
-has merged), and a refusal log.
+nothing has been found. The brief's targets were rows not attacked before, the newest surfaces and a refusal log. The surfaces: the §255 socket capabilities, std at the prompt, the §252 (a resolver grant is one zone per client badge) resolver grant, and the package fetch path of milestone 801 (packages over the internet) if it had merged.
 
 ## Result
 

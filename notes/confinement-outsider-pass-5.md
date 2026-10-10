@@ -13,18 +13,9 @@ re-discovery, scored apart.
 
 ## What this pass attacked, and what it did not
 
-The brief named the newest surfaces first: the §255 (each socket is its own capability)
-socket-capability model, `std` at the prompt, the §252 (a resolver grant is one zone per client
-badge) resolver grant, and the milestone 801 (packages over the internet) package fetch path if it
-had merged. It had not: milestone 801 is NOT-STARTED and its pull request (#1884) is open, so the
-package client is not a shipped path and is out of scope for a shipped-path attack this pass. It is
-the next pass's ground once it lands.
+The brief named the newest surfaces first. One was the §255 (each socket is its own capability) socket-capability model. The others were `std` at the prompt, the §252 (a resolver grant is one zone per client badge) resolver grant, and the milestone 801 (packages over the internet) package fetch path if it had merged. It had not when this pass ran: its pull request (#1884) merged later the same day. So the package client was not a shipped path, and it was out of scope for this pass. It is the next pass's ground.
 
-The socket-capability surface is where the effort went, because it is the newest shipped code, it is
-what pass 4's escape and the #1817 fix rewrote, and `std::net` at the prompt rides exactly it (the
-std net PAL, `patches/std-nife/overlay/std/src/sys/net/connection/nife.rs`, opens every socket as a
-`CALL` on the front door answered by `REPLY_CAPABILITY`, so a std program holds one capability per
-socket and no shared id namespace). Attacking the contract attacks std's sockets too.
+The socket-capability surface is where the effort went. It is the newest shipped code, it is what pass 4's escape and the #1817 fix rewrote, and `std::net` at the prompt rides exactly it. The std net PAL (`patches/std-nife/overlay/std/src/sys/net/connection/nife.rs`) opens every socket as a `CALL` on the front door answered by `REPLY_CAPABILITY`. So a std program holds one capability per socket and no shared id namespace. Attacking the contract attacks std's sockets too.
 
 ## The claims, attacked
 
@@ -56,22 +47,19 @@ this draft. Rows carried by host proofs are one artifact for every ISA by constr
 | 23 | Re-read the progenitor-authority drop | read | held |
 | 24 | Re-read the file-server window reuse; TOCTOU is milestone 825's booted probe | read | held by reading; the booted race is milestone 825, refusal 1 |
 | 25 | Compositor; userspace server behind milestone 198 (a package manager, and the trivial install that makes a second customer possible), respawn scrub refused | read | not attacked (refusal 2) |
-| 26 | A client of a rendezvous cannot become its server; re-read the reshaped `chatty`/dispatcher tests | read | held, and **now attacked**: passes 3 and 4 made its own test fail rather than hang |
+| 26 | A client of a rendezvous cannot become its server; re-read the reshaped `chatty`/dispatcher tests | read | held, and now attacked: passes 3 and 4 made its own test fail rather than hang |
 | 27-29 | Re-read the x86 port rows | read (x86 by subject) | held |
 | 30 | Re-read the in-flight revocation sweep | read | held |
 | 31 | Re-read the unvouched-child census | read | held |
 | 32 | Re-read the boot-shell display census | read | held |
 | 33 | Re-read the read-only port-range refusal (pass 2's escape, fixed) | read | held |
-| 34 | **New ground: a socket holder's kernel RECEIVE/RECEIVE_CAP on its own socket capability**, plus a re-run of the squatter's page-capture and front-door attempts | booted aarch64 (riscv64, x86_64 in CI) | held |
+| 34 | New ground: a socket holder's kernel RECEIVE/RECEIVE_CAP on its own socket capability, plus a re-run of the squatter's page-capture and front-door attempts | booted aarch64 (riscv64, x86_64 in CI) | held |
 
 ## New ground, and why it holds
 
-**A socket holder cannot receive on its socket capability.** The stack mints each socket's
+A socket holder cannot receive on its socket capability. The stack mints each socket's
 capability from `socket_protocol::stack_slots::MINT`, a copy of its own serve endpoint carrying the
-socket's badge. That copy is `WRITE | GRANT`, with no `READ`, on purpose. A copy that also carried
-`READ` would let a socket holder run a kernel plain `RECEIVE` or `RECEIVE_CAP` on it and dequeue the
-stack's own incoming queue, every other client's request to the stack: the capture class milestone
-649 closed, reached by IPC rather than by the squatted page pass 4 booted. Pass 4's squatter tried
+socket's badge. That copy is `WRITE | GRANT`, with no `READ`, on purpose. A copy that also carried `READ` would let a socket holder run a kernel plain `RECEIVE` or `RECEIVE_CAP` on it and dequeue the stack's own incoming queue, which holds every other client's request to the stack. That is the capture class milestone 649 closed, reached by IPC rather than by the squatted page pass 4 booted. Pass 4's squatter tried
 `OPERATION_RECEIVE` (a contract opcode `CALL`) on the front door; it did not try a kernel plain
 `RECEIVE` on a real minted socket capability. This pass does.
 
@@ -93,27 +81,20 @@ riscv64 and x86_64 were not replayed by hand.
 
 ## Variants checked against each fixed escape
 
-- **Pass 4's socket capture (milestone 649 (every client of a network stack shares its socket numbers), §255).** Did the fix close the class or the instance?
-  Read as closed at the class, by a capability model rather than a patched id namespace: a socket is
-  named only by a kernel-stamped badge, the front door mints and does nothing else, `BADGE` refuses
-  an already-badged source (so a holder cannot re-badge its socket into another), `CLOSE` unbinds
-  the badge and unmaps the page, the badge counter never rewinds (so a stale copy never names a
-  later socket), and `ATTACH` unmaps the prior page before mapping (so a reused entry leaks nothing).
+- Pass 4's socket capture (milestone 649 (every client of a network stack shares its socket numbers), §255). Did the fix close the class or the instance?
+  Read as closed at the class, by a capability model rather than a patched id namespace. A socket is named only by a kernel-stamped badge, and the front door mints and does nothing else. `BADGE` refuses an already-badged source, so a holder cannot re-badge its socket into another. `CLOSE` unbinds the badge and unmaps the page. The badge counter never rewinds, so a stale copy never names a later socket. `ATTACH` unmaps the prior page before mapping, so a reused entry leaks nothing.
   The one sibling this pass found untested was the IPC receive on a minted socket capability, now
   booted above and held. The window-scoping rule is tree-wide since §256 (a server that keeps
   windows for many clients scopes each by the caller's badge); the audit of the rest is milestone
   823 (NOT-STARTED), where this pass leaves it.
-- **Pass 2's read-only port range (claim 33, milestone 768 (a read-only port range grants nothing)).** Re-read: the grant install now checks
+- Pass 2's read-only port range (claim 33, milestone 768 (a read-only port range grants nothing)). Re-read: the grant install now checks
   `READ` against port output. Held.
-- **The `outgoing_cap` / RECEIVE-path family (#1494, milestones 634, 633's first pass, §246).**
+- The `outgoing_cap` / RECEIVE-path family (#1494, milestones 634, 633's first pass, §246).
   Re-read the receive and reply paths. The staged-delegation leaks are closed and a plain `RECEIVE`
   takes no capability on either order (§246 (a plain `RECEIVE` never takes a capability)). No new
   sibling found.
-- **The redoxfs name-window TOCTOU (claims 19, 24).** Read, not booted (refusal 1, milestone 825).
-  The `name_resolver` is the positive contrast and was checked as a variant: it copies the name out
-  of the client's window into its own buffer before judging it against the badge's zone
-  (`components/src/name_resolver.rs`, `resolve`), so the check-then-use race redoxfs has does not
-  exist there. The resolver's one by-design limit is that it does not follow the CNAME chain (§252
+- The redoxfs name-window TOCTOU (claims 19, 24). Read, not booted (refusal 1, milestone 825).
+  The `name_resolver` is the positive contrast and was checked as a variant. It copies the name out of the client's window into its own buffer before judging it against the badge's zone (`components/src/name_resolver.rs`, `resolve`). So the check-then-use race redoxfs has does not exist there. The resolver's one by-design limit is that it does not follow the CNAME chain (§252
   Fork 2), which is authority riding on the asked name, not an escape.
 
 ## Re-discoveries
@@ -134,7 +115,7 @@ New findings: 0 escapes, 0 near misses. Re-discoveries: 0. Outcomes across 34 cl
 
 ## Can this pass count toward criterion (c)?
 
-It is a clean pass with no escape found on a shipped path, by Claude. It can be the **first** of
+It is a clean pass with no escape found on a shipped path, by Claude. It can be the first of
 criterion (c)'s two consecutive clean passes. It does not by itself move the count to met: the
 second must be a non-Anthropic model or a human, and the refusal log's shipped-path entries must not
 be left unexamined. The two shipped-path refusals below (redoxfs TOCTOU, the resolver CNAME limit)
