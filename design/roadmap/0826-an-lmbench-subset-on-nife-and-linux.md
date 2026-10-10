@@ -2,8 +2,8 @@
 status: NOT-STARTED
 raised: 2026-10-08
 promoted_from: an-lmbench-subset-on-nife-and-linux
-milestone_dependencies: 25
-decision_dependencies: 262, unwritten
+milestone_dependencies: 25, 835
+decision_dependencies: 262, 265
 machine_requirements: any of radon, xenon or (later) argon silicon; PMU not required
 specific_machine: none
 needs_person: yes
@@ -62,11 +62,10 @@ Reuse: lmbench is taken; the harness is the likeliest place a patch is needed.
 
 ## What it waits on
 
-Every program in this family is POSIX C, and nife has no C library that runs one unmodified. §31
-(the foreign-language seam) lets C make no syscalls, and full POSIX is milestone 478 (tier three:
-full POSIX behind the foreign-language seam), refused until a component needs it. Whether §262 makes
-these programs that component is calef's call, and nobody has written that question up, so this
-block carries `decision_dependencies: unwritten`.
+Corrected 2026-10-10 (UTC). The C library this waited on exists. calef ruled the question on
+2026-10-08 as §265 (a C library started from relibc), and milestone 835 (a C library, stage 1:
+files, clock and memory) built its first stage in #1896. The fields now name 835 and §265 in place
+of `unwritten`. This program's other needs are below.
 
 Fork. nife has no `fork` by design (§10 (process model: capability-based, microkernel)), so a path
 that needs it never unblocks. The port runs the program's no-fork mode where one exists, and a row

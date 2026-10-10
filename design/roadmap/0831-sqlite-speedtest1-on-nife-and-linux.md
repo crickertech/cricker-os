@@ -2,8 +2,8 @@
 status: NOT-STARTED
 raised: 2026-10-08
 promoted_from: sqlite-speedtest1-on-nife-and-linux
-milestone_dependencies: none
-decision_dependencies: 262, unwritten
+milestone_dependencies: 835
+decision_dependencies: 262, 265
 machine_requirements: silicon for wall-clock rows, radon first, then xenon
 specific_machine: none
 needs_person: yes
@@ -57,11 +57,11 @@ Reuse: SQLite itself is taken unmodified; no benchmark program is written.
 
 ## What it waits on
 
-Every program in this family is POSIX C, and nife has no C library that runs one unmodified. §31
-(the foreign-language seam) lets C make no syscalls, and full POSIX is milestone 478 (tier three:
-full POSIX behind the foreign-language seam), refused until a component needs it. Whether §262 makes
-these programs that component is calef's call, and nobody has written that question up, so this
-block carries `decision_dependencies: unwritten`.
+Corrected 2026-10-10 (UTC). The C library this waited on is built. calef ruled the question on
+2026-10-08 as §265 (a C library started from relibc), and milestone 835 (a C library, stage 1:
+files, clock and memory) built it in #1896. `speedtest1` already runs unmodified on nife under QEMU on
+all three architectures. What remains is the Linux comparison on silicon. The fields now name 835
+and §265 in place of `none` and `unwritten`.
 
 Neither threads nor fork. SQLite builds single-threaded (`SQLITE_THREADSAFE=0`), and `speedtest1`
 runs in one process. Of the C programs here, this is the one the most people would run for its own
