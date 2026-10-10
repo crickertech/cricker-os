@@ -1,0 +1,301 @@
+//! `sys/select.h` implementation.
+//!
+//! See <https://pubs.opengroup.org/onlinepubs/9799919799/basedefs/sys_select.h.html>.
+
+use core::mem;
+
+use cbitset::BitSet;
+
+use crate::{
+    fs::File,
+    header::{
+        bits_sigset_t::sigset_t,
+        errno,
+        sys_epoll::{
+            EPOLL_CLOEXEC, EPOLL_CTL_ADD, EPOLLERR, EPOLLIN, EPOLLOUT, epoll_create1, epoll_ctl,
+            epoll_data, epoll_event, epoll_pwait,
+        },
+        time::timespec,
+    },
+    platform::types::{c_int, suseconds_t},
+};
+
+pub use crate::header::bits_timeval::timeval;
+
+// FD_SETSIZE and fd_set is also defined in C because cbindgen is incompatible with mem::size_of
+
+/// See <https://pubs.opengroup.org/onlinepubs/9799919799/basedefs/sys_select.h.html>.
+///
+/// Maximum number of file descriptors in an `fd_set` structure.
+/// cbindgen:ignore
+pub const FD_SETSIZE: usize = 1024;
+type FdBitSet = BitSet<[u64; FD_SETSIZE / (8 * mem::size_of::<u64>())]>;
+
+/// See <https://pubs.opengroup.org/onlinepubs/9799919799/basedefs/sys_select.h.html>.
+/// cbindgen:ignore
+#[allow(non_camel_case_types)]
+#[repr(C)]
+pub struct fd_set {
+    pub fds_bits: FdBitSet,
+}
+
+pub unsafe fn select_epoll(
+    nfds: c_int,
+    readfds: Option<&mut fd_set>,
+    writefds: Option<&mut fd_set>,
+    exceptfds: Option<&mut fd_set>,
+    timeout: Option<&mut timeval>,
+    sigmask: *const sigset_t,
+) -> c_int {
+    if nfds < 0 || nfds > i32::try_from(FD_SETSIZE).expect("constant value within i32::MAX") {
+        crate::platform::ERRNO.set(errno::EINVAL);
+        return -1;
+    };
+
+    let ep = {
+        let epfd = epoll_create1(EPOLL_CLOEXEC);
+        if epfd < 0 {
+            return -1;
+        }
+        File::new(epfd)
+    };
+    let mut read_bitset: Option<&mut FdBitSet> = readfds.map(|fd_set| &mut fd_set.fds_bits);
+    let mut write_bitset: Option<&mut FdBitSet> = writefds.map(|fd_set| &mut fd_set.fds_bits);
+    let mut except_bitset: Option<&mut FdBitSet> = exceptfds.map(|fd_set| &mut fd_set.fds_bits);
+
+    // Keep track of the number of file descriptors that do not support epoll
+    let mut not_epoll = 0;
+    for fd in 0..nfds {
+        let fd_usize = usize::try_from(fd).expect("already checked for negative values");
+        let mut events = 0;
+
+        if let Some(ref fd_set) = read_bitset
+            && fd_set.contains(fd_usize)
+        {
+            events |= EPOLLIN;
+        }
+
+        if let Some(ref fd_set) = write_bitset
+            && fd_set.contains(fd_usize)
+        {
+            events |= EPOLLOUT;
+        }
+
+        if let Some(ref fd_set) = except_bitset
+            && fd_set.contains(fd_usize)
+        {
+            events |= EPOLLERR;
+        }
+
+        if events > 0 {
+            let mut event = epoll_event::new(events, epoll_data { fd });
+            if unsafe { epoll_ctl(*ep, EPOLL_CTL_ADD, fd, &raw mut event) } < 0 {
+                if crate::platform::ERRNO.get() == errno::EPERM {
+                    not_epoll += 1;
+                } else {
+                    return -1;
+                }
+            } else {
+                if let Some(ref mut fd_set) = read_bitset
+                    && fd_set.contains(fd_usize)
+                {
+                    fd_set.remove(fd_usize);
+                }
+
+                if let Some(ref mut fd_set) = write_bitset
+                    && fd_set.contains(fd_usize)
+                {
+                    fd_set.remove(fd_usize);
+                }
+
+                if let Some(ref mut fd_set) = except_bitset
+                    && fd_set.contains(fd_usize)
+                {
+                    fd_set.remove(fd_usize);
+                }
+            }
+        }
+    }
+
+    let mut events: [epoll_event; 32] = unsafe { mem::zeroed() };
+    let epoll_timeout = if not_epoll > 0 {
+        // Do not wait if any non-epoll file descriptors were found
+        0
+    } else {
+        match timeout {
+            Some(timeout) => {
+                let sec_ms = (timeout.tv_sec as c_int).checked_mul(1000);
+                let usec_ms = (timeout.tv_usec as c_int) / 1000;
+                match sec_ms.and_then(|s| s.checked_add(usec_ms)) {
+                    Some(s) => s as c_int,
+                    None => c_int::MAX,
+                }
+            }
+            None => -1,
+        }
+    };
+
+    let res = unsafe {
+        epoll_pwait(
+            *ep,
+            events.as_mut_ptr(),
+            events.len() as c_int,
+            epoll_timeout,
+            sigmask,
+        )
+    };
+    if res < 0 {
+        return -1;
+    }
+
+    let mut count = not_epoll;
+    for event in events
+        .iter()
+        .take(usize::try_from(res).expect("already checked for negative values"))
+    {
+        let fd = unsafe { event.data.fd };
+        // TODO: Error status when fd does not match?
+        if fd >= 0 && fd < c_int::try_from(FD_SETSIZE).expect("constant value within c_int::MAX") {
+            let fd_usize = usize::try_from(fd).expect("already checked for negative values");
+            if event.events & EPOLLIN > 0
+                && let Some(ref mut fd_set) = read_bitset
+            {
+                fd_set.insert(fd_usize);
+                count += 1;
+            }
+            if event.events & EPOLLOUT > 0
+                && let Some(ref mut fd_set) = write_bitset
+            {
+                fd_set.insert(fd_usize);
+                count += 1;
+            }
+            if event.events & EPOLLERR > 0
+                && let Some(ref mut fd_set) = except_bitset
+            {
+                fd_set.insert(fd_usize);
+                count += 1;
+            }
+        }
+    }
+    count
+}
+
+/// See <https://pubs.opengroup.org/onlinepubs/9799919799/functions/select.html>.
+///
+/// Examines the file descriptor sets whose addresses are passed in the
+/// `readfds`, `writefds` and `errorfds` parameters to see whether some of
+/// their descriptors are ready for reading, ready for writing, or have an
+/// exceptional condition pending, respectively.
+///
+/// `timeout` is given in seconds and microseconds as represented by `timeval`.
+/// Behaves as `pselect()` does when `sigmask` is a null pointer. When
+/// successful, may modify the object pointed to by `timeout`.
+///
+/// Upon success, returns the total number of bits set in the bit masks. Upon
+/// failure, returns `-1` and sets errno to indicate the error.
+#[unsafe(no_mangle)]
+pub unsafe extern "C" fn select(
+    nfds: c_int,
+    readfds: *mut fd_set,
+    writefds: *mut fd_set,
+    exceptfds: *mut fd_set,
+    timeout: *mut timeval,
+) -> c_int {
+    trace_expr!(
+        unsafe {
+            select_epoll(
+                nfds,
+                if readfds.is_null() {
+                    None
+                } else {
+                    Some(&mut *readfds)
+                },
+                if writefds.is_null() {
+                    None
+                } else {
+                    Some(&mut *writefds)
+                },
+                if exceptfds.is_null() {
+                    None
+                } else {
+                    Some(&mut *exceptfds)
+                },
+                if timeout.is_null() {
+                    None
+                } else {
+                    Some(&mut *timeout)
+                },
+                core::ptr::null(),
+            )
+        },
+        "select({}, {:p}, {:p}, {:p}, {:p})",
+        nfds,
+        readfds,
+        writefds,
+        exceptfds,
+        timeout
+    )
+}
+
+/// See <https://pubs.opengroup.org/onlinepubs/9799919799/functions/pselect.html>.
+///
+/// Examines the file descriptor sets whose addresses are passed in the
+/// `readfds`, `writefds` and `errorfds` parameters to see whether some of
+/// their descriptors are ready for reading, ready for writing, or have an
+/// exceptional condition pending, respectively.
+///
+/// `timeout` is given in seconds and nanoseconds as represented by `timespec`.
+///
+/// Upon success, returns the total number of bits set in the bit masks. Upon
+/// failure, returns `-1` and sets errno to indicate the error.
+#[unsafe(no_mangle)]
+pub unsafe extern "C" fn pselect(
+    nfds: c_int,
+    readfds: *mut fd_set,
+    writefds: *mut fd_set,
+    exceptfds: *mut fd_set,
+    timeout: *const timespec,
+    sigmask: *const sigset_t,
+) -> c_int {
+    let mut micro_timeout = if timeout.is_null() {
+        None
+    } else {
+        unsafe {
+            Some(timeval {
+                tv_sec: (*timeout).tv_sec,
+                tv_usec: ((*timeout).tv_nsec / 1000) as suseconds_t,
+            })
+        }
+    };
+    trace_expr!(
+        unsafe {
+            select_epoll(
+                nfds,
+                if readfds.is_null() {
+                    None
+                } else {
+                    Some(&mut *readfds)
+                },
+                if writefds.is_null() {
+                    None
+                } else {
+                    Some(&mut *writefds)
+                },
+                if exceptfds.is_null() {
+                    None
+                } else {
+                    Some(&mut *exceptfds)
+                },
+                micro_timeout.as_mut(),
+                sigmask,
+            )
+        },
+        "pselect({}, {:p}, {:p}, {:p}, {:p}, {:p})",
+        nfds,
+        readfds,
+        writefds,
+        exceptfds,
+        timeout,
+        sigmask,
+    )
+}
