@@ -153,6 +153,9 @@ pub(crate) fn std_inputs_stamp() -> u64 {
         // The argument page (milestone 205, DECISIONS §170 (how a foreign program is told what to do)): `sys/args` reads the byte argv's
         // layout out of this crate, so a change to it must rebuild the farm.
         root.join("crates/argument_protocol/src/lib.rs"),
+        // The byte-sink contract, generated into the PAL as `sinkproto` like the rest, and missing
+        // from this list until 2026-10-09 (UTC): a change to it did not rebuild the farm.
+        root.join("crates/byte_sink_protocol/src/lib.rs"),
         // The std runtime contract (milestone 595 (provisional)): `rt`'s slot numbers and page
         // addresses, generated verbatim into the PAL, so the loader and the PAL read one file.
         root.join("crates/std_runtime_protocol/src/lib.rs"),
