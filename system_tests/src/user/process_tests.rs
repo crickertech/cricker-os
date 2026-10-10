@@ -641,8 +641,10 @@ fn a_destroyed_region_ends_the_process_in_it_and_its_members() {
         wait_for(5, || sched::reclaim_region(region).is_ok()),
         "the retry never reclaimed the process's region",
     );
+    // The member's reaper leaves the process under the scheduler's lock, which is what lets the
+    // retry succeed, and takes the thread out of the table after releasing it, on its own core.
     assert!(
-        !sched::is_thread_present(member),
+        wait_for(5, || !sched::is_thread_present(member)),
         "the member outlived its process"
     );
     assert_eq!(
