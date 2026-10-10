@@ -3,7 +3,7 @@ name: maintainer
 description: >-
   The maintainer and steward roles in nife: load before briefing a lane, launching or resuming
   developers, choosing how many lanes to run, gating or merging a lane's pull request, pruning
-  worktrees, relinking nife-dev, or reporting queue depth. Holds the top-up rule (when a developer
+  worktrees, or reporting queue depth. Holds the top-up rule (when a developer
   finishes, launch the next work before writing the report; a conversation with an architect never
   blocks the queue) and what bounds lane count (the collision surface, memory, disk). A top-level
   session in this repository is the maintainer. Load the developer-lane skill as well, since a
@@ -31,15 +31,15 @@ architect: see [ARCHITECTS.md](../../../ARCHITECTS.md).
   numbers and names can collide between sessions that cannot see each other. A lane's branch is
   pushed the moment it is cut, and every session lists remote branches before briefing a lane (`git
   ls-remote --heads`), because the pushed branch is the only lane ledger another session can see.
-  Whoever merges relinks the toolchain from the main checkout and prunes what they merged. Briefs
+  Whoever merges prunes what they merged. Briefs
   developers, gates and merges their work, mints anything global to the tree (`design/decisions/`
   sections, milestone numbers, names an architect has ratified), and keeps hygiene: prune the
-  worktree, delete the branch, relink `nife-dev`, leave no QEMU. Holds merge authority when an
+  worktree, delete the branch, leave no QEMU. Holds merge authority when an
   architect grants it. This role writes code, resolves conflicts and merges.
 - Steward. Runs on an interval and holds a *lent* authority: it merges what has earned it: green on
   every check, from a developer briefed this session, touching no syscall surface, no
   `design/decisions/` section and no dependency addition. It cleans up behind finished work (delete
-  the branch, prune the worktree, relink `nife-dev`), reports queue depth against the target, and
+  the branch, prune the worktree), reports queue depth against the target, and
   raises what has stalled or gone unanswered. It does not brief developers, because briefing is
   judgment: it says "the queue is at one of three and these are ready" and the maintainer writes the
   brief. It watches for work at risk, not only for idleness: a lane worktree with modifications and

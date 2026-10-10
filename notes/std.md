@@ -94,10 +94,11 @@ builds one:
    `target_os = "nife"` arm into std's `cfg_select!` dispatchers (pal, alloc, stdio, random,
    thread, time, io/error, thread_local storage and guard) plus `env_consts` and the
    `restricted_std` chain in std's `build.rs`.
-4. Link it as the `nife-dev` toolchain (`rustup toolchain link`).
+4. Link it as this worktree's own toolchain, `nife-dev-<directory>-<hash>` (`rustup toolchain
+   link`; the next section says why the name is per worktree).
 
 `cargo xtask std-exerciser` then builds the `std_exerciser` demo for both custom targets against it, setting
-`RUSTUP_TOOLCHAIN=nife-dev` rather than `+nife-dev`, because the cargo proxy that launched xtask
+`RUSTUP_TOOLCHAIN=<farm>` rather than `+<name>`, because the cargo proxy that launched xtask
 already exports `RUSTUP_TOOLCHAIN=nightly`, which would override a `+` selector
 and silently build std from the *unpatched* sysroot.
 
@@ -105,48 +106,37 @@ and silently build std from the *unpatched* sysroot.
 target specs, every overlay file, and a patch-logic version) guards the rebuild, so only a PAL
 change forces std to recompile.
 
-### `nife-dev` is global to the machine, and the stamp does not guard it
+### Each worktree has its own toolchain name
 
-The farm is per-worktree; the name is not. `rustup toolchain link` writes one symlink under
-`$RUSTUP_HOME/toolchains` for the whole account, so `nife-dev` means whichever worktree ran
-`std-src` last, and every downstream build resolves std through that name. Two lanes gating at once contend for it, and the loser does not fail: it compiles against a
-farm inside somebody else's worktree.
+The farm is per worktree, and since 2026-10-10 so is its name: `std-src` links
+`nife-dev-<directory>-<hash of the worktree's path>` (provisional; calef has not ruled on it) and
+prints it. `rustup toolchain link` writes one symlink per name for the whole account, so a name
+that two worktrees shared was a name they fought over. Until that day every worktree linked the
+same `nife-dev`, and each `script/test` took it from whichever lane had it last.
 
-A warm stamp used to skip the link entirely, which made the failure silent: the stamp answers *is
-this worktree's farm built*, and nothing asked *does `nife-dev` still mean it*. On 2026-08-18 lane `55-durability` relinked mid-run and lane `64-more`'s `std_exerciser`
-built against 55's farm; it was caught by a person reading the `Compiling std` path out of the build
-output, and nothing else would have caught it. AGENTS.md had warned about this in prose since
-2026-08-01, a rung-four warning worth exactly that much.
+- 2026-07-31: a pruned worktree left `nife-dev` dangling, and unrelated builds failed far from the
+  cause with `override toolchain 'nife-dev' is not installed`.
+- 2026-08-18: lane `55-durability` relinked mid-run and lane `64-more`'s `std_exerciser` built
+  against 55's farm, caught only by a person reading the `Compiling std` path. `std_src` then
+  learned to relink loudly on the warm path, which made the theft visible and did not stop it.
+- 2026-09-30: three sites of evidence in one evening. Main-soak's `std-aborts` aborted on dep-info
+  naming another worktree's farm; the 1377 lane built the unpatched std twice under
+  `CARGO_TARGET_DIR=$PWD/target`; `rustc --print sysroot` in a fresh worktree named another
+  worktree's farm. Every build this tree owns has named the farm by path since, because a path
+  this checkout computed and checked is the only selector with one owner.
+- 2026-10-10: three false alarms in a day from lanes relinking each other, though no result was
+  wrong, since the builds already used paths. A name nothing built through still churned.
 
-`std_src` now verifies the link on the warm path and loudly relinks when it points elsewhere.
-Relink rather than refuse, because the calling lane is about to build and needs the name to mean
-its own farm; every lane takes the link by design. Now the theft is printed, so a foreign
-`Compiling std` path cannot happen without a line above it naming who took what. It also fixes the dangling case AGENTS.md describes, where a pruned worktree left `nife-dev`
-pointing at nothing and unrelated builds failed far from the cause with
-`override toolchain 'nife-dev' is not installed`.
+So nothing in the tree builds through a name. The per-worktree link is for a person typing
+`cargo +<name>`, and it cannot be taken: no other worktree computes it. `std-src` also removes
+every `nife-dev-*` link whose farm is gone, which is what a pruned worktree leaves, so nobody has
+to remember to. The workaround from the lane for milestone 57 (partitioning a real drive) still
+works: symlink a worktree's `target/nife-farm` at the main checkout's farm once `cargo xtask
+std-stamp` shows the stamps match, and `std_src()` early-returns instead of rebuilding a second copy.
 
-**Telling a lane not to take the link was never possible**, as the lane for milestone 57 (partitioning a real drive) established on
-2026-08-01 by reading the code. `script/test` calls `std_src()` transitively
-and a fresh worktree always has a cold farm, so any lane that runs the gate takes the
-account-wide name. `AGENTS.md` then gave two instructions that could not both be obeyed: gate
-before reporting, and do not run `xtask std-src`. The rule that replaced them, and all `AGENTS.md`
-still carries, is the integrator's: expect every lane to take it, and relink from the main checkout
-at merge.
-
-A workaround from the same lane: symlink the worktree's `target/nife-farm` at
-the main checkout's farm once `cargo xtask std-stamp` shows the stamps match, and `std_src()`
-early-returns instead of rebuilding a second copy.
-
-This does not make concurrent lanes safe. It makes the loss visible and self-healing at the next
-call. A lane whose build is already in flight when another
-relinks still loses; the honest fix is a per-worktree toolchain name, which nobody has priced.
-
-**Since 2026-09-30, every build this tree owns names the farm by path.** Three sites of evidence
-landed in one evening (2026-09-30). Main-soak's `std-aborts` aborted on dep-info naming another
-worktree's farm. The 1377 lane built the unpatched std twice under
-`CARGO_TARGET_DIR=$PWD/target`. `rustc --print sysroot` in a fresh worktree named another
-worktree's farm (16:34 UTC, not reproduced since). A path this checkout computed and checked is
-the only selector with one owner.
+**The legacy `nife-dev` link** is still written by lanes cut before 2026-10-10 until they rebase,
+and nothing here reads, writes or deletes it. Once no open lane predates the change, the maintainer
+removes it once with `rustup toolchain uninstall nife-dev`.
 
 `std-exerciser` also pins `CARGO_TARGET_DIR` to `std_exerciser/target` and prints the override.
 An export used to separate a build from its evidence: the sweep judged the previous run's
@@ -216,17 +206,16 @@ Build the patched toolchain and the demo, then check that this worktree's farm m
 checkout's before borrowing it:
 
 ```sh
-cargo xtask std-src           # patch rust-src and link it as nife-dev
+cargo xtask std-src           # patch rust-src and link it as this worktree's nife-dev-<dir>-<hash>
 cargo xtask std-exerciser     # build std_exerciser for the nife targets against it
 cargo xtask std-stamp         # run in both checkouts; equal output means the farms match
 ```
 
-Put `nife-dev` back at the main checkout's farm after a merge, and read it back:
+Find this worktree's toolchain name and use it by hand:
 
 ```sh
-cd "$(git rev-parse --path-format=absolute --git-common-dir)/.."
-rustup toolchain link nife-dev "$(pwd)/target/nife-farm"
-rustup toolchain list -v | grep nife-dev
+rustup toolchain list -v | grep "$(pwd)/target/nife-farm"
+cargo +nife-dev-nife-1a2b3c4d build ...   # the name the line above printed
 ```
 
 What a program granted a directory sees, as `std_exerciser` runs it:
@@ -281,9 +270,9 @@ One line each. The full entry is in
 - stdout and stderr share one endpoint, so they interleave by 16-byte chunk.
 - The `std-src` patches are string-anchored to the pinned nightly. A bump that reshapes a dispatcher
   fails with "anchor not found", which is the intended tripwire.
-- `nife-dev` is one name for the whole account. Relinking loudly makes a stolen link visible, and a
-  lane whose build is already in flight when another relinks still loses (above). The name's
-  remaining reach is a person typing `+nife-dev`.
+- The legacy `nife-dev` link stays wherever the last pre-2026-10-10 lane put it until the
+  maintainer removes it (above). Nothing in the tree reads it; a person typing `+nife-dev` gets
+  whichever lane that was.
 - `std-aborts` covers `sys/` only, and proves a body reachable, never a call. A stale or foreign
   build under `std_exerciser/target` (left from before a nightly bump) surfaces as a defect or
   an abort, or compiles the nightly's unpatched std even with `RUSTUP_TOOLCHAIN` set (the farm's

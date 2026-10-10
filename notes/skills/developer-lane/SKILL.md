@@ -7,8 +7,8 @@ description: >-
   never do (merge, mint, edit design/decisions/, design/ or AGENTS.md except its own roadmap block),
   never polling CI (end the turn with `WAITING <run_id>... on <what>`), when a lane stops, the
   report and its handoff, where identified work must go (a proposed milestone or a BUGS entry), and
-  shared state (provisional section numbers, the machine-wide nife-dev toolchain link, branches that
-  hold knowledge).
+  shared state (provisional section numbers, each worktree's own toolchain link, branches that hold
+  knowledge).
 ---
 
 # The developer lane
@@ -84,11 +84,11 @@ The collisions that produced this rule are in
 - Counts that span the tree. Take such a number at merge, from the merged tree.
 
 Some shared state is global to the *machine*, not the repo, and `rustup toolchain link` is the one
-that has bitten: `nife-dev` is one symlink for the whole user account, so it means whichever
-worktree ran `xtask std-src` last. Every lane that gates takes it, unavoidably. That is expected: do
-not tell a lane not to do the thing gating requires, tell it to say in its report that it took the
-link. Relinking is the integrator's duty at merge, with the command in
-[`briefs/merge-and-cleanup.md`](../../../briefs/merge-and-cleanup.md); the mechanism is in
+that has bitten. Until 2026-10-10 every worktree linked one `nife-dev` name, and every lane that
+gated took it from the others. Each worktree now links its own, `nife-dev-<directory>-<hash>`, so a
+lane takes nothing, reports nothing and relinks nothing. Leave the bare `nife-dev` alone: lanes cut
+before that date still write it, and the maintainer removes it once they are gone
+([`briefs/merge-and-cleanup.md`](../../../briefs/merge-and-cleanup.md) step 4). The mechanism is in
 [`notes/std.md`](../../../notes/std.md).
 
 An unmerged branch is either abandoned or it is holding knowledge that is not on `main`, and the
