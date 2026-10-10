@@ -40,6 +40,13 @@ dependencies = [
 ]
 
 [[package]]
+name = "allocation_cache"
+version = "0.1.0"
+dependencies = [
+ "user_mode_heap",
+]
+
+[[package]]
 name = "argon2"
 version = "0.6.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
