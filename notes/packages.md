@@ -186,16 +186,19 @@ an installed program), B2; see `swish::bare`).
 
 ## Installing on the target
 
-Built 2026-09-26. Each of three words is one request to the progenitor and one reply naming the
-live generation:
+Built 2026-09-26; a program, `jig`, since milestone 809 (the package client becomes a program).
+Each verb is one request to the progenitor and one reply naming the live generation. Files are
+installed from inside `downloads` ([packages/jig.md](packages/jig.md)):
 
 ```
-$ package install downloads/tampered.nifepkg
+$ cd downloads
+$ jig install ./tampered.nifepkg
   refused: this image's catalog does not vouch for those bytes; nothing is installed
-$ package install downloads/uptime.nifepkg
+$ jig install ./uptime.nifepkg
   refused: the image carries a program of that name; a new base updates it, not install; nothing is installed
-$ package install downloads/noteless.nifepkg
+$ jig install ./noteless.nifepkg
   installed; generation 1 is live
+$ cd /
 $ packages/noteless/0.1.0/noteless
   noteless: installed, and carrying no manifest note
 $ installed/unvouched
@@ -210,14 +213,14 @@ And on the next boot, from the same disk:
 ```
 $ packages/noteless/0.1.0/noteless
   noteless: installed, and carrying no manifest note
-$ package remove noteless
+$ jig remove noteless
   removed; generation 2 is live
 $ caps packages/noteless/0.1.0/noteless
   packages/noteless/0.1.0/noteless would grant the new process, and nothing else:
     ...
     provenance: unvouched (digest sha256:...)
     runs on this session's capability to run unvouched bytes (slot 62)
-$ package rollback
+$ jig rollback
   rolled back; generation 1 is live
 $ packages/noteless/0.1.0/noteless
   noteless: installed, and carrying no manifest note
@@ -229,9 +232,11 @@ Install refuses an image program's name, as `uptime` shows, and a name another p
 The progenitor is the installer, not a program, for §208's own reason: the authority that
 decides which version is active should be the one that performs a swap, and §219 already made it
 the reader of the table. It holds the file service with `WRITE`, the image's catalog in its
-archive, and the frame-staging path an image request built. The *client* is slated to become a
-program, `jig` ([milestone 809 (the package client becomes a program)](../design/roadmap/0809-the-package-client-becomes-a-program.md)).
-`spawnproto::ACTIVATION_BIT` (provisional) is the request.
+archive, and the frame-staging path an image request built. The *client* is `jig`
+([milestone 809 (the package client becomes a program)](../design/roadmap/0809-the-package-client-becomes-a-program.md),
+[packages/jig.md](packages/jig.md)). It sends `spawnproto::ACTIVATION_BIT` (provisional) on an
+installer endpoint (§270 (a package manager holds an installer endpoint, not the spawn endpoint)),
+and each row records it as the manager.
 
 Install stages the package exactly as an image is staged, so the progenitor checks its own
 copy. `package_archive::installable` is the whole decision on bytes, host-tested: the file's digest
@@ -262,7 +267,7 @@ once on aarch64:
 
 ## Fetching by name, and a program the image never carried
 
-`package install <name>` fetches over the network and installs, and `greeting`, which no archive
+`jig install <name>` fetches over the network and installs, and `greeting`, which no archive
 packs, is what the gate fetches: [packages/fetching.md](packages/fetching.md).
 
 ## Where this stops
@@ -276,7 +281,8 @@ removed) is met, and so is §219's gate D2. The boot prompt is the owner's conso
 - The second refusal above is wrong since calef's 2026-10-07 (UTC) ruling on #1805: only slot programs need a reboot. See §159 (only a new kernel needs a reboot).
 - The boot prompt can write `activation/` directly, through the root endpoint the progenitor
   writes through. §221 (the boot prompt is the owner's console) ruled that is the owner's right.
-- Whoever holds the spawn endpoint (only the boot prompt) may install, remove, roll back and vouch.
+- The boot prompt, holding the spawn endpoint, may install, remove, roll back and vouch; `jig`,
+  holding an installer endpoint, all but vouch.
 - A vouch, the owner's or a package's, now grants whatever the bytes' own note asks, the network
   included (milestone 597 (a program carries its manifest in an ELF note)).
 - Nothing collects `packages/`. A removed program's bytes stay, which is what rollback needs.
@@ -291,14 +297,12 @@ removed) is met, and so is §219's gate D2. The boot prompt is the owner's conso
 - Only a plain line runs an image. A path in a pipe or behind a redirection reaches the planner as
   a program name and is refused as "no such program", and `caps <path>` prints no `provenance:`
   row. `crates/grant_plan/src/spawnproto.rs`'s `BUGS` has the full list.
-- The package source is compiled in: the runners' peer at 10.0.2.9:8080
+- The package source is compiled into `jig`: the runners' peer at 10.0.2.9:8080
   (`socket_protocol::fixture`). A booted system outside QEMU has no source to fetch from, and §195's
   per-source trust needs a way to name one.
-- ~~The progenitor fetches on socket 5 by convention.~~ Since milestone 649 (every client of a
-  network stack shares its socket numbers), its socket is a capability no other program holds.
-- The progenitor serves nothing else while it fetches, and a slow source makes the prompt wait.
-- An HTTP reader runs in the progenitor before the digest check (above). It is fuzzed, not
-  proved; `crates/http_response`'s BUGS says why.
+- A slow source makes the prompt wait.
+- An HTTP reader runs in `jig` before its digest check. It is fuzzed, not proved;
+  `crates/http_response`'s BUGS says why.
 
 - **No compression.** `.hpkg` chunks its heap with zlib and `.apk` is three gzip streams; this
   stores members whole. The first packages are ELFs that were about to be written to a disk anyway,

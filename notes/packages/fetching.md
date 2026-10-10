@@ -1,45 +1,44 @@
 # Fetching a package by name
 
 The appendix to [notes/packages.md](../packages.md) for milestone 198 (a package manager) rung
-3a's fetch, built 2026-09-26. An operand with no `/` is a name, by the prompt's rule for a command
-word:
+3a's fetch, built 2026-09-26 in the progenitor and moved into `jig` by milestone 809 (the package
+client becomes a program) on 2026-10-10. An operand with no `/` is a name, by the prompt's rule for
+a command word:
 
 ```
-$ package install nosuch
-  refused: this image's catalog names no such package, so nothing was fetched; generation 1 is live
-$ package install uptime
-  refused: this image's catalog does not vouch for those bytes; generation 1 is live
-$ package install greeting
+$ jig install nosuch
+  refused: this image's catalog names no such package, so nothing was fetched
+$ jig install uptime
+  refused: this image's catalog does not vouch for those bytes; nothing was sent to the installer
+$ jig install greeting@0.1.0
   fetched and installed; generation 2 is live
 $ packages/greeting/0.1.0/greeting
   hello from a package this image never carried
 ```
 
-## How the progenitor fetches
+## How `jig` fetches
 
-The request is `spawnproto::Activation::Fetch` (provisional), and `fetch` in
-`crates/system_initializer` serves it. It asks the image's catalog first
-(`package_archive::cataloged_stem`). A name the image vouches for nothing by costs no network.
+`jig` asks its copy of the image's catalog first (`package_archive::cataloged_stem`, on the page
+`grant_plan::Manifest::catalog` maps). A name the image vouches for nothing by costs no network.
+Then it opens a `std::net::TcpStream` to the package source (`socket_protocol::fixture`), sends
+`GET /<stem>.nifepkg` and reads the reply with `http_response`. The body goes into one run of
+`jig`'s own pages, sized from the declared length.
 
-Then it splits one page from a region of its own and hands it to the stack it built at boot. Over
-that page it sends `GET /<stem>.nifepkg` to the package source and reads the reply with
-`http_response`. The body lands in the staging window a file install uses (`receive_image`'s).
-From there it is an ordinary install with one more check: the package must be the one asked for
-(`package_archive::installable_as`). A source can serve a *different* package the catalog also
-vouches for. Destroying the socket page's region at the end revokes it out of the stack.
+Before anything is sent, the package must be the one asked for, and the catalog must vouch for its
+digest (`package_archive::installable_as`, milestone 809's item 8). A source can serve a *different*
+package the catalog also vouches for, and the lying source the gate runs is refused here. Then it is
+an ordinary install, on `jig`'s installer endpoint (§270 (a package manager holds an installer
+endpoint, not the spawn endpoint)). The progenitor checks its own copy against its own catalog, as
+for a file.
 
-## Why the progenitor, and what it costs
+## Why `jig`, and what it cost
 
-The alternative was a fetching program at the prompt. It would declare `network` and write the
-package to a file for `package install <file>`. It lost because nothing can tell a program *which*
-package: there is no argument vector (milestone 205 (how a foreign program is told what to do)).
-That is the installer's own reason.
-
-Were both equally possible, the program would be the better shape. It would keep a parser of
-network input out of the progenitor. As built, `http_response`'s head reader runs there before any
-digest is checked: a fixed 2 KiB buffer, host-tested and fuzzed but not proved. `package_archive::Package::parse`
-already ran there on unvouched bytes, so this is the second such parser. The choice is reversible:
-once milestone 205 lands, a program can take the fetch and the progenitor keeps the install.
+Until milestone 809 the progenitor fetched, for want of a way to tell a program *which* package.
+Milestone 205 (how a foreign program is told what to do) gave a program an argv on 2026-09-27. The
+progenitor's fetch had put `http_response`'s head reader, a parser of network input, in the most
+trusted process, before any digest was checked. Now that parser runs in `jig`, and the
+progenitor's only network-shaped input is a package's bytes, judged by digest as a file's are.
+`package_archive::Package::parse` still runs there on unvouched bytes, as it always did.
 
 ## A program no image carries
 
@@ -64,7 +63,7 @@ x86_64 fetches over the `e1000e` its runners attach (milestone 494 (a driver for
 a PC actually has)), since 2026-10-05. `q35` has no virtio-mmio bus, so the kernel builds that
 stack itself and grants the progenitor its endpoint and its lease
 (`kernel::user::boot_e1000e_network`). The progenitor takes the lease exactly as it does from a
-stack it built, and from there the two paths are one. Until then the x86_64 leg installed
+stack it built, and hands `jig` the same endpoint on all three. Until then the x86_64 leg installed
 `greeting` from the disk and omitted the two fetch lines. After the reboot, removing `uptime`
 leaves `greeting` running.
 
