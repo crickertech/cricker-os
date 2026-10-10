@@ -187,7 +187,8 @@ pub fn user_address_space_create(region: u64) -> Option<u64> {
         // which is the moment it becomes a thread's space and therefore the moment the question
         // "which CPU am I on" starts having an answer.
         current_cpu_page: None,
-        thread_pages: [None; current_cpu_protocol::THREAD_PAGE_SLOTS],
+        thread_pages: [0; current_cpu_protocol::THREAD_PAGE_SLOTS],
+        thread_pages_made: 0,
         thread_pages_in_use: 0,
     };
 
@@ -342,8 +343,8 @@ pub fn take_thread_page(name: u64) -> Option<(u8, u64, u64)> {
     let kernel_va = if k == 0 {
         space.attach_current_cpu_page();
         space.current_cpu_page?.1
-    } else if let Some((_, kernel_va)) = space.thread_pages[k] {
-        kernel_va
+    } else if space.thread_pages_made & (1 << k) != 0 {
+        mmu::phys_to_virt(space.thread_pages[k])
     } else {
         let frame = crate::memory::alloc_zeroed()?;
         let kernel_va = mmu::phys_to_virt(frame.addr());
@@ -359,7 +360,8 @@ pub fn take_thread_page(name: u64) -> Option<(u8, u64, u64)> {
             crate::memory::free(frame);
             return None;
         }
-        space.thread_pages[k] = Some((frame, kernel_va));
+        space.thread_pages[k] = frame.addr();
+        space.thread_pages_made |= 1 << k;
         kernel_va
     };
     // SAFETY: the slot's own frame, owned by this space and not read by any thread while the slot

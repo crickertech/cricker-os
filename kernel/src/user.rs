@@ -114,10 +114,15 @@ pub struct AddressSpace {
 
     /// **The other threads' current-CPU pages** (milestone 812 (`std::thread::spawn` runs real
     /// threads in one address space), §269 (how threads share a process) fork 6): slot `k`, for `k`
-    /// from 1, is mapped read-only at `current_cpu_protocol::thread_page_va(k)`, frame and
-    /// direct-map address. Slot 0 is [`Self::current_cpu_page`]. A slot's frame is kept once made and
-    /// reused by the next thread to take the slot, and freed with the space.
-    pub(crate) thread_pages: [Option<(PageFrame, u64)>; current_cpu_protocol::THREAD_PAGE_SLOTS],
+    /// from 1, is mapped read-only at `current_cpu_protocol::thread_page_va(k)`. Slot 0 is
+    /// [`Self::current_cpu_page`]. A slot's frame is kept once made and reused by the next thread to
+    /// take the slot, and freed with the space. Physical addresses, valid where
+    /// [`Self::thread_pages_made`] has the bit: an `Option<(PageFrame, u64)>` per slot was 384 bytes
+    /// in every `AddressSpace`, which pushed `load`'s frame past the 4 KiB guard page on riscv64.
+    pub(crate) thread_pages: [u64; current_cpu_protocol::THREAD_PAGE_SLOTS],
+
+    /// Which slots (bit `k`) have a frame in [`Self::thread_pages`].
+    pub(crate) thread_pages_made: u16,
 
     /// Which slots (bit `k`, slot 0 included) a live thread is using now.
     pub(crate) thread_pages_in_use: u16,
@@ -222,7 +227,8 @@ impl AddressSpace {
             asid,
             backing: Backing::Owned(region),
             current_cpu_page: None,
-            thread_pages: [None; current_cpu_protocol::THREAD_PAGE_SLOTS],
+            thread_pages: [0; current_cpu_protocol::THREAD_PAGE_SLOTS],
+            thread_pages_made: 0,
             thread_pages_in_use: 0,
         };
 
@@ -547,9 +553,12 @@ impl Drop for AddressSpace {
         if let Some((frame, _)) = self.current_cpu_page.take() {
             crate::memory::free(frame);
         }
-        for (frame, _) in self.thread_pages.iter_mut().filter_map(Option::take) {
-            crate::memory::free(frame);
+        for (k, &addr) in self.thread_pages.iter().enumerate() {
+            if self.thread_pages_made & (1 << k) != 0 {
+                crate::memory::free(PageFrame::from_addr(addr));
+            }
         }
+        self.thread_pages_made = 0;
 
         // The ASID contract (crates/address_space_identifier): invalidate every TLB entry wearing our tag, THEN
         // hand the number back. In the other order, the next owner of this ASID could hit our

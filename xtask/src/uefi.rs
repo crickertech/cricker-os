@@ -865,7 +865,14 @@ fn uefi_test_image(package: &str) -> bool {
         // `NIFE_DISK` and `NIFE_NVME` are already set by `test()` for the PVH leg that ran just
         // above, so this inherits them; they are named here only for a bare `cargo xtask uefi-test`.
         .env("NIFE_DISK", disk_path())
-        .env("NIFE_NVME", nvme_disk_path());
+        .env("NIFE_NVME", nvme_disk_path())
+        // **The whole suite's bound, not a boot's.** The helper's default of 90 s is sized for a
+        // boot to a prompt. This leg runs every kernel test under OVMF, and on 2026-10-10 (UTC) it
+        // took 86 s of the 90 in main's merge-group runs. Milestone 812 (`std::thread::spawn` runs
+        // real threads in one address space) added three `std` programs to the archive and about a
+        // second of tests, which took it past: QEMU was killed while printing the time table. The
+        // bound catches a hang, so it only needs to sit well clear of a passing run.
+        .env("NIFE_UEFI_TIMEOUT", "180");
     // Timed and recorded (milestone 807 (the kernel suite reports what each test cost)). The
     // transcript used to be collected whole and printed at the end; it now streams as the other
     // legs' do, and stderr (QEMU's own, never the guest console) goes straight to ours rather
