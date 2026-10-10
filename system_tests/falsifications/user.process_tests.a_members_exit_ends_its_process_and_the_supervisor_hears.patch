@@ -1,0 +1,21 @@
+Falsifies `system_tests::user::process_tests::a_members_exit_ends_its_process_and_the_supervisor_hears`.
+
+Architecture: aarch64, riscv64, x86_64
+
+The defect, in milestone 812 (`std::thread::spawn` runs real threads in one address space)'s process object: `SYS_EXIT` from a member ends only that member, as
+`SYS_EXIT_THREAD` would, so its siblings run on in a process that was told to end.
+
+Expected to fail: "the spinner outlived its process: a member's exit did not end it".
+
+diff --git a/kernel/src/sched/process.rs b/kernel/src/sched/process.rs
+--- a/kernel/src/sched/process.rs
++++ b/kernel/src/sched/process.rs
+@@ -257,7 +257,7 @@ pub(super) fn depart(
+         .threads
+         .iter_mut()
+         .any(|o| o.process == Some(pid) && o.id != current && is_running(o));
+-    if whole || !others_run {
++    if !others_run {
+         end(sched, pid, current, how);
+     }
+     own

@@ -1,0 +1,22 @@
+Falsifies `system_tests::user::process_tests::two_threads_of_one_process_share_its_space_its_table_and_a_futex`.
+
+Architecture: aarch64, riscv64, x86_64
+
+The defect, in milestone 812 (`std::thread::spawn` runs real threads in one address space)'s process object: a thread that joins a process keeps its own capability
+table instead of taking the process's, so siblings share a space and not their authority.
+
+Expected to fail: "the waker's WAKE through the shared slot 0 woke nobody". The waker's slot 0 is
+empty, so its `WAKE` answers `NoSuchSlot`.
+
+diff --git a/kernel/src/sched/process.rs b/kernel/src/sched/process.rs
+--- a/kernel/src/sched/process.rs
++++ b/kernel/src/sched/process.rs
+@@ -165,7 +165,7 @@ pub(super) fn join(
+             }
+         }
+         (*ptr).process = Some(pid);
+-        (*ptr).capability_table = table_at(phys);
++        let _ = phys;
+     }
+     process.members += 1;
+     Ok(space)

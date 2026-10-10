@@ -1,0 +1,24 @@
+Falsifies `system_tests::user::std_threads_tests::four_std_threads_share_a_mutex_an_atomic_and_a_space`.
+
+Architecture: aarch64, riscv64, x86_64
+
+The defect, in milestone 812 (`std::thread::spawn` runs real threads in one address space): a thread that joins a process is not given the thread pointer `CONFIGURE`
+carried, so every `std` thread the program spawns starts with none, and thread-local storage is
+not its own.
+
+Expected to fail: the program ends before its output does. On aarch64 and riscv64 every spawned
+thread finds the main thread's block and `std` aborts ("current thread handle already set during
+thread spawn"); on `x86_64` a spawned thread faults reading `fs:[0]`, which ends the process.
+
+diff --git a/kernel/src/sched/configure.rs b/kernel/src/sched/configure.rs
+--- a/kernel/src/sched/configure.rs
++++ b/kernel/src/sched/configure.rs
+@@ -195,7 +195,7 @@ pub fn configure_thread_control_block_joining(
+         t.space = Some(bound.with_current_cpu_page(kernel_va));
+         t.thread_page = Some((space, slot));
+         t.entry = (entry, user_sp);
+-        t.thread_pointer = thread_pointer;
++        let _ = thread_pointer;
+         Ok(page)
+     })();
+     if joined.is_err() {

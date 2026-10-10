@@ -1,5 +1,5 @@
 ---
-status: NOT-STARTED
+status: PARTIAL
 raised: 2026-10-07
 milestone_dependencies: none
 decision_dependencies: 16, 19, 263, 269
@@ -167,18 +167,46 @@ exit. A second check runs `rayon`'s parallel sum to the same answer.
 
 ## BUGS
 
-- Scheduled on 2026-10-08 (UTC), but no part of it is built, and none of the forks above is ruled.
+- **Built, on all three architectures** (pull request #1892, 2026-10-10 UTC, to calef's rulings on
+  §269 and on #1892's four questions). Every item but the exit test's `rayon` check:
+  - the process object, with `BIND` and the shared table (items 1 to 4, 13; `notes/processes.md`);
+  - futex wait and wake (item 7; `notes/futex.md`);
+  - the thread pointer (item 14; `notes/thread-pointer.md`);
+  - the per-thread current-CPU page and its allowance (items 11 and 16);
+  - `SYS_EXIT_THREAD`;
+  - the `std` PAL with `"singlethread": false` (items 5 to 8; `notes/std/threads.md`).
+- **The exit test's four-thread half passes; its `rayon` half is not built.** `rayon` would be a new
+  dependency of a test program, which §46 (thin primitives or whole subsystems) makes calef's
+  ruling; it is asked on #1892.
+- **Items 9, 10, 12 and 15 were checked, not changed**:
+  - the `static mut` and `MappedWindow` comments now argue that a native program cannot be given a
+    second thread;
+  - the heap's spinlock was measured under four threads and found slower than one thread
+    (`notes/std/threads.md`);
+  - every page-table edit already holds the revocation registry's lock.
+- **Limits recorded where a reader meets them**: no futex timeout, 16 threads a process, no guard
+  page on a spawned stack, a killed member running until its next preemption, one TCB page spent
+  per spawn. See the notes above.
 - This block gives Rust programs threads. `fio`, `hackbench`, `schbench` and `iperf3` are C, and
   want pthreads from a C library nife does not have. §31 (the foreign-language seam: C holds no
   capabilities and makes no syscalls) bars C from syscalls. Full POSIX, milestone 478 (tier three),
   is refused. How those benchmarks get threads is not decided here; the maintainer is taking it to
   calef.
-- The costing in `notes/thread-spawn-fork.md` is from 2026-08-22; the kernel has changed since,
-  and the first act of a lane here is to re-check its file references.
+
+## Follow-on
+
+- **Outstanding.** The exit test's `rayon` parallel sum, waiting on calef's ruling on the
+  dependency (§46), asked on #1892. Checked on 2026-10-10 (UTC): `vendor/` has no `rayon`, and
+  `script/crate-probes` fetches crates rather than vendoring them.
+- **Recorded.** `notes/futex.md`, `notes/processes.md`, `notes/thread-pointer.md` and
+  `notes/std/threads.md` carry this milestone's limits in their `BUGS`, each where its code is read.
+- **Decision.** The semantics of `SYS_EXIT_THREAD`, `abi::process`, `BIND`, the futex methods,
+  `SET_THREAD_POINTER`, and `CONFIGURE`'s sixth word and result owe a section in `design/decisions/`
+  at merge, whose proposed text is on #1892.
 
 ## Index row
 
-Real shared-memory threads: `std::thread::spawn` on all three architectures, by letting several
-TCBs bind one address space (§105's option A, scheduled by §263 on 2026-10-08). It unlocks `fio`,
-`schbench`, `hackbench`, `iperf3`, parallel `rg`, read-write ZFS and parallel builds. Seven forks
-await calef.
+Real shared-memory threads: `std::thread::spawn` on all three architectures, threads joining a
+process object by `BIND` (§269, ruled 2026-10-09 and on #1892 2026-10-10). Built but for the exit
+test's `rayon` check, which waits on a dependency ruling. It unlocks `fio`, `schbench`,
+`hackbench`, `iperf3`, parallel `rg`, read-write ZFS and parallel builds.

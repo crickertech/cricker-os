@@ -192,7 +192,6 @@ crates/swish/src/lib.rs:598	45
 crates/swish/src/sequence.rs:1	82
 crates/system_initializer/src/lib.rs:6	300
 crates/system_initializer/src/lib.rs:1259	41
-crates/system_initializer/src/lib.rs:3786	41
 crates/system_log/src/lib.rs:1	96
 crates/test_times/src/lib.rs:1	64
 crates/thread_wake_handshake/src/lib.rs:1	131

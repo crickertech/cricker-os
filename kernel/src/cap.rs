@@ -137,6 +137,12 @@ pub enum Object {
     /// method numbers.)*
     Timer(crate::sched::TimerId),
 
+    /// A process (milestone 812 (`std::thread::spawn` runs real threads in one address space), §269
+    /// (how threads share a process) forks 1, 3 and 5), by generational name over the scheduler's
+    /// process registry: the capability table its threads share, the space they run in, its
+    /// supervision and its end. `BIND` on it joins a thread (`abi::process`).
+    Process(crate::sched::ProcessId),
+
     /// A virtio device's **transport**, by id (into the kernel's virtio device table).
     ///
     /// The DMA-confinement capability. The device has no IOMMU, so the kernel keeps the two
@@ -561,6 +567,7 @@ const _: () = assert!(Rights::READ.bits() as u64 == abi::rights::READ);
 const _: () = assert!(Rights::WRITE.bits() as u64 == abi::rights::WRITE);
 const _: () = assert!(Rights::GRANT.bits() as u64 == abi::rights::GRANT);
 const _: () = assert!(Rights::ENUMERATE.bits() as u64 == abi::rights::ENUMERATE);
+const _: () = assert!(Rights::BIND.bits() as u64 == abi::rights::BIND);
 
 // **`ALL` is exactly the ABI's vocabulary and no more.** Both directions are load-bearing and they
 // fail differently. A bit in `abi::rights` that is missing from `ALL` is a right userspace can name
@@ -569,7 +576,11 @@ const _: () = assert!(Rights::ENUMERATE.bits() as u64 == abi::rights::ENUMERATE)
 // by name, which is how a hand-listed set drifts into granting more than any manifest says.
 const _: () = assert!(
     Rights::ALL.bits() as u64
-        == abi::rights::READ | abi::rights::WRITE | abi::rights::GRANT | abi::rights::ENUMERATE
+        == abi::rights::READ
+            | abi::rights::WRITE
+            | abi::rights::GRANT
+            | abi::rights::ENUMERATE
+            | abi::rights::BIND
 );
 
 // `abi::rights` is `u64` and `Rights` is `u32`, and the syscall path narrows with `a1 as u32`
@@ -577,7 +588,11 @@ const _: () = assert!(
 // therefore be truncated to nothing on the way in, silently, and the delegation would appear to
 // succeed. Nothing about the ABI's type stops somebody writing `1 << 32`; this does.
 const _: () = assert!(
-    abi::rights::READ | abi::rights::WRITE | abi::rights::GRANT | abi::rights::ENUMERATE
+    abi::rights::READ
+        | abi::rights::WRITE
+        | abi::rights::GRANT
+        | abi::rights::ENUMERATE
+        | abi::rights::BIND
         <= u32::MAX as u64
 );
 
@@ -753,6 +768,15 @@ pub fn reboot_capability(rights: Rights) -> Cap {
 pub fn timer_cap(id: crate::sched::TimerId, rights: Rights) -> Cap {
     Cap {
         object: Object::Timer(id),
+        rights,
+    }
+}
+
+/// A capability naming a process (milestone 812). Full rights at creation, `BIND` among them, from
+/// `RETYPE_OBJ`; delegation narrows.
+pub fn process_capability(id: crate::sched::ProcessId, rights: Rights) -> Cap {
+    Cap {
+        object: Object::Process(id),
         rights,
     }
 }

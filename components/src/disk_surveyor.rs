@@ -408,8 +408,10 @@ fn roster_page() -> &'static [u8] {
 /// The primary table buffer.
 ///
 /// # Safety
-/// One thread per address space here (DECISIONS §33), so there is no second reference. The raw
-/// pointer first is what `static_mut_refs` asks for, and it asks for a real reason.
+/// This program has one thread and cannot be given a second: it is built without its own process,
+/// so nothing holds the `BIND` that adds a thread to it (milestone 812 (`std::thread::spawn` runs
+/// real threads in one address space)). So there is no second reference. The raw pointer first is
+/// what `static_mut_refs` asks for, and it asks for a real reason.
 fn primary() -> &'static mut [u8] {
     let p = &raw mut PRIMARY;
     // SAFETY: see above.

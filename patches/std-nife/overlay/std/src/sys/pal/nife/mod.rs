@@ -78,6 +78,14 @@ pub(crate) mod runtimeproto;
 #[allow(dead_code)]
 pub(crate) mod counterfreqproto;
 pub(crate) mod rt;
+// The user address-space map and the current-CPU page (milestone 812 (`std::thread::spawn` runs real
+// threads in one address space)): a thread's allowance is read from its page, whose layout is
+// `current_cpu_protocol`'s, generated here like every contract above and pointed at `addressmap`
+// for the one constant it takes from the map.
+#[allow(dead_code)]
+pub(crate) mod addressmap;
+#[allow(dead_code)]
+pub(crate) mod currentcpuproto;
 
 use crate::io;
 

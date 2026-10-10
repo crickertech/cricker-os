@@ -23,6 +23,6 @@
   "os": "nife",
   "panic-strategy": "abort",
   "relocation-model": "static",
-  "singlethread": true,
+  "singlethread": false,
   "target-pointer-width": 64
 }

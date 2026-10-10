@@ -132,8 +132,10 @@ static mut TERMINAL: video_terminal::Vt = video_terminal::Vt::new(1, 1);
 /// The one terminal this process owns.
 ///
 /// # Safety
-/// This process has exactly one thread (a `ThreadControlBlock` here owns its address space, DECISIONS §33), so
-/// there is no second reference and no aliasing question.
+/// This process has exactly one thread and cannot be given a second: it is built without its own
+/// process, so nothing holds the `BIND` that adds a thread to it (milestone 812
+/// (`std::thread::spawn` runs real threads in one address space)). So there is no second reference
+/// and no aliasing question.
 fn term() -> &'static mut video_terminal::Vt {
     // A raw pointer first, then one dereference: taking `&mut TERMINAL` directly is what
     // `static_mut_refs` exists to refuse, and it refuses it for a real reason (a second reference

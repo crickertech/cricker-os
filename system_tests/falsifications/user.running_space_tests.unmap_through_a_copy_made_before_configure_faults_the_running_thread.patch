@@ -9,9 +9,9 @@ copy then reaches nothing, and `UNMAP` cannot touch the window it exists to clos
 Expected to fail: the first assertion after the reader starts, which gets `Err(BadPointer)` from
 `UNMAP` instead of `Ok(0)`.
 
-diff --git a/kernel/src/user.rs b/kernel/src/user.rs
---- a/kernel/src/user.rs
-+++ b/kernel/src/user.rs
+diff --git a/kernel/src/user/address_space_registry.rs b/kernel/src/user/address_space_registry.rs
+--- a/kernel/src/user/address_space_registry.rs
++++ b/kernel/src/user/address_space_registry.rs
 @@ -703,7 +703,10 @@
  /// whose TLB obligation reaches every core.
  pub fn with_user_address_space<R>(name: u64, f: impl FnOnce(Option<&mut AddressSpace>) -> R) -> R {

@@ -319,6 +319,12 @@ pub mod std_service;
 #[cfg(all(test, initrd))]
 mod std_tests;
 
+/// **Milestone 812 (`std::thread::spawn` runs real threads in one address space)'s exit test**: an
+/// ordinary `std` program's four threads share an atomic, a mutex and a space, and each keeps its
+/// own thread-local. Cross-ISA (DECISIONS §19).
+#[cfg(all(test, initrd))]
+mod std_threads_tests;
+
 /// **Unmodified `ripgrep` from crates.io** (milestone 121), which skips unless somebody ran
 /// `helpers/build-ripgrep.sh`. Every ISA the `std` port ships on, per DECISIONS §19, which is all
 /// three since milestone 184 built `x86_64-unknown-nife`.
@@ -739,6 +745,28 @@ mod unmap_tests;
 /// negative control, a builder faulting on a page it gave its child. Cross-ISA (DECISIONS §19).
 #[cfg(test)]
 mod running_space_tests;
+
+/// **Each thread has its own thread pointer, set by the kernel** (milestone 812
+/// (`std::thread::spawn` runs real threads in one address space), §269 (how threads share a
+/// process) fork 4): from `CONFIGURE` or the thread's own `SET_THREAD_POINTER`, kept apart across
+/// switches, and a kernel-half value refused. Cross-ISA, one hand-written spinner per ISA
+/// (DECISIONS §19).
+#[cfg(test)]
+mod thread_pointer_tests;
+
+/// **Futex wait and wake** (milestone 812 (`std::thread::spawn` runs real threads in one address
+/// space), §269 (how threads share a process) fork 2): a waiter sleeps until its word is woken, a
+/// changed word does not sleep, a destroyed waiter leaves the table, and every reserved form is
+/// refused. Cross-ISA, one hand-written waiter per ISA (DECISIONS §19).
+#[cfg(test)]
+mod futex_tests;
+
+/// **The process object** (milestone 812 (`std::thread::spawn` runs real threads in one address
+/// space), §269 (how threads share a process) forks 1, 3 and 5): threads joined by `BIND` share a
+/// space, a table and a futex; `exit`, `DESTROY` and a destroyed region end every member; and the
+/// contract's refusals hold. Cross-ISA (DECISIONS §19).
+#[cfg(test)]
+mod process_tests;
 
 /// **`free`, `vmstat` and `slabtop`'s two sources** (milestone 126 (the `procps` package),
 /// DECISIONS §225 (`free` sees the machine and your share)): `MemoryRegion::USAGE` under

@@ -1,0 +1,28 @@
+Falsifies `system_tests::user::process_tests::a_destroyed_region_ends_the_process_in_it_and_its_members`.
+
+Architecture: aarch64, riscv64, x86_64
+
+The defect, in milestone 812 (`std::thread::spawn` runs real threads in one address space)'s process object: destroying the region a process lives in no longer ends
+the process, so a member whose TCB is elsewhere runs on and keeps the process's page.
+
+Expected to fail: "the retry never reclaimed the process's region".
+
+diff --git a/kernel/src/sched/process.rs b/kernel/src/sched/process.rs
+--- a/kernel/src/sched/process.rs
++++ b/kernel/src/sched/process.rs
+@@ -333,13 +333,8 @@ pub(super) fn reap_region(sched: &mut IpcTables, base: u64, end_: u64) {
+         let live = sched.processes.iter().find_map(|(pid, &phys)| {
+             (doomed(phys) && process_of(sched, pid).is_some_and(|p| !p.ended)).then_some(pid)
+         });
+-        let Some(pid) = live else { break };
+-        end(
+-            sched,
+-            pid,
+-            crate::cpu::NO_TID,
+-            [abi::fault::EVENT_EXIT, 0, 0],
+-        );
++        let Some(_pid) = live else { break };
++        break;
+     }
+     // Detach each embryo member of a doomed process. `leave` clears its `process`, so each is
+     // found once.

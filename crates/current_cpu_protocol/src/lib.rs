@@ -143,14 +143,12 @@
 //!   pass writable buffers). Whether a relaxed load through that reference is sound on a
 //!   read-only page is a language-level question, not settled here; a raw atomic load that never
 //!   forms the reference is the likely shape if it is not.
-//! - **A thread that shares an address space with another thread would share this page, and both
-//!   would read one of the two answers.** That cannot happen today: `Tcb::CONFIGURE` refuses a
-//!   space already bound to a thread (§249 (a running address space stays nameable), amendment
-//!   (b)), so no two TCBs share one space: §105 (`std::thread::spawn` stays declined). This page is per address space,
-//!   which is per thread only because of that. **Whoever lifts §105 must make this per thread by
-//!   something other than the address space**, and a shared page indexed by a slot the thread
-//!   learns at startup is the obvious shape, with the false-sharing cost of packed slots to weigh.
-//!   Named here because the constraint is invisible from this crate's own code.
+//! - **A process has at most [`THREAD_PAGE_SLOTS`] threads**, because each has a page of its own in
+//!   `PROCESS_PAGES` (milestone 812 (`std::thread::spawn` runs real threads in one address space),
+//!   §269 (how threads share a process) fork 6, which chose a page per thread over slots in one
+//!   page). `user_mode_runtime::current_cpu` reads [`PAGE_VA`], which is a process's first thread's
+//!   page; any other thread must read the address `CONFIGURE` answered for it, which `std` keeps in
+//!   the thread's thread-local block.
 //! - **A process whose address space was built by userspace and never bound to a TCB has no page
 //!   here**, and a call to `user_mode_runtime::current_cpu` from it faults on an unmapped read
 //!   rather than returning [`None`]. The kernel maps this page when it takes the space
@@ -198,11 +196,31 @@ pub const CPU_ID_BOUND: usize = 8;
 
 const OFF_MAGIC: usize = 0;
 const OFF_CPU: usize = OFF_MAGIC + 8;
+const OFF_ALLOWANCE: usize = OFF_CPU + 8;
 
-/// The whole page's size in bytes: the magic, then one little-endian `u64`. Far under one frame
-/// (4096 bytes), which is the unit this is mapped as, and inside one cache line, which is what
-/// makes the reader a single load with no line shared with anybody else's writes.
-pub const PAGE_BYTES: usize = OFF_CPU + 8;
+/// The whole page's size in bytes: the magic, then two little-endian `u64`s, the CPU and the
+/// allowance. Far under one frame (4096 bytes), which is the unit this is mapped as, and inside one
+/// cache line, which is what makes the reader a single load with no line shared with anybody
+/// else's writes.
+pub const PAGE_BYTES: usize = OFF_ALLOWANCE + 8;
+
+/// **How many threads of one process can each have a page**: the slots below [`PAGE_VA`] in
+/// `address_space_map::PROCESS_PAGES` (milestone 812 (`std::thread::spawn` runs real threads in one
+/// address space), §269 (how threads share a process) fork 6). Slot `k` is at [`thread_page_va`]`(k)`;
+/// slot 0 is [`PAGE_VA`] itself, so a process's first thread reads where every thread read before.
+pub const THREAD_PAGE_SLOTS: usize =
+    (address_space_map::PROCESS_PAGES.bytes() / address_space_map::PAGE) as usize;
+
+/// **Where thread page slot `k` is mapped**: [`PAGE_VA`] for slot 0, and one page lower for each
+/// slot after it, inside `PROCESS_PAGES` and so inside the stack's last-level table. `None` past
+/// [`THREAD_PAGE_SLOTS`].
+pub const fn thread_page_va(k: usize) -> Option<u64> {
+    if k < THREAD_PAGE_SLOTS {
+        Some(PAGE_VA - k as u64 * address_space_map::PAGE)
+    } else {
+        None
+    }
+}
 
 /// **The fixed virtual address the kernel maps this page at** in every process it builds a space
 /// for, and it is the same number on all three architectures. Both sides agree on it through this
@@ -252,9 +270,19 @@ pub const PAGE_VA: u64 = address_space_map::CURRENT_CPU_PAGE;
 /// There is no `build_page(cpu)`: the CPU is not known at build time and is not the kind of thing
 /// a builder should be able to assert. [`publish`] is the only way the word ever changes.
 pub fn build_page() -> [u8; PAGE_BYTES] {
+    build_page_allowing(0)
+}
+
+/// [`build_page`], carrying the thread's **allowance**: how many cores its process may use
+/// (milestone 812 (`std::thread::spawn` runs real threads in one address space), §269 (how threads
+/// share a process) fork 7). Not how many the machine has: it holds the online count today, and a
+/// later spawner grant or affinity budget lowers it without changing what it means. Zero reads as
+/// unknown, which is what [`build_page`] writes.
+pub fn build_page_allowing(allowance: u64) -> [u8; PAGE_BYTES] {
     let mut page = [0u8; PAGE_BYTES];
     page[OFF_MAGIC..OFF_MAGIC + 8].copy_from_slice(&MAGIC);
     page[OFF_CPU..OFF_CPU + 8].copy_from_slice(&UNSCHEDULED.to_le_bytes());
+    page[OFF_ALLOWANCE..OFF_ALLOWANCE + 8].copy_from_slice(&allowance.to_le_bytes());
     page
 }
 
@@ -310,6 +338,20 @@ impl CurrentCpuPage {
         CurrentCpuPage {
             base: va as *const u8,
         }
+    }
+
+    /// **How many cores this thread's process may use**, `std::thread::available_parallelism`'s
+    /// answer (milestone 812, §269 fork 7), or `None` for an unrecognized page or one built without
+    /// an allowance. One load, never written after the page is built, so it needs no ordering.
+    pub fn allowance(&self) -> Option<core::num::NonZeroUsize> {
+        // SAFETY: `new`'s contract: `base` names at least `PAGE_BYTES` mapped, stable bytes.
+        let magic = unsafe { core::slice::from_raw_parts(self.base, 8) };
+        if magic != MAGIC {
+            return None;
+        }
+        // SAFETY: as `cpu`'s word read; the allowance is 8-aligned at its offset.
+        let word = unsafe { &*((self.base as usize + OFF_ALLOWANCE) as *const AtomicU64) };
+        core::num::NonZeroUsize::new(word.load(Ordering::Relaxed) as usize)
     }
 
     /// **Which CPU this thread is running on**, or `None` if this page is unrecognized (a frame
@@ -393,7 +435,7 @@ mod tests {
     #[test]
     fn a_thread_that_never_ran_reads_as_unknown() {
         let mut bytes = aligned_page();
-        assert_eq!(&bytes.0[OFF_CPU..], &UNSCHEDULED.to_le_bytes());
+        assert_eq!(&bytes.0[OFF_CPU..OFF_CPU + 8], &UNSCHEDULED.to_le_bytes());
         // SAFETY: as above.
         let page = unsafe { CurrentCpuPage::new(bytes.0.as_mut_ptr() as u64) };
         assert_eq!(page.cpu(), None);
@@ -442,6 +484,40 @@ mod tests {
         }
     }
 
+    /// **The allowance reads back, and a page built without one has no answer** (milestone 812
+    /// (`std::thread::spawn` runs real threads in one address space)), which is what keeps
+    /// `available_parallelism` from fabricating a count on a page nobody gave one.
+    #[test]
+    fn the_allowance_reads_back_and_none_is_unknown() {
+        #[repr(align(8))]
+        struct Aligned([u8; PAGE_BYTES]);
+        let mut with = Aligned(build_page_allowing(4));
+        let mut without = Aligned(build_page());
+        // SAFETY: live, aligned buffers of exactly `PAGE_BYTES`.
+        let (with, without) = unsafe {
+            (
+                CurrentCpuPage::new(with.0.as_mut_ptr() as u64),
+                CurrentCpuPage::new(without.0.as_mut_ptr() as u64),
+            )
+        };
+        assert_eq!(with.allowance().map(|n| n.get()), Some(4));
+        assert_eq!(without.allowance(), None);
+        assert_eq!(with.cpu(), None, "an allowance is not a CPU");
+    }
+
+    /// Every thread page slot is inside `PROCESS_PAGES`, slot 0 is the page every thread read
+    /// before 812, and there is no slot past the band.
+    #[test]
+    fn the_thread_page_slots_fill_the_process_pages_band() {
+        assert_eq!(thread_page_va(0), Some(PAGE_VA));
+        for k in 0..THREAD_PAGE_SLOTS {
+            let va = thread_page_va(k).unwrap();
+            assert!(address_space_map::PROCESS_PAGES.contains(va));
+        }
+        assert_eq!(thread_page_va(THREAD_PAGE_SLOTS), None);
+        assert_eq!(THREAD_PAGE_SLOTS, 16);
+    }
+
     /// The layout constants do not overlap and the page fits in one frame and one cache line,
     /// pinned so a mutant swapping an offset is caught here rather than by a wrong core id on real
     /// hardware. The shape `counter_frequency_protocol::the_layout_offsets_do_not_overlap` uses.
@@ -449,7 +525,8 @@ mod tests {
     #[allow(clippy::assertions_on_constants)]
     fn the_layout_offsets_do_not_overlap() {
         assert_eq!(OFF_CPU, 8);
-        assert_eq!(PAGE_BYTES, 16);
+        assert_eq!(OFF_ALLOWANCE, 16);
+        assert_eq!(PAGE_BYTES, 24);
         assert!(PAGE_BYTES <= 64, "the page must fit in one cache line");
         assert!(PAGE_BYTES < 4096, "the page must fit in one frame");
     }

@@ -344,6 +344,10 @@ pub enum Wait {
     Rendezvous(crate::sched::RendezvousId, WaitRole),
     /// Parked in `WAIT` on a notification (milestone 151), on its wait queue.
     Notification(crate::sched::NotificationId),
+    /// Parked in `AddressSpace::WAIT` on a futex (milestone 812 (`std::thread::spawn` runs real
+    /// threads in one address space)), under this key in the scheduler's futex table. The key is
+    /// the whole identity: there is no futex object to name.
+    Futex(inter_process_communication::futex::Key),
 }
 
 pub struct Thread {
@@ -630,6 +634,44 @@ pub struct Thread {
     /// worker's input, a driver's DMA address). All zero for a kernel thread.
     pub(crate) start_args: [u64; 3],
 
+    /// **This thread's thread pointer** (milestone 812 (`std::thread::spawn` runs real threads in
+    /// one address space), §269 (how threads share a process) fork 4): `TPIDR_EL0` on aarch64, `tp`
+    /// on riscv64, the `FS` base on `x86_64`. The one register a program's thread-local storage
+    /// hangs off, so two threads of one space must each have their own.
+    ///
+    /// **The kernel sets it, the same way on all three architectures.** `CONFIGURE` gives the first
+    /// value (Linux's `CLONE_SETTLS`), `ThreadControlBlock::SET_THREAD_POINTER` changes it later
+    /// (seL4's `SetTLSBase`), and `sched::schedule` installs it at every switch in through
+    /// `arch::thread_pointer::hand_over`. Zero, the value every thread had before this field, for a
+    /// thread nobody gave one. Always a user address or zero, which every writer checks: `x86_64`'s
+    /// `wrmsr` faults on a non-canonical value.
+    ///
+    /// Where the hardware lets userspace write the register itself (aarch64 and riscv64), this copy
+    /// can lag the register while the thread runs; the hand-over saves the register back on
+    /// aarch64, and on riscv64 the trap frame is the live copy. `arch::thread_pointer` in each
+    /// architecture says which. *(Field name provisional.)*
+    pub(crate) thread_pointer: u64,
+
+    /// **The process this thread joined**, or `None` for a thread that is a process of its own
+    /// (milestone 812 (`std::thread::spawn` runs real threads in one address space), §269 (how
+    /// threads share a process) forks 3 and 5). Set once, at a `CONFIGURE` given a process
+    /// capability, and cleared only if the process's page is reclaimed before this embryo starts.
+    /// *(Field name provisional.)*
+    pub(crate) process: Option<crate::sched::ProcessId>,
+
+    /// **Where this thread's capabilities are**: its own table, in its own TCB page, or its
+    /// process's, in the process's page (milestone 812). Written by `init_capability_table` and by
+    /// the join, both under `IPC_TABLES`, and read only through [`capability_table_of`] under the
+    /// same lock or by the core this thread runs on. A process page is never reclaimed while a
+    /// member points here (`sched::process`), so the pointer cannot outlive what it names.
+    /// *(Field name provisional.)*
+    pub(crate) capability_table: *const CapabilityTableLock,
+
+    /// **This thread's current-CPU page slot in its process's space**, as `(space name, slot)`, or
+    /// `None` for a thread that is a process of its own and reads its space's slot 0 (milestone 812,
+    /// §269 fork 6). Given back when the thread is reaped. *(Field name provisional.)*
+    pub(crate) thread_page: Option<(u64, u8)>,
+
     /// **Did this thread's TCB page come from `kmem`** (recycle it on death) or from a user
     /// process's own region (leave it; the region reclaims it at destroy)? True for every
     /// kernel-created thread; false for a user-retyped TCB (19c.3). The page-origin half of the
@@ -795,7 +837,7 @@ const _: () = assert!(
 /// straight into the page rather than building a temporary the size of the table on its own frame
 /// (the reason milestone 754 (the capability table grows to 64 slots) gives for an empty table constant).
 #[allow(clippy::declare_interior_mutable_const)] // only ever moved into a page, never borrowed
-const EMPTY_CAPABILITY_TABLE: CapabilityTableLock = crate::sync::IrqSafeMutex::new(
+pub(crate) const EMPTY_CAPABILITY_TABLE: CapabilityTableLock = crate::sync::IrqSafeMutex::new(
     crate::sync::rank::CAPABILITY_TABLE,
     crate::cap::CapabilityTable::new(),
 );
@@ -807,6 +849,20 @@ const EMPTY_CAPABILITY_TABLE: CapabilityTableLock = crate::sync::IrqSafeMutex::n
 /// As [`fp_state_of`]: `thread` must point to a live `Thread` **at the start of its own TCB page**,
 /// as the table stores it, never one derived from a reference.
 pub unsafe fn capability_table_of(thread: *mut Thread) -> *const CapabilityTableLock {
+    // SAFETY: the caller's contract; one field read through the page pointer, no reference to the
+    // `Thread` formed. Since milestone 812 (`std::thread::spawn` runs real threads in one address
+    // space) the table may be its process's rather than its own, so the address is stored rather
+    // than computed; `init_capability_table` writes it before the thread's name is handed out.
+    unsafe { (*thread).capability_table }
+}
+
+/// **The table in `thread`'s own TCB page**, whether or not the thread uses it: the one a thread
+/// that is a process of its own reads, and the one a joining embryo's capabilities move out of.
+///
+/// # Safety
+///
+/// As [`capability_table_of`].
+pub unsafe fn own_capability_table_of(thread: *mut Thread) -> *const CapabilityTableLock {
     // SAFETY: the caller's contract. Inside the page by the assertion above, and aligned because the
     // offset is a multiple of the lock's alignment and a page is aligned to far more.
     unsafe { thread.cast::<u8>().add(CAPABILITY_TABLE_OFFSET).cast() }
@@ -822,9 +878,9 @@ pub unsafe fn capability_table_of(thread: *mut Thread) -> *const CapabilityTable
 pub unsafe fn init_capability_table(thread: *mut Thread) {
     // SAFETY: the caller's contract; one aligned write inside the page, over bytes nothing reads.
     unsafe {
-        capability_table_of(thread)
-            .cast_mut()
-            .write(EMPTY_CAPABILITY_TABLE);
+        let own = own_capability_table_of(thread);
+        own.cast_mut().write(EMPTY_CAPABILITY_TABLE);
+        (&raw mut (*thread).capability_table).write(own);
     }
 }
 
@@ -869,6 +925,10 @@ impl Thread {
             own_token: None,
             entry: (0, 0), // a kernel thread; never enters EL0 by this path
             start_args: [0; 3],
+            thread_pointer: 0,
+            process: None,
+            capability_table: core::ptr::null(),
+            thread_page: None,
             thread_control_block_kmem: true,
             killed: false,
             fault_ep: None,
@@ -921,6 +981,10 @@ impl Thread {
                 own_token: None,
                 entry: (0, 0), // a kernel thread; never enters EL0 by this path
                 start_args: [0; 3],
+                thread_pointer: 0,
+                process: None,
+                capability_table: core::ptr::null(),
+                thread_page: None,
                 thread_control_block_kmem: true,
                 killed: false,
                 fault_ep: None,
@@ -1067,6 +1131,10 @@ impl Thread {
                 own_token: None,
                 entry: (0, 0), // a kernel thread; becomes a user process via exec, not this path
                 start_args: [0; 3],
+                thread_pointer: 0,
+                process: None,
+                capability_table: core::ptr::null(),
+                thread_page: None,
                 thread_control_block_kmem: true,
                 killed: false,
                 fault_ep: None,
@@ -1107,6 +1175,10 @@ impl Thread {
             own_token: None,
             entry: (0, 0),
             start_args: [0; 3],
+            thread_pointer: 0,
+            process: None,
+            capability_table: core::ptr::null(),
+            thread_page: None,
             thread_control_block_kmem: false, // a user-retyped TCB page; the region owns it
             killed: false,
             fault_ep: None,

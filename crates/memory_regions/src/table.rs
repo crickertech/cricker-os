@@ -151,10 +151,13 @@ pub enum ObjectKind {
     Notification,
     /// A timer object (`abi::objtype::TIMER`), counted and unreported for the same reason.
     Timer,
+    /// A process (`abi::objtype::PROCESS`, milestone 812 (`std::thread::spawn` runs real threads
+    /// in one address space)), counted and unreported for the same reason.
+    Process,
 }
 
 impl ObjectKind {
-    const COUNT: usize = 6;
+    const COUNT: usize = 7;
 }
 
 /// **One line of a region's spending, as [`RegionTable::spent`] reports it.**

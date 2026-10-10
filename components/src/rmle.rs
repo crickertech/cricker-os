@@ -380,7 +380,7 @@ fn load(ed: &mut Editor, name: &[u8]) {
 
     if existed {
         let scratch_p = &raw mut FILE_SCRATCH;
-        // SAFETY: single-threaded (DECISIONS §33); see `Editor::new`'s doc for the same reasoning.
+        // SAFETY: one thread, for good (built without its own process); see `Editor::new`'s doc.
         let buf = unsafe { &mut *scratch_p };
         let n = read_at(ed.handle, buf.len(), 0).max(0) as usize;
         get_fs_page(n.min(filesystem_protocol::PAGE), buf);
@@ -463,7 +463,7 @@ fn stage(ed: &Editor, buf: &mut [u8]) -> usize {
 /// `^S`: write every row back, `\n`-joined, and truncate to exactly that length.
 fn save(ed: &mut Editor) {
     let scratch_p = &raw mut FILE_SCRATCH;
-    // SAFETY: single-threaded (DECISIONS §33); see `Editor::new`'s doc for the same reasoning.
+    // SAFETY: one thread, for good (built without its own process); see `Editor::new`'s doc.
     let buf = unsafe { &mut *scratch_p };
     let n = stage(ed, buf);
     put_fs_page(&buf[..n]);
@@ -518,7 +518,7 @@ fn redraw(ed: &mut Editor) {
     }
 
     let screen_p = &raw mut SCREEN;
-    // SAFETY: single-threaded (DECISIONS §33); see `Editor::new`'s doc for the same reasoning.
+    // SAFETY: one thread, for good (built without its own process); see `Editor::new`'s doc.
     let buf = unsafe { &mut *screen_p };
     let mut n = 0usize;
     push(buf, &mut n, b"\x1b[?25l\x1b[H"); // hide cursor, home
@@ -591,8 +591,10 @@ pub extern "C" fn _start(spec: u64, name_lo: u64, name_hi: u64) -> ! {
     rawmode(true);
 
     let ed_p = &raw mut EDITOR;
-    // SAFETY: single-threaded (DECISIONS §33), so this pointer is the only route to `EDITOR` and
-    // there is no aliasing question, the same reasoning `display_terminal.rs`'s `term()` documents.
+    // SAFETY: this program has one thread and cannot be given a second, since it is built without
+    // its own process (milestone 812 (`std::thread::spawn` runs real threads in one address
+    // space)), so this pointer is the only route to `EDITOR` and there is no aliasing question,
+    // the same reasoning `display_terminal.rs`'s `term()` documents.
     let ed = unsafe { &mut *ed_p };
     ed.set_message(b"^S save  ^Q quit");
     load(ed, name);

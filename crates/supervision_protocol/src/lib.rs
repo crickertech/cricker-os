@@ -405,6 +405,19 @@ pub struct ChildEndowment<'a> {
 /// name one of ours by accident.
 pub const CHILDS_OWN_SPACE: u64 = u64::MAX;
 
+/// **[`ChildEndowment::placed`]'s marker for the child's own process** (milestone 812
+/// (`std::thread::spawn` runs real threads in one address space)): place it and the child is built
+/// as a process, so it can add threads to itself. [`build_child`] creates the process around the
+/// child's space, inserts the process capability at the placed slot with the placed rights (which
+/// must be exactly `BIND`, the authority to add a thread and nothing more), and joins the child to it
+/// with `CONFIGURE`. A sentinel for [`CHILDS_OWN_SPACE`]'s stack reason.
+pub const CHILDS_OWN_PROCESS: u64 = u64::MAX - 1;
+
+/// **[`ChildEndowment::placed`]'s marker for the child's own first thread** (milestone 812): its TCB,
+/// which a `std` program's main thread sets its own thread pointer through. The rights must be
+/// exactly `WRITE`.
+pub const CHILDS_OWN_THREAD: u64 = u64::MAX - 2;
+
 impl<'a> ChildEndowment<'a> {
     /// An endowment of nothing: no capabilities, no mappings, no supervision, and the default
     /// stack, retaining whatever `retention` says. Every other field is public, so the intended use
@@ -512,7 +525,17 @@ pub fn build_child(
     endow: &ChildEndowment,
 ) -> Result<Child, ()> {
     let (child, aspace) = build_child_space(own_ut, build_ut, elf, endow)?;
-    if configure_child(child.tcb, aspace, elf.entry()).is_err() {
+    let process = endow
+        .placed
+        .iter()
+        .find(|&&(_, ours, _)| ours == CHILDS_OWN_PROCESS);
+    let configured = match process {
+        None => configure_child(child.tcb, aspace, elf.entry()),
+        Some(&(slot, _, rights)) => {
+            configure_child_as_process(build_ut, child.tcb, aspace, elf.entry(), slot, rights)
+        }
+    };
+    if configured.is_err() {
         // `CONFIGURE` consumes the address space only when it succeeds, so both are still ours.
         cap_delete(child.tcb);
         cap_delete(aspace);
@@ -727,10 +750,19 @@ fn endow_child(tcb: u64, endow: &ChildEndowment, aspace: u64) -> Result<(), ()> 
     }
     for &(child_slot, our_slot, rights) in endow.placed {
         let source = if our_slot == CHILDS_OWN_SPACE {
-            if rights != abi::rights::WRITE {
+            // `WRITE` to shape it, or `READ` alone for the futex waits a `std` program's locks make
+            // on it (milestone 812); never `GRANT`.
+            if rights != abi::rights::WRITE && rights != abi::rights::READ {
                 return Err(());
             }
             aspace
+        } else if our_slot == CHILDS_OWN_THREAD {
+            if rights != abi::rights::WRITE {
+                return Err(());
+            }
+            tcb
+        } else if our_slot == CHILDS_OWN_PROCESS {
+            continue; // placed once the process exists, by `configure_child_as_process`
         } else {
             our_slot
         };
@@ -770,6 +802,56 @@ fn endow_child(tcb: u64, endow: &ChildEndowment, aspace: u64) -> Result<(), ()> 
     Ok(())
 }
 
+/// **[`configure_child`] for a child that is a process** (milestone 812): the process is made in
+/// `build_ut` around `aspace` (which that consumes, as `CONFIGURE` would have), its capability goes to
+/// the child at `slot` with `rights` (exactly `BIND`), and the child joins it. The builder keeps no
+/// capability to the process.
+fn configure_child_as_process(
+    build_ut: u64,
+    tcb: u64,
+    aspace: u64,
+    entry: u64,
+    slot: u64,
+    rights: u64,
+) -> Result<(), ()> {
+    if rights != abi::rights::BIND {
+        return Err(());
+    }
+    // SAFETY: as above: the kernel validates each capability and method.
+    let process = unsafe {
+        invoke(
+            build_ut,
+            abi::memory_region::RETYPE_OBJ,
+            abi::objtype::PROCESS,
+            aspace,
+            0,
+        )
+    };
+    if process < 0 {
+        return Err(());
+    }
+    let process = process as u64;
+    // SAFETY: as above.
+    let joined = unsafe {
+        invoke(
+            tcb,
+            abi::thread_control_block::CAP_INSERT,
+            process,
+            rights,
+            slot + 1,
+        ) >= 0
+            && invoke(
+                tcb,
+                abi::thread_control_block::CONFIGURE,
+                entry,
+                CHILD_STACK_VA + PAGE,
+                process,
+            ) >= 0
+    };
+    cap_delete(process);
+    if joined { Ok(()) } else { Err(()) }
+}
+
 /// Bind the address space and set the entry point: the last step before [`start_child`]. The `aspace`
 /// capability is **consumed** by the kernel here, so this is the moment after which the builder can
 /// no longer shape the child's memory.
@@ -783,8 +865,11 @@ pub fn configure_child(tcb: u64, aspace: u64, entry: u64) -> Result<(), ()> {
             CHILD_STACK_VA + PAGE,
             aspace,
         )
-    } != 0
+    } < 0
     {
+        // A negative answer is a refusal. Since milestone 812 (`std::thread::spawn` runs real
+        // threads in one address space) a success answers the child's current-CPU page address
+        // rather than zero.
         return Err(());
     }
     Ok(())

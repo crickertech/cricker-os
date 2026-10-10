@@ -23,7 +23,7 @@
   "plt-by-default": false,
   "relocation-model": "static",
   "rustc-abi": "softfloat",
-  "singlethread": true,
+  "singlethread": false,
   "stack-probes": {
     "kind": "inline"
   },

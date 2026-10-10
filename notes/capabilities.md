@@ -223,7 +223,7 @@ tree, untyped memory.*
 The decision (§10) is now code. Three things landed: an ABI that is one artifact, a capability
 table, and a syscall dispatcher whose most important function is the one that says *no*.
 
-## 7d landed three calls; the surface is four today <!--count:syscalls-->
+## 7d landed three calls; the surface is five today <!--count:syscalls-->
 
 What 7d shipped, and the numbers in this section are 7d's rather than today's:
 

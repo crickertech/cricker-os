@@ -1,0 +1,40 @@
+Falsifies `system_tests::user::thread_pointer_tests::each_thread_reads_through_its_own_thread_pointer`.
+
+Architecture: aarch64, riscv64, x86_64
+
+The defect: the kernel stops giving a thread the thread pointer it holds for it. The context switch
+no longer hands `TPIDR_EL0` or the `FS` base from the outgoing thread to the incoming one, and
+riscv64's first entry to U-mode no longer puts the thread's `tp` in the frame, which is the state
+of the kernel before milestone 812 (`std::thread::spawn` runs real threads in one address space).
+
+Expected to fail: "a spinner never ran, or faulted on its first read". Each spinner reads through
+a thread pointer of zero and faults at address 0 (replayed on all three architectures, 2026-10-10
+UTC).
+
+diff --git a/kernel/src/arch/riscv64/exceptions.rs b/kernel/src/arch/riscv64/exceptions.rs
+--- a/kernel/src/arch/riscv64/exceptions.rs
++++ b/kernel/src/arch/riscv64/exceptions.rs
+@@ -110,7 +110,6 @@ impl TrapFrame {
+         // kernel address. It is read here, while the frame is still a value, because the frame's
+         // final home at the top of the kernel stack may not be touched by a call once it is written
+         // (`enter_user`). On the other two architectures the context switch installed it.
+-        x[4] = crate::sched::current_thread_pointer();
+         TrapFrame {
+             x,
+             sepc: entry,
+diff --git a/kernel/src/sched.rs b/kernel/src/sched.rs
+--- a/kernel/src/sched.rs
++++ b/kernel/src/sched.rs
+@@ -2629,12 +2629,6 @@ pub fn schedule() {
+         // architecture's half.
+         //
+         // SAFETY: live threads' TCB pages from the table, under `IPC_TABLES`; one field each.
+-        unsafe {
+-            crate::arch::thread_pointer::hand_over(
+-                &mut (*prev_ptr).thread_pointer,
+-                (*next_tcb).thread_pointer,
+-            );
+-        }
+ 
+         // SAFETY: a live thread's TCB page, held under IPC_TABLES. Field projection through a raw
+         // pointer, and `fp_state_of`'s contract is exactly what `pointer` returns.
