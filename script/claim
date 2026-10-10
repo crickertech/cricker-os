@@ -139,6 +139,42 @@ fi
 # before a single file changes on disk.
 nife_check_branch_name_shape "$branch" claim || exit 1
 
+# A milestone number already held by an open pull request is refused, before git is touched
+# (2026-10-10 UTC). That day #1901, renumbered from 868 to 870, and #1906, newly cut as 870, took
+# 870 within minutes, and the claim never looked past its own name. Two open lanes on one number
+# are always wrong: the same milestone twice is forbidden, and two milestones on one number is
+# the collision. An open pull request's number is the one its title names (`milestone 871 (a
+# sixth outsider pass attacks the confinement claim): ...`, `milestone/561: ...`) and only failing
+# that its branch's, because a renumbered lane keeps its branch
+# (notes/skills/developer-lane/SKILL.md, shared state) and its title is what moved. It
+# narrows the race rather than closing it: two claims in the same minute still both pass, and a
+# lane that renumbers by hand is not checked here at all. Offline, `gh` fails and this warns.
+case "$branch" in
+milestone/[0-9]*-*)
+    claim_n="${branch#milestone/}"
+    claim_n="$(expr "${claim_n%%-*}" + 0)"
+    if open_prs="$(gh pr list --state open --limit 300 --json number,headRefName,title \
+            --jq '.[] | "\(.number)\t\(.headRefName)\t\(.title)"' 2>/dev/null)"; then
+        holders="$(printf '%s\n' "$open_prs" | awk -F '\t' -v n="$claim_n" -v self="$branch" '
+            $2 == self { next }
+            {
+                t = tolower($3); num = ""
+                if (t ~ /^milestone[ \/][0-9]+/) { sub(/^milestone[ \/]/, "", t); match(t, /^[0-9]+/); num = substr(t, 1, RLENGTH) }
+                else if ($2 ~ /^milestone\/[0-9]+-/) { h = $2; sub(/^milestone\//, "", h); sub(/-.*/, "", h); num = h }
+                if (num != "" && num + 0 == n) printf "  #%s %s (%s)\n", $1, $3, $2
+            }')"
+        if [ -n "$holders" ]; then
+            echo "claim: milestone $claim_n is already held by an open pull request:" >&2
+            printf '%s\n' "$holders" >&2
+            echo "  Take another number, or close that draft first if it is abandoned." >&2
+            exit 1
+        fi
+    else
+        echo "claim: could not list open pull requests, so milestone $claim_n is unchecked against them" >&2
+    fi
+    ;;
+esac
+
 # A lane's first act is the right moment to say which identity it is about to act as. A session
 # that opted in to the App (NIFE_SMELTER=1; milestone 128 (the automation gets its own identity),
 # notes/session-identity.md) but never applied `smelter-token env` would claim under the personal

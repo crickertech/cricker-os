@@ -47,6 +47,25 @@ expect "help names both" 0 "(--debt-paydown | --new-work)" --help
 # Classified, but the name is a milestone near-miss: the shape refusal still fires.
 expect "classified, bad name" 1 "does not parse" milestone-1-x --debt-paydown
 
+# A milestone number an open pull request holds is refused before git is touched. `gh pr list`
+# answers from $work/prs; every other gh call, and every git call, still records and fails. #1901's
+# shape: branch cut as 868, title renumbered to milestone 871 (a sixth outsider pass attacks the
+# confinement claim), so 871 is held and 868 is not.
+export NIFE_SMELTER=
+printf '#!/bin/sh\nif [ "$1 $2" = "pr list" ]; then cat "%s/prs"; exit 0; fi\necho "gh $*" >> "%s/called"\nexit 97\n' \
+    "$work" "$work" > "$work/bin/gh"
+printf '1901\tmilestone/868-a-sixth-pass\tmilestone 871 (a sixth outsider pass attacks the confinement claim)\n1897\tmilestone/592-uart-drain\tdrain the UART\n' \
+    > "$work/prs"
+expect "held by a title" 1 "#1901 milestone 871" milestone/871-another-thing --new-work
+expect "held by a branch" 1 "#1897 drain the UART" milestone/0592-a-thing --new-work
+# A free number gets past the check, and the next thing it reaches is git (the stub's exit 97).
+set +e
+out=$(sh "$claim" milestone/868-a-new-thing --new-work 2>&1)
+set -e
+grep -q '^git ' "$work/called" || fail "free number: never reached git ($out)"
+printf '%s' "$out" | grep -q "already held" && fail "free number: refused ($out)"
+rm -f "$work/called"
+
 "$real_git" -C "$root" rev-parse --verify --quiet "refs/heads/$branch" >/dev/null \
     && fail "a refused claim created branch $branch"
 [ ! -e "$NIFE_WORKTREES" ] || fail "a refused claim created $NIFE_WORKTREES"
