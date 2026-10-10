@@ -7,7 +7,9 @@ name with the program no image carries: [fetching.md](fetching.md). Running byte
 for, §219 (how the shell names an installed program to the spawner)'s gate D2, is
 [running-unvouched.md](running-unvouched.md). The owner's console, vouching for a build and the list
 of users who may run new code (§221 (the boot prompt is the owner's console)), is
-[vouching.md](vouching.md).
+[vouching.md](vouching.md). Packages over the internet are
+[over-the-internet.md](over-the-internet.md). The index format survey is
+[the-index-format.md](the-index-format.md).
 
 Name: provisional (2026-09-26, milestone 198 (a package manager) rung 3a's installer lane). The
 directory `notes/packages/` follows §212 (a prose budget)'s siting of an appendix beside its parent,

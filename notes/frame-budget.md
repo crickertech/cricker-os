@@ -71,3 +71,4 @@ Measured conclusions, undated; each row's number is the reading that established
 | 2026-10-04 | 26,673 / 26,648 | 26,705 | overflow checks in the release builds |
 | 2026-10-04 | 26,713 | 26,745 | milestone 494 (a driver for the network card a PC actually has): the `e1000e` DMA region |
 | 2026-10-06 | 23,732 / 23,674 | 23,764 | lowered: tests stopped keeping endpoints and scanouts |
+| 2026-10-10 | 22,822 / 22,763 | 23,764, kept | milestone 801 (packages over the internet): every std spawn hands back its clock service, configuration page and stack; x86_64 measured 9,344 (q35) and 5,954 (OVMF) (branch) |
