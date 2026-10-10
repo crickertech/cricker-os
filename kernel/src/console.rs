@@ -763,8 +763,9 @@ pub fn enter_reset() {
 /// **Wait for every printed byte to leave the machine**, for milestone 592 (radon's cold reboot
 /// dies in OpenSBI's PMIC write), found 2026-10-10.
 ///
-/// Two halves, because kernel output has two places to be caught: [`kernel_log::flush`] moves what
-/// an attached drainer has not printed from the ring to the wire, and the driver's
+/// Two halves, because kernel output has two places to be caught:
+/// [`kernel_log::flush`](crate::kernel_log::flush) moves what an attached drainer has not printed
+/// from the ring to the wire, and the driver's
 /// `drain_transmitter` then waits out the 115200-bit gap between the FIFO and the wire. `write_byte`
 /// returns when the FIFO has *room*, not when bytes are sent, so code that prints and then kills the
 /// machine loses the tail of its own last lines without both.

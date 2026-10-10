@@ -1,6 +1,7 @@
 ---
 status: BUILT
 raised: 2026-09-24
+built: 2026-10-10
 promoted_from: radons-reboot-dies-in-opensbis-pmic-write
 milestone_dependencies: none
 decision_dependencies: none
@@ -221,11 +222,11 @@ What each outcome means, decided before it runs:
 - **Done.** The one bench reset the block was minted for, and three more besides: calef at the
   bench, 2026-10-09 and 2026-10-10. The direct route is the machine's reset; the block is BUILT by
   his ruling.
-- **Outstanding, homed in the BUGS above.** The board test exit's shutdown path (`exit` under
+- **Recorded.** In the BUGS above: the board test exit's shutdown path (`exit` under
   `board` powers radon off through SRST shutdown): now that the bus bring-up and a working I2C
   master exist, deciding whether a board test run should power the board off, or `wfi` instead, is
   a small lane of its own and a workflow question first.
-- **Unblocked.** Milestone 249's unattended boot-lottery series on radon: four cycles ran
+- **Milestone 249.** Unblocked: its unattended boot-lottery series on radon: four cycles ran
   themselves in fifteen minutes with zero attention, and the crossing counts they produced
   (E8-E12 in the multicore curve) are the series' first data.
 

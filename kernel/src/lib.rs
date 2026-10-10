@@ -91,6 +91,9 @@ mod e1000e;
 // See kernel/src/designware_ethernet.rs.
 #[cfg(target_arch = "riscv64")]
 mod designware_ethernet;
+// The JH7110's polled I2C master, used only by the reboot's direct AXP15060 route (milestone 592
+// (radon's cold reboot)). riscv64-only because its one caller is. See kernel/src/designware_i2c.rs.
+#[cfg(target_arch = "riscv64")]
 mod designware_i2c;
 // The xHCI bring-up policy (milestone 242 (USB host and HID)): find the controller, take it from
 // the firmware, draw the driver's register window and confine its DMA, then hand the whole

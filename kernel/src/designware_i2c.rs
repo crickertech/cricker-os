@@ -1,4 +1,4 @@
-//! A minimal polled DesignWare I2C master, built for one transaction class, for milestone 592
+//! A minimal polled `DesignWare` I2C master, built for one transaction class, for milestone 592
 //! (radon's cold reboot dies in OpenSBI's PMIC write): write bytes to a 7-bit address, optionally
 //! read bytes back, one transfer.
 //!
@@ -13,7 +13,7 @@
 //! tree 592 pinned (`starfive-tech/u-boot` `1539c1fb5a49`, fetched 2026-10-10), the driver radon's
 //! own firmware was built from. The sequence mirrors its `__dw_i2c_init`, `i2c_xfer_init`,
 //! `__dw_i2c_write` and `i2c_xfer_finish`: disable, program, set the target address, enable, wait
-//! the bus free, push bytes (the last with STOP), wait STOP_DET, disable.
+//! the bus free, push bytes (the last with STOP), wait `STOP_DET`, disable.
 //!
 //! Bounded everywhere, for the drivers' own reason: this runs on the way to a reset, where
 //! proceeding to the next route beats hanging on silicon that is not answering. Nothing here takes
@@ -74,7 +74,7 @@ const INTR_STOP_DET: u32 = 1 << 9;
 /// `IC_RAW_INTR_STAT`'s transmit-abort bit (`IC_TX_ABRT`).
 const INTR_TX_ABRT: u32 = 1 << 6;
 
-/// The value a DesignWare I2C IP answers in `IC_COMP_TYPE` (the vendor header's `DW_I2C_COMP_TYPE`).
+/// The value a `DesignWare` I2C IP answers in `IC_COMP_TYPE` (the vendor header's `DW_I2C_COMP_TYPE`).
 pub const DW_I2C_COMP_TYPE: u32 = 0x4457_0140;
 
 /// Every wait's bound, the size of the console drivers' own bounds: far more polls than a 100 kHz
@@ -86,7 +86,7 @@ const BOUND: u32 = 1_000_000;
 /// prints this and falls through to the firmware route.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Failure {
-    /// `IC_COMP_TYPE` did not read as a DesignWare I2C IP; the window is not this controller.
+    /// `IC_COMP_TYPE` did not read as a `DesignWare` I2C IP; the window is not this controller.
     NotADesignWare(u32),
     /// The controller never took an enable or disable word.
     EnableStuck(u32),
@@ -103,7 +103,7 @@ pub enum Failure {
     TransmitAborted { source: u32, raw: u32 },
 }
 
-/// One DesignWare I2C controller, at a base address the caller owns.
+/// One `DesignWare` I2C controller, at a base address the caller owns.
 #[derive(Debug)]
 pub struct DesignWareI2c {
     base: usize,

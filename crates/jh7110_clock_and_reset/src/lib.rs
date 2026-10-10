@@ -730,7 +730,7 @@ pub const fn i2c5_ic_clk(w: &IcClkWords) -> u64 {
         / one_based_div(w.apb_bus_func, 4)
 }
 
-/// **The 100 kHz standard-mode programming for a DesignWare I2C controller**, from the timing
+/// **The 100 kHz standard-mode programming for a `DesignWare` I2C controller**, from the timing
 /// formula in the vendor U-Boot `drivers/i2c/designware_i2c.c` this board's firmware was built from
 /// (fetched 2026-10-10, same tree 592 pinned): counts of the input clock for the standard mode's
 /// minimum high (4000 ns) and low (4700 ns) times, the default rise (1000 ns) and fall (300 ns)

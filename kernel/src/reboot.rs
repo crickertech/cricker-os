@@ -99,6 +99,8 @@ fn pmic_reset_attempt(marker: &str) {
 
     // The input-clock chain, from the two windows the plan's guard mapped: the CRG words at their
     // ids' offsets, the PLL2 words in the syscon at the offsets the vendor's pll.c masks name.
+    // SAFETY: every call passes one of those two mapped windows and an aligned offset inside it,
+    // and these are read-only status words, so the read has no side effect.
     let word = |base: usize, offset: usize| unsafe {
         core::ptr::read_volatile((base + offset) as *const u32)
     };
