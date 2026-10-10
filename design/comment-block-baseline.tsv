@@ -92,7 +92,7 @@ crates/coremark/src/lib.rs:1	53
 crates/counter_frequency_protocol/src/lib.rs:1	154
 crates/credential_protocol/src/lib.rs:1	135
 crates/credentialer/src/lib.rs:1	132
-crates/current_cpu_protocol/src/lib.rs:1	183
+crates/current_cpu_protocol/src/lib.rs:1	176
 crates/designware_ethernet/src/lib.rs:2	110
 crates/designware_mobile_storage/src/lib.rs:2	114
 crates/device_tree_blob/src/lib.rs:1	42
