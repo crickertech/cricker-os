@@ -91,13 +91,31 @@ recorded with workload `soak-test (not crossing)` and excluded from the curve.
 | E2 | 2026-09-03 ~20:24 | radon | riscv64 | 4 | not recorded | soak-test | 2.97 | 5,507 | 2,137 | clean | [`soak.md`](soak.md), "The three-hour run" |
 | E3 | 2026-09-04 ~00:06 | radon | riscv64 | 4 | not recorded | soak-test, census build | ~0.4, end not recorded | not recorded | not recorded | clean as far as recorded | [`soak.md`](soak.md), "The three-hour run" |
 | E4 | 2026-09-25 ~01:02 | radon | riscv64 | 4 | `9e879f1e7` | soak-test | 8.16 | 4,108,581 | 5,818 | clean | `bench/radon-2026-09-25/soak-8h.log`; [`visionfive2.md`](visionfive2.md), "The eight-hour soak, 2026-09-25" |
+| E5 | 2026-10-09 ~18:34 | radon | riscv64 | 4 | `bef2b40dc` | soak-test-reboot | 0.03 | 20,474 | 23 | clean | `bench/radon-2026-10-10/soak-boot2.log` |
+| E6 | 2026-10-09 ~18:37 | radon | riscv64 | 4 | `bef2b40dc` | soak-test | 10.28 | 5,569,327 | 7,344 | clean | `bench/radon-2026-10-10/soak-boot2.log` |
+| E7 | 2026-10-10 ~12:11 | radon | riscv64 | 4 | `bef2b40dc` | soak-test | 3.88 | 610,897 | 2,763 | clean | `bench/radon-2026-10-10/soak-boot3.log` |
 | E8 | 2026-10-10 ~18:12 | radon | riscv64 | 4 | `23f0c8d87` | soak-test-reboot | 0.03 | 104 | 24 | clean | `bench/radon-2026-10-10/592-optionb-four-cycles.log` |
 | E9 | 2026-10-10 ~18:15 | radon | riscv64 | 4 | `23f0c8d87` | soak-test-reboot | 0.03 | 25,223 | 24 | clean | `bench/radon-2026-10-10/592-optionb-four-cycles.log` |
 | E10 | 2026-10-10 ~18:18 | radon | riscv64 | 4 | `23f0c8d87` | soak-test-reboot | 0.03 | 22,116 | 24 | clean | `bench/radon-2026-10-10/592-optionb-four-cycles.log` |
 | E11 | 2026-10-10 ~18:21 | radon | riscv64 | 4 | `23f0c8d87` | soak-test-reboot | 0.03 | 3,493 | 24 | clean | `bench/radon-2026-10-10/592-optionb-four-cycles.log` |
 | E12 | 2026-10-10 ~18:24 | radon | riscv64 | 4 | `23f0c8d87` | soak-test-reboot, ended by power-off | 0.03 | 16,462 | 22 | clean | `bench/radon-2026-10-10/592-optionb-four-cycles.log` |
 
-E8 through E12 are milestone 592's option-B evening, `23f0c8d87`, one capture: four 120-second draws each ended by the direct AXP15060 write (the reset milestone 592 (radon's cold reboot dies in OpenSBI's PMIC write) built, proven twice-deterministic in the same log), and a fifth boot ended when calef powered the board off. The crossings spread across five identical 120-second builds, 104 to 25,223, is the boot-lottery distribution the series milestone 249 (the boot lottery is sampled by a person walking to the board) wanted and had never sampled: a 243x range on identical silicon and build, zero defects throughout. E5 through E7, the same evening's plain-soak boots, are recorded by the 225 lane's pull request; this block leaves their numbers to it to keep one home per fact.
+E5 through E7 are one bench evening, 2026-10-09 to 2026-10-10 (milestone 225's redraw boots,
+`bef2b40dc`, tree-identical to main `237cef6bc`). E5 is the 120-second draw of the rebooting soak
+that milestone 592 (radon's cold reboot dies in OpenSBI's PMIC write) ended: between its last beat and E6's `U-Boot SPL` banner the board
+reset itself through OpenSBI's PMIC write and came back, which is 592's green outcome. E6 began on
+the self-reboot's netboot fetch and ended at its watcher's deadline; the board then soaked unwatched
+for about 7 hours (crossings not recorded, not evidence) until E7. E7's boot followed one discarded
+boot from the card, whose fetch failed because radon's ethernet cable was unplugged (`phy_startup()
+failed: -110` on both controllers); that boot never reached a heartbeat and is not a row. Zero
+defects on all three.
+
+The §259 ledger (at least 10 million crossings over at least 3 boots): counting the three plain
+boots only, E4 + E6 + E7 = 10,288,805 crossings over 3 boots, met; E5's reboot draw adds 20,474 on
+top. The series milestone 249 (the boot lottery is sampled by a person walking to the board) wants
+is also unblocked by E5's reset, so future boots need no plug cycle.
+
+E8 through E12 are milestone 592's option-B evening, `23f0c8d87`, one capture: four 120-second draws each ended by the direct AXP15060 write (the reset milestone 592 (radon's cold reboot dies in OpenSBI's PMIC write) built, proven twice-deterministic in the same log), and a fifth boot ended when calef powered the board off. The crossings spread across five identical 120-second builds, 104 to 25,223, is the boot-lottery distribution the series milestone 249 (the boot lottery is sampled by a person walking to the board) wanted and had never sampled: a 243x range on identical silicon and build, zero defects throughout.
 
 The start times are Pacific local times from `notes/soak.md` converted to UTC; the note does not
 state its zone, and the conversion is inferred from the commits that recorded them (2026-09-03
@@ -108,9 +126,9 @@ confidence about one architecture and one workload, not a verdict about anything
 
 E4 is the first row with a log in the tree and a build recorded, and on the crossings axis it
 dwarfs the three before it: 4.1 million against about 8,500 recorded in total, from one boot of 8.16
-hours that drew the fast arrangement. So radon's curve now stands at about 4.12 million crossings
-over four boots and 12 hours with zero defects. It is one draw of the placement lottery, and on
-the boots axis it is still four points.
+hours that drew the fast arrangement. With E5 through E7 below, radon's curve stands at about 10.32
+million crossings over seven boots and about 26 hours with zero defects, and the boots axis is
+seven points instead of one.
 
 ## Defect rows
 
