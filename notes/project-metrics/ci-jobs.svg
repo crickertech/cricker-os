@@ -42,13 +42,13 @@
 <text class="mut" x="503.5" y="308.0" font-size="9" text-anchor="middle">not<tspan x="503.5" dy="10">measured</tspan><title>2026W39: not measured</title></text>
 <text class="mut" x="562.1" y="342" font-size="10" text-anchor="middle">2026W40</text>
 <text class="mut" x="562.1" y="308.0" font-size="9" text-anchor="middle">not<tspan x="562.1" dy="10">measured</tspan><title>2026W40: not measured</title></text>
-<path class="seg s0" d="M601.4,324.0 V152.8 Q601.4,149.8 604.4,149.8 H607.0 Q610.0,149.8 610.0,152.8 V324.0 Z"><title>2026W41, test: 13.1</title></path>
-<path class="seg s1" d="M611.0,324.0 V160.8 Q611.0,157.8 614.0,157.8 H616.7 Q619.7,157.8 619.7,160.8 V324.0 Z"><title>2026W41, cpu-matrix: 12.5</title></path>
+<path class="seg s0" d="M601.4,324.0 V150.1 Q601.4,147.1 604.4,147.1 H607.0 Q610.0,147.1 610.0,150.1 V324.0 Z"><title>2026W41, test: 13.3</title></path>
+<path class="seg s1" d="M611.0,324.0 V158.1 Q611.0,155.1 614.0,155.1 H616.7 Q619.7,155.1 619.7,158.1 V324.0 Z"><title>2026W41, cpu-matrix: 12.7</title></path>
 <path class="seg s2" d="M620.7,324.0 V168.7 Q620.7,165.7 623.7,165.7 H626.4 Q629.4,165.7 629.4,168.7 V324.0 Z"><title>2026W41, fuzz: 11.9</title></path>
-<path class="seg s3" d="M630.4,324.0 V255.2 Q630.4,252.2 633.4,252.2 H636.0 Q639.0,252.2 639.0,255.2 V324.0 Z"><title>2026W41, swish-check: 5.4</title></path>
+<path class="seg s3" d="M630.4,324.0 V253.8 Q630.4,250.8 633.4,250.8 H636.0 Q639.0,250.8 639.0,253.8 V324.0 Z"><title>2026W41, swish-check: 5.5</title></path>
 <text class="mut" x="620.7" y="342" font-size="10" text-anchor="middle">2026W41</text>
-<circle class="trd" cx="620.7" cy="148.4" r="3"><title>2026W41, slowest job: 13.2</title></circle>
-<text class="fg val" x="620.7" y="141.4" font-size="10" text-anchor="middle">13.2</text>
+<circle class="trd" cx="620.7" cy="145.8" r="3"><title>2026W41, slowest job: 13.4</title></circle>
+<text class="fg val" x="620.7" y="138.8" font-size="10" text-anchor="middle">13.4</text>
 <line class="tr" x1="672" y1="69" x2="683" y2="69" stroke-width="2"/>
 <text class="fg" y="74" font-size="11"><tspan x="689" dy="0">slowest job</tspan></text>
 <rect class="s0" x="672" y="83" width="11" height="11" rx="2"/>
