@@ -13,7 +13,9 @@ needs_person: no
 non-Anthropic model attacks the confinement claim) was minted. The number 871 is provisional; other
 lanes are minting nearby, so expect renumbering at merge. Title, slug and every name below are
 drafts. Renumbered from 868 on 2026-10-10 (UTC), because a concurrently merged lane, relibc's seed
-coming under the unsafe gates, took 868 on main and 869 went the same day. The branch and pull
+coming under the unsafe gates, took 868 on main and 869 went the same day. It went to 870 and then,
+the same day, to 871, because the lane keeping main's CI caches warm (#1906) claimed 870 at the
+same moment and its claim was the visible one. The branch and pull
 request #1901 keep the old number: GitHub closes a pull request whose head branch is renamed, and
 #1901 carries calef's ruling.)*
 

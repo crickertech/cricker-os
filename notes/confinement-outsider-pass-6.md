@@ -1,8 +1,8 @@
 # Confinement outsider pass 6 (2026-10-10 UTC)
 
 The sixth outsider pass at risk 7 (the confinement claim is false), milestone 871 (a sixth outsider
-pass attacks the confinement claim), whose number is provisional (minted as 868, renumbered 871 on
-2026-10-10 because relibc's seed took 868 on main). By GLM 5.3, the non-Anthropic
+pass attacks the confinement claim), whose number is provisional. It was minted as 868 and renumbered on
+2026-10-10, to 870 because relibc's seed took 868 on main, then to 871 because #1906 claimed 870. By GLM 5.3, the non-Anthropic
 model that ran pass 4, run by calef's opencode. It serves criterion (c)'s non-Anthropic half: if
 the fifth pass (PR #1895, Anthropic) lands clean, this pass can be the second of the two
 consecutive clean passes, and a booted escape here restarts the count instead.
