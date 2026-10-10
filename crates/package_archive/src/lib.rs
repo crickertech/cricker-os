@@ -483,7 +483,7 @@ pub fn installable<'a>(catalogue: &str, bytes: &'a [u8]) -> Result<Installable<'
 ///
 /// **`name@version` asks for one version; a bare name must mean exactly one** (milestone 614 (two
 /// installed versions of one program, each runnable, and a caller granted the one it needs)). The
-/// qualified spelling is ruling 5's, given for `package remove`, used here for the same reason: a
+/// qualified spelling is ruling 5's, given for `jig remove`, used here for the same reason: a
 /// word with `@` in it is never a package name. A bare name the catalog vouches for at two
 /// versions is [`CatalogMiss::SeveralVersions`]. Before this, the first matching line won, so which
 /// version a bare fetch asked for was decided by the order recipe *filenames* sort in

@@ -95,9 +95,8 @@
 //! - **Every activation verb is open to whoever holds the spawn endpoint**, including
 //!   [`Activation::Vouch`], which vouches for any bytes at all. That is the owner's authority by
 //!   DECISIONS §221 (the boot prompt is the owner's console), and it is safe only because the boot
-//!   prompt is the one holder. A session given a spawn endpoint would be the owner too. Before any
-//!   session is, the activation verbs need a presentation of their own, the way
-//!   [`RUN_UNVOUCHED_BIT`] has one.
+//!   prompt is the one holder. A session given a spawn endpoint would be the owner too. Install,
+//!   remove and rollback have their own since milestone 809, [`INSTALLER_BADGE`]; vouch has none.
 //! - **A shell that cannot retype a frame mid-request hangs the prompt.** The staging region is
 //!   sized to the image, so this needs a full capability table in the shell, but if it happens the
 //!   progenitor waits for a frame that never comes. Nothing in the ABI lets either side abandon a
@@ -204,9 +203,10 @@ const IMAGE_BIT: u64 = 1 << 39;
 /// that "the supervisor that performs a live swap and the thing that decides which version is
 /// active are the same authority", and §219 already gave the progenitor the read half (it looks
 /// every image's digest up in the live generation). It holds the file service with `WRITE`, the
-/// image's catalogue in its archive, and the frame-staging path an image request built. An
-/// installer *program* would need all three delegated to it and an argument vector to be told
-/// which package, which does not exist (milestone 205 (how a foreign program is told what to do)).
+/// image's catalogue in its archive, and the frame-staging path an image request built. The
+/// *client* is a program, `jig` (milestone 809 (the package client becomes a program)), which
+/// sends this request on its installer endpoint ([`INSTALLER_BADGE`]); the owner's console sends
+/// it on the spawn endpoint for `vouch`.
 ///
 /// What follows the request depends on the verb:
 ///
@@ -217,10 +217,6 @@ const IMAGE_BIT: u64 = 1 << 39;
 ///   directory grant packs one (`filesystem_protocol::grant::pack_name`: two words, then the
 ///   length). Opaque here for [`GRANT_WORDS`]'s reason.
 /// - For [`Activation::Rollback`], nothing follows.
-/// - For [`Activation::Fetch`], the package's name follows as one data message, packed as
-///   [`Activation::Remove`]'s program name is. The progenitor finds the name's stem in the image's
-///   catalogue, fetches `<stem>.nifepkg` over the network stack it built at boot, and installs
-///   what arrived exactly as [`Activation::Install`] installs a file's bytes.
 /// - For [`Activation::Vouch`], word 0 is the executable's length, its frames follow as an
 ///   install's do, and then the name it will be recorded under, as one data message packed as
 ///   [`Activation::Remove`]'s is. Frames before the name, because the frames are capabilities and
@@ -388,7 +384,12 @@ const NAMESET_BIT: u64 = 1 << 43;
 pub const RUN_UNVOUCHED_SLOT: u64 = 62;
 
 /// **What an activation request asks for** (see `ACTIVATION_BIT`). Provisional names, like the
-/// bit's; the prompt spells them `package install`, `package remove` and `package rollback`.
+/// bit's; the prompt spells them `jig install`, `jig remove`, `jig rollback` and `vouch`.
+///
+/// **Number 4 is a hole**: it was `Fetch`, the progenitor fetching a package by name, retired by
+/// milestone 809 (the package client becomes a program) when `jig` took the fetch and the
+/// progenitor stopped parsing network input. A request carrying 4 is answered
+/// [`ActivationStatus::Unknown`], as any verb this side does not know is.
 #[derive(Clone, Copy, PartialEq, Eq, Debug)]
 pub enum Activation {
     /// Install the program of the package whose bytes follow: record its digest in a new
@@ -402,17 +403,6 @@ pub enum Activation {
     Remove = 2,
     /// Make the generation numbered one below the live one live again. Nothing is rewritten.
     Rollback = 3,
-    /// **Fetch the named package and install it** (milestone 198 rung 3a's fetch): the progenitor
-    /// reads the package from the package source over the network, not from the caller, so no
-    /// frames follow, only the name. Everything after the bytes arrive is [`Activation::Install`].
-    ///
-    /// The progenitor fetched because a program had no argument vector to be told which package;
-    /// milestone 205 (how a foreign program is told what to do) removed that reason on 2026-09-27.
-    /// The cost is an HTTP reader (`http_response`) in the progenitor. The package client is
-    /// slated to become a program that fetches the bytes itself and sends an
-    /// [`Activation::Install`], retiring this verb (milestone 809 (the package client becomes a
-    /// program), `jig`).
-    Fetch = 4,
     /// **The owner vouches for these bytes** (DECISIONS §221 (the boot prompt is the owner's
     /// console), ruling 1, and §195 (a reviewed recipe vouches for a package) clause 3: the owner
     /// may vouch for a digest no source carries). The progenitor hashes its own copy and writes a
@@ -423,9 +413,9 @@ pub enum Activation {
     ///
     /// **Who may ask** is whoever holds the spawn endpoint, which is the boot prompt and nothing
     /// else; §221 ruled that whoever holds that prompt is the owner. A session `login` builds holds
-    /// no spawn endpoint and cannot reach its root to write `activation/` by hand either. The day a
-    /// session is given a spawn endpoint, this verb (and install, remove and rollback with it) needs
-    /// an authority of its own; the BUGS above say so.
+    /// no spawn endpoint and cannot reach its root to write `activation/` by hand either. **The
+    /// installer endpoint refuses it** (milestone 809, [`INSTALLER_BADGE`]): a package manager may
+    /// install what a catalog vouches for, and may not vouch for any bytes it likes.
     ///
     /// Name: provisional (milestone 198, lane `milestone/198-owner-console`, 2026-09-26).
     Vouch = 5,
@@ -437,7 +427,6 @@ impl Activation {
             1 => Some(Self::Install),
             2 => Some(Self::Remove),
             3 => Some(Self::Rollback),
-            4 => Some(Self::Fetch),
             5 => Some(Self::Vouch),
             _ => None,
         }
@@ -485,24 +474,17 @@ pub enum ActivationStatus {
     StoreFailed = 5,
     /// A verb this progenitor does not know, or a package larger than [`IMAGE_MAX_PAGES`].
     Unknown = 6,
-    /// [`Activation::Fetch`] named a package the image's catalogue has no line for on this
-    /// architecture. Nothing was fetched: the catalogue is asked before the network is.
-    NoSuchPackage = 7,
-    /// [`Activation::Fetch`] on a boot whose progenitor built no network stack.
-    NoNetwork = 8,
-    /// [`Activation::Fetch`] could not get a whole package from the source: no connection, a
-    /// status other than 200, a response `http_response` refuses, a truncated body, or one larger
-    /// than [`IMAGE_MAX_PAGES`]. Nothing was installed.
-    FetchFailed = 9,
+    // 7, 8 and 9 were `NoSuchPackage`, `NoNetwork` and `FetchFailed`, the progenitor's fetch's
+    // answers, retired with it by milestone 809. A fetch's failures are `jig`'s to say now.
     /// [`Activation::Vouch`] was sent bytes that do not parse as an executable, or a name the
     /// activation set cannot record. Nothing was written.
     NotExecutable = 10,
-    /// [`Activation::Install`] or a fetch, for a package whose program has the name another
+    /// [`Activation::Install`] for a package whose program has the name another
     /// installed package's program already has (`activation_set::Error::Taken`; DECISIONS §229
     /// (how a bare name at the prompt reaches an installed program), B2). The same package at
     /// another version is an upgrade and is not this. No generation was written. Provisional.
     NameTaken = 11,
-    /// [`Activation::Install`] or a fetch, for a package whose program has the name of a program
+    /// [`Activation::Install`] for a package whose program has the name of a program
     /// the image carries (`activation_set::Error::ImageName`; DECISIONS §229, calef's ruling of
     /// 2026-09-27). Under §235 (the OS is built and updated from packages) a base program is
     /// updated through the boot slot, never by install. No generation was written. Provisional,
@@ -512,10 +494,18 @@ pub enum ActivationStatus {
     /// pointer, and more than one other version remains: no ordering among live versions exists to
     /// pick a new default with (milestone 614 (two installed versions of one program, each
     /// runnable, and a caller granted the one it needs), ruling 5). Nothing was written; the shell
-    /// names the candidates from the live table, which it reads itself. Also
-    /// [`Activation::Fetch`] of a bare name the image's catalogue vouches for at more than one
-    /// version: `name@version` picks one, and nothing was fetched. Provisional, like its number.
+    /// names the candidates from the live table, which it reads itself. Provisional, like its
+    /// number.
     Ambiguous = 13,
+    /// **The request arrived on the installer endpoint and is not one it serves** (milestone 809,
+    /// [`INSTALLER_BADGE`]): a spawn, a vouch, or a verb this side does not know. Nothing was read
+    /// past the first message and nothing was written. Provisional.
+    NotServedHere = 14,
+    /// **A removal or a rollback would undo a row another package manager installed**
+    /// (`activation_set::may_edit`; calef's ruling of 2026-10-06 on milestone 809: a manager
+    /// "refuses to remove or roll back a row it did not install"). Nothing was written.
+    /// Provisional.
+    NotYours = 15,
 }
 
 impl ActivationStatus {
@@ -529,13 +519,12 @@ impl ActivationStatus {
             3 => Self::NotInstalled,
             4 => Self::NoEarlier,
             5 => Self::StoreFailed,
-            7 => Self::NoSuchPackage,
-            8 => Self::NoNetwork,
-            9 => Self::FetchFailed,
             10 => Self::NotExecutable,
             11 => Self::NameTaken,
             12 => Self::ImageName,
             13 => Self::Ambiguous,
+            14 => Self::NotServedHere,
+            15 => Self::NotYours,
             _ => Self::Unknown,
         }
     }
@@ -842,6 +831,55 @@ pub const fn reaped(label: u64, tid: u64) -> (u64, u64, u64) {
     (label, tid, 0)
 }
 
+/// **The bit that marks a badge as an installer endpoint's** (milestone 809 (the package client
+/// becomes a program), DECISIONS §270 (a package manager holds an installer endpoint, not the spawn
+/// endpoint)). The progenitor badges a copy of the spawn endpoint [`installer_badge`] of the job's
+/// label for a program that declares `Manifest::installer`, narrowed to `WRITE`, and places it at
+/// `crate::INSTALLER_SLOT`. A request carrying such a badge is served only if it is an
+/// [`Activation::Install`], [`Activation::Remove`] or [`Activation::Rollback`]; anything else is
+/// answered [`ActivationStatus::NotServedHere`] with nothing read past its first message. The
+/// answer goes to the holder's own reply endpoint, `crate::INSTALLER_REPLY_SLOT`, because the
+/// shell is reading the result endpoint while the holder runs.
+///
+/// The wire after the first message is [`activation_request`]'s, unchanged: only the endpoint it
+/// arrives on is new. A label is never `0` and stays far below this bit (a counter from 1), and
+/// [`UNDERTAKER_BADGE`] is `1` without it, so the three kinds of sender never share a badge: the
+/// shell's copy is unbadged.
+///
+/// **A holder that promises frames and does not send them holds the progenitor** until it dies:
+/// its reaped message ends the wait, and the request is abandoned. One that blocks without dying
+/// holds it for good, the exposure every promise in this protocol has.
+///
+/// Name: provisional (milestone 809).
+pub const INSTALLER_BADGE: u64 = 1 << 62;
+
+/// The installer endpoint's badge for the job labeled `label` ([`INSTALLER_BADGE`]).
+#[must_use]
+pub const fn installer_badge(label: u64) -> u64 {
+    INSTALLER_BADGE | label
+}
+
+/// **The job label an installer endpoint's badge carries**, or `None` for a badge that is not one
+/// ([`INSTALLER_BADGE`]).
+#[must_use]
+pub const fn installer_label(badge: u64) -> Option<u64> {
+    if badge & INSTALLER_BADGE != 0 {
+        Some(badge & !INSTALLER_BADGE)
+    } else {
+        None
+    }
+}
+
+/// **Whether the installer endpoint serves this verb** ([`INSTALLER_BADGE`]): install, remove and
+/// rollback, and never a vouch.
+#[must_use]
+pub const fn installer_serves(verb: Activation) -> bool {
+    matches!(
+        verb,
+        Activation::Install | Activation::Remove | Activation::Rollback
+    )
+}
+
 /// **The word for bytes nobody vouched for** (DECISIONS §219, milestone 198 rung 3a). Sent on the
 /// result endpoint by the progenitor when an `IMAGE_BIT` request's digest is not in the
 /// activation set, in place of [`SPAWN_FAILED`], because "nothing was built" and "it was refused
@@ -1020,7 +1058,6 @@ mod tests {
             Activation::Install,
             Activation::Remove,
             Activation::Rollback,
-            Activation::Fetch,
             Activation::Vouch,
         ] {
             let (w0, w1, w2) = activation_request(verb, 90_491);
@@ -1035,6 +1072,8 @@ mod tests {
             );
         }
         assert_eq!(activation(9, ACTIVATION_BIT), Some(None));
+        // The retired fetch's number is a verb nobody knows now.
+        assert_eq!(activation(4, ACTIVATION_BIT), Some(None));
         for status in [
             ActivationStatus::Done,
             ActivationStatus::NotCataloged,
@@ -1043,18 +1082,30 @@ mod tests {
             ActivationStatus::NoEarlier,
             ActivationStatus::StoreFailed,
             ActivationStatus::Unknown,
-            ActivationStatus::NoSuchPackage,
-            ActivationStatus::NoNetwork,
-            ActivationStatus::FetchFailed,
             ActivationStatus::NotExecutable,
             ActivationStatus::NameTaken,
             ActivationStatus::ImageName,
             ActivationStatus::Ambiguous,
+            ActivationStatus::NotServedHere,
+            ActivationStatus::NotYours,
         ] {
             let (w0, w1, _) = activation_reply(status, 7);
             assert_eq!(ActivationStatus::from_word(w0), status);
             assert_eq!(w1, 7);
         }
+    }
+
+    /// **The installer endpoint's badge names its job and no other sender's** (milestone 809), and
+    /// it serves install, remove and rollback, never a vouch.
+    #[test]
+    fn an_installer_badge_carries_its_job_and_is_no_other_senders() {
+        assert_eq!(installer_label(installer_badge(7)), Some(7));
+        assert_eq!(installer_label(0), None, "the shell's copy is unbadged");
+        assert_eq!(installer_label(UNDERTAKER_BADGE), None);
+        assert!(installer_serves(Activation::Install));
+        assert!(installer_serves(Activation::Remove));
+        assert!(installer_serves(Activation::Rollback));
+        assert!(!installer_serves(Activation::Vouch));
     }
 
     /// **`DIR2_BIT` follows [`DIR_BIT`]'s own precedent**: it is a second bit, not a count, and it

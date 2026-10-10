@@ -346,8 +346,9 @@ pub mod fixture {
 
     /// **The runners' package source**: a `guestfwd` that runs `helpers/package-http-peer` once
     /// per connection to `10.0.2.9:8080`, serving packages over HTTP/1.0 (milestone 198 (a package
-    /// manager) rung 3a). Two binaries dial it, the kernel harness's `socket_test_client` and the
-    /// progenitor's `package install <name>`, which is what put it here (rule 7). Only reachable
+    /// manager) rung 3a). Two binaries dial it, the kernel harness's `socket_test_client` and
+    /// `jig install <name>` (the progenitor's until milestone 809 (the package client becomes a
+    /// program)), which is what put it here (rule 7). Only reachable
     /// inside a QEMU runner: a booted system has no other package source yet, and that is
     /// notes/packages.md's BUGS rather than a property of this address.
     pub const PACKAGE_PEER_IP: [u8; 4] = [10, 0, 2, 9];

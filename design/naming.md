@@ -309,6 +309,7 @@ The directory and stems are provisional, minted 2026-09-24.
 | [documents-numbers-and-gates.md](naming/documents-numbers-and-gates.md) | Where a document goes; `§N`; Branches; What is checked |
 | [vocabulary-rulings.md](naming/vocabulary-rulings.md) | the rulings above, the received abbreviation, and the casing of `nife` |
 | [spelled-out-rulings.md](naming/spelled-out-rulings.md) | new, 2026-10-04: `op` and `cap` spelled out |
+| [command-line-rulings.md](naming/command-line-rulings.md) | `jig`'s |
 | [capability-worklist.md](naming/capability-worklist.md) | the `cap` sweep's worklist |
 | [boolean-predicates.md](naming/boolean-predicates.md) | new, 2026-09-24: the argument for functions that answer yes or no |
 | [boolean-predicates-worklist.md](naming/boolean-predicates-worklist.md) | new, 2026-09-24: every non-conforming predicate, and what became of it |

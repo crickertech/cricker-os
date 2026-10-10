@@ -1,0 +1,14 @@
+# jig: the package manager (milestone 809 (the package client becomes a program)). Debian ships apt
+# as its own package, and FreeBSD ships pkg as its own; a manager that updates itself is easier to
+# reason about when nothing else rides in its package.
+#
+# Milestone 611 (every program and crate belongs to a package). The package's name, kind, home
+# and membership are provisional, the lane's proposal for calef to ratify; the format is
+# helpers/packages.py's header, and notes/package-boundaries.md has the table and the reasons.
+
+name = "jig"
+kind = "base"
+home = { repo = "jig", status = "provisional" }
+crates = ["jig"]
+programs = ["jig"]
+depends = ["contracts", "runtime", "network"]

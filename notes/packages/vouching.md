@@ -23,7 +23,7 @@ $ caps installed/unvouched
   installed/unvouched would grant the new process, and nothing else:
     cap 0  endpoint  result   report its answer back
     provenance: vouched by the owner in activation generation 3 (digest sha256:e6fd81d1...)
-$ package rollback
+$ jig rollback
   rolled back; generation 2 is live
 $ caps installed/unvouched
   ...
@@ -39,7 +39,7 @@ of `current`. The bytes are not copied anywhere: a digest vouches for itself whe
 A later vouch or install of the same name replaces the entry, which is what an edit loop wants.
 
 A vouch is a generation, as the proposal it came from recommended
-(`vouch-for-a-local-build`, promoted into milestone 198 (a package manager)'s block), so `package rollback` undoes it
+(`vouch-for-a-local-build`, promoted into milestone 198 (a package manager)'s block), so `jig rollback` undoes it
 and nothing else has to know about a second table.
 
 **Who may vouch** is whoever holds the spawn endpoint, the one door to the progenitor's activation

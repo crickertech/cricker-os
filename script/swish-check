@@ -13,10 +13,9 @@
 # **The x86_64 leg (milestone 182) boots the UEFI image under OVMF**, the `BOOTX64.EFI` a customer
 # copies to a USB stick, rather than a `--features shell` kernel under QEMU's PVH loader. x86_64 has
 # no early hand-over, so the kernel it boots is the default one, tour first. It types the same
-# script over COM1 minus the lines that need a network: the two `network_echo_client` runs and the
-# two `package install` fetches, because the x86_64 runner attaches no NIC the progenitor can build a
-# stack from (it installs the fetched package from the disk instead). `swish_check_omits` in
-# `xtask/src/swish_check.rs` carries the reasons. The four `uuid` lines run since milestone 595
+# script over COM1, the network lines included since 2026-10-05, when the kernel began building a
+# stack on the `e1000e` the x86_64 runner attaches; `swish_check_omits` in
+# `xtask/src/swish_check.rs` is where a leg-specific gap would say why. The four `uuid` lines run since milestone 595
 # (the shell runs a std program), which gave the progenitor an entropy service on `RDSEED`. It is
 # the slow leg: about six minutes on patagonia against about ninety seconds for the same script
 # over PVH, because under firmware the console server tees every byte onto the screen and waits for

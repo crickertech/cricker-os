@@ -235,7 +235,8 @@ pub(crate) fn mkredoxfs_of(mib: &str) -> bool {
 }
 
 /// **Where `script/swish-check` finds a package to install** (milestone 198 (a package manager)
-/// rung 3a's installer): the file `package install` names, relative to the image root. The name
+/// rung 3a's installer): the file `jig install` names, typed from inside `downloads` (milestone
+/// 809), relative to the image root. The name
 /// is not the package's: the installer reads the stem out of the header, which is the point of
 /// this being a plain file a person pointed at. Provisional; standing in for a download.
 ///
@@ -302,6 +303,12 @@ pub(crate) const INSTALLED_MALFORMED_NOTE: &str = "installed/malformed-note";
 /// Written only if `cargo xtask std-exerciser` built it, which `script/test` does; the gate skips
 /// its lines otherwise, as it skips `std_exerciser`'s. Provisional.
 pub(crate) const INSTALLED_STD_ECHO: &str = "installed/std-echo";
+/// **A copy of `jig`, unvouched** (milestone 809 (the package client becomes a program)): the same
+/// bytes the image runs as `grant_plan::Prog::Jig`, run by path, so endowed from the note they
+/// carry under §219's unvouched rule and holding no installer endpoint. `script/swish-check` runs
+/// it to show a program without the installer grant is refused. Written whenever `jig` was built,
+/// which the gate requires. Provisional.
+pub(crate) const INSTALLED_JIG: &str = "installed/jig";
 /// **A `std` program that reads what its words name** (milestone 205's designation half):
 /// `std_grep`, from the same workspace, unvouched, so every word it is granted is read-only.
 /// Written only if it was built, as [`INSTALLED_STD_ECHO`] is. Provisional.
@@ -586,6 +593,12 @@ fn stage_installed(architecture: &str) -> Result<String, String> {
         .exists()
         .then(|| without_symbols(&ripgrep, architecture))
         .transpose()?;
+    let jig = crate::farm::jig_elf(&format!("{architecture}-unknown-nife"));
+    let jig = jig
+        .exists()
+        .then(|| crate::inspect::read_stripped(&jig.display().to_string()))
+        .transpose()
+        .map_err(|e| format!("could not read jig: {e}"))?;
     let std_echo = crate::farm::std_echo_elf(&format!("{architecture}-unknown-nife"));
     let std_echo = std_echo
         .exists()
@@ -670,6 +683,9 @@ fn stage_installed(architecture: &str) -> Result<String, String> {
     }
     if let Some(bytes) = &std_grep {
         write(tree.join(INSTALLED_STD_GREP), bytes)?;
+    }
+    if let Some(bytes) = &jig {
+        write(tree.join(INSTALLED_JIG), bytes)?;
     }
     if let Some(bytes) = &ripgrep {
         write(tree.join(INSTALLED_RIPGREP), bytes)?;

@@ -307,6 +307,17 @@ pub(crate) fn image_catalogue(architecture: &str) -> Result<String, String> {
         write_out(&root, &built)?;
         catalogue.push_str(&format!("{} {}\n", built.stem, built.digest));
     }
+    // **`jig` is handed the catalog in one page** (milestone 809 (the package client becomes a
+    // program); `system_initializer`'s `copy_catalog`), and the progenitor refuses to start it with
+    // a catalog that does not fit. So a catalog that outgrows the page fails here, at the build,
+    // naming the size, rather than as a `jig` that will not spawn. Strictly less than a page,
+    // because the zero byte after the text is where it ends.
+    if catalogue.len() >= 4096 {
+        return Err(format!(
+            "the {architecture} catalog is {} bytes, and jig is handed it in one 4096-byte page",
+            catalogue.len()
+        ));
+    }
     Ok(catalogue)
 }
 

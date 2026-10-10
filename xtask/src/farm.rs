@@ -66,6 +66,13 @@ pub(crate) fn std_resolve_elf(triple: &str) -> PathBuf {
     workspace_root().join(format!("std_exerciser/target/{triple}/release/std_resolve"))
 }
 
+/// **`jig`, the package manager** (milestone 809 (the package client becomes a program)): its own
+/// workspace, built by `cargo xtask std-exerciser` into `std_exerciser`'s target directory, and
+/// packed into every archive as `grant_plan::Prog::Jig`.
+pub(crate) fn jig_elf(triple: &str) -> PathBuf {
+    workspace_root().join(format!("std_exerciser/target/{triple}/release/jig"))
+}
+
 /// **The package index's in-guest client, if somebody built it**: milestone 801 (packages over the
 /// internet). The second binary of `pinned_tls_exerciser`'s workspace, which
 /// `helpers/build-pinned-tls-exerciser.sh` puts beside the first, on its terms and for its reason.
@@ -910,7 +917,14 @@ pub(crate) fn std_exerciser() -> bool {
     if !std_src() {
         return false;
     }
-    let manifest = s(workspace_root().join("std_exerciser/Cargo.toml"));
+    // **And `jig`** (milestone 809 (the package client becomes a program)), its own workspace,
+    // built into the same target directory so the standard library under it is compiled once for
+    // both. A program in the image rather than an exerciser, built here because this is the step
+    // every gate already runs before it packs an archive.
+    let manifests = [
+        s(workspace_root().join("std_exerciser/Cargo.toml")),
+        s(workspace_root().join("jig/Cargo.toml")),
+    ];
     // Pin where the build and its evidence land before the first child runs, so the ELFs the
     // initrd packs, the dep-info the sweep reads, and this build cannot be separated by an
     // exported variable they never agreed to.
@@ -919,7 +933,10 @@ pub(crate) fn std_exerciser() -> bool {
     for note in &notes {
         eprintln!("std-exerciser: {note}");
     }
-    for triple in STD_TARGETS {
+    for (triple, manifest) in STD_TARGETS
+        .iter()
+        .flat_map(|t| manifests.iter().map(move |m| (t, m)))
+    {
         let spec = s(workspace_root().join(format!("targets/{triple}.json")));
         let ok = Command::new("cargo")
             .env("RUSTUP_TOOLCHAIN", farm_dir())
@@ -928,7 +945,7 @@ pub(crate) fn std_exerciser() -> bool {
                 "build",
                 "--release",
                 "--manifest-path",
-                &manifest,
+                manifest,
                 "-Zjson-target-spec",
                 "-Zbuild-std=core,alloc,std,panic_abort",
                 "-Zbuild-std-features=compiler-builtins-mem",
@@ -939,7 +956,7 @@ pub(crate) fn std_exerciser() -> bool {
             .map(|st| st.success())
             .unwrap_or(false);
         if !ok {
-            eprintln!("std-exerciser: building std_exerciser for {triple} failed");
+            eprintln!("std-exerciser: building {manifest} for {triple} failed");
             return false;
         }
     }

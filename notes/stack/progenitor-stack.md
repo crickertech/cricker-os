@@ -123,6 +123,21 @@ and the gauge will say what the restructure buys when it lands.
 The RAM cost is four pages for the progenitor, and four each for `hello`'s init roles and the riscv64
 serial driver, which share the constant and are far shallower.
 
+## Raised again, to fourteen (milestone 809, 2026-10-10 UTC)
+
+Milestone 809 (the package client becomes a program) gave the spawn loop a second sender, `jig`'s
+installer endpoint, and a rollback now compares the two generations it moves between
+(`activation_set::foreign_change`, under `edit`'s page). The first boot measured 44,432 bytes after
+`jig rollback` on aarch64, 3.5 KB past twelve pages' floor. Moving `activate` and the installer's two
+helpers out of line took the spawn loop from 11,200 bytes to 10,560, against 9,024 before the
+milestone, and the peak stayed over.
+
+So fourteen pages, measured on fourteen by `script/swish-check` in debug: 44,224 (aarch64), 43,744
+(riscv64) and 42,480 (x86_64) at peak, each after `jig rollback`, with 13 to 15 KB spare. The
+reasons above for raising rather than trimming hold unchanged, and so does the trim that would
+remove the need, milestone 696 (the spawn service runs outside `boot`'s frame)'s: `boot`'s 14.7 KB frame still stands under every request. The
+elegance test gives the same answer it gave at twelve, for the same reason.
+
 ## The gate
 
 `kernel::progenitor_stack::HEADROOM_FLOOR` is two pages (8 KiB). A boot that leaves less makes the
@@ -135,7 +150,7 @@ install path's two biggest frames are each mostly one `[u8; PAGE_BYTES]`. The ot
 gauge cannot see, the paths `swish-check` never types and the indirect calls that put the measured
 peak a kilobyte above the static chain.
 
-With twelve pages it fires at 40,960 bytes used: 8.5 KB above today's debug peak.
+With fourteen pages it fires at 49,152 bytes used: about 5 KB above the debug peak of 2026-10-10.
 
 ## BUGS
 

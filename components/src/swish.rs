@@ -2002,10 +2002,7 @@ fn dispatch_one(nav: &mut Nav, cmd: &[u8]) {
         // `each(name, is_dir)` callback is the wrong shape for it; what it shares with the
         // navigation builtins is the argument for being a builtin at all.
         Command::Apropos(term) => say(apropos(nav, term)),
-        Command::Package(tail) => {
-            package(nav, grant_plan::package_verb(tail), swish::PACKAGE_USAGE);
-        }
-        Command::Vouch(tail) => package(nav, grant_plan::vouch_verb(tail), swish::VOUCH_USAGE),
+        Command::Vouch(tail) => vouch(nav, grant_plan::vouch_verb(tail)),
         Command::User(tail) => user(nav, grant_plan::user_verb(tail)),
         Command::Run(spec) => run(nav, cmd, spec),
         // Handled above, by the one implementation the witness also runs.
@@ -2764,7 +2761,7 @@ fn map_window_frame(frame: u64, va: u64) -> bool {
 }
 
 /// **Send a file's bytes on the spawn endpoint as `pages` frames**, after a request that announced
-/// them (DECISIONS §219 option D's image, or a `package install`). One frame is held at a time:
+/// them (DECISIONS §219 option D's image, or a `vouch`). One frame is held at a time:
 /// retyped from `staging`, filled from the file, delegated narrowed to `READ`, deleted. Returns
 /// whether every page was read; `false` still sends every announced frame, because the progenitor
 /// is waiting for exactly that many and the messages behind them.
@@ -2800,120 +2797,63 @@ fn send_frames(dir: u64, handle: u64, pages: u64, staging: u64) -> bool {
     read_ok
 }
 
-/// **`package install`, `remove` and `rollback`** (milestone 198 (a package manager) rung 3a's
-/// installer): one request to the progenitor, which holds the image's catalog and the only copy
-/// of the activation set it trusts, and one reply saying what is live afterwards
-/// (`grant_plan::Command::Package` has why this is a request and not a program).
+/// **`vouch <file>`: the owner vouches for a file's bytes** (DECISIONS §221 (the boot prompt is the
+/// owner's console), ruling 1): one activation request on the spawn endpoint, carrying the file's
+/// bytes exactly as [`run_image`] sends an executable's, so the progenitor hashes its own copy, and
+/// then the name to record them under. One reply names the generation live afterwards.
 ///
-/// An install sends the package file's bytes exactly as [`run_image`] sends an executable's, so
-/// the progenitor checks its own copy, and so does `vouch` (DECISIONS §221 (the boot prompt is the
-/// owner's console)), with the name to record them under after the frames. The shell never reads
-/// or writes `activation/` itself here; §221 ruled that this prompt, the owner's console, may.
-fn package(nav: &mut Nav, verb: grant_plan::PackageVerb<'_>, usage: &[u8]) {
+/// Install, remove and rollback were this function's too, as the `package` builtin, until
+/// milestone 809 (the package client becomes a program) moved them into `jig`, which asks on an
+/// installer endpoint that refuses a vouch. So a vouch stays here, on the endpoint only the owner's
+/// console holds. The shell never reads or writes `activation/` itself here; §221 ruled that this
+/// prompt, the owner's console, may.
+fn vouch(nav: &mut Nav, path: Option<&[u8]>) {
     use spawnproto::{Activation, ActivationStatus as S};
-    let (r0, r1) = match verb {
-        grant_plan::PackageVerb::Usage => {
-            refused();
-            print(usage);
-            return;
-        }
-        grant_plan::PackageVerb::Install(path) | grant_plan::PackageVerb::Vouch(path) => {
-            if nav.dir.is_none() {
-                return say(Say::NoDirectory);
-            }
-            let Some((t, handle, size)) = open_for_bytes(nav, path) else {
-                return;
-            };
-            let pages = spawnproto::image_pages(size);
-            let staging = if prime_image_window() {
-                memory_region_split(pages)
-            } else {
-                None
-            };
-            let Some(staging) = staging else {
-                nav.close_in(t, handle);
-                return out_of_budget();
-            };
-            let vouching = match verb {
-                grant_plan::PackageVerb::Vouch(_) => grant_plan::vouched_name(path),
-                _ => None,
-            };
-            let what = if vouching.is_some() {
-                Activation::Vouch
-            } else {
-                Activation::Install
-            };
-            let (w0, w1, w2) = spawnproto::activation_request(what, size);
-            send(SPAWN, w0, w1, w2);
-            let read_ok = send_frames(t.slot, handle, pages, staging);
-            nav.close_in(t, handle);
-            if let Some(name) = vouching {
-                let (lo, hi) = filesystem_protocol::grant::pack_name(name);
-                send(SPAWN, lo, hi, name.len() as u64);
-            }
-            let (r0, r1, _) = receive(RESULT);
-            user_mode_runtime::destroy_region(staging);
-            cap_delete(staging);
-            if !read_ok {
-                print(
-                    b"  (this shell could not read the whole file, so those were not its bytes)\n",
-                );
-            }
-            (r0, r1)
-        }
-        // The name only: the progenitor fetches the bytes itself, over the stack it built at boot,
-        // so this shell sends no frames and needs no network of its own.
-        grant_plan::PackageVerb::Fetch(name) => {
-            let (w0, w1, w2) = spawnproto::activation_request(Activation::Fetch, 0);
-            send(SPAWN, w0, w1, w2);
-            let (lo, hi) = filesystem_protocol::grant::pack_name(name);
-            send(SPAWN, lo, hi, name.len() as u64);
-            let (r0, r1, _) = receive(RESULT);
-            (r0, r1)
-        }
-        grant_plan::PackageVerb::Remove(name) => {
-            let (w0, w1, w2) = spawnproto::activation_request(Activation::Remove, 0);
-            send(SPAWN, w0, w1, w2);
-            let (lo, hi) = filesystem_protocol::grant::pack_name(name);
-            send(SPAWN, lo, hi, name.len() as u64);
-            let (r0, r1, _) = receive(RESULT);
-            (r0, r1)
-        }
-        grant_plan::PackageVerb::Rollback => {
-            let (w0, w1, w2) = spawnproto::activation_request(Activation::Rollback, 0);
-            send(SPAWN, w0, w1, w2);
-            let (r0, r1, _) = receive(RESULT);
-            (r0, r1)
-        }
+    let Some(path) = path else {
+        refused();
+        print(swish::VOUCH_USAGE);
+        return;
     };
+    if nav.dir.is_none() {
+        return say(Say::NoDirectory);
+    }
+    let Some(name) = grant_plan::vouched_name(path) else {
+        refused();
+        print(swish::VOUCH_USAGE);
+        return;
+    };
+    let Some((t, handle, size)) = open_for_bytes(nav, path) else {
+        return;
+    };
+    let pages = spawnproto::image_pages(size);
+    let staging = if prime_image_window() {
+        memory_region_split(pages)
+    } else {
+        None
+    };
+    let Some(staging) = staging else {
+        nav.close_in(t, handle);
+        return out_of_budget();
+    };
+    let (w0, w1, w2) = spawnproto::activation_request(Activation::Vouch, size);
+    send(SPAWN, w0, w1, w2);
+    let read_ok = send_frames(t.slot, handle, pages, staging);
+    nav.close_in(t, handle);
+    let (lo, hi) = filesystem_protocol::grant::pack_name(name);
+    send(SPAWN, lo, hi, name.len() as u64);
+    let (r0, r1, _) = receive(RESULT);
+    user_mode_runtime::destroy_region(staging);
+    cap_delete(staging);
+    if !read_ok {
+        print(b"  (this shell could not read the whole file, so those were not its bytes)\n");
+    }
     let status = S::from_word(r0);
     match status {
         S::Done => {}
         S::StoreFailed | S::Unknown => failed(),
         _ => refused(),
     }
-    swish::write_activation(verb, status, r1, &mut print);
-    // **Ruling 5's refusal names the candidates**, read from the live table: the wire carries a
-    // status and no text, and this shell reads the same generation the progenitor declined to pick
-    // from. A second read could see a newer table; what it names are still the live versions,
-    // which is the fact a person needs.
-    if status == S::Ambiguous
-        && let grant_plan::PackageVerb::Remove(name) = verb
-        && let Ok(program) = core::str::from_utf8(name)
-    {
-        with_live_table(nav, |text, _| {
-            print(b"  live versions of ");
-            print(name);
-            print(b":");
-            for found in activation_set::versions_of(text, program) {
-                let Ok(version) = found else { break };
-                print(b" ");
-                print(version.as_bytes());
-            }
-            print(b"\n");
-            Some(())
-        });
-    }
+    swish::write_vouch(status, r1, &mut print);
 }
 
 /// Print a refusal in the capability model's voice, which is [`swish::write_refusal`]'s job: the

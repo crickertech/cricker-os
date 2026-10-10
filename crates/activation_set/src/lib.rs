@@ -30,8 +30,8 @@
 //! program, each runnable, and a caller granted the one it needs), rulings 2 and 3 of 2026-09-29):
 //!
 //! ```text
-//! <digest> <program> <version> <package>   a row: what is installed
-//! default <program> <digest>               the pointer: what the bare word runs
+//! <digest> <program> <version> <package> <manager>   a row: what is installed, and who installed it
+//! default <program> <digest>                         the pointer: what the bare word runs
 //! ```
 //!
 //! A `<digest>` is written `sha256:<64 hex>`, the one text form `measured_boot::digest_text`
@@ -67,7 +67,7 @@
 //! use activation_set::{lookup, with_entry, without_entry, Entry, NO_VERSION, OWNER};
 //!
 //! let digest = [7u8; 32];
-//! let uptime = Entry { program: "uptime", version: "0.1.0", package: "uptime", digest };
+//! let uptime = Entry { program: "uptime", version: "0.1.0", package: "uptime", digest, manager: "jig" };
 //! let mut first = [0u8; 512];
 //! let n = with_entry("", &uptime, false, &mut first).unwrap();
 //! let generation_1 = core::str::from_utf8(&first[..n]).unwrap();
@@ -81,7 +81,7 @@
 //! assert!(lookup(generation_1, "uptime").unwrap().is_some());
 //!
 //! // A vouch is a row with no version and no pointer: found by digest, never by name.
-//! let vouch = Entry { program: "a.out", version: NO_VERSION, package: OWNER, digest };
+//! let vouch = Entry { program: "a.out", version: NO_VERSION, package: OWNER, digest, manager: OWNER };
 //! let mut third = [0u8; 512];
 //! let n = with_entry(generation_2, &vouch, false, &mut third).unwrap();
 //! let generation_3 = core::str::from_utf8(&third[..n]).unwrap();
@@ -128,7 +128,7 @@ pub enum Error {
     /// **The image carries a program of this name** (DECISIONS §229, calef's ruling of 2026-09-27).
     /// A package cannot take a base program's name. Under §235 (the OS is built and updated from
     /// packages) a base program is updated by writing base packages into the inactive boot slot,
-    /// never by `package install`, so this refusal blocks no update. An owner's vouch claims no
+    /// never by `jig install`, so this refusal blocks no update. An owner's vouch claims no
     /// name and is never this.
     ///
     /// Name: provisional, milestone 47 (navigation and naming)'s bare-name lane, 2026-09-27.
@@ -165,6 +165,10 @@ pub struct Entry<'a> {
     /// compute is the member's. Changed 2026-09-26 by milestone 198 rung 3a's image lane, before
     /// anything wrote a table. Key of the row since milestone 614, ruling 2.
     pub digest: Digest,
+    /// **Which package manager installed the row** (milestone 809, calef's 2026-10-06 ruling): the
+    /// program that held the installer endpoint, or [`OWNER`] for the owner's console. A label like
+    /// the version, never part of the key. [`NO_MANAGER`] for a row written before the column.
+    pub manager: &'a str,
 }
 
 /// **A default pointer line**: the row the bare word for `program` runs ([`lookup`]). Read with
@@ -194,11 +198,13 @@ pub fn entries(table: &str) -> impl Iterator<Item = Result<Entry<'_>, Error>> {
                 program,
                 version,
                 package,
+                manager,
             } => Some(Ok(Entry {
                 program,
                 version,
                 package,
                 digest,
+                manager,
             })),
             // A well-formed pointer line is not a row; that it is well-formed was the check.
             Line::Pointer { .. } => None,
@@ -229,6 +235,7 @@ enum Line<'a> {
         program: &'a str,
         version: &'a str,
         package: &'a str,
+        manager: &'a str,
     },
     Pointer {
         program: &'a str,
@@ -237,7 +244,8 @@ enum Line<'a> {
     Malformed,
 }
 
-/// Classify one line. A row is `<digest> <program> <version> <package>`; a pointer line is
+/// Classify one line. A row is `<digest> <program> <version> <package> <manager>`, or the four
+/// words before the manager column existed (read as [`NO_MANAGER`]); a pointer line is
 /// `default <program> <digest>`; anything else is malformed. A digest is its text form,
 /// `sha256:<64 hex>` (`measured_boot::parse_digest`), so an unlabeled or unknown one makes the line
 /// malformed and the table unreadable. A row's first word is the key, which is why `default` is a
@@ -259,10 +267,14 @@ fn classify(line: &str) -> Line<'_> {
         };
         return Line::Pointer { program, digest };
     }
-    let (Some(program), Some(version), Some(package), None) =
-        (words.next(), words.next(), words.next(), words.next())
+    let (Some(program), Some(version), Some(package)) = (words.next(), words.next(), words.next())
     else {
         return Line::Malformed;
+    };
+    let manager = match (words.next(), words.next()) {
+        (None, _) => NO_MANAGER,
+        (Some(manager), None) if good_name(manager) => manager,
+        _ => return Line::Malformed,
     };
     let Ok(digest) = measured_boot::parse_digest(first) else {
         return Line::Malformed;
@@ -275,6 +287,7 @@ fn classify(line: &str) -> Line<'_> {
         program,
         version,
         package,
+        manager,
     }
 }
 
@@ -321,7 +334,7 @@ pub fn lookup_digest<'a>(table: &'a str, digest: &Digest) -> Result<Option<Entry
 }
 
 /// **The package row for this program at this version**, first in file order: what a version set's
-/// `<program> <version>` line resolves to at activation, and what `package remove
+/// `<program> <version>` line resolves to at activation, and what `jig remove
 /// <program>@<version>` removes. Owner's vouches are not versions and never answer. A rebuild
 /// claiming a version already live is a second row, so the first is answered; the digest decides
 /// what runs either way. Name: provisional, milestone 614's build lane, 2026-09-29.
@@ -387,7 +400,11 @@ pub fn with_entry(
     image_carries: bool,
     out: &mut [u8],
 ) -> Result<usize, Error> {
-    if !good_name(entry.program) || !good_name(entry.version) || !good_name(entry.package) {
+    if !good_name(entry.program)
+        || !good_name(entry.version)
+        || !good_name(entry.package)
+        || !good_name(entry.manager)
+    {
         return Err(Error::BadName);
     }
     let vouch = entry.package == OWNER;
@@ -605,6 +622,58 @@ pub const PACKAGES: &str = "packages";
 /// that name replaces it. Provisional, like the column.
 pub const OWNER: &str = "owner";
 
+/// **What a row's manager column reads as when the row has none**: written before milestone 809
+/// (the package client becomes a program) added the column (calef, 2026-10-06: "each activation set
+/// row records which manager installed it"), by the shell's `package` builtin, which the same change
+/// removed. Never written. A row's manager is otherwise `jig` or [`OWNER`]. Provisional.
+pub const NO_MANAGER: &str = "-";
+
+/// **Whether `requester` may remove or roll back a row `row_manager` installed** (milestone 809,
+/// calef's ruling of 2026-10-06: "if the owner ever grants a second manager the endpoint, `jig`
+/// refuses to remove or roll back a row it did not install"). A manager may edit its own rows, the
+/// owner's ([`OWNER`]: the owner runs every manager it granted the endpoint, and a vouch is undone
+/// by a rollback), and rows nothing recorded ([`NO_MANAGER`]). It may not edit another manager's.
+/// The owner's console, which holds the spawn endpoint itself, may edit any row.
+///
+/// Name: provisional.
+pub fn may_edit(row_manager: &str, requester: &str) -> bool {
+    requester == OWNER
+        || row_manager == requester
+        || row_manager == OWNER
+        || row_manager == NO_MANAGER
+}
+
+/// **The first row that differs between two generations whose manager `requester` may not edit**
+/// ([`may_edit`]), if any: what a rollback from `newer` to `older` would undo on another manager's
+/// behalf. A row differs when no row with the same program and digest is in the other table. Both
+/// tables are read whole first, so a malformed line in either is [`Error::Malformed`].
+///
+/// Name: provisional (milestone 809).
+pub fn foreign_change<'a>(
+    older: &'a str,
+    newer: &'a str,
+    requester: &str,
+) -> Result<Option<Entry<'a>>, Error> {
+    for table in [older, newer] {
+        for entry in entries(table) {
+            entry?;
+        }
+    }
+    let present = |table: &str, e: &Entry<'_>| {
+        entries(table)
+            .flatten()
+            .any(|o| o.program == e.program && o.digest == e.digest)
+    };
+    for (from, other) in [(older, newer), (newer, older)] {
+        for entry in entries(from).flatten() {
+            if !present(other, &entry) && !may_edit(entry.manager, requester) {
+                return Ok(Some(entry));
+            }
+        }
+    }
+    Ok(None)
+}
+
 /// **What a vouch row's version column carries**: the owner vouches for bytes, and claims no
 /// version string, so the column holds a word no version set selects and no install writes.
 /// Name: ratified 2026-10-07 (calef, §258 (names for two installed versions of one program)).
@@ -675,6 +744,8 @@ impl Writer<'_> {
         self.bytes(e.version.as_bytes())?;
         self.bytes(b" ")?;
         self.bytes(e.package.as_bytes())?;
+        self.bytes(b" ")?;
+        self.bytes(e.manager.as_bytes())?;
         self.bytes(b"\n")
     }
 
@@ -780,6 +851,7 @@ mod tests {
             version,
             package,
             digest: [seed; 32],
+            manager: "jig",
         }
     }
 
@@ -789,6 +861,7 @@ mod tests {
             version: NO_VERSION,
             package: OWNER,
             digest: [seed; 32],
+            manager: OWNER,
         }
     }
 
@@ -817,6 +890,7 @@ mod tests {
             version: "0.1.0",
             package: "a.out",
             digest: [1; 32],
+            manager: "jig",
         };
         let mut h = [0u8; 512];
         let n = with_entry(table, &upgrade, false, &mut h).unwrap();
@@ -992,7 +1066,7 @@ mod tests {
     }
 
     /// **Bare removal at two versions live, milestone 614's second Done-means test**:
-    /// `package remove <program>` takes every live version's row and the pointer, and a rollback
+    /// `jig remove <program>` takes every live version's row and the pointer, and a rollback
     /// brings both rows back, because bytes are never deleted.
     #[test]
     fn bare_removal_takes_every_version_and_a_rollback_brings_them_back() {
@@ -1148,6 +1222,7 @@ mod tests {
                 version,
                 package,
                 digest: [0; 32],
+                manager: "jig",
             };
             assert_eq!(
                 with_entry("", &e, false, &mut out),
@@ -1155,6 +1230,61 @@ mod tests {
                 "{program:?} {version:?}"
             );
         }
+    }
+
+    /// **A row records its manager, and a row from before the column reads as unrecorded**
+    /// (milestone 809, calef's 2026-10-06 ruling). The four-word row is what every table on a disk
+    /// written before this change holds, so refusing it would make each one unreadable.
+    #[test]
+    fn a_row_records_its_manager_and_an_older_row_reads_as_unrecorded() {
+        let mut out = [0u8; 512];
+        let n = with_entry(
+            "",
+            &row("greeting", "greeting", "0.1.0", 3),
+            false,
+            &mut out,
+        )
+        .unwrap();
+        let table = core::str::from_utf8(&out[..n]).unwrap();
+        assert!(table.lines().next().unwrap().ends_with(" greeting jig"));
+        assert_eq!(lookup(table, "greeting").unwrap().unwrap().manager, "jig");
+        let older = format!("sha256:{} a 1 a\n", "11".repeat(32));
+        assert_eq!(entries(&older).next().unwrap().unwrap().manager, NO_MANAGER);
+        let six = format!("sha256:{} a 1 a jig extra\n", "11".repeat(32));
+        assert_eq!(entries(&six).next().unwrap(), Err(Error::Malformed));
+    }
+
+    /// **A manager may not undo another manager's rows** (calef, 2026-10-06), and the owner may
+    /// undo anything. `foreign_change` is what a rollback asks of the two generations it moves
+    /// between, and `may_edit` what a removal asks of the row.
+    #[test]
+    fn a_manager_may_not_undo_another_managers_rows() {
+        assert!(may_edit("jig", "jig"));
+        assert!(may_edit(OWNER, "jig"));
+        assert!(may_edit(NO_MANAGER, "jig"));
+        assert!(!may_edit("other", "jig"));
+        assert!(may_edit("other", OWNER));
+        let mut a = [0u8; 512];
+        let n = with_entry("", &row("greeting", "greeting", "0.1.0", 3), false, &mut a).unwrap();
+        let older = core::str::from_utf8(&a[..n]).unwrap();
+        let theirs = Entry {
+            manager: "other",
+            ..row("hello", "hello", "1", 4)
+        };
+        let mut b = [0u8; 512];
+        let n = with_entry(older, &theirs, false, &mut b).unwrap();
+        let newer = core::str::from_utf8(&b[..n]).unwrap();
+        assert_eq!(
+            foreign_change(older, newer, "jig")
+                .unwrap()
+                .unwrap()
+                .program,
+            "hello"
+        );
+        assert_eq!(foreign_change(older, newer, OWNER).unwrap(), None);
+        assert_eq!(foreign_change(older, newer, "other").unwrap(), None);
+        // The same generation twice changes nothing.
+        assert_eq!(foreign_change(newer, newer, "jig").unwrap(), None);
     }
 
     #[test]

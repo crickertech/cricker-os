@@ -74,15 +74,22 @@
 #![allow(missing_docs)]
 
 pub mod expand;
+pub mod image;
 pub mod job_page_frame;
 pub mod job_windows;
 pub mod line;
 pub mod nav;
 pub mod spawnproto;
+pub mod verbs;
 pub mod word;
 
 use expand::{Expansion, Name, NameSet};
+pub use image::{
+    IMAGE_ROW, ImageRefusal, NO_NOTE_MANIFEST, image_can_carry, image_hears_words, image_manifest,
+    image_request_fits,
+};
 use line::{Sink, Source};
+pub use verbs::{Grants, MAX_VERB, VerbGrant, narrow_by_verb, verb_of, verb_of_page};
 
 /// **Declare the programs the shell can spawn, once** (milestone 150; name provisional).
 ///
@@ -557,10 +564,37 @@ programs! {
         /// Name: provisional. A verb, which design/naming.md passes only as a term of art, like
         /// `bind`; every Unix since V7 has spelled this one `reboot`.
         Reboot { id: 21, name: "reboot" },
+        /// **The package manager** (milestone 809 (the package client becomes a program)): it
+        /// installs, removes and rolls back packages, and lists what the image vouches for.
+        /// `jig/src/main.rs`, a `std` program built beside `std_exerciser`, which is why it is in
+        /// an archive only when `cargo xtask std-exerciser` ran (`script/test` and CI do).
+        ///
+        /// The one program that declares [`Manifest::installer`]: the progenitor serves its
+        /// requests on an endpoint that speaks install, remove and rollback and nothing else, and
+        /// grants it only on a request from the owner's console (DECISIONS §270 (a package manager
+        /// holds an installer endpoint, not the spawn endpoint)). It fetches a package over the
+        /// network itself, so the progenitor parses no network input.
+        ///
+        /// Name: ratified 2026-10-06 (calef): the guide that makes flat-pack assembly come out the
+        /// same every time. Refused `package`, `pkg`, `bpm`, `knap` and `flatpak`; `kit` and `cam`
+        /// collide with shipped commands. Its verbs are apt's where apt has one
+        /// (design/naming/command-line-rulings.md, 2026-10-10).
+        Jig { id: 22, name: "jig" },
     }
 }
 
 impl Prog {
+    /// **What each verb of this program is granted, when its manifest is narrowed by the line's
+    /// first word** (milestone 809 (the package client becomes a program), its option V2): empty
+    /// for every program but one, which is then endowed exactly [`manifest`](Prog::manifest) as
+    /// always. [`narrow_by_verb`] reads it, and the shell and the progenitor both call that.
+    pub const fn verbs(self) -> &'static [VerbGrant] {
+        match self {
+            Prog::Jig => verbs::JIG_VERBS,
+            _ => &[],
+        }
+    }
+
     /// The program's declared endowment: what the shell must (and must not) grant it.
     pub const fn manifest(self) -> Manifest {
         match self {
@@ -589,6 +623,8 @@ impl Prog {
                 share: false,
                 reboot: false,
                 sync: false,
+                installer: false,
+                catalog: false,
                 runtime: Runtime::Native,
             },
             Prog::MemoryGrantDepleter => Manifest {
@@ -614,6 +650,8 @@ impl Prog {
                 share: false,
                 reboot: false,
                 sync: false,
+                installer: false,
+                catalog: false,
                 runtime: Runtime::Native,
             },
             // The two interrupt demonstrators. Both run until interrupted, take no argument and no
@@ -642,6 +680,8 @@ impl Prog {
                 share: false,
                 reboot: false,
                 sync: false,
+                installer: false,
+                catalog: false,
                 runtime: Runtime::Native,
             },
             Prog::InterruptIgnorer => Manifest {
@@ -663,6 +703,8 @@ impl Prog {
                 share: false,
                 reboot: false,
                 sync: false,
+                installer: false,
+                catalog: false,
                 runtime: Runtime::Native,
             },
             // `date` declares an empty grant expression, and that is the interesting part: its
@@ -713,6 +755,8 @@ impl Prog {
                 share: false,
                 reboot: false,
                 sync: false,
+                installer: false,
+                catalog: false,
                 runtime: Runtime::Native,
             },
             // **The first program endowed a directory**, and the first with options. It takes no
@@ -748,6 +792,8 @@ impl Prog {
                 share: false,
                 reboot: false,
                 sync: false,
+                installer: false,
+                catalog: false,
                 runtime: Runtime::Native,
             },
             // **The consumer**, and the only program that declares an input. Everything else about
@@ -778,6 +824,8 @@ impl Prog {
                 share: false,
                 reboot: false,
                 sync: false,
+                installer: false,
+                catalog: false,
                 runtime: Runtime::Native,
             },
             // **The viewer**, whose manifest is "a stream in, a stream out" like `wc`'s, and handed
@@ -809,6 +857,8 @@ impl Prog {
                 share: false,
                 reboot: false,
                 sync: false,
+                installer: false,
+                catalog: false,
                 runtime: Runtime::Native,
             },
             // **`ps`: a stream out, a domain in, and nothing else** (milestone 126).
@@ -843,6 +893,8 @@ impl Prog {
                 share: false,
                 reboot: false,
                 sync: false,
+                installer: false,
+                catalog: false,
                 runtime: Runtime::Native,
             },
             // **`pgrep`: `ps`'s manifest, field for field, and the sameness is the claim.**
@@ -880,6 +932,8 @@ impl Prog {
                 share: false,
                 reboot: false,
                 sync: false,
+                installer: false,
+                catalog: false,
                 runtime: Runtime::Native,
             },
             // **`top`: `ps`'s manifest and the machine statistics page.** Ranking still costs no
@@ -911,6 +965,8 @@ impl Prog {
                 share: false,
                 reboot: false,
                 sync: false,
+                installer: false,
+                catalog: false,
                 runtime: Runtime::Native,
             },
             // **The one program in this table that declares the inert-configuration page.** Same
@@ -935,6 +991,8 @@ impl Prog {
                 share: false,
                 reboot: false,
                 sync: false,
+                installer: false,
+                catalog: false,
                 runtime: Runtime::Native,
             },
             // **`least_authority_demo`'s manifest, not `date`'s.** `uptime` reads `user_mode_runtime::monotonic_nanos`,
@@ -962,6 +1020,8 @@ impl Prog {
                 share: false,
                 reboot: false,
                 sync: false,
+                installer: false,
+                catalog: false,
                 runtime: Runtime::Native,
             },
             // **The one program in this table that declares the network** (milestone 590
@@ -989,6 +1049,8 @@ impl Prog {
                 share: false,
                 reboot: false,
                 sync: false,
+                installer: false,
+                catalog: false,
                 runtime: Runtime::Native,
             },
             // **Declares nothing, deliberately**: `uptime`'s manifest, field for field. The program
@@ -1012,6 +1074,8 @@ impl Prog {
                 share: false,
                 reboot: false,
                 sync: false,
+                installer: false,
+                catalog: false,
                 runtime: Runtime::Native,
             },
             // **The one program in this table that declares the entropy service** (milestone 111).
@@ -1047,6 +1111,8 @@ impl Prog {
                 share: false,
                 reboot: false,
                 sync: false,
+                installer: false,
+                catalog: false,
                 runtime: Runtime::Native,
             },
             // **`free`: the machine page and the budget view, and nothing that can act.** The
@@ -1073,6 +1139,8 @@ impl Prog {
                 share: true,
                 reboot: false,
                 sync: false,
+                installer: false,
+                catalog: false,
                 runtime: Runtime::Native,
             },
             // **`vmstat`: the machine page alone.** Its rates are per second since boot, and the
@@ -1098,6 +1166,8 @@ impl Prog {
                 share: false,
                 reboot: false,
                 sync: false,
+                installer: false,
+                catalog: false,
                 runtime: Runtime::Native,
             },
             // **`slabtop`: the budget view alone**, which is the difference from `free`.
@@ -1122,6 +1192,8 @@ impl Prog {
                 share: true,
                 reboot: false,
                 sync: false,
+                installer: false,
+                catalog: false,
                 runtime: Runtime::Native,
             },
             Prog::GraphicalTerminal => Manifest {
@@ -1149,6 +1221,8 @@ impl Prog {
                 share: false,
                 reboot: false,
                 sync: false,
+                installer: false,
+                catalog: false,
                 runtime: Runtime::Native,
             },
             // **`reboot`: the reboot object, and nothing a line can designate.** No argument, no
@@ -1179,6 +1253,8 @@ impl Prog {
                 share: false,
                 reboot: true,
                 sync: true,
+                installer: false,
+                catalog: false,
                 runtime: Runtime::Native,
             },
             Prog::StdExerciser => Manifest {
@@ -1210,6 +1286,37 @@ impl Prog {
                 share: false,
                 reboot: false,
                 sync: false,
+                installer: false,
+                catalog: false,
+                runtime: Runtime::Std,
+            },
+            Prog::Jig => Manifest {
+                // **Its words are its verb and operands** (milestone 205, DECISIONS §170): `jig
+                // install downloads/noteless.nifepkg` designates the file read-only, as `std_grep`'s
+                // words do, and a word with no `/` is a package name, which designates nothing.
+                arg: ArgSpec::Words(WordGrant::ReadOnly),
+                mem: MemSpec::Forbidden,
+                file: FileSpec::Forbidden,
+                dir: DirSpec::Forbidden,
+                flags: NO_FLAGS,
+                output: OutputSpec::Bytes,
+                input: InputSpec::Forbidden,
+                reports: true,
+                interruptible: false,
+                clock: false,
+                domain: false,
+                config: false,
+                entropy: false,
+                // `install <name>` fetches the package from the package source itself.
+                network: true,
+                machine: false,
+                share: false,
+                reboot: false,
+                sync: false,
+                // The request to install, remove or roll back, and the catalog it resolves a
+                // package name against.
+                installer: true,
+                catalog: true,
                 runtime: Runtime::Std,
             },
         }
@@ -1467,142 +1574,32 @@ pub const SHELL_CONFIG_SLOT: u64 = 21;
 /// Name: provisional (milestone 47, 2026-09-26).
 pub const SHELL_CONFIG_VA: u64 = 0x0000_0000_00d0_1000;
 
-/// **What a file's bytes are bound and endowed with when they carry no manifest note** (milestone
-/// 597, provisional: a program carries its manifest in an ELF note).
+/// **Where a program that declares [`Manifest::installer`] finds the installer endpoint**
+/// (milestone 809 (the package client becomes a program), DECISIONS §270 (a package manager holds
+/// an installer endpoint, not the spawn endpoint)). Fifteen, one past [`SYNC_SLOT`], for
+/// [`ENTROPY_SLOT`]'s reasons, and above `std_runtime_protocol`'s ten fixed slots, so the same
+/// number in either layout. `WRITE` alone: the holder may send a request and may not receive
+/// another's or pass the endpoint on.
 ///
-/// `uptime`'s manifest: output bytes to the caller and nothing else (no clock, no domain, no
-/// config, no entropy, no network, no argument, no `--mem`). It was the ceiling every installed
-/// program was held to (`INSTALLED_MANIFEST_OF`, #1320) until DECISIONS §197 (a package is one
-/// archive file) was answered with M2, and it stays as the answer for a program that says
-/// nothing: the least a program can be run with and still be heard from. A program that needs
-/// more carries a note ([`image_manifest`]).
-///
-/// Name: provisional (milestone 597, 2026-09-26).
-pub const NO_NOTE_MANIFEST: Manifest = Prog::Uptime.manifest();
+/// Name: provisional (milestone 809).
+pub const INSTALLER_SLOT: u64 = 15;
 
-/// **The row an image's [`Endowment`] is filed under**, because an endowment names a `Prog` and
-/// a file's bytes have none.
+/// **Where the same program finds the endpoint the progenitor answers its requests on**
+/// (milestone 809). `READ` alone. A request on the spawn endpoint is answered on the shell's
+/// result endpoint, which the shell is reading while this program runs, so an installer request
+/// is answered on an endpoint of the holder's own, made from its job's region when it is built.
 ///
-/// An exception, and a foot gun: nothing about an image may be decided from this row. Every
-/// decision is made from the manifest [`image_manifest`] returns, which is what the shell binds
-/// the line against and what the progenitor endows from. A reader who calls
-/// `e.prog.manifest()` on an image's endowment gets `uptime`'s manifest, which is the wrong one
-/// whenever the program carries a note. The fix is an endowment that holds its manifest rather
-/// than its row; that is wider than this milestone, and `spawnproto`'s BUGS records it.
-///
-/// Name: provisional (milestone 597, 2026-09-26).
-pub const IMAGE_ROW: Prog = Prog::Uptime;
+/// Name: provisional (milestone 809).
+pub const INSTALLER_REPLY_SLOT: u64 = 16;
 
-/// **Why a file's bytes are not run with the manifest they carry.** Provisional names.
-#[derive(Clone, Copy, PartialEq, Eq, Debug)]
-pub enum ImageRefusal {
-    /// The manifest note is there and cannot be read: malformed, a version this system does not
-    /// know, or the same note twice.
-    Unreadable,
-    /// The manifest declares something the image request cannot deliver yet
-    /// ([`image_can_carry`]).
-    NotCarried,
-    /// Nobody vouched for the bytes, and their manifest asks for something the command line would
-    /// have to designate: an argument, memory, a file, a directory, an input, an option. §219 lets
-    /// unvouched bytes hold only what [`UNVOUCHED_MANIFEST`] names, so the line that bound those is
-    /// refused rather than run with the designation silently dropped.
-    ExceedsVouch,
-}
-
-/// **Whether an image request can deliver what `m` declares**, today.
+/// **Where a program that declares [`Manifest::catalog`] finds the catalog page's capability**
+/// (milestone 809), `READ`, beside its mapping at `std_runtime_protocol::CATALOG_PAGE`. The
+/// mapping is what the program reads; the slot is what it probes before reading, so a copy run
+/// without the grant says so instead of faulting on an unmapped page. Seventeen, one past
+/// [`INSTALLER_REPLY_SLOT`].
 ///
-/// An image travels as a plain line (DECISIONS §219 option D's first cut): the request words carry
-/// an argument and a `--mem` count, and the progenitor endows the pages and endpoints a manifest
-/// names on its own. Nothing else is on that wire yet. So a manifest that needs a file, a
-/// directory, an input, an option, a supervised job, a declared second stream or a silent output
-/// is refused at the prompt and again at the progenitor, rather than run without what it said it
-/// needs. `spawnproto`'s BUGS carries each.
-///
-/// **A `std` image is carried when it hears words, and only then** (milestone 205 (how a foreign
-/// program is told what to do)): `Runtime::Std` and [`ArgSpec::Words`] go together or not at all.
-/// The progenitor sizes an image's region before its frames arrive, so before it can read the note,
-/// and the one thing the request tells it is whether an argv follows (`spawnproto::ARGS_BIT`). Tying
-/// the two makes that bit the region's size: [`image_hears_words`]. A `std` image also declares no
-/// memory grant, domain or network, which is what the `std` layout can hold.
-pub fn image_can_carry(m: &Manifest) -> bool {
-    let std = m.runtime == Runtime::Std;
-    matches!(m.output, OutputSpec::Bytes | OutputSpec::Words)
-        && m.file == FileSpec::Forbidden
-        && m.dir == DirSpec::Forbidden
-        && m.input == InputSpec::Forbidden
-        && m.flags.letters().is_empty()
-        && !m.interruptible
-        // Milestone 805: the reboot object is endowed to the one program in this table that
-        // declares it, never to installed bytes, whatever their note asks.
-        && !m.reboot
-        && !m.sync
-        && std == (m.arg.hears_words())
-        && (!std
-            || (m.output == OutputSpec::Bytes
-                && m.mem == MemSpec::Forbidden
-                && !m.domain
-                && !m.network))
-}
-
-/// **Whether an image is sent its line as an argv**, which for an image is also whether it is built
-/// in the `std` layout ([`image_can_carry`] ties the two). The shell asks it of the note it read and
-/// sets `spawnproto::ARGS_BIT`; the progenitor sizes the region from that bit and then checks its
-/// own reading of the note agrees ([`image_request_fits`]). Name: provisional.
-pub const fn image_hears_words(m: &Manifest) -> bool {
-    m.arg.hears_words()
-}
-
-/// **The manifest a file's bytes are bound and endowed with** (milestone 597, provisional), given
-/// what their note declared (`None` for no note) and whether the activation set vouches for them.
-///
-/// Vouched bytes get what they declare, because the digest that vouched covers the note: a person
-/// who installed the package installed its manifest. Unvouched bytes get [`UNVOUCHED_MANIFEST`]
-/// whatever they declare (§219: a note from bytes nobody vouched for grants nothing), and are
-/// refused if the declaration asks for anything a command line would have designated, since the
-/// shell has already bound the line against it.
-///
-/// The shell calls this to preview (`caps`) and the progenitor to decide, so the two cannot differ.
-pub fn image_manifest(declared: Option<Manifest>, vouched: bool) -> Result<Manifest, ImageRefusal> {
-    let declared = declared.unwrap_or(NO_NOTE_MANIFEST);
-    if !image_can_carry(&declared) {
-        return Err(ImageRefusal::NotCarried);
-    }
-    if vouched {
-        return Ok(declared);
-    }
-    // **An unvouched `std` program still hears its words** (§170 (how a foreign program is told
-    // what to do)): the argv carries no authority, and `std` is how the bytes were built rather than
-    // anything they are granted. So it gets the unvouched grants in the `std` layout, and nothing
-    // more; its note's entropy or clock requests grant nothing, as §219 says.
-    if declared.runtime == Runtime::Std {
-        return Ok(UNVOUCHED_STD_MANIFEST);
-    }
-    let u = UNVOUCHED_MANIFEST;
-    if declared.arg != u.arg || declared.mem != u.mem {
-        return Err(ImageRefusal::ExceedsVouch);
-    }
-    Ok(u)
-}
-
-/// **Whether an image request's words fit the manifest it will be endowed with.** The shell bound
-/// the line against the note it read, and the progenitor judges its own copy of the bytes, so a
-/// file changed in between (or a shell that lies) can send an argument or a `--mem` grant the
-/// endowed manifest forbids. That is refused rather than half-honoured.
-///
-/// `words` is whether the request carried an argv (`spawnproto::ARGS_BIT`), which sized the
-/// region: it must agree with [`image_hears_words`] of the manifest, or a `std` program would be
-/// built in a native job's forty pages.
-pub fn image_request_fits(m: &Manifest, arg: u64, mem_pages: u64, words: bool) -> bool {
-    if words != image_hears_words(m) {
-        return false;
-    }
-    let arg_ok = m.arg == ArgSpec::Required || arg == 0;
-    let mem_ok = match m.mem {
-        MemSpec::Forbidden => mem_pages == 0,
-        MemSpec::Required { min, max } => mem_pages >= min && mem_pages <= max,
-    };
-    arg_ok && mem_ok
-}
+/// Name: provisional (milestone 809).
+pub const CATALOG_SLOT: u64 = 17;
 
 /// **Where a program that declares [`Manifest::machine`] finds the machine statistics page's
 /// capability** (milestone 126 (the `procps` package), DECISIONS §225 (`free` sees the machine and
@@ -1670,6 +1667,8 @@ pub const UNVOUCHED_MANIFEST: Manifest = Manifest {
     share: false,
     reboot: false,
     sync: false,
+    installer: false,
+    catalog: false,
     runtime: Runtime::Native,
 };
 
@@ -2017,6 +2016,30 @@ pub struct Manifest {
     /// Name: ratified 2026-10-06 (calef, #1783: "Approve sync for the file-server
     /// request and its capability, and flush for the device cache only.").
     pub sync: bool,
+    /// **Endowed the installer endpoint** (milestone 809 (the package client becomes a program),
+    /// DECISIONS §270 (a package manager holds an installer endpoint, not the spawn endpoint)), at
+    /// [`INSTALLER_SLOT`], and the endpoint its answers come back on at [`INSTALLER_REPLY_SLOT`].
+    ///
+    /// The installer endpoint is the progenitor's spawn endpoint, badged for this one job and
+    /// narrowed to `WRITE`: on it the progenitor serves `spawnproto`'s activation request for
+    /// install, remove and rollback, and refuses every other request, `vouch` and a spawn
+    /// included. So the holder can change what is installed and cannot run anything, and it holds
+    /// no `GRANT`, so it cannot hand the endpoint to anything it spawns. **Only the owner's console
+    /// grants it**: the progenitor places it only for a request that arrived on the unbadged spawn
+    /// endpoint, which the boot prompt alone holds (DECISIONS §221 (the boot prompt is the owner's
+    /// console)), so a `login` session cannot pass it on. No image can declare it
+    /// ([`image_can_carry`]).
+    ///
+    /// **Provisional field name** (the block's draft was `activation`).
+    pub installer: bool,
+    /// **Endowed a read-only copy of the image's package catalog** (milestone 809), mapped at
+    /// `std_runtime_protocol::CATALOG_PAGE`: the `<stem> <digest>` lines the image vouches for,
+    /// `package_archive::CATALOG`, which the kernel's measurement of the archive covers. What a
+    /// package manager resolves a name against and lists, until an index replaces it. Knowledge
+    /// and not authority: the progenitor checks every install against its own copy.
+    ///
+    /// **Provisional field name.**
+    pub catalog: bool,
     /// **Which runtime contract the program was built against**, and so where it expects each
     /// capability to be (milestone 595 (provisional)). See [`Runtime`].
     ///
@@ -2073,6 +2096,29 @@ pub enum Runtime {
 ///
 /// Name: provisional.
 pub const STD_REGION_PAGES: u64 = 256 + 128;
+
+/// **The region a named `std` program is built in**, in pages: [`STD_REGION_PAGES`], plus one
+/// package's worth ([`spawnproto::IMAGE_MAX_PAGES`]) for a program that declares
+/// [`Manifest::installer`] (milestone 809 (the package client becomes a program)).
+///
+/// A package manager reads a whole package before it sends it (it checks the digest first), and
+/// what it sends are frames of its own: it maps one run of pages, reads the package into it, and
+/// hands the progenitor a page of that run at a time (`abi::page_frame::SLICE`). So the run is
+/// both its buffer and its frames, and it lives in the program's own region, which is built from
+/// the progenitor's image pool rather than the job pool: what it holds is a package's bytes,
+/// exactly what that pool is sized for, and the progenitor's copy of the same package is carved
+/// beside it. The shell's own staging pages ([`spawnproto::SHELL_BUDGET_PAGES`]) are left for a
+/// file run by its path.
+///
+/// Name: provisional.
+pub const fn named_std_region_pages(m: &Manifest) -> u64 {
+    STD_REGION_PAGES
+        + if m.installer {
+            spawnproto::IMAGE_MAX_PAGES
+        } else {
+            0
+        }
+}
 
 /// **The region a file run by its path is built in**, in pages: what a named program of the same
 /// runtime gets ([`STD_REGION_PAGES`], or `native` for the progenitor's native job), plus the
@@ -2199,27 +2245,12 @@ pub enum Command<'a> {
     /// directory the shell holds exactly as any other designation is. So search cannot widen what
     /// its caller could already reach, which is the property `mdr notes/ipc-naming.md` rests on.
     Apropos(&'a [u8]),
-    /// `package install <path>`, `package remove <program>`, `package rollback`: **an edit to the
-    /// activation set** (milestone 198 (a package manager) rung 3a's installer, DECISIONS §208
-    /// (installing a package is granting it, and the activation set is versioned)).
-    ///
-    /// **A builtin, and a request rather than a program.** Installing writes the table the
-    /// progenitor vouches bytes against, and the progenitor is the one process that both reads that
-    /// table and holds what installing needs (the image's catalogue, the file service with
-    /// `WRITE`), so the shell asks it over the spawn endpoint (`spawnproto::Activation`) the way
-    /// `rm`'s directory grant is asked for. That reason keeps the *installer* in the progenitor; it
-    /// never required the *client* to be a builtin. The second reason this comment gave, that a
-    /// program had no argument vector, went stale when milestone 205 (how a foreign program is told
-    /// what to do) was built on 2026-09-27. calef ruled on 2026-10-06 (UTC) that the client becomes
-    /// a program, `jig`, and milestone 809 (the package client becomes a program) is the plan, so
-    /// this builtin is slated to go.
-    ///
-    /// The tail is classified by [`package_verb`]. Name: provisional (2026-09-26).
-    Package(&'a [u8]),
     /// `vouch <path>`: **the owner vouches for a file's bytes** (DECISIONS §221 (the boot prompt is
-    /// the owner's console)), so they run vouched, recorded under the path's last component. The
-    /// same request as [`Command::Package`]'s, one verb over (`spawnproto::Activation::Vouch`), and
-    /// the tail is classified by [`vouch_verb`]. Name: provisional (2026-09-26).
+    /// the owner's console)), so they run vouched, recorded under the path's last component. An
+    /// activation request (`spawnproto::Activation::Vouch`) on the spawn endpoint, which `jig`'s
+    /// installer endpoint refuses (milestone 809 (the package client becomes a program)), so a
+    /// vouch stays the owner's console's, and the tail is classified by [`vouch_verb`]. Name:
+    /// provisional (2026-09-26).
     Vouch(&'a [u8]),
     /// `user suspend <name>` and `user resume <name>`: **the owner suspends or resumes an identity**
     /// (milestone 152 (durable delegation), calef's §108 (disabling credentials kills the durable session) ruling of 2026-09-26, names ratified), by
@@ -3039,8 +3070,8 @@ pub fn each_word(
 ///
 /// Name: provisional (milestone 47, 2026-09-26).
 pub const BUILTINS: &[&[u8]] = &[
-    b"apropos", b"bind", b"caps", b"cd", b"echo", b"help", b"ls", b"mkdir", b"package", b"pwd",
-    b"time", b"touch", b"xargs",
+    b"apropos", b"bind", b"caps", b"cd", b"echo", b"help", b"ls", b"mkdir", b"pwd", b"time",
+    b"touch", b"xargs",
 ];
 
 /// Parse a whole command line into a [`Command`]. Pure and allocation-free.
@@ -3123,12 +3154,8 @@ pub fn parse(line: &[u8]) -> Command<'_> {
         // program would have to be handed the store's directory in order to read every shard in it.
         // The operand is a word rather than a path, so `trim` is all the classification it needs.
         b"apropos" => Command::Apropos(trim(rest)),
-        // **An edit to the activation set** (milestone 198 rung 3a). The verb and its operand are
-        // [`package_verb`]'s to classify, so a bare `package` still reaches the shell and is
-        // answered there with what it takes.
-        b"package" => Command::Package(trim(rest)),
-        // **The owner vouches for a file** (DECISIONS §221). Its own word rather than a
-        // `package` verb because it names no package: the bytes are the whole of what is vouched.
+        // **The owner vouches for a file** (DECISIONS §221). Its own word, a builtin, because it
+        // names no package: the bytes are the whole of what is vouched, and `jig` is not asked.
         b"vouch" => Command::Vouch(trim(rest)),
         // **The owner suspends or resumes an identity** (milestone 152's §108 ruling). A builtin
         // because what it edits is a file at this shell's own root, which is the owner's authority
@@ -3143,51 +3170,6 @@ pub fn parse(line: &[u8]) -> Command<'_> {
         // Not a builtin, so it is a program invocation, and the whole line (name included) is the
         // grant expression. Whether the program exists is `plan`'s question, not the parser's.
         _ => Command::Run(parse_run(trimmed)),
-    }
-}
-
-/// **What `package` was asked to do** (milestone 198 rung 3a's installer). Provisional words.
-#[derive(Clone, Copy, PartialEq, Eq, Debug)]
-pub enum PackageVerb<'a> {
-    /// `package install <path>`: the path names a package file this shell can read. An operand
-    /// with a `/` in it, by the prompt's rule for a command word (DECISIONS §219 (how the shell
-    /// names an installed program to the spawner)): a word with a `/` is a file.
-    Install(&'a [u8]),
-    /// `package install <name>`: an operand with no `/` names a package the image's catalogue
-    /// vouches for, which the progenitor fetches and installs (milestone 198 rung 3a's fetch).
-    /// At most sixteen bytes, for [`PackageVerb::Remove`]'s reason. A package file in the
-    /// current directory is `./<file>`.
-    Fetch(&'a [u8]),
-    /// `package remove <program>`: every live version of the program goes, and its default pointer
-    /// with them. `package remove <program>@<version>` removes one (milestone 614 (two installed
-    /// versions of one program, each runnable, and a caller granted the one it needs), ruling 5);
-    /// the `@` and the version share the operand's sixteen bytes with the name. Provisional
-    /// spelling.
-    Remove(&'a [u8]),
-    /// `package rollback`: the generation below the live one becomes live.
-    Rollback,
-    /// `vouch <path>`: the owner vouches for the file's bytes, recorded under [`vouched_name`] of
-    /// the path. A word with a `/` in it, by the rule an image runs by: a word with a `/` is a file.
-    Vouch(&'a [u8]),
-    /// Anything else, including a verb with a missing or extra operand. The shell answers it with
-    /// the three forms, and sends nothing.
-    Usage,
-}
-
-/// Classify [`Command::Package`]'s tail. One operand for `install` and `remove`, none for
-/// `rollback`, and a remove operand (`program`, or `program@version`) must fit the sixteen bytes a
-/// packed name carries (`filesystem_protocol::grant::MAX_NAME`), which `activation_set` programs
-/// and their versions do.
-pub fn package_verb(tail: &[u8]) -> PackageVerb<'_> {
-    let (verb, rest) = split_first_word(trim(tail));
-    let operand = trim(rest);
-    let one_word = !operand.is_empty() && !operand.iter().any(u8::is_ascii_whitespace);
-    match verb {
-        b"install" if one_word && operand.contains(&b'/') => PackageVerb::Install(operand),
-        b"install" if one_word && operand.len() <= 16 => PackageVerb::Fetch(operand),
-        b"remove" if one_word && operand.len() <= 16 => PackageVerb::Remove(operand),
-        b"rollback" if operand.is_empty() => PackageVerb::Rollback,
-        _ => PackageVerb::Usage,
     }
 }
 
@@ -3219,18 +3201,19 @@ pub fn user_verb(tail: &[u8]) -> UserVerb<'_> {
 }
 
 /// Classify [`Command::Vouch`]'s tail: one operand, a path (it has a `/`), whose last component
-/// ([`vouched_name`]) the activation set can record. Anything else is [`PackageVerb::Usage`].
-pub fn vouch_verb(tail: &[u8]) -> PackageVerb<'_> {
+/// ([`vouched_name`]) the activation set can record. `None` for anything else, which the shell
+/// answers with what it takes.
+pub fn vouch_verb(tail: &[u8]) -> Option<&[u8]> {
     let path = trim(tail);
     let one_word = !path.is_empty() && !path.iter().any(u8::is_ascii_whitespace);
     match vouched_name(path) {
-        Some(_) if one_word && path.contains(&b'/') => PackageVerb::Vouch(path),
-        _ => PackageVerb::Usage,
+        Some(_) if one_word && path.contains(&b'/') => Some(path),
+        _ => None,
     }
 }
 
 /// **The name a vouched file is recorded under**: its path's last component, which is what a
-/// person sees in `caps` and what `package remove` takes. `None` when it is empty, longer than the
+/// person sees in `caps`. `None` when it is empty, longer than the
 /// sixteen bytes a packed name carries (`filesystem_protocol::grant::MAX_NAME`), `.` or `..`, or
 /// holds a `#`, which the activation set's lines cannot carry.
 pub fn vouched_name(path: &[u8]) -> Option<&[u8]> {
@@ -4534,8 +4517,6 @@ mod tests {
         assert_eq!(parse(b"apropos"), Command::Apropos(b""));
     }
 
-    /// **`package` takes exactly its three forms** (milestone 198 rung 3a). Every malformed line
-    /// is [`PackageVerb::Usage`], so nothing reaches the progenitor that it would have to guess at.
     /// **`vouch` takes one file and records it by its last component** (DECISIONS §221). A bare
     /// name is not a file by the prompt's rule, and a name the activation set could not read back
     /// as itself is refused before anything is sent.
@@ -4570,7 +4551,7 @@ mod tests {
         let Command::Vouch(tail) = parse(b"vouch  installed/unvouched ") else {
             panic!("`vouch` is not its own command");
         };
-        assert_eq!(vouch_verb(tail), PackageVerb::Vouch(b"installed/unvouched"));
+        assert_eq!(vouch_verb(tail), Some(&b"installed/unvouched"[..]));
         assert_eq!(
             vouched_name(b"installed/unvouched"),
             Some(&b"unvouched"[..])
@@ -4585,55 +4566,24 @@ mod tests {
             b"./x#y",
             b"./seventeen-bytes!!",
         ] {
-            assert_eq!(
-                vouch_verb(bad),
-                PackageVerb::Usage,
-                "{:?}",
-                core::str::from_utf8(bad)
-            );
+            assert_eq!(vouch_verb(bad), None, "{:?}", core::str::from_utf8(bad));
         }
     }
 
+    /// **`jig` is a program, and `package` is nothing** (milestone 809 (the package client
+    /// becomes a program)). The builtin and the program went in one change, so a line that still
+    /// says `package` reaches the planner as a program nobody has, and `jig` is a row of the
+    /// table, which builtins are matched before.
     #[test]
-    fn package_takes_three_forms_and_nothing_else() {
-        let Command::Package(tail) = parse(b"package install  downloads/uptime.nifepkg ") else {
-            panic!("package is a builtin");
+    fn jig_is_a_program_and_package_is_not_a_builtin() {
+        let Command::Run(r) = parse(b"jig install greeting") else {
+            panic!("`jig` must parse as a program invocation");
         };
-        assert_eq!(
-            package_verb(tail),
-            PackageVerb::Install(b"downloads/uptime.nifepkg")
-        );
-        assert_eq!(
-            package_verb(b"remove uptime"),
-            PackageVerb::Remove(b"uptime")
-        );
-        assert_eq!(package_verb(b"rollback"), PackageVerb::Rollback);
-        // No `/`, so a name to fetch rather than a file; `./` makes a file in this directory one.
-        assert_eq!(
-            package_verb(b"install greeting"),
-            PackageVerb::Fetch(b"greeting")
-        );
-        assert_eq!(
-            package_verb(b"install ./greeting.nifepkg"),
-            PackageVerb::Install(b"./greeting.nifepkg")
-        );
-        for bad in [
-            &b""[..],
-            b"install",
-            b"install a b",
-            b"remove",
-            b"remove a-name-longer-than-sixteen",
-            b"install a-name-longer-than-sixteen",
-            b"rollback 3",
-            b"upgrade uptime",
-        ] {
-            assert_eq!(
-                package_verb(bad),
-                PackageVerb::Usage,
-                "{:?}",
-                core::str::from_utf8(bad)
-            );
-        }
+        assert_eq!(Prog::from_name(r.prog), Some(Prog::Jig));
+        let Command::Run(r) = parse(b"package install greeting") else {
+            panic!("`package` is no longer a builtin");
+        };
+        assert_eq!(Prog::from_name(r.prog), None);
         // **And `rm` is a program**, which is the whole of milestone 47's rmdir lane at this level.
         // A builtin would have shadowed the name, so this line is also the check that it no longer
         // does; the manifest is what decides what the operand grants.
@@ -4879,6 +4829,8 @@ mod tests {
         share: false,
         reboot: false,
         sync: false,
+        installer: false,
+        catalog: false,
         runtime: Runtime::Native,
     };
 
@@ -4911,6 +4863,8 @@ mod tests {
         share: false,
         reboot: false,
         sync: false,
+        installer: false,
+        catalog: false,
         runtime: Runtime::Native,
     };
 
@@ -5881,6 +5835,8 @@ mod tests {
         share: false,
         reboot: false,
         sync: false,
+        installer: false,
+        catalog: false,
         runtime: Runtime::Native,
     };
 
@@ -6625,9 +6581,11 @@ mod tests {
     /// - a file or an input stream: the contract has no slot for either (std's stdin is unbuilt);
     /// - `--mem`: slot 0 is already the heap, and the progenitor's, not the shell's;
     /// - a process domain: native `DOMAIN_SLOT` is 7, which in the std layout is the config page;
-    /// - a second output stream: native `DIAGNOSTICS_SLOT` is 8, past the fixed eight;
-    /// - the network: slots 2 and 3 exist, but the progenitor does not yet mint the socket frames'
-    ///   budget slot 3 needs, so a declaring program would hold half a network.
+    /// - a second output stream: native `DIAGNOSTICS_SLOT` is 8, past the fixed eight.
+    ///
+    /// The network is held since milestone 809 (the package client becomes a program): the
+    /// progenitor places the stack at slot 2 and the job's own region at slot 3, which is the
+    /// budget the net PAL retypes each socket's frame from.
     ///
     /// The shell would plan any of these and the progenitor would silently not deliver it, so
     /// this is the gate: a manifest cannot declare one without failing here first.
@@ -6655,10 +6613,6 @@ mod tests {
             assert!(
                 !m.domain,
                 "{name}: DOMAIN_SLOT is the config page's in the std layout"
-            );
-            assert!(
-                !m.network,
-                "{name}: the progenitor mints no socket budget yet"
             );
             assert!(!m.interruptible, "{name}: no std slot carries a job frame");
             assert_eq!(

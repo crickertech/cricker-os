@@ -12,7 +12,8 @@
 //! alone.
 //!
 //! ```text
-//! $ package install downloads/noteless.nifepkg
+//! $ cd downloads
+//! $ jig install ./noteless.nifepkg
 //!   installed; generation 1 is live
 //! $ noteless
 //! noteless: installed, and carrying no manifest note

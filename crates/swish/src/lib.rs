@@ -1248,57 +1248,19 @@ fn write_note_asks(declared: Option<grant_plan::Manifest>, out: &mut dyn FnMut(&
     out(b"\n");
 }
 
-/// **What `package` says about an edit to the activation set** (milestone 198 (a package manager)
-/// rung 3a's installer). `status` and `live` are the progenitor's reply
+/// **What `vouch` says about the edit it asked for** (DECISIONS §221 (the boot prompt is the
+/// owner's console)). `status` and `live` are the progenitor's reply
 /// (`spawnproto::activation_reply`). Every answer names the generation live afterwards, because
 /// after a refusal that is still the fact a person needs: nothing changed, and this is what is in
-/// force.
-pub fn write_activation(
-    verb: grant_plan::PackageVerb<'_>,
-    status: spawnproto::ActivationStatus,
-    live: u64,
-    out: &mut dyn FnMut(&[u8]),
-) {
-    use grant_plan::PackageVerb as V;
+/// force. Install, remove and rollback are `jig`'s since milestone 809 (the package client becomes
+/// a program), and it says them itself.
+pub fn write_vouch(status: spawnproto::ActivationStatus, live: u64, out: &mut dyn FnMut(&[u8])) {
     use spawnproto::ActivationStatus as S;
-    let said: &[u8] = match (status, verb) {
-        (S::Done, V::Install(_)) => b"  installed",
-        (S::Done, V::Fetch(_)) => b"  fetched and installed",
-        (S::Done, V::Remove(_)) => b"  removed",
-        (S::Done, V::Vouch(_)) => b"  vouched",
-        (S::Done, _) => b"  rolled back",
-        (S::NotCataloged, _) => {
-            b"  refused: this image's catalog does not vouch for those bytes"
-        }
-        (S::NoProgram, _) => b"  refused: that package carries no program named after it",
-        (S::NotInstalled, _) => b"  refused: no program of that name is in the live generation",
-        (S::NoEarlier, _) => b"  refused: there is no generation before the live one",
-        (S::StoreFailed, _) => b"  could not write the activation set",
-        (S::Unknown, _) => b"  the progenitor could not take that request",
-        (S::NoSuchPackage, _) => {
-            b"  refused: this image's catalog names no such package, so nothing was fetched"
-        }
-        (S::NoNetwork, _) => b"  this boot has no network to fetch a package over",
-        (S::FetchFailed, _) => b"  the package source did not send a whole package",
-        (S::NotExecutable, _) => b"  refused: those bytes are not a program this machine runs",
-        (S::NameTaken, _) => {
-            b"  refused: another installed package already provides a program of that name"
-        }
-        (S::ImageName, _) => {
-            b"  refused: the image carries a program of that name; a new base updates it, not install"
-        }
-        // The candidates are named just below, read from the live table: the progenitor carries no
-        // text on this wire, and the shell can read what it is being told to name (milestone 614
-        // (two installed versions of one program, each runnable, and a caller granted the one it
-        // needs), ruling 5). Provisional wording.
-        // A fetch's ambiguity is the catalog's, not the live table's (milestone 614).
-        // Provisional wording.
-        (S::Ambiguous, V::Fetch(_)) => {
-            b"  refused: this image's catalog vouches for several versions of that package; name one with <package>@<version>"
-        }
-        (S::Ambiguous, _) => {
-            b"  refused: several versions of that program are live and one holds the default; name one with <program>@<version>"
-        }
+    let said: &[u8] = match status {
+        S::Done => b"  vouched",
+        S::NotExecutable => b"  refused: those bytes are not a program this machine runs",
+        S::StoreFailed => b"  could not write the activation set",
+        _ => b"  the progenitor could not take that request",
     };
     out(said);
     if live == 0 {
@@ -1316,10 +1278,6 @@ pub const VOUCH_USAGE: &[u8] =
 
 /// What a malformed `user` line is answered with, changing nothing (milestone 152 (durable delegation)).
 pub const USER_USAGE: &[u8] = b"  user suspend <name> | user resume <name>\n";
-
-/// What a malformed `package` line is answered with, sending nothing.
-pub const PACKAGE_USAGE: &[u8] =
-    b"  package install <file or name> | package remove <program> | package rollback\n";
 
 /// Report what the spawned program did, in terms of the grant it was given.
 pub fn write_outcome(e: &Endowment, answer: u64, out: &mut dyn FnMut(&[u8])) {
@@ -1627,7 +1585,18 @@ pub fn write_caps(
         };
         match grant_plan::plan_stage(&spec, holdings, expanded, streams) {
             Err(refusal) => return write_refusal(&spec, refusal, out),
-            Ok(e) => write_preview(&e, &holdings, config, out),
+            Ok(e) => {
+                // **Narrowed by the line's verb** (milestone 809 (the package client becomes a
+                // program), option V2): `caps jig list` shows what `jig list` would hold, which is
+                // what the progenitor will endow, reading the same word off the argv.
+                let mut verb = [0u8; grant_plan::MAX_VERB];
+                let verb = grant_plan::verb_of(stage, &mut verb);
+                let m = grant_plan::narrow_by_verb(&e.prog.manifest(), e.prog.verbs(), verb);
+                out(b"  ");
+                out(e.prog.name().as_bytes());
+                out(b" would grant the new process, and nothing else:\n");
+                write_preview_rows(&e, &m, &holdings, config, out);
+            }
         }
     }
 }
@@ -1667,7 +1636,7 @@ fn write_preview_rows(
     // else, and slot 0 is not even the same kind of object, so a preview that printed the native
     // positions for one would be describing a child the progenitor does not build.
     let std = m.runtime == grant_plan::Runtime::Std;
-    let cap = |n: u64, out: &mut dyn FnMut(&[u8])| {
+    let slot = |n: u64, out: &mut dyn FnMut(&[u8])| {
         out(b"    cap ");
         write_num(n, out);
         out(if n < 10 {
@@ -1677,13 +1646,18 @@ fn write_preview_rows(
         });
     };
     if std {
-        cap(std_runtime_protocol::MEMORY_REGION_SLOT, out);
+        slot(std_runtime_protocol::MEMORY_REGION_SLOT, out);
         out(b"untyped   heap. the ");
-        write_num(grant_plan::STD_REGION_PAGES, out);
+        write_num(grant_plan::named_std_region_pages(m), out);
         out(b"-page region it is built in, less the\n");
-        out(b"                              build; from the progenitor's job pool, not this\n");
+        out(if m.installer {
+            b"                              build; from the progenitor's image pool, which holds\n                              one package beside the progenitor's copy of it, not\n".as_slice()
+        } else {
+            b"                              build; from the progenitor's job pool, not this\n"
+                .as_slice()
+        });
         out(b"                              shell's budget, and all of it goes back at exit\n");
-        cap(std_runtime_protocol::STDOUT_SLOT, out);
+        slot(std_runtime_protocol::STDOUT_SLOT, out);
         out(b"endpoint  result   stdout and stderr, both\n");
     } else {
         out(b"    cap 0  endpoint  result   report its answer back\n");
@@ -1712,7 +1686,7 @@ fn write_preview_rows(
     // the load-bearing half, because typing that option is what widens the capability from "may
     // take a name out of this directory" to "may walk everything under it".
     if let Some(g) = e.dir {
-        cap(
+        slot(
             if std {
                 std_runtime_protocol::FS_DIR_SLOT
             } else {
@@ -1768,7 +1742,7 @@ fn write_preview_rows(
     // The row says *read-only* because that is the entire reason `date` cannot set the time
     // (DECISIONS §43): there is no flag it could pass and no method it could call.
     if m.clock {
-        cap(
+        slot(
             if std {
                 std_runtime_protocol::CLOCK_SLOT
             } else {
@@ -1790,7 +1764,7 @@ fn write_preview_rows(
     // what the child reads. A shell given no view (a `login` session, a test role) says so rather
     // than guessing.
     if m.config {
-        cap(
+        slot(
             if std {
                 std_runtime_protocol::CONFIG_SLOT
             } else {
@@ -1816,7 +1790,7 @@ fn write_preview_rows(
     // because it is a capability the child holds, and worded so nobody reads it as more: a path
     // among these words reaches only what a directory row above already granted.
     if m.arg.hears_words() {
-        cap(std_runtime_protocol::ARGS_SLOT, out);
+        slot(std_runtime_protocol::ARGS_SLOT, out);
         out(b"frame     args     read-only. the words on the line, as bytes; they\n");
         out(b"                              name things and grant none of them\n");
     }
@@ -1832,7 +1806,7 @@ fn write_preview_rows(
     // which the service holds and nothing else does), and it holds no `GRANT`, so it cannot pass
     // randomness on to anything at all.
     if m.entropy {
-        cap(
+        slot(
             if std {
                 std_runtime_protocol::ENTROPY_SLOT
             } else {
@@ -1857,7 +1831,17 @@ fn write_preview_rows(
     // (§255 (each socket is its own capability)), so one declaring program cannot reach another's
     // sockets. Until then this line said the opposite, because it was true.
     if m.network {
-        out(b"    cap 10 endpoint  network  WRITE. it may open outbound sockets through the network\n");
+        if std {
+            // The stack at slot 2 and, at slot 3, the region the program is built in, which the
+            // net PAL retypes each socket's shared page from (milestone 809).
+            slot(std_runtime_protocol::STACK_SLOT, out);
+            out(b"endpoint  network  WRITE. it may open outbound sockets through the network\n");
+            slot(std_runtime_protocol::NET_MEMORY_REGION_SLOT, out);
+            out(b"untyped   sockets. the heap's region again, which each socket's page is\n");
+            out(b"                              made from\n");
+        } else {
+            out(b"    cap 10 endpoint  network  WRITE. it may open outbound sockets through the network\n");
+        }
         out(b"                              stack, and nothing else: it cannot reach the card, cannot\n");
         out(b"                              listen, and cannot hand the network to anything it spawns.\n");
         out(b"                              each socket it opens is a capability of its own; it cannot\n");
@@ -1919,6 +1903,23 @@ fn write_preview_rows(
     if m.sync {
         out(b"    cap 14 endpoint  sync   WRITE. the file server answers SYNC on it and refuses\n");
         out(b"                              everything else: it flushes the device, and reaches no file\n");
+    }
+    // **The installer endpoint** (milestone 809 (the package client becomes a program), DECISIONS
+    // §270 (a package manager holds an installer endpoint, not the spawn endpoint)). Three lines
+    // for what it cannot do, because the endpoint it is a copy of can do all three.
+    if m.installer {
+        slot(grant_plan::INSTALLER_SLOT, out);
+        out(b"endpoint  installer  WRITE. it may ask the progenitor to install, remove or\n");
+        out(b"                              roll back a package, and nothing else: it cannot spawn,\n");
+        out(b"                              cannot vouch for bytes, and cannot hand this on.\n");
+        out(b"                              only the owner's console grants it\n");
+        slot(grant_plan::INSTALLER_REPLY_SLOT, out);
+        out(b"endpoint  replies    READ. the progenitor's answers to those requests\n");
+    }
+    if m.catalog {
+        slot(grant_plan::CATALOG_SLOT, out);
+        out(b"frame     catalog  read-only. the packages this image vouches for, by name,\n");
+        out(b"                              version and digest; knowledge, and no authority\n");
     }
     // **Where its output goes**, which is the demonstration milestone 50 owed: the destination is a
     // capability rather than an integer with a convention attached, so `caps` can name it. On Unix
@@ -2189,56 +2190,18 @@ mod tests {
         String::from_utf8(buf).expect("the shell writes ASCII")
     }
 
-    /// **Every activation answer names what is live afterwards** (milestone 198 rung 3a), and a
-    /// refusal says nothing changed in words distinct from a success.
+    /// **A vouch's answer names what is live afterwards** (DECISIONS §221), and a refusal says
+    /// nothing changed in words distinct from a success. `script/swish-check` asserts the first.
     #[test]
-    fn an_activation_answer_says_what_is_live() {
-        use grant_plan::PackageVerb as V;
+    fn a_vouch_answer_says_what_is_live() {
         use spawnproto::ActivationStatus as S;
         assert_eq!(
-            shown(|o| write_activation(V::Install(b"x"), S::Done, 2, o)),
-            "  installed; generation 2 is live\n"
-        );
-        assert_eq!(
-            shown(|o| write_activation(V::Rollback, S::Done, 1, o)),
-            "  rolled back; generation 1 is live\n"
-        );
-        assert_eq!(
-            shown(|o| write_activation(V::Install(b"x"), S::NotCataloged, 0, o)),
-            "  refused: this image's catalog does not vouch for those bytes; nothing is installed\n"
-        );
-        assert_eq!(
-            shown(|o| write_activation(V::Fetch(b"greeting"), S::Done, 2, o)),
-            "  fetched and installed; generation 2 is live\n"
-        );
-        assert_eq!(
-            shown(|o| write_activation(V::Fetch(b"nosuch"), S::NoSuchPackage, 2, o)),
-            "  refused: this image's catalog names no such package, so nothing was fetched; \
-             generation 2 is live\n"
-        );
-        assert_eq!(
-            shown(|o| write_activation(V::Vouch(b"./a.out"), S::Done, 3, o)),
+            shown(|o| write_vouch(S::Done, 3, o)),
             "  vouched; generation 3 is live\n"
         );
-        // §229 (how a bare name at the prompt reaches an installed program), 2026-09-27:
-        // `script/swish-check` asserts this sentence whole.
         assert_eq!(
-            shown(|o| write_activation(V::Install(b"x"), S::ImageName, 0, o)),
-            "  refused: the image carries a program of that name; a new base updates it, not \
-             install; nothing is installed\n"
-        );
-        // The refusal that may not pick a default, with the candidates named by the caller that
-        // reads the table (`components/src/swish.rs`).
-        assert_eq!(
-            shown(|o| write_activation(V::Remove(b"uptime"), S::Ambiguous, 3, o)),
-            "  refused: several versions of that program are live and one holds the default; \
-             name one with <program>@<version>; generation 3 is live\n"
-        );
-        // A fetch's ambiguity is the catalog's (milestone 614); `script/swish-check` asserts it.
-        assert_eq!(
-            shown(|o| write_activation(V::Fetch(b"greeting"), S::Ambiguous, 1, o)),
-            "  refused: this image's catalog vouches for several versions of that package; \
-             name one with <package>@<version>; generation 1 is live\n"
+            shown(|o| write_vouch(S::NotExecutable, 0, o)),
+            "  refused: those bytes are not a program this machine runs; nothing is installed\n"
         );
     }
 
@@ -3196,23 +3159,18 @@ mod tests {
     }
 
     #[test]
-    fn exactly_one_program_declares_the_network() {
+    fn exactly_two_programs_declare_the_network() {
         // `exactly_one_program_declares_entropy`'s reason, one authority over: the manifest table is
         // the whole of who may reach the network from this prompt (milestone 590 (provisional)), so
-        // a second declaring program is a decision, and this is where it has to be made.
-        let mut declared = 0;
-        for &p in Prog::ALL {
-            if p.manifest().network {
-                assert_eq!(
-                    p,
-                    Prog::NetworkEchoClient,
-                    "{} declares the network",
-                    p.name()
-                );
-                declared += 1;
-            }
-        }
-        assert_eq!(declared, 1);
+        // another declaring program is a decision, and this is where it has to be made. The second
+        // is `jig` (milestone 809 (the package client becomes a program)), which fetches a package
+        // itself so the progenitor parses no network input.
+        let declaring: Vec<Prog> = Prog::ALL
+            .iter()
+            .copied()
+            .filter(|p| p.manifest().network)
+            .collect();
+        assert_eq!(declaring, [Prog::NetworkEchoClient, Prog::Jig]);
     }
 
     #[test]
@@ -3222,8 +3180,15 @@ mod tests {
         let shown_for =
             |p: Prog| shown(|o| write_preview(&endowment(p), &Holdings::default(), None, o));
         assert!(shown_for(Prog::NetworkEchoClient).contains("cap 10 endpoint  network  WRITE"));
+        // A `std` program holds it at the layout's slot, with the region its sockets are made from.
+        // `write_preview` is the unnarrowed manifest: what the verb table can choose from.
+        let jig = shown_for(Prog::Jig);
+        assert!(jig.contains("cap 2  endpoint  network  WRITE"), "{jig}");
+        assert!(jig.contains("cap 3  untyped   sockets"), "{jig}");
+        assert!(jig.contains("cap 15 endpoint  installer  WRITE"), "{jig}");
+        assert!(jig.contains("cannot vouch for bytes"), "{jig}");
         for &p in Prog::ALL {
-            if p != Prog::NetworkEchoClient {
+            if p != Prog::NetworkEchoClient && p != Prog::Jig {
                 assert!(
                     !shown_for(p).contains("network  WRITE"),
                     "`caps {}` shows a network it does not declare",
