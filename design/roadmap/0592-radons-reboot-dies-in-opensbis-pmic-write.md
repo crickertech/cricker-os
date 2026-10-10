@@ -32,10 +32,7 @@ One bench boot of radon decides the firmware route, and it needed three:
   OpenSBI's own read of the PMIC then failed ten times and the board hung in firmware. Row 4,
   exactly: bus provably up, the firmware's driver still failing, most plausibly on the
   controller's reset-default timing that OpenSBI never programs.
-- **2026-10-10, option B, four times over.** The same lane built the direct route: a polled
-  DesignWare I2C master with its timing computed from the machine's own clock tree (49.5 MHz on
-  radon: bus_root on PLL2, divisors 3/2/4), a read of the PMIC's `0x32` register, and a write of
-  bit 6 alone. Four consecutive 120-second cycles, four identical transcripts: read `0x24`, write
+- **2026-10-10, option B, four times over.** The same lane built the direct route: a polled DesignWare I2C master, timed from the machine's own clock tree (49.5 MHz on radon: bus_root on PLL2, divisors 3/2/4). It reads the PMIC's `0x32` register and writes bit 6 alone. Four consecutive 120-second cycles, four identical transcripts: read `0x24`, write
   `0x64`, power cut mid-print on the line after the write's stop, second banner. SBI SRST was
   never reached. `bench/radon-2026-10-10/592-optionb-four-cycles.log` is the artifact;
   `592-sbi-row4-drain.log` beside it is row 4's.
@@ -161,9 +158,7 @@ What each outcome means, decided before it runs:
   radon's OpenSBI. The direct route is why that quirk no longer decides anything: its write sets
   bit 6 alone, read-modify-write, and runs first.
 - The direct route's timing depends on the rate chain the crate computes from the machine's own
-  CRG and syscon words (49.5 MHz and divisors 3/2/4 on radon, printed in every transcript). A
-  future firmware that reprograms the APB chain changes the printed numbers and the timing with
-  them; the formula follows the words, so a stale number in an old transcript is a fact about that
+  CRG and syscon words (49.5 MHz and divisors 3/2/4 on radon). Every transcript prints them. A future firmware that reprograms the APB chain changes the printed numbers and the timing with them. The formula follows the words, so a stale number in an old transcript is a fact about that
   boot, not a bug in this one.
 - The board test exit's shutdown takes the same road and is not changed. `arch::semihosting::exit`
   under `board` calls SRST shutdown, which on radon is the same PMIC write (notes/visionfive2.md,
@@ -222,10 +217,7 @@ What each outcome means, decided before it runs:
 - **Done.** The one bench reset the block was minted for, and three more besides: calef at the
   bench, 2026-10-09 and 2026-10-10. The direct route is the machine's reset; the block is BUILT by
   his ruling.
-- **Recorded.** In the BUGS above: the board test exit's shutdown path (`exit` under
-  `board` powers radon off through SRST shutdown): now that the bus bring-up and a working I2C
-  master exist, deciding whether a board test run should power the board off, or `wfi` instead, is
-  a small lane of its own and a workflow question first.
+- **Recorded.** In the BUGS above: the board test exit's shutdown path, where `exit` under `board` powers radon off through SRST shutdown. Now that the bus bring-up and a working I2C master exist, whether a board test run should power the board off or `wfi` is a small lane of its own, and a workflow question first.
 - **Milestone 249.** Unblocked: its unattended boot-lottery series on radon: four cycles ran
   themselves in fifteen minutes with zero attention, and the crossing counts they produced
   (E8-E12 in the multicore curve) are the series' first data.
@@ -233,6 +225,5 @@ What each outcome means, decided before it runs:
 ## Index row
 
 radon's cold reboot is the kernel's own now: a polled DesignWare I2C master with its timing
-computed from the machine's clock words writes the AXP15060's reset bit directly, proven
-deterministic over four consecutive self-reboots (2026-10-10); SBI SRST, which hung on the same
+computed from the machine's clock words writes the AXP15060's reset bit directly. It was proven deterministic over four consecutive self-reboots (2026-10-10). SBI SRST, which hung on the same
 bus a day earlier, is the fallback route
