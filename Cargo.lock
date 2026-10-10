@@ -1231,6 +1231,7 @@ dependencies = [
  "network_time_protocol",
  "nifefs",
  "package_archive",
+ "package_index",
  "page_frames",
  "paging",
  "pgrep",

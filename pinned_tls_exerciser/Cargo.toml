@@ -24,6 +24,10 @@ rustls = { version = "0.23", default-features = false, features = ["std"] }
 # cargo unifies features across the graph and no crate below can ask for it.
 # notes/cryptography-provider.md has the x86_64 finding this answers.
 sha2 = { version = "0.10", default-features = false, features = ["force-soft"] }
+# `package_fetch_exerciser`'s index and its plain-HTTP fetch (milestone 801 (packages over the
+# internet)). Both in-tree and `no_std`; `http_response` is already in the graph through the client.
+package_index = { path = "../crates/package_index" }
+http_response = { path = "../crates/http_response" }
 # `getrandom`'s two custom-backend hooks, over the entropy service. Linked by `use ... as _`.
 entropy_backend = { path = "../entropy_backend" }
 

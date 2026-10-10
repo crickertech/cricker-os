@@ -95,6 +95,9 @@ socket_protocol = { version = "0.1.0", path = "../crates/socket_protocol" }
 # The name resolver's grant messages and endowment, and the boot test's cases the test client
 # agrees on (milestone 384 (in a capability system the resolver is a grant), provisional name). `domain_name_system` for DNS's port.
 name_resolution_protocol = { version = "0.1.0", path = "../crates/name_resolution_protocol" }
+# The package index's test names (milestone 801 (packages over the internet)): the zone the test
+# grants and the program asks inside, one definition for both.
+package_index = { version = "0.1.0", path = "../crates/package_index" }
 domain_name_system = { version = "0.1.0", path = "../crates/domain_name_system" }
 spin = { version = "0.12", default-features = false, features = ["spin_mutex"] }
 std_runtime_protocol = { version = "0.1.0", path = "../crates/std_runtime_protocol" }

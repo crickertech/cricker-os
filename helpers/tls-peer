@@ -23,7 +23,12 @@ answers from one port:
 
 After the handshake it answers one HTTP/1.0 GET:
 
-  GET /index          a short fixed body, the stand-in for basalt's index
+  GET /index          a short fixed body (milestone 501's test)
+  GET /stand-in/index milestone 801 (packages over the internet)'s stand-in
+                      package index, composed from the build's catalog: one
+                      line per package, the catalog's line and then where its
+                      bytes live, on helpers/package-http-peer. The path is a
+                      stand-in too (package_index::STAND_IN_INDEX_PATH).
   GET /bytes/<n>      n bytes of a repeating pattern, for measuring throughput
   anything else       404, with a Content-Length like every reply
 
@@ -40,6 +45,36 @@ import sys
 FIXTURES = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "pinned_tls_client", "fixtures")
 INDEX = b"basalt test index: served over TLS 1.3 by helpers/tls-peer\n"
 BYTES = re.compile(rb"^/bytes/([0-9]{1,8})$")
+
+
+# Milestone 801's stand-in index. Written here, in Python, apart from the reader
+# (crates/package_index) on purpose: two sides written independently that agree.
+# The source is the catalog `cargo xtask` writes beside the packages, or the
+# directory NIFE_PACKAGE_SOURCE names, as helpers/package-http-peer serves them.
+PACKAGE_SOURCE = os.environ.get("NIFE_PACKAGE_SOURCE") or os.path.join(
+    os.path.dirname(os.path.abspath(__file__)), "..", "target", "packages"
+)
+PACKAGE_HOST = "http://packages.basalt.test:8080"
+
+
+def stand_in_index():
+    """Every catalog line, with a location after it. `uptime`'s location is the
+    peer's tampered copy, so the index vouches for the real digest and the
+    bytes it points at are a lying mirror's: only the digest can refuse them."""
+    lines = []
+    try:
+        with open(os.path.join(PACKAGE_SOURCE, "catalog"), "rb") as f:
+            catalog = f.read().decode("ascii")
+    except OSError:
+        return b""
+    for line in catalog.splitlines():
+        parts = line.split()
+        if len(parts) != 2:
+            continue
+        stem, digest = parts
+        where = "/tampered/" if stem.startswith("uptime-") else "/"
+        lines.append("%s %s %s%s%s.nifepkg\n" % (stem, digest, PACKAGE_HOST, where, stem))
+    return "".join(lines).encode("ascii")
 
 
 def context(stem):
@@ -120,6 +155,8 @@ def main():
     path = parts[1]
     if path == b"/index":
         reply(conn, b"200 OK", INDEX)
+    elif path == b"/stand-in/index":
+        reply(conn, b"200 OK", stand_in_index())
     elif BYTES.match(path):
         n = int(BYTES.match(path).group(1))
         pattern = bytes(range(256))

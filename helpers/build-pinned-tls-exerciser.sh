@@ -31,6 +31,10 @@ for TRIPLE in ${NIFE_CRYPTO_TRIPLES:-aarch64-unknown-nife riscv64-unknown-nife x
       --target "$ROOT/targets/$TRIPLE.json"
   )
   mkdir -p "$OUT/$TRIPLE"
-  cp "$SRC/target/$TRIPLE/release/pinned_tls_exerciser" "$OUT/$TRIPLE/pinned_tls_exerciser"
-  echo "build-pinned-tls-exerciser: $OUT/$TRIPLE/pinned_tls_exerciser ($(wc -c <"$OUT/$TRIPLE/pinned_tls_exerciser") bytes)"
+  # Both binaries of the workspace: the TLS client's own test, and milestone 801 (packages over the
+  # internet)'s index client, which links the same provider and so shares this build's flags.
+  for BIN in pinned_tls_exerciser package_fetch_exerciser; do
+    cp "$SRC/target/$TRIPLE/release/$BIN" "$OUT/$TRIPLE/$BIN"
+    echo "build-pinned-tls-exerciser: $OUT/$TRIPLE/$BIN ($(wc -c <"$OUT/$TRIPLE/$BIN") bytes)"
+  done
 done

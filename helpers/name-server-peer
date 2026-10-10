@@ -26,6 +26,11 @@ describes for the inbound gate's prober.
   poisoned.nife.test   an A record for bank.nife.test and none for the name
                        asked, which a resolver must not hand back
   loop.nife.test       an answer whose owner is a compression pointer to itself
+  basalt.test          A 10.0.2.9: the stand-in for basalt.nifeos.org, the
+                       package index's host (milestone 801 (packages over the
+                       internet)); helpers/tls-peer answers there on 8443
+  packages.basalt.test A 10.0.2.9: where the stand-in index says the bytes live;
+                       helpers/package-http-peer answers there on 8080
   anything else        REFUSED
 
 BUGS: one query per connection, and nothing past the first question is read,
@@ -62,6 +67,8 @@ def respond(query_id, question, asked):
     # so `zone` is where "nife.test" begins inside it, for records that compress into it.
     at = 12
     zone = at + 1 + len(asked.split(".")[0])
+    if asked in ("basalt.test", "packages.basalt.test"):
+        return answer(query_id, question, 0, [record(pointer(at), A, PEER)])
     if asked == "packages.nife.test":
         return answer(query_id, question, 0, [record(pointer(at), A, PEER)])
     if asked == "mirror.nife.test":
