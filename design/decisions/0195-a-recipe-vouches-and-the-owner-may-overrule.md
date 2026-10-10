@@ -175,8 +175,10 @@ a vendor signs, a developer self-signs), and is recorded here for both.
    unchanged.
 2. §220 clause 1's "No key ships in any image" is narrowed: an image carries exactly one key, its
    own distribution's TUF root (for basalt, basalt's root), identified by its SHA-256. It is
-   installed as a default owner trust line in §220's form, and the owner may remove or replace it
-   like any other line. No other key ships.
+   installed as a default owner trust line in §220's form, and the owner may remove, narrow or
+   replace it like any other line. No other key ships. Its ceiling is all three of §220's grants,
+   `domain entropy network` (calef, 2026-10-10, on #1890: *"All three"*), so basalt can ship
+   networked programs such as `jig`.
 3. A further repository the owner adds is trusted the same way: its root is an owner trust line
    with a ceiling (#1884, Q5).
 
@@ -186,5 +188,7 @@ the key. A machine whose owner never removes it trusts basalt's root until that 
 TUF's rule (root N+1 signed by N's threshold).
 
 Not ruled here, and owed: who holds the keys, how many, and the threshold (no root key exists yet);
-the default line's ceiling; and the line's format for a TUF root, which is a digest rather than an
-Ed25519 public key. The last two are provisional in the milestone that builds the default line.
+the line's format for a TUF root, which is a digest rather than an Ed25519 public key, provisional
+in the milestone that builds the default line; and how a ceiling covers the grants added since
+§220 named its three: the machine and job views of §225 (`free` sees the machine and your share)
+and the reboot object of §251 (restarting the machine is a kernel object the progenitor hands out).
