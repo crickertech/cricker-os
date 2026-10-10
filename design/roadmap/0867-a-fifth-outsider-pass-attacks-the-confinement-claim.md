@@ -1,7 +1,7 @@
 ---
-status: IN-PROGRESS
-branch: milestone/867-a-fifth-outsider-pass-attacks-the-confinement-claim
+status: BUILT
 raised: 2026-10-10
+built: 2026-10-10
 milestone_dependencies: none
 decision_dependencies: none
 machine_requirements: none
