@@ -342,6 +342,12 @@ mod cryptography_tests;
 #[cfg(all(test, initrd))]
 mod pinned_tls_tests;
 
+/// **A package fetched through the distribution's index, by host name, over pinned TLS**, for
+/// milestone 801 (packages over the internet), on `pinned_tls_tests`' terms: present only when
+/// `helpers/build-pinned-tls-exerciser.sh` has been run. Every ISA, over the `e1000e`.
+#[cfg(all(test, initrd))]
+mod package_index_tests;
+
 /// **Capability delegation: authority moves between processes at runtime.**
 ///
 /// Every other capability in nife is minted by the kernel and handed to a process at spawn.

@@ -58,6 +58,11 @@ pub(crate) mod envproto;
 // shell), hence the allow.
 #[allow(dead_code)]
 pub(crate) mod argproto;
+// The name resolver's client wire (milestone 384 (in a capability system the resolver is a grant)),
+// generated verbatim from `crates/name_resolution_protocol/src/wire.rs` by the same xtask step.
+// `sys/net`'s `lookup_host` is a client of it; the grant words belong to the spawner, hence the allow.
+#[allow(dead_code)]
+pub(crate) mod resolveproto;
 // The std runtime contract itself (milestone 595 (provisional)): the fixed slots and the shared pages'
 // addresses, generated verbatim from `crates/std_runtime_protocol/src/lib.rs` by the
 // same xtask step, so the progenitor that builds a std child and this PAL that reads one cannot

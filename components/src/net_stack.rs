@@ -176,6 +176,14 @@ enum Kind {
 /// forever. Advancing monotonically hands out a fresh port each open, so a closed connection's port
 /// is not reused until the whole range has cycled; ports a live socket still holds are skipped
 /// outright. See notes/net/the-outbound-gates.md.
+///
+/// The same failure crosses stacks: a test that starts a fresh `net_stack` on the NIC a previous
+/// one used opened its first connection on 49152 again, the 4-tuple the last stack's first
+/// connection held, and slirp refused it (found 2026-10-09 (UTC) by milestone 801 (packages over the
+/// internet), a resolver's first `CONNECT` failing three runs in four after another resolver's
+/// test). So a stack starts at a point in the range taken from the counter. Milestone 783 (the
+/// network stack seeds its random generator from the clock, and TCP sequence numbers come from it)
+/// is where that seed should come from entropy instead.
 const EPHEMERAL_LO: u16 = 49152;
 const EPHEMERAL_HI: u16 = 65535;
 
@@ -184,8 +192,12 @@ struct PortAllocator {
 }
 
 impl PortAllocator {
-    fn new() -> Self {
-        Self { next: EPHEMERAL_LO }
+    /// Start at `seed`'s point in the range.
+    fn starting_at(seed: u64) -> Self {
+        let span = (EPHEMERAL_HI - EPHEMERAL_LO) as u64 + 1;
+        Self {
+            next: EPHEMERAL_LO + (seed % span) as u16,
+        }
     }
 
     /// The next free ephemeral port not currently held by a live socket. Bounded by the range size,
@@ -311,7 +323,7 @@ fn server(mut dev: Nic, grant_word: u64) -> ! {
 
     // --- Serve the socket contract. One synchronous exchange per request. ---
     let mut table = Table::new();
-    let mut ports = PortAllocator::new();
+    let mut ports = PortAllocator::starting_at(now());
     loop {
         let req = receive_request(STACK);
         let (operation, arg, badge) = (req.w0, req.w1, req.badge);

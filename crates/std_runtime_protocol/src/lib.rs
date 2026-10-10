@@ -1,10 +1,9 @@
 //! **The std runtime contract**: where a `std` program on nife finds each authority it was given.
 //!
-//! Name: provisional. Introduced 2026-09-25 by milestone 595 (provisional), in which the shell runs
-//! a `std` program. It needed the progenitor to build a child in this layout and found the numbers
-//! written three times: in the std PAL's `rt.rs`, and twice in the kernel test harness. The
-//! `_protocol` suffix follows `environment_protocol` and `clock_protocol`, the contracts the same
-//! PAL already reads; the stem says which runtime. Expect calef to rename it.
+//! Name: provisional. Introduced 2026-09-25 by milestone 595 (provisional), when the progenitor
+//! became a fourth place the numbers were written (with the std PAL's `rt.rs` and the kernel test
+//! harness twice). The `_protocol` suffix follows `environment_protocol` and `clock_protocol`, the
+//! contracts the same PAL already reads; the stem says which runtime.
 //!
 //! A native nife program is handed its capabilities in the order its spawner lists them, and
 //! reads them by position. A `std` program cannot work that way, because the code reading the
@@ -24,6 +23,7 @@
 //!   slot 6  endpoint    the entropy service          only if given randomness
 //!   slot 7  page frame  TZ, LANG and TERM, READ      only if given configuration; page at CONFIG_PAGE
 //!   slot 8  page frame  the argv, READ               only if its line had words; page at ARGS_PAGE
+//!   slot 9  endpoint    a name resolver, badged      only if given names to resolve; page at RESOLVER_PAGE
 //! ```
 //!
 //! What each slot means to std, and what std does when it is empty, is `rt.rs`'s documentation,
@@ -76,9 +76,16 @@ pub const CONFIG_SLOT: u64 = 7;
 /// the page sits is one of the things the ruling on that layout fixes.
 pub const ARGS_SLOT: u64 = 8;
 
+/// A badged endpoint to the name resolver (milestone 384 (in a capability system the resolver is a
+/// grant), §252 (a resolver grant is one zone per client badge)), which `std::net`'s `lookup_host`
+/// asks. The badge carries the zone the spawner granted, so what `ToSocketAddrs` can resolve is
+/// that zone and nothing else. Provisional, 2026-10-09 (UTC), milestone 801 (packages over the
+/// internet).
+pub const RESOLVER_SLOT: u64 = 9;
+
 /// How many slots the contract fixes. A loader places a std program's capabilities at these slot
 /// numbers and nowhere else; the reserved fault slot is last in the table and far above them.
-pub const SLOTS: u64 = 9;
+pub const SLOTS: u64 = 10;
 
 /// Where the loader maps the page a std program shares with its file service: one file block,
 /// carrying a name out on `OPEN` and file bytes both ways on `READ` and `WRITE`.
@@ -90,6 +97,11 @@ pub const CONFIG_PAGE: u64 = 0x1300_0000;
 /// Where the loader maps the argument page, read-only (`argument_protocol`'s layout). One page
 /// above the configuration page, following its pattern. Provisional, like [`ARGS_SLOT`].
 pub const ARGS_PAGE: u64 = 0x1400_0000;
+
+/// Where std maps the page it lends the resolver: the program's own page, minted from the socket
+/// frames' budget (slot 3) the first time a name is looked up, so a resolver grant is only usable
+/// beside the network. Provisional, like [`RESOLVER_SLOT`].
+pub const RESOLVER_PAGE: u64 = 0x1500_0000;
 
 /// Where the heap starts: the start of the address-space map's heap band, and the same value as
 /// `user_mode_runtime::heap::DEFAULT_BASE`.
@@ -131,6 +143,7 @@ mod tests {
             ENTROPY_SLOT,
             CONFIG_SLOT,
             ARGS_SLOT,
+            RESOLVER_SLOT,
         ];
         for (i, a) in slots.iter().enumerate() {
             assert!(
@@ -149,7 +162,7 @@ mod tests {
     /// aliasing one page in a child.
     #[test]
     fn the_shared_pages_are_page_aligned_and_clear_of_each_other_and_the_heap() {
-        let pages = [FS_PAGE, CLOCK_PAGE, CONFIG_PAGE, ARGS_PAGE];
+        let pages = [FS_PAGE, CLOCK_PAGE, CONFIG_PAGE, ARGS_PAGE, RESOLVER_PAGE];
         for (i, a) in pages.iter().enumerate() {
             assert_eq!(a % PAGE, 0, "{a:#x} is not page aligned");
             assert!(

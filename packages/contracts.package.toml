@@ -29,6 +29,7 @@ interfaces = [
     "elf",
     "measured_boot",
     "package_archive",
+    "package_index",
     "activation_set",
     "boot_slot",
     "nifefs",

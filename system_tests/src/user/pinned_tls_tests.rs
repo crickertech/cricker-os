@@ -110,9 +110,8 @@ fn a_tls_client_speaks_to_its_pinned_peer_and_refuses_every_other() {
         "pinned_tls_exerciser trapped instead of exiting",
     );
 
-    let _ = crate::sched::reclaim_region(run.heap);
     let _ = crate::sched::reclaim_region(spawned.frames);
-    crate::sched::reclaim_region(run.report_region).expect("the stdout region did not come back");
+    run.give_back("pinned_tls_exerciser");
     w.held
         .release_or_fail("net_stack over the e1000e NIC, for the pinned TLS client");
 }

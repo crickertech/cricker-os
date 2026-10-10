@@ -273,9 +273,10 @@ fn a_program_cannot_tell_what_its_output_slot_holds() {
     // is the point: nothing was special-cased for the sink.
     let endpoints = crate::memory_region::create(1).expect("no endpoint region");
     let direct = crate::sched::create_rendezvous_from(endpoints).expect("no direct endpoint");
-    std_service::start_on(std_exerciser, clock, entropy, direct);
+    let direct_run = std_service::start_on_full(std_exerciser, clock, entropy, direct);
     let mut first = [0u8; 512];
     let n1 = super::std_tests::drain_sink(direct, &mut first, "std_exerciser, direct endpoint");
+    give_back(&direct_run, "std_exerciser, direct endpoint");
     // Drained to its end of stream, so the program has nothing left to send on it.
     crate::sched::reclaim_region(endpoints).expect("the endpoint region did not come back");
 
@@ -308,8 +309,9 @@ fn a_program_cannot_tell_what_its_output_slot_holds() {
         "the file sink could not open its file, so there was nothing to redirect into",
     );
 
-    std_service::start_on(std_exerciser, clock, entropy, sink_ep);
+    let sink_run = std_service::start_on_full(std_exerciser, clock, entropy, sink_ep);
     let [done, total, ..] = crate::sched::ipc_receive(sink_report);
+    give_back(&sink_run, "std_exerciser, into the file sink");
     assert_eq!(
         done,
         fixture::DONE,
@@ -538,4 +540,18 @@ fn the_terminal_is_a_sink_like_any_other_and_the_writer_cannot_tell() {
         "the writer should have classified a terminal exactly as it classifies a pipe and a file",
     );
     held.release_or_fail("terminal_sink_caretaker");
+}
+
+/// Wait for a std program started by `start_on_full` to leave, then hand back its heap and its
+/// wiring (milestone 801 (packages over the internet): every frame a std spawn holds comes back).
+fn give_back(
+    (heap, thread, wiring): &(u64, crate::thread::ThreadId, std_service::Wiring),
+    what: &str,
+) {
+    assert!(
+        super::wait_for(|| !crate::sched::is_thread_present(*thread)),
+        "{what}: the std program never left",
+    );
+    crate::sched::reclaim_region(*heap).expect("the std heap did not come back");
+    wiring.0.release_or_fail(what);
 }

@@ -63,9 +63,9 @@
 //! - **Non-blocking mode and read/write timeouts.** The contract is blocking-only; there is no
 //!   poll verb. `set_nonblocking(true)` and `set_*_timeout(Some(..))` return `Unsupported`;
 //!   `set_nonblocking(false)` and the `None` timeouts (which mean "block") succeed.
-//! - **DNS / `lookup_host`.** No resolver rides the contract; the demo uses literal addresses and
-//!   does its own DNS as a plain UDP round trip. `lookup_host` returns `Unsupported`, so
-//!   `ToSocketAddrs` resolves only already-numeric addresses.
+//! - **DNS without a resolver grant.** `lookup_host` asks the resolver at `rt::RESOLVER_SLOT`
+//!   (see the section at the end of this file). A program granted none gets `Unsupported`, so
+//!   `ToSocketAddrs` resolves only numeric addresses for it.
 //! - **IPv6.** net_stack is IPv4-only (smoltcp built with `proto-ipv4`). A V6 address is `Unsupported`.
 //! - **`peek`, `duplicate`, multicast join/leave.** No contract verb backs them.
 //!
@@ -1034,20 +1034,137 @@ impl fmt::Debug for UdpSocket {
     }
 }
 
-// --- DNS: no resolver rides the contract -----------------------------------------------------
+// --- DNS: the resolver this program was granted, if it was granted one -------------------------
+//
+// Milestone 801 (packages over the internet). A name is resolved by the name resolver of milestone
+// 384 (in a capability system the resolver is a grant), through the badged endpoint at
+// `rt::RESOLVER_SLOT`. The badge carries the zone the spawner granted (§252 (a resolver grant is
+// one zone per client badge)), so `ToSocketAddrs` resolves that zone and nothing else, and a
+// program with the slot empty resolves nothing: numeric addresses still work, because std parses
+// those before it ever calls here. The page the resolver writes answers into is this program's,
+// minted from the socket frames' budget once and kept, which is why a resolver is only usable
+// beside the network.
 
-pub struct LookupHost(!);
+use crate::sys::pal::nife::resolveproto as resolve;
+
+/// A method no object type defines: the probe `sys/args` makes, so an empty slot costs no page.
+const NO_SUCH_METHOD: u64 = 0xffff;
+
+/// Whether the resolver page is minted, mapped and attached. Guarded by `RESOLVER_LOCK`, which
+/// is also held across each resolve, because the page is one buffer for the whole program.
+static RESOLVER_READY: AtomicBool = AtomicBool::new(false);
+static RESOLVER_LOCK: AtomicBool = AtomicBool::new(false);
+
+struct ResolverGuard;
+
+impl Drop for ResolverGuard {
+    fn drop(&mut self) {
+        RESOLVER_LOCK.store(false, Ordering::Release);
+    }
+}
+
+fn resolver_lock() -> ResolverGuard {
+    while RESOLVER_LOCK
+        .compare_exchange_weak(false, true, Ordering::Acquire, Ordering::Relaxed)
+        .is_err()
+    {
+        crate::hint::spin_loop();
+    }
+    ResolverGuard
+}
+
+/// Mint, map and attach the resolver page, once. `Unsupported` when no resolver was granted, or
+/// no network budget to pay for the page.
+fn ensure_resolver_page(_held: &ResolverGuard) -> io::Result<()> {
+    if RESOLVER_READY.load(Ordering::Relaxed) {
+        return Ok(());
+    }
+    // SAFETY: a plain syscall that cannot succeed; -1 is "the slot is empty".
+    if unsafe { rt::invoke(rt::RESOLVER_SLOT, NO_SUCH_METHOD, 0, 0, 0) } == -1 {
+        return Err(io::Error::UNSUPPORTED_PLATFORM);
+    }
+    // SAFETY: plain syscall; the kernel validates the slot and the budget.
+    let frame = unsafe { rt::invoke(NET_MEMORY_REGION, abi::memory_region::RETYPE, 0, 0, 0) };
+    if frame < 0 {
+        return Err(io::Error::UNSUPPORTED_PLATFORM);
+    }
+    let frame = frame as u64;
+    // SAFETY: plain syscall; the frame was just minted and is ours to map.
+    if unsafe { rt::invoke(frame, abi::page_frame::MAP, rt::RESOLVER_PAGE, 1, NET_MEMORY_REGION) } < 0 {
+        return Err(io::const_error!(io::ErrorKind::Other, "mapping the resolver page failed"));
+    }
+    // SAFETY: plain syscall; the frame carries GRANT (minted by RETYPE), narrowed here.
+    let sent = unsafe {
+        rt::invoke(
+            rt::RESOLVER_SLOT,
+            abi::rendezvous::SEND_CAP,
+            frame,
+            abi::rights::READ | abi::rights::WRITE,
+            resolve::request(resolve::OPERATION_ATTACH_PAGE_FRAME),
+        )
+    };
+    if sent < 0 {
+        return Err(io::Error::UNSUPPORTED_PLATFORM);
+    }
+    RESOLVER_READY.store(true, Ordering::Relaxed);
+    Ok(())
+}
+
+pub struct LookupHost {
+    addresses: [Ipv4Addr; resolve::MAX_ADDRESSES],
+    count: usize,
+    next: usize,
+    port: u16,
+}
 
 impl Iterator for LookupHost {
     type Item = SocketAddr;
     fn next(&mut self) -> Option<SocketAddr> {
-        self.0
+        let address = *self.addresses[..self.count].get(self.next)?;
+        self.next += 1;
+        Some(SocketAddr::V4(SocketAddrV4::new(address, self.port)))
     }
 }
 
-pub fn lookup_host(_host: &str, _port: u16) -> io::Result<LookupHost> {
-    // No name resolution over the socket contract: `ToSocketAddrs` resolves numeric addresses
-    // only. A program that needs DNS does it as a plain UDP query (as the demo does). See
-    // notes/std.md.
-    unsupported()
+/// Resolve `host` through the granted resolver. Each refusal keeps its reason: `PermissionDenied`
+/// for a name outside the grant (nothing was asked), `NotFound` for a name the server says does not
+/// exist, `Unsupported` for a program granted no resolver.
+pub fn lookup_host(host: &str, port: u16) -> io::Result<LookupHost> {
+    let name = host.as_bytes();
+    if name.is_empty() || name.len() > resolve::NAME_TEXT_MAX {
+        return Err(io::const_error!(io::ErrorKind::InvalidInput, "not a host name"));
+    }
+    let held = resolver_lock();
+    ensure_resolver_page(&held)?;
+    let page = rt::RESOLVER_PAGE;
+    for (i, &b) in name.iter().enumerate() {
+        fw8(page + (resolve::OFF_NAME + i) as u64, b);
+    }
+    let (word, _ttl) =
+        rt::call(rt::RESOLVER_SLOT, resolve::request(resolve::OPERATION_RESOLVE), name.len() as u64);
+    let Some(outcome) = resolve::Outcome::from_word(word) else {
+        return Err(io::Error::UNSUPPORTED_PLATFORM);
+    };
+    let kind = match outcome.status {
+        resolve::status::OK => {
+            let count = (outcome.count as usize).min(resolve::MAX_ADDRESSES);
+            let mut addresses = [Ipv4Addr::UNSPECIFIED; resolve::MAX_ADDRESSES];
+            for (k, a) in addresses.iter_mut().take(count).enumerate() {
+                let at = page + (resolve::OFF_ADDRESSES + 4 * k) as u64;
+                *a = Ipv4Addr::new(fr8(at), fr8(at + 1), fr8(at + 2), fr8(at + 3));
+            }
+            return Ok(LookupHost { addresses, count, next: 0, port });
+        }
+        resolve::status::DENIED => io::ErrorKind::PermissionDenied,
+        resolve::status::NO_SUCH_NAME => io::ErrorKind::NotFound,
+        resolve::status::BAD_NAME => io::ErrorKind::InvalidInput,
+        // The resolver asked and heard nothing it could use in time.
+        resolve::status::NO_ANSWER => io::ErrorKind::TimedOut,
+        // The resolver's own socket was refused a step (its detail byte names which).
+        resolve::status::NETWORK => io::ErrorKind::NetworkUnreachable,
+        // A reply came back and was not believed: forged, poisoned or malformed.
+        resolve::status::REFUSED => io::ErrorKind::InvalidData,
+        _ => io::ErrorKind::Other,
+    };
+    Err(io::Error::from(kind))
 }

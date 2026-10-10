@@ -64,7 +64,33 @@ pub fn start(image: &'static [u8]) -> Wiring {
 
     let report = crate::sched::create_rendezvous();
     let propose = crate::sched::create_rendezvous();
+    spawn_with(image, page_phys, report, propose).0
+}
 
+/// The pages [`start_in`] retypes from its region: the clock page and the two endpoints.
+pub const REGION_PAGES: u64 = 3;
+
+/// **[`start`], with everything it builds retyped from `region`**, and the service's thread
+/// beside the wiring, so a caller can hand it all back (milestone 801 (packages over the
+/// internet), which found every std program a test started leaving a clock service behind).
+///
+/// The service blocks in `RECEIVE` on `propose`, which lives in `region`, so reclaiming the region
+/// is what wakes it to spend an armed kill: `Holding`'s ordinary case. Reclaim it only once
+/// nothing else reads the clock page, which is in the region too.
+pub fn start_in(image: &'static [u8], region: u64) -> (Wiring, crate::thread::ThreadId) {
+    // Zeroed by the retype, which `start`'s comment says is the honest starting state.
+    let page_phys = crate::memory_region::retype_page(region).expect("no clock page in the region");
+    let report = crate::sched::create_rendezvous_from(region).expect("no report endpoint");
+    let propose = crate::sched::create_rendezvous_from(region).expect("no propose endpoint");
+    spawn_with(image, page_phys, report, propose)
+}
+
+fn spawn_with(
+    image: &'static [u8],
+    page_phys: u64,
+    report: RendezvousId,
+    propose: RendezvousId,
+) -> (Wiring, crate::thread::ThreadId) {
     let rtc = crate::memory::rtc_region();
 
     // `kind`/`seed`: which RTC (if any) the machine has, and, on x86_64 only, the wall clock the
@@ -105,7 +131,7 @@ pub fn start(image: &'static [u8]) -> Wiring {
         None => 1,
     };
 
-    crate::sched::spawn(move || {
+    let tid = crate::sched::spawn(move || {
         run(
             image,
             Spawn {
@@ -122,12 +148,15 @@ pub fn start(image: &'static [u8]) -> Wiring {
     })
     .expect("could not spawn the clock service");
 
-    Wiring {
-        report,
-        propose,
-        page_phys,
-        kind,
-    }
+    (
+        Wiring {
+            report,
+            propose,
+            page_phys,
+            kind,
+        },
+        tid,
+    )
 }
 
 impl Wiring {

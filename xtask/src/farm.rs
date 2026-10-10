@@ -60,6 +60,21 @@ pub(crate) fn std_grep_elf(triple: &str) -> PathBuf {
     workspace_root().join(format!("std_exerciser/target/{triple}/release/std_grep"))
 }
 
+/// **`std_resolve`**, the same workspace's fourth binary (milestone 801 (packages over the
+/// internet)): packed into the archive beside `std_exerciser`, because a kernel test runs it.
+pub(crate) fn std_resolve_elf(triple: &str) -> PathBuf {
+    workspace_root().join(format!("std_exerciser/target/{triple}/release/std_resolve"))
+}
+
+/// **The package index's in-guest client, if somebody built it**: milestone 801 (packages over the
+/// internet). The second binary of `pinned_tls_exerciser`'s workspace, which
+/// `helpers/build-pinned-tls-exerciser.sh` puts beside the first, on its terms and for its reason.
+pub(crate) fn package_fetch_exerciser_elf(triple: &str) -> PathBuf {
+    workspace_root().join(format!(
+        "target/pinned-tls-exerciser/{triple}/package_fetch_exerciser"
+    ))
+}
+
 /// **Unmodified `ripgrep` from crates.io, if somebody built it** (milestone 121).
 ///
 /// `helpers/build-ripgrep.sh` puts it here. Nothing in this build produces it, and that is the
@@ -138,9 +153,15 @@ pub(crate) fn std_inputs_stamp() -> u64 {
         // The argument page (milestone 205, DECISIONS §170 (how a foreign program is told what to do)): `sys/args` reads the byte argv's
         // layout out of this crate, so a change to it must rebuild the farm.
         root.join("crates/argument_protocol/src/lib.rs"),
+        // The byte-sink contract, generated into the PAL as `sinkproto` like the rest, and missing
+        // from this list until 2026-10-09 (UTC): a change to it did not rebuild the farm.
+        root.join("crates/byte_sink_protocol/src/lib.rs"),
         // The std runtime contract (milestone 595 (provisional)): `rt`'s slot numbers and page
         // addresses, generated verbatim into the PAL, so the loader and the PAL read one file.
         root.join("crates/std_runtime_protocol/src/lib.rs"),
+        // The name resolver's client wire (milestone 801 (packages over the internet)): `sys/net`'s
+        // `lookup_host` speaks it.
+        root.join("crates/name_resolution_protocol/src/wire.rs"),
         root.join("targets/aarch64-unknown-nife.json"),
         root.join("targets/riscv64-unknown-nife.json"),
         root.join("targets/x86_64-unknown-nife.json"),
@@ -547,6 +568,14 @@ fn std_generate_modules() -> bool {
         (
             root.join("crates/std_runtime_protocol/src/lib.rs"),
             farm_std_src().join("sys/pal/nife/runtimeproto.rs"),
+        ),
+        // The name resolver's client wire (milestone 384 (in a capability system the resolver is a
+        // grant)), so `lookup_host` asks the resolver with the words it serves. Only `wire.rs`: the
+        // rest of that crate needs `domain_name_system`, which the PAL cannot name. Milestone 801
+        // (packages over the internet).
+        (
+            root.join("crates/name_resolution_protocol/src/wire.rs"),
+            farm_std_src().join("sys/pal/nife/resolveproto.rs"),
         ),
         // The timebase page (milestone 184), so `rt::cntfrq` reads the machine's rate at the
         // address and with the magic the kernel writes it with. Generated for every farm and

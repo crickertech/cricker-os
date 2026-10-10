@@ -854,6 +854,14 @@ dependencies = [
 ]
 
 [[package]]
+name = "package_index"
+version = "0.1.0"
+dependencies = [
+ "measured_boot",
+ "package_archive",
+]
+
+[[package]]
 name = "page_frames"
 version = "0.1.0"
 
@@ -1223,6 +1231,7 @@ dependencies = [
  "network_time_protocol",
  "nifefs",
  "package_archive",
+ "package_index",
  "page_frames",
  "paging",
  "pgrep",

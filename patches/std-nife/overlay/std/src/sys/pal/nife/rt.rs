@@ -82,7 +82,8 @@
 // (0x2000_0000), and the heap is the map's heap band. That crate's tests pin each number to its band.
 pub use super::runtimeproto::{
     ARGS_PAGE, ARGS_SLOT, CLOCK_PAGE, CLOCK_SLOT, CONFIG_PAGE, CONFIG_SLOT, ENTROPY_SLOT, FS_DIR_SLOT, FS_PAGE, HEAP_BASE,
-    HEAP_MAX, MEMORY_REGION_SLOT, NET_MEMORY_REGION_SLOT, STACK_SLOT, STDOUT_SLOT,
+    HEAP_MAX, MEMORY_REGION_SLOT, NET_MEMORY_REGION_SLOT, RESOLVER_PAGE, RESOLVER_SLOT, STACK_SLOT,
+    STDOUT_SLOT,
 };
 
 use super::abi;

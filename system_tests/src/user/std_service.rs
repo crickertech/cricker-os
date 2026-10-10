@@ -1,6 +1,9 @@
 use super::*;
-use crate::cap::{Rights, memory_region_cap, page_frame_cap, rendezvous_cap};
+use crate::cap::{
+    Rights, memory_region_cap, page_frame_cap, rendezvous_cap, rendezvous_cap_badged,
+};
 use crate::sched::RendezvousId;
+use crate::user::holding::Holding;
 
 /// **The `std` demo's binary, or `None` because this target has no `std` for it** (milestone 161).
 ///
@@ -67,23 +70,6 @@ pub const BUDGET_PAGES: u64 = 256;
 /// page of its own to add.
 const EXTRA_STACK_PAGES: u64 = std_runtime_protocol::STACK_PAGES;
 
-/// Wire a std program and hand back the endpoint it prints on **and the thread it runs as**.
-///
-/// The tid is what lets a caller wait for the program to be *gone* rather than merely quiet
-/// (milestone 64). The transcript ends at `cleanup`, which runs before the process leaves, so a
-/// test that stops at the last byte is still racing the exit it wants to make a claim about.
-///
-/// The third value is the region the endpoint was carved from, for the caller to reclaim once the
-/// program has gone ([`StdRun::report_region`]).
-pub fn start(
-    image: &'static [u8],
-    clock_image: &'static [u8],
-    entropy_image: &'static [u8],
-) -> (RendezvousId, crate::thread::ThreadId, u64) {
-    let spawned = start_reclaimable(image, clock_image, entropy_image);
-    (spawned.report, spawned.thread, spawned.report_region)
-}
-
 /// What [`start_reclaimable`] hands back. [`StdSpawn`] is `fs_service`'s name for the same idea and
 /// this is deliberately its twin: the stdout endpoint, the thread, and **the untyped region the
 /// heap was drawn from**, so a caller that knows the program has exited can give the pages back.
@@ -94,17 +80,46 @@ pub struct StdRun {
     pub report_region: u64,
     pub thread: crate::thread::ThreadId,
     pub heap: u64,
+    /// Everything else the spawn built: [`Wiring`]'s doc.
+    pub wiring: Wiring,
 }
 
-/// The same spawn as [`start`], **also handing back the heap region**, for
-/// [`super::fs_service::start_std_full`]'s reason exactly, at milestone 442 (a crypto provider `rustls` can use on all three bare-metal targets).
+impl StdRun {
+    /// **Hand back every frame this program was given**, once it has gone: its heap, its stdout,
+    /// and its [`Wiring`]. Fails the run if any of it does not come back.
+    pub fn give_back(&self, what: &str) {
+        assert!(
+            !crate::sched::is_thread_present(self.thread),
+            "{what}: give_back before the program left would free pages it still maps",
+        );
+        crate::sched::reclaim_region(self.heap).expect("the std heap did not come back");
+        self.wiring.0.release_or_fail(what);
+        crate::sched::reclaim_region(self.report_region)
+            .expect("the stdout region did not come back");
+    }
+}
+
+/// **What a std spawn builds besides the heap**, as a holding: the clock service's thread, and one
+/// region holding the clock page, its two endpoints, the configuration page and the program's
+/// stack (milestone 801 (packages over the internet)). Before 2026-10-10 (UTC) these were the
+/// kernel's own frames and a clock service nobody could end, about 56 frames kept for the boot by
+/// every std program a test started. Release it only after the program has gone: its stack and
+/// its two read-only pages are in the region.
+pub struct Wiring(pub Holding);
+
+/// The wiring region's size: the clock service's pages, the configuration page, the stack.
+const WIRING_PAGES: u64 = clock_service::REGION_PAGES + 1 + EXTRA_STACK_PAGES;
+
+/// **Wire a std program, and hand back everything it was given** once it has gone
+/// ([`StdRun::give_back`]).
 ///
-/// `std_exerciser` is in every archive, so its 256 pages are a charge this suite's frame ledger has
-/// always carried and [`start`] does not bother. A program present only when somebody ran a build
-/// script is different: leaving its pages spoken for makes the ledger fail **for exactly the person
-/// running the experiment** and pass for everyone else, which is the worst shape a gate can have.
-/// `cryptography_exerciser` is that kind of program, and the 196 frames it kept are what forced
-/// this function to exist.
+/// The tid is what lets a caller wait for the program to be *gone* rather than merely quiet
+/// (milestone 64). The transcript ends at `cleanup`, which runs before the process leaves, so a
+/// test that stops at the last byte is still racing the exit it wants to make a claim about.
+/// Everything this boot's frame ledger counts comes back through `give_back`: the heap, the
+/// stdout endpoint and the [`Wiring`]. `cryptography_exerciser`'s 196 kept frames forced the heap
+/// half (milestone 442 (a crypto provider `rustls` can use on all three bare-metal targets)), and
+/// milestone 801 (packages over the internet) the rest.
 pub fn start_reclaimable(
     image: &'static [u8],
     clock_image: &'static [u8],
@@ -112,40 +127,41 @@ pub fn start_reclaimable(
 ) -> StdRun {
     let report_region = crate::memory_region::create(1).expect("no region for the std stdout");
     let report = crate::sched::create_rendezvous_from(report_region).expect("no std stdout");
-    let (heap, thread) = start_on_full(image, clock_image, entropy_image, report);
+    let (heap, thread, wiring) = start_on_full(image, clock_image, entropy_image, report);
     StdRun {
         report,
         report_region,
         thread,
         heap,
+        wiring,
     }
 }
 
-/// The same spawn, with **the output sink chosen by the caller** (milestone 50).
+/// The same spawn, with **the output sink chosen by the caller** (milestone 50 (pipes and
+/// redirection: one sink protocol)), returning the
+/// heap region and the [`Wiring`] beside the thread for the caller to hand back.
 ///
 /// This split is the milestone's finding expressed as a function signature: everything about a
 /// std program's wiring is fixed except one endpoint capability, and putting a different one in
 /// slot 1 is the whole of redirection. The program is not told, cannot ask, and the two callers
 /// of this function hand it an endpoint the kernel receives on and an endpoint a file sink
 /// receives on. See `sink_tests`.
-pub fn start_on(
-    image: &'static [u8],
-    clock_image: &'static [u8],
-    entropy_image: &'static [u8],
-    report: RendezvousId,
-) -> crate::thread::ThreadId {
-    start_on_full(image, clock_image, entropy_image, report).1
-}
-
-/// [`start_on`], returning the heap region beside the thread. See [`start_reclaimable`] for why a
-/// caller would want it; everything else about this function is `start_on`'s documentation.
 pub fn start_on_full(
     image: &'static [u8],
     clock_image: &'static [u8],
     entropy_image: &'static [u8],
     report: RendezvousId,
-) -> (u64, crate::thread::ThreadId) {
-    spawn_std(image, clock_image, entropy_image, report, None)
+) -> (u64, crate::thread::ThreadId, Wiring) {
+    let mut wiring = Wiring(Holding::new());
+    let (heap, thread) = spawn_std(
+        image,
+        clock_image,
+        entropy_image,
+        report,
+        None,
+        &mut wiring.0,
+    );
+    (heap, thread, wiring)
 }
 
 /// A network a std program is given: the `Stack` endpoint its `std::net` calls go to, and the
@@ -154,6 +170,10 @@ pub fn start_on_full(
 pub struct Network {
     pub stack: RendezvousId,
     pub frames: u64,
+    /// A name resolver's endpoint and the badge the spawner granted a zone, placed at
+    /// `std_runtime_protocol::RESOLVER_SLOT` (milestone 801 (packages over the internet)). `None`
+    /// leaves the slot empty, and `ToSocketAddrs` then resolves numeric addresses only.
+    pub resolver: Option<(RendezvousId, u32)>,
 }
 
 /// The `std` slot for the `Stack` endpoint and the one for the socket frames' budget.
@@ -186,18 +206,44 @@ pub fn start_networked(
     entropy_image: &'static [u8],
     stack: RendezvousId,
 ) -> NetworkedRun {
+    start_networked_resolving(image, clock_image, entropy_image, stack, None)
+}
+
+/// [`start_networked`], and also `resolver` (an endpoint and the badge its zone was granted to) at
+/// `std_runtime_protocol::RESOLVER_SLOT`, so the program's `ToSocketAddrs` asks it. Milestone 801
+/// (packages over the internet) is the first program to resolve a name through `std::net`.
+pub fn start_networked_resolving(
+    image: &'static [u8],
+    clock_image: &'static [u8],
+    entropy_image: &'static [u8],
+    stack: RendezvousId,
+    resolver: Option<(RendezvousId, u32)>,
+) -> NetworkedRun {
     let report_region = crate::memory_region::create(1).expect("no region for the std stdout");
     let report = crate::sched::create_rendezvous_from(report_region).expect("no std stdout");
     let frames = crate::memory_region::create(NETWORK_FRAME_PAGES)
         .expect("no untyped for the std program's socket frames");
-    let net = Network { stack, frames };
-    let (heap, thread) = spawn_std(image, clock_image, entropy_image, report, Some(net));
+    let net = Network {
+        stack,
+        frames,
+        resolver,
+    };
+    let mut wiring = Wiring(Holding::new());
+    let (heap, thread) = spawn_std(
+        image,
+        clock_image,
+        entropy_image,
+        report,
+        Some(net),
+        &mut wiring.0,
+    );
     NetworkedRun {
         run: StdRun {
             report,
             report_region,
             thread,
             heap,
+            wiring,
         },
         frames,
     }
@@ -210,8 +256,14 @@ fn spawn_std(
     entropy_image: &'static [u8],
     report: RendezvousId,
     net: Option<Network>,
+    held: &mut Holding,
 ) -> (u64, crate::thread::ThreadId) {
     let budget = crate::memory_region::create(BUDGET_PAGES).expect("no untyped for std_exerciser");
+    // Everything else this spawn builds comes from one region, so one reclaim hands it back.
+    let region = crate::memory_region::create(WIRING_PAGES).expect("no region for the std wiring");
+    // The caller's holding, not one built here: a `Holding` in this frame put it over the guard
+    // page (`script/stack-frame-check`, 4336 bytes on 2026-10-10 UTC).
+    held.add_region(region);
 
     // The entropy service, wired once per boot and shared with the milestone-56 tests. Its
     // request endpoint is the whole of a std program's randomness authority: `SystemRng` is a
@@ -232,7 +284,8 @@ fn spawn_std(
     // published by the time std reads the page. Waiting is not a synchronisation trick, it is
     // the honest order: a std program that started first would see `state::UNKNOWN` and be
     // correct to say so.
-    let clock = clock_service::start(clock_image);
+    let (clock, clock_thread) = clock_service::start_in(clock_image, region);
+    held.add_thread(clock_thread);
     let _ = crate::sched::ipc_receive(clock.report);
 
     // **The inert-configuration page** (milestone 47's environment-variable fork, DECISIONS
@@ -255,10 +308,10 @@ fn spawn_std(
         .build();
     // Zeroed, so nothing left behind by a previous occupant of this physical page is visible
     // through the reserved tail past `PAGE_BYTES` (`ConfigPage` only ever reads the first
-    // `PAGE_BYTES`, but a frame's contents are otherwise unspecified until written).
-    let config_phys = crate::memory::alloc_zeroed()
-        .expect("no frame for the std program's config page")
-        .addr();
+    // `PAGE_BYTES`, but a frame's contents are otherwise unspecified until written). The retype
+    // zeroes it.
+    let config_phys = crate::memory_region::retype_page(region)
+        .expect("no frame for the std program's config page");
     // SAFETY: `config_phys` is that fresh frame, direct-mapped and owned by nobody else, and
     // `config_bytes` is `PAGE_BYTES` long, far under `FRAME_SIZE`.
     unsafe {
@@ -286,10 +339,8 @@ fn spawn_std(
         flags: Flags::user_rodata(), // same shape as the clock page: a READER, never a writer
     };
     for (k, m) in maps[2..].iter_mut().enumerate() {
-        // Zeroed so the new process starts clean.
-        let phys = crate::memory::alloc_zeroed()
-            .expect("no frame for std_exerciser stack")
-            .addr();
+        // Zeroed by the retype, so the new process starts clean.
+        let phys = crate::memory_region::retype_page(region).expect("no frame for the std stack");
         m.va = USER_STACK_VA - (k as u64 + 1) * FRAME_SIZE;
         m.phys = phys;
     }
@@ -313,6 +364,13 @@ fn spawn_std(
                 .expect("the std stack slot was already occupied");
             crate::sched::grant_at(NET_MEMORY_REGION_SLOT, memory_region_cap(net.frames))
                 .expect("the std socket-frame slot was already occupied");
+            if let Some((resolver, badge)) = net.resolver {
+                crate::sched::grant_at(
+                    std_runtime_protocol::RESOLVER_SLOT,
+                    rendezvous_cap_badged(resolver, Rights::WRITE, badge as u64),
+                )
+                .expect("the std resolver slot was already occupied");
+            }
         }
         run(
             image,
