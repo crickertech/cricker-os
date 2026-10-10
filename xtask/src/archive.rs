@@ -381,8 +381,9 @@ pub(crate) fn initrd_riscv() -> bool {
             blobs.push((name, bytes));
         }
     }
-    // **The crypto-provider workload** of milestone 442 (a crypto provider `rustls` can use on all three bare-metal targets), on the same terms and for the same
-    // reason: present iff `helpers/build-cryptography-exerciser.sh` has been run.
+    // **The crypto-provider workload** of milestone 442 (a crypto provider `rustls` can use on all
+    // three bare-metal targets): present iff `helpers/build-cryptography-exerciser.sh` has run,
+    // which `cargo xtask test` does since milestone 855 (`farm::tls_graph`).
     if let Ok(bytes) = read_stripped(
         &cryptography_exerciser_elf("riscv64-unknown-nife")
             .display()
@@ -578,8 +579,8 @@ pub(crate) fn initrd_x86() -> bool {
             blobs.push((name, bytes));
         }
     }
-    // **The crypto-provider workload** (milestone 442), on the same terms and for the same
-    // reason: present iff `helpers/build-cryptography-exerciser.sh` has been run.
+    // **The crypto-provider workload** (milestone 442): present iff
+    // `helpers/build-cryptography-exerciser.sh` has run, which `cargo xtask test` does since 855.
     if let Ok(bytes) = read_stripped(
         &cryptography_exerciser_elf("x86_64-unknown-nife")
             .display()
@@ -743,9 +744,10 @@ pub(crate) fn initrd_aarch64() -> bool {
     for (name, bytes) in &c_programs {
         files.push((name, bytes.as_slice()));
     }
-    // **The crypto-provider workload** (milestone 442), on exactly those terms: present iff
-    // `helpers/build-cryptography-exerciser.sh` has been run, absent from every ordinary build and
-    // from CI, because the crates under it are a dependency decision calef has not made.
+    // **The crypto-provider workload** (milestone 442): present iff
+    // `helpers/build-cryptography-exerciser.sh` has run, which `cargo xtask test` does for every
+    // leg it boots since milestone 855 (the TLS graph enters the gated build). Other boots
+    // (`cargo xtask run`, a bench) carry it only if somebody ran the helper.
     let cryptography = read_stripped(
         &cryptography_exerciser_elf("aarch64-unknown-nife")
             .display()
