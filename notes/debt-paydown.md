@@ -14,22 +14,24 @@ his to ratify ([naming authority](skills/naming-authority/SKILL.md)). The compan
 
 Label a pull request when its title and opening paragraph give one of these as its main purpose.
 
-1. Repair. Something already merged does not behave as its record says, and this makes it: a bug
-   or security fix in existing code, a flaky, racy or load-sensitive test, a leak, a gate that
-   fires wrongly or never fires, a regression back inside its band, lost work restored.
+1. Repair. Something already merged does not behave as its record says, and this makes it. That
+   covers a bug or security fix in existing code and a flaky, racy or load-sensitive test. It also
+   covers a leak, a gate that fires wrongly or never fires, a regression brought back inside its
+   band, and lost work restored.
 2. Cleanup with no new capability. A refactor, removing dead code, unused dependencies or a
    workaround, moving code to where a codebase rule says it lives (`arch/`, a crate, out of the
    kernel crate), lock contention or false sharing removed, divergence from a vendored upstream
    reduced.
-3. Record repair. A record that is wrong or missing what it owes: a correction of error (a COE), a
-   fact correction, a stale status, date, path or claim brought current, an owed record or
-   falsification backfilled, a citation or provenance added where it was missing, knowledge landed
-   from a branch that was holding it.
-4. Compliance. Bringing the tree up to a standard it has already written down: §212 (a prose budget),
-   §213 (writing standards), bold, heading, spelling and comment-block sweeps, a ratified rename
-   applied, survivor triage, coverage and lint ratchets, an audit and its findings closed, an
-   architectural parity gap closed (rule 5), and a gate whose purpose is enforcing a rule decided
-   before the pull request that adds it.
+3. Record repair. A record is wrong or is missing what it owes. That covers a correction of error
+   (a COE), a fact correction, and a stale status, date, path or claim brought current. It also
+   covers an owed record or falsification backfilled, a missing citation or provenance added, and
+   knowledge landed from a branch that was holding it.
+4. Compliance. The tree is brought up to a standard it has already written down. That covers
+   §212 (a prose budget), §213 (writing standards), and the bold, heading, spelling and
+   comment-block sweeps. It covers a ratified rename applied, survivor triage, coverage and lint
+   ratchets, and an audit with its findings closed. It covers an architectural parity gap closed
+   (rule 5). And it covers a gate whose purpose is enforcing a rule decided before the pull request
+   that adds it.
 
 Do not label:
 
