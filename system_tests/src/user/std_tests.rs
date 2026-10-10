@@ -319,7 +319,7 @@ pub(super) const EXPECTED: &[u8] = b"hello from std on nife\n\
 ///
 /// The `config seeded` line is milestone 47's environment-variable fork (DECISIONS §111): this
 /// process is granted an inert-configuration page unconditionally
-/// (`std_service::start_on`/`CONFIG_SLOT`/`CONFIG_PAGE_STD`), assembled once from
+/// (`std_service::start_on_full`/`CONFIG_SLOT`/`CONFIG_PAGE_STD`), assembled once from
 /// `environment_protocol::PageBuilder` before the program exists, and `pal::nife::init` reads `TZ`, `LANG`
 /// and `TERM` off it into `std::env`'s table before `main` runs. The line proves the whole path:
 /// the kernel assembled and validated the page, mapped it read-only, the std PAL's probe found
@@ -373,7 +373,8 @@ fn a_whole_std_program_runs_on_the_native_abi() {
     let clock = program("clock").expect("no clock program in the initrd archive");
     let entropy = program("entropy").expect("no entropy program in the initrd archive");
     let faults_before = USER_FAULTS.load(Ordering::Relaxed);
-    let (report, tid, report_region) = std_service::start(image, clock, entropy);
+    let run = std_service::start_reclaimable(image, clock, entropy);
+    let (report, tid) = (run.report, run.thread);
     assert_std_transcript(report, EXPECTED, "std_exerciser");
 
     // **The exit is part of the transcript's claim, and it was not being checked** (milestone 64,
@@ -396,5 +397,47 @@ fn a_whole_std_program_runs_on_the_native_abi() {
         faults_before,
         "std::process::exit trapped instead of exiting: a clean exit reported as a crash",
     );
-    crate::sched::reclaim_region(report_region).expect("the stdout region did not come back");
+    run.give_back("std_exerciser");
+}
+
+/// Start `std_exerciser`, read its transcript to the end, wait for it to leave, and hand back
+/// everything it was given.
+fn run_and_give_back(image: &'static [u8], clock: &'static [u8], entropy: &'static [u8]) {
+    let run = std_service::start_reclaimable(image, clock, entropy);
+    let mut out = [0u8; 4096];
+    drain_sink(run.report, &mut out, "std_exerciser");
+    assert!(
+        super::wait_for(|| !crate::sched::is_thread_present(run.thread)),
+        "std_exerciser never left",
+    );
+    run.give_back("std_exerciser");
+}
+
+/// **A std program the harness starts gives back every frame it was given once it has gone**
+/// (milestone 801 (packages over the internet), on calef's ruling of 2026-10-10 (UTC): "Lets fix
+/// the leaks.").
+///
+/// Before this, each std spawn kept about 56 frames for the boot: a clock service nothing could
+/// end, the configuration page and the stack, all kernel frames. The first run here pays what a
+/// boot builds once (the entropy service, the scheduler's lazily grown tables); the second must
+/// leave the free count exactly where it found it, so a single kept frame fails.
+///
+/// Falsification: replayable `system_tests/falsifications/user.std_tests.a_std_program_gives_back_every_frame_it_was_given.patch`
+#[test_case]
+fn a_std_program_gives_back_every_frame_it_was_given() {
+    let Some(image) = std_service::std_exerciser_image() else {
+        crate::testing::skip!(std_service::NO_STD_EXERCISER);
+    };
+    let clock = program("clock").expect("no clock program in the initrd archive");
+    let entropy = program("entropy").expect("no entropy program in the initrd archive");
+    run_and_give_back(image, clock, entropy);
+    let before = crate::memory::free_page_frames();
+    run_and_give_back(image, clock, entropy);
+    let after = crate::memory::free_page_frames();
+    assert_eq!(
+        after,
+        before,
+        "a std spawn kept {} frames after it was handed back",
+        before as i64 - after as i64,
+    );
 }

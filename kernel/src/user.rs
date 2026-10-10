@@ -3586,7 +3586,7 @@ fn boot_config_page() -> u64 {
     // Zeroed before the assembled bytes are written, so nothing left behind by a previous
     // occupant of this physical page is visible through the reserved tail past `PAGE_BYTES`
     // (`ConfigPage` only ever reads the first `PAGE_BYTES`, but a frame's contents are otherwise
-    // unspecified until written; the same shape `std_service::start_on` uses).
+    // unspecified until written; the same shape `std_service::start_on_full` uses).
     let phys = crate::memory::alloc_zeroed()
         .expect("no frame for the config page")
         .addr();
