@@ -81,6 +81,12 @@ adoption"*, risk 8's paper ([`notes/incremental-path.md`](../../notes/incrementa
 (`std::thread::spawn` runs real threads in one address space)), so `ripgrep`'s threads become
 reachable; `fork` is refused and spawn supported (§264 (`fork` is declined for good), milestone 172
 (a capability-native subprocess primitive)).
+
+2026-10-10 (UTC): milestone 812 is built. `std::thread::spawn` runs real threads on all three
+architectures, and unmodified `rayon` from crates.io runs its parallel sum on every core. That
+moves Rust software that uses threads, `ripgrep`'s parallel walk among it, from refused to
+reachable. It does nothing for C software, which still waits on a C library with threads (milestone
+836 (a C library, stage 2: threads)), so the risk's status is unchanged.
 ## Benchmarks that inform this risk
 
 As of 2026-10-08 (UTC), under §262 (nife is measured with the field's standard benchmarks).

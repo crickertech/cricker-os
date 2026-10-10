@@ -38,6 +38,10 @@ Caveats. Every figure is one command in flight, polled completion, and one pass 
 2026-10-08 (UTC): `fio` needs threads, which §263 (threads are built) schedules as milestone 812
 (`std::thread::spawn` runs real threads in one address space).
 
+2026-10-10 (UTC): milestone 812 is built, so Rust programs have threads. `fio` is C, and its
+threads wait on a C library's pthreads (milestone 836 (a C library, stage 2: threads)), so the
+queue-depth comparison above is no closer and the risk's status is unchanged.
+
 ## Benchmarks that inform this risk
 
 As of 2026-10-08 (UTC), under §262 (nife is measured with the field's standard benchmarks).

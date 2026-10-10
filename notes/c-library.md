@@ -75,7 +75,7 @@ Each row is a place nife's constraints differ from Redox's, and which way it arg
 | Process and user identity | pids, uids, process groups, sessions | no process identifier (`std::process::id` is 0); identity is attribution, not authority, per milestone 49 (users, login, and attribution) | about twenty `get*id`/`set*id` methods | adapting: fixed answers in the layer, each in its `BUGS` |
 | Memory | `mmap` and `brk` | `untyped::MAP` from the process's own budget, per §22 (Rust `std` on the native ABI) and §31 rule 4 | dlmalloc over `Pal::mmap` | owning the allocator: notes/std.md says `crates/user_mode_heap` is the only heap algorithm, and §31 rule 4 already ties C's heap to it |
 | Thread-local storage | static TLS set up by `ld_so/tcb.rs`, with a Redox-specific `OsSpecific` block in the TCB | userspace targets are `singlethread: true`; nothing context-switches `TPIDR_EL0` | TLS and the TCB live in the dynamic linker | owning: a static-only TLS block is a few hundred lines, and the linker it lives in is not wanted |
-| Threads | relibc's own pthreads on `rlct_clone` and a futex | milestone 812 (`std::thread::spawn` runs real threads in one address space) builds them, and PR #1856 rules that it will; no futex exists yet | `Pal::futex_wait`/`futex_wake` underneath everything in `src/sync/` | adapting, if 812 gives a wait-on-address primitive; this is a question for 812, not a reason to rewrite `src/sync/` |
+| Threads | relibc's own pthreads on `rlct_clone` and a futex | milestone 812 (`std::thread::spawn` runs real threads in one address space) built them (2026-10-10 UTC), with a private futex: `AddressSpace::WAIT` and `WAKE` ([futex](futex.md)) | `Pal::futex_wait`/`futex_wake` underneath everything in `src/sync/` | adapting, onto 812's wait-on-address primitive |
 | Dynamic linking | `ld.so` and `dlopen` | static ELF only (notes/abi.md, section 3) | `src/ld_so/`, 4,016 lines, entangled with startup and TLS | owning: dropped, and startup rewritten without it |
 | Floating point | hard-float targets | userspace is softfloat on all three ISAs (`targets/*.json`); the kernel saves FP state since milestone 447 (a thread's vector registers are its own), but the targets have not flipped, which is milestone 534 (the soft-float targets could now be flipped) | assumes hard float; `libm` and `openlibm` | neither: STREAM's number waits on 534 whichever library runs it |
 | Dependencies | whatever Redox wants | each one a ruling under §46 (thin primitives or whole subsystems) | about thirty crates, two from git | owning: stage 1 takes only what it uses, each named in its `Reuse:` line |
@@ -175,5 +175,6 @@ Three findings against this note's predictions:
 - The Redox contribution policy was read in `redox-os/redox`'s `CONTRIBUTING.md`; relibc's own
   `CONTRIBUTING.md` does not repeat it. Reading the project-wide policy as covering relibc is this
   note's inference.
-- The futex row assumes milestone 812 will provide a wait-on-address primitive. If it does not,
-  `src/sync/` is rewritten too and that row moves to "owning".
+- The futex row rests on milestone 812's wait-on-address primitive, which is private-only (keyed by
+  space and address, 32-bit words, no timeout yet; see [futex](futex.md)). A `src/sync/` path that
+  needs a shared or timed wait has to be adapted to that.

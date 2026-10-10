@@ -52,6 +52,18 @@ If the answer to the correctness question turns out to want restartable sequence
 an allocator milestone and becomes an `rseq` milestone, which is a much larger thing and a syscall
 surface question. Finding that out early is a good outcome of starting it.
 
+## The consumer, measured
+
+2026-10-10 (UTC), by milestone 812 (`std::thread::spawn` runs real threads in one address space):
+`std` programs now have threads, and the `std` heap is one spinlock. Allocation is 2.1 to 3.2 times
+slower with four threads than with one. That is 200,000 small allocations and frees, split four
+ways, under QEMU's TCG with four emulated cores, on all three architectures. The program is
+`std_exerciser/src/bin/std_heap_contention.rs`, run by
+`std_threads_tests::the_std_heap_is_measured_under_four_threads`, from commit `26ee75bae` (pull
+request #1892). The figures per architecture are in `notes/std/threads.md`. This is the first
+consumer this block was waiting for, and the same program is the measure for whatever replaces the
+lock.
+
 ## Index row
 
 Milestone 557 (a thread reads its own CPU from a page)'s current-CPU page was justified by a consumer that does not exist, so the mechanism has no measured benefit and the numbers quoted for it are Linux's, about Linux. This builds the consumer: a userspace small-object allocator with a free list per CPU id that reads its own CPU on every allocation. The interesting half is the fallback, because the value can be stale the instruction after it is read and this tree deliberately has no `rseq`, so what correctness argument replaces restartable sequences is the question the milestone answers.
