@@ -1,16 +1,18 @@
 ---
-status: PROPOSED
+status: IN-PROGRESS
 raised: 2026-10-10
+branch: milestone/865-the-comment-block-sweep-continues-a-third-time
+promoted_from: the-comment-block-sweep-continues-a-third-time
 milestone_dependencies: 864
 decision_dependencies: 267
 machine_requirements: none
 specific_machine: none
 needs_person: no
 ---
-# The comment-block sweep continues a third time, worth five
+# 865. The comment-block sweep continues a third time, worth five
 
 Raised 2026-10-10 (UTC) by the lane that built milestone 864 (the comment-block sweep continues
-again, worth four). §267 (a comment states the constraint as it is now) caps a comment block at
+again, worth four); minted from the proposal of the same name. §267 (a comment states the constraint as it is now) caps a comment block at
 40 lines. Its 2026-10-09 amendment rules the method: the constraint stays, history goes to the
 commit message and git, and no narrative is transplanted into a document.
 
