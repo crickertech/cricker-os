@@ -18,14 +18,12 @@
 #
 # **The tree has five cargo workspaces**, and cargo-deny works one graph at a time, so this runs it
 # once per manifest against the one shared deny.toml. One policy everywhere is the point: a licence
-# we would refuse in the kernel is not acceptable in the host tooling either. Three are checked; the
-# other two are skipped for stated reasons rather than by omission:
+# we would refuse in the kernel is not acceptable in the host tooling either. One is skipped for a
+# stated reason rather than by omission:
 #
 #   - **vendor/redoxfs** enters our builds only through the two consumers below, at the feature sets
 #     we actually build. Checking it standalone would evaluate its default features (`fuse`, which
 #     wants macFUSE) and report on code nothing here ever compiles.
-#   - **std_exerciser** (milestone 27's std demo) has exactly one dependency, an in-tree path dep on
-#     crates/filesystem_protocol, which the main workspace already covers. There is no third-party graph to check.
 #
 # See notes/scripts.md.
 #
@@ -79,8 +77,10 @@ fi
 # whose graph no gate scans is a suppression nobody can check: listing the manifests here is what
 # makes the entry mean something, and it is narrower than the alternative, which is trusting that
 # somebody remembers to look before those crates are taken into the workspace.
+# **`std_exerciser` joined with milestone 812 (`std::thread::spawn` runs real threads in one address
+# space)**, when `rayon` became its first third-party dependency (#1892, 2026-10-10 UTC).
 for manifest in Cargo.toml redoxfs_server/Cargo.toml tools/redoxfs_host/Cargo.toml fuzz/Cargo.toml \
-    cryptography_provider/Cargo.toml cryptography_exerciser/Cargo.toml; do
+    cryptography_provider/Cargo.toml cryptography_exerciser/Cargo.toml std_exerciser/Cargo.toml; do
     echo "==> cargo-deny: $manifest"
     cargo deny --manifest-path "$manifest" --all-features --config deny.toml \
         check -A unmatched-skip -A license-exception-not-encountered

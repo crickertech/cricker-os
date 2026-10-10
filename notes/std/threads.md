@@ -45,6 +45,11 @@ architectures. Four threads add to an `AtomicU64` and a `Mutex<u64>` a million t
 thread keeps its own `thread_local!`, the space outlives the first thread to exit, and
 `available_parallelism` is the online count.
 
+A second test runs `std_rayon.rs`, unmodified `rayon` from crates.io. Its global pool must have one
+worker per online core, its parallel count over four million items must come to four million, and
+`rayon::broadcast` must reach every worker. `rayon` is a dependency of `std_exerciser` only (calef,
+#1892, 2026-10-10 UTC), and `deny.toml` bans it everywhere else.
+
 ## The heap under four threads
 
 The block's item 12 asked for a measurement before any change to the heap's spinlock.
@@ -65,14 +70,11 @@ spin out their time slices.
 ## BUGS
 
 - The heap's one spinlock makes allocation slower with four threads than with one (the table
-  above). A lock that sleeps on the futex instead of spinning, or per-thread caches in front of
-  it, is the replacement; measure it with the same program.
-
+  above). The replacement is milestone 561 (a per-CPU allocator is what the current-CPU page was
+  for); measure it with the same program.
 - A spawned thread's stack has no guard page. It is heap memory, so an overflow writes into the
   heap. A stack mapped from the region with an unmapped page below it is the fix.
 - A detached thread's stack is never freed, because nothing remains to free it.
 - A timed wait spins on `yield` until its deadline, because the kernel's `WAIT` has no timeout.
 - One TCB page per spawn is spent for good, and 16 threads at most per process
   (`notes/processes.md`).
-- The `rayon` half of the block's exit test is not built: it needs a dependency calef has not
-  ruled on.

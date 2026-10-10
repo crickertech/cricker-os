@@ -21,6 +21,9 @@ name = "std_exerciser"
 version = "0.1.0"
 edition = "2024"
 license = "MIT OR Apache-2.0"
+# Not publishable, which is what lets `deny.toml`'s `allow-wildcard-paths` cover the in-tree path
+# dependencies below once `script/supply-chain` checks this graph (milestone 812, for `rayon`).
+publish = false
 
 [workspace]
 
@@ -54,6 +57,13 @@ manifest_note = { path = "../crates/manifest_note" }
 # grant) are judged against one zone. `no_std`, and its one
 # dependency, `domain_name_system`, is too.
 name_resolution_protocol = { path = "../crates/name_resolution_protocol" }
+
+# `std_rayon`'s parallel sum (milestone 812 (`std::thread::spawn` runs real threads in one address
+# space)'s exit test). Unmodified, from crates.io, and a dependency of this package only: calef
+# ruled (a) on pull request #1892, 2026-10-10 (UTC), under §46 (thin primitives or whole
+# subsystems). `deny.toml`'s `[bans]` refuses `rayon` and `rayon-core` in every other graph
+# `script/supply-chain` checks, and this manifest is one of those graphs.
+rayon = "1.11"
 
 # The kernel's ELF loader maps whole pages per segment and the initrd carries the file; keep the
 # binary small and the build deterministic.

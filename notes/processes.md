@@ -49,8 +49,10 @@ A process ends on any of these:
 The last of these is what keeps revocation sound. The sweeps reach tables through threads, so a
 table with no member must never be joined again.
 
-Ending it ends every other member. A blocked member is finished in place. A ready or running one is
-marked killed and dies at its next preemption, the §16 (object revocation) amendment's mechanism.
+Ending it ends every other member. A blocked member is finished in place, and reaped as soon as the
+member that ended the process is (or by `DESTROY` itself), since nothing will switch it out again.
+A ready or running one is marked killed and dies at its next preemption, the §16 (object
+revocation) amendment's mechanism.
 
 Supervision stays on the thread, as it was. The first member's `START` takes the reserved fault slot
 out of the shared table, so a sibling started later is unsupervised. When the process ends, the
@@ -71,6 +73,9 @@ falsification:
 - a sibling's `exit` ends the supervised member, and its supervisor hears `EVENT_EXIT`;
 - every refusal of the contract;
 - a destroyed region ends its process and a member that lives in another region.
+
+`std_threads_tests::rayons_parallel_sum_runs_on_every_online_core` proves the reaping of blocked
+members: `rayon`'s idle workers are asleep on a futex when its `main` returns.
 
 ## BUGS
 

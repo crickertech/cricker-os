@@ -69,6 +69,12 @@ pub(crate) fn std_heap_contention_elf(triple: &str) -> PathBuf {
     ))
 }
 
+/// **`std_rayon`**, milestone 812's second exit-test check: unmodified `rayon`'s parallel sum,
+/// packed beside `std_threads`.
+pub(crate) fn std_rayon_elf(triple: &str) -> PathBuf {
+    workspace_root().join(format!("std_exerciser/target/{triple}/release/std_rayon"))
+}
+
 /// **`std_grep`**, the workspace's third binary (milestone 205's designation half), put on the disk
 /// to be run by path.
 pub(crate) fn std_grep_elf(triple: &str) -> PathBuf {

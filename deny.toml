@@ -165,6 +165,16 @@ wildcards = "deny"
 # check that matters, "is this really upstream 0.9.1", is script/vendor-verify's job, not semver's.
 allow-wildcard-paths = true
 
+# `rayon` is ruled for one package: `std_exerciser`, as milestone 812 (`std::thread::spawn` runs
+# real threads in one address space)'s exit test (calef on pull request #1892, 2026-10-10 UTC, §46
+# (thin primitives or whole subsystems)). Nothing in the kernel or the image's services may take it.
+# A `wrappers` list makes cargo-deny refuse the crate when anything else depends on it directly, in
+# every graph `script/supply-chain` checks, so a second consumer is a red gate, not a review catch.
+deny = [
+    { crate = "rayon", wrappers = ["std_exerciser"], reason = "ruled for std_exerciser only (#1892)" },
+    { crate = "rayon-core", wrappers = ["rayon"], reason = "reached only through rayon (#1892)" },
+]
+
 skip = [
     # RedoxFS 0.9.1 depends on getrandom 0.2 directly while its uuid 1.x pulls getrandom 0.4. Both
     # are host-side only: the bare-metal redoxfs_server builds the engine `--no-default-features`, where

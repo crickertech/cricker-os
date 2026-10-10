@@ -7,7 +7,7 @@ use crate::disk::{mkfs_elf, redoxfs_server_elf};
 use crate::farm::{
     C_PROGRAMS, c_program_elf, cryptography_exerciser_elf, package_fetch_exerciser_elf,
     pinned_tls_exerciser_elf, ripgrep_elf, std_exerciser_elf, std_heap_contention_elf,
-    std_resolve_elf, std_threads_elf,
+    std_rayon_elf, std_resolve_elf, std_threads_elf,
 };
 use crate::host::{bin_elf, workspace_root};
 use crate::inspect::read_stripped;
@@ -235,12 +235,13 @@ fn bin_names(manifest: &str) -> Result<Vec<String>, String> {
 /// **Archive entries packed from outside `components/` and `fixtures/`**, each present only when its
 /// own build ran (see the `initrd_*` functions). Hoisted out of the one test that used to hold it
 /// (milestone 595 (provisional)), because [`check_declared_programs`] now needs the same list.
-const BUILT_ELSEWHERE: [&str; 10] = [
+const BUILT_ELSEWHERE: [&str; 11] = [
     "redoxfs_server",
     "mkfs",
     "std_exerciser",
     "std_threads",
     "std_heap_contention",
+    "std_rayon",
     "rg",
     "cryptography_exerciser",
     "pinned_tls_exerciser",
@@ -375,6 +376,9 @@ pub(crate) fn initrd_riscv() -> bool {
             .to_string(),
     ) {
         blobs.push(("std_heap_contention", bytes));
+    }
+    if let Ok(bytes) = read_stripped(&std_rayon_elf("riscv64-unknown-nife").display().to_string()) {
+        blobs.push(("std_rayon", bytes));
     }
     // **Unmodified `ripgrep`** (milestone 121), on the same terms as aarch64's: present iff
     // `helpers/build-ripgrep.sh` has been run, absent from every ordinary build and from CI.
@@ -586,6 +590,9 @@ pub(crate) fn initrd_x86() -> bool {
     ) {
         blobs.push(("std_heap_contention", bytes));
     }
+    if let Ok(bytes) = read_stripped(&std_rayon_elf("x86_64-unknown-nife").display().to_string()) {
+        blobs.push(("std_rayon", bytes));
+    }
     // **Unmodified `ripgrep`** (milestones 121 and 184), present iff `helpers/build-ripgrep.sh` ran.
     if let Ok(bytes) = read_stripped(&ripgrep_elf("x86_64-unknown-nife").display().to_string()) {
         blobs.push(("rg", bytes));
@@ -745,6 +752,11 @@ pub(crate) fn initrd_aarch64() -> bool {
     .ok();
     if let Some(bytes) = &std_heap_contention {
         files.push(("std_heap_contention", bytes.as_slice()));
+    }
+    let std_rayon =
+        read_stripped(&std_rayon_elf("aarch64-unknown-nife").display().to_string()).ok();
+    if let Some(bytes) = &std_rayon {
+        files.push(("std_rayon", bytes.as_slice()));
     }
     // The FS server (milestone 32 phase 2) rides along IFF built (its own workspace/target; `test`
     // builds it). Absent for a plain interactive boot, which simply skips the FS-server test.

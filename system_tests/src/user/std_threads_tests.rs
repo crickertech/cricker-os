@@ -8,11 +8,7 @@
 //! fixed slots filled in the process's shared table, the three new ones included (its own process
 //! with `BIND`, its own first thread, its own space). Then its transcript is the verdict.
 //!
-//! # BUGS
-//!
-//! - **The rayon half of the block's exit test is not here.** It needs `rayon` as a dependency of
-//!   a test program, which is calef's to rule (§46 (thin primitives or whole subsystems)); it is
-//!   asked on pull request #1892.
+//! The block's second check, `rayon`'s parallel sum, is `std_rayon`, run the same way.
 
 use super::*;
 use crate::cap::Rights;
@@ -100,12 +96,19 @@ fn run_as_process(image: &'static [u8], what: &str, out: &mut [u8]) -> usize {
         super::wait_for(|| sched::process_state(pid).is_some_and(|(m, ended)| m == 0 && ended)),
         "{what}'s process did not end with all its threads reaped",
     );
+    // The last member's reaper takes the space out of the registry after it has left the
+    // process, once it has let go of the scheduler's lock, so this waits as well.
     assert!(
-        user_address_space_root(name).is_none(),
+        super::wait_for(|| user_address_space_root(name).is_none()),
         "{what}'s space outlived its process"
     );
+    // The same reaper removes the last thread from the table after that, and a region still
+    // holding a thread refuses `reclaim` until it is gone, so each region gets the same grace.
     for region in [budget, report_region, process_region, stack_region] {
-        sched::reclaim_region(region).expect("a region the program used did not come back");
+        assert!(
+            super::wait_for(|| sched::reclaim_region(region).is_ok()),
+            "a region {what} used did not come back"
+        );
     }
     len
 }
@@ -119,9 +122,17 @@ fn drain_until_end(
     out: &mut [u8],
     what: &str,
 ) -> usize {
+    // Generous: `std_threads` takes about five emulated minutes under TCG. A program that neither
+    // writes nor ends for this long is deadlocked, and a red test says so where a hang would not.
+    let deadline = crate::arch::timer::now() + 1800 * crate::arch::timer::frequency();
     let mut len = 0usize;
     loop {
         while sched::rendezvous_waiting_senders(report) == 0 {
+            assert!(
+                crate::arch::timer::now() < deadline,
+                "{what} neither wrote nor ended for half an hour, after: {}",
+                core::str::from_utf8(&out[..len]).unwrap_or("<not utf-8>")
+            );
             if sched::process_state(pid).is_none_or(|(_, ended)| ended) {
                 panic!(
                     "{what} ended before its output did, after: {}",
@@ -192,6 +203,41 @@ fn four_std_threads_share_a_mutex_an_atomic_and_a_space() {
         core::str::from_utf8(&got[..len]).unwrap_or("<not utf-8>"),
         core::str::from_utf8(&want[..want_len]).unwrap_or("<not utf-8>"),
         "std_threads's transcript",
+    );
+}
+
+/// **Unmodified `rayon` runs its parallel sum on every core**: the exit test's second check
+/// (milestone 812's block: "A second check runs `rayon`'s parallel sum to the same answer").
+///
+/// `std_rayon`'s global pool must be one worker per online core, its parallel count over four
+/// million items must be four million, and `rayon::broadcast` must reach every worker, which it
+/// can only do if each of them is a thread that really runs.
+///
+/// Falsification: replayable `system_tests/falsifications/user.std_threads_tests.rayons_parallel_sum_runs_on_every_online_core.patch`
+#[test_case]
+fn rayons_parallel_sum_runs_on_every_online_core() {
+    let Some(image) = program("std_rayon") else {
+        crate::testing::skip!(super::std_service::NO_STD_EXERCISER);
+    };
+    let mut got = [0u8; 256];
+    let len = run_as_process(image, "std_rayon", &mut got);
+    let text = core::str::from_utf8(&got[..len]).unwrap_or("<not utf-8>");
+    let online = u64::from(crate::smp::online_harts_mask().count_ones());
+    let line = |key: &str| {
+        text.lines()
+            .find_map(|l| l.strip_prefix(key))
+            .and_then(|n| n.parse::<u64>().ok())
+    };
+    assert_eq!(line("rayon threads "), Some(online), "rayon's pool: {text}");
+    assert_eq!(
+        line("rayon sum "),
+        Some(4_000_000),
+        "rayon's parallel sum: {text}"
+    );
+    assert_eq!(
+        line("rayon broadcast reached "),
+        Some(online),
+        "rayon's broadcast did not reach a worker on every core: {text}"
     );
 }
 

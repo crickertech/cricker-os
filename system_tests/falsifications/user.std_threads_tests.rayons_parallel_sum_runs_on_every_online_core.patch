@@ -1,0 +1,27 @@
+Falsifies `system_tests::user::std_threads_tests::rayons_parallel_sum_runs_on_every_online_core`.
+
+Architecture: aarch64, riscv64, x86_64
+
+The defect, in milestone 812 (`std::thread::spawn` runs real threads in one address space): a
+member that its process's end finished where it was blocked is never reaped, because nothing
+switches it out again. `rayon`'s idle workers are asleep on a futex when `main` returns, so the
+process keeps its workers' corpses and its space until its region is destroyed. The four-thread test
+joins every thread before it exits and cannot see this.
+
+Expected to fail: "std_rayon's process did not end with all its threads reaped".
+
+diff --git a/kernel/src/sched.rs b/kernel/src/sched.rs
+index a6c654e7e..1f9935b20 100644
+--- a/kernel/src/sched.rs
++++ b/kernel/src/sched.rs
+@@ -2907,9 +2907,7 @@ fn reap_switched_out(guard: crate::sync::IrqSafeGuard<'_, Option<IpcTables>>, pr
+         .and_then(|s| s.threads.get(prev))
+         .and_then(|t| t.process);
+     process::reap_corpse(guard, prev);
+-    if let Some(pid) = process {
+-        process::reap_corpses(pid); // members its end finished where they were blocked
+-    }
++    let _ = process;
+ }
+ 
+ /// intid -> rendezvous id + 1 (0 means "not routed"). A hardware interrupt, delivered as a
