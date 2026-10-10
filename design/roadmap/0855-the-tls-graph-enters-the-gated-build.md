@@ -1,9 +1,10 @@
 ---
-status: NOT-STARTED
+status: BUILT
 raised: 2026-10-06
+built: 2026-10-10
 promoted_from: the-tls-graph-enters-the-gated-build
 milestone_dependencies: 501
-decision_dependencies: unwritten
+decision_dependencies: 196, 198
 machine_requirements: none
 specific_machine: none
 needs_person: no
@@ -54,6 +55,89 @@ written, and the crates are the ones §196 and §198 already took.
 The lane recommends the first. The second buys nothing §46 asks for. The third finds a break
 days late, on nobody's pull request. The fourth leaves the client unchecked through the toolchain
 bumps most likely to break it.
+
+## Ruled 2026-10-10 (UTC): option 1
+
+calef launched this milestone on 2026-10-10 (UTC) with "launch 855". Option 1 was the lane's
+recommendation and he raised no objection, so option 1 is the ruling; options 2 to 4 were not
+contenders. The fork was this block's alone, so the ruling lives here. The dependencies it rests on
+were already ruled: §196 (nife carries TLS) and §198 (the glue is ours, the primitives are not),
+which are this block's decision dependencies in place of `unwritten`. No new section was written,
+as none was for milestone 121 (`ripgrep` on nife)'s crates.io fetch in `swish-check`.
+
+## Built (lane `milestone/855-the-tls-graph-enters-the-gated-build`, PR #1902)
+
+- The kernel legs. `cargo xtask test` builds the TLS graph's programs for every leg it boots,
+  after `std_exerciser` and before the archive (`xtask::farm::tls_graph`, provisional). It runs the
+  two helpers as they were, with `NIFE_CRYPTO_TRIPLES` set to the legs in the run, so `--arch
+  riscv64` pays for one triple. That puts `cryptography_exerciser`, `pinned_tls_exerciser` and
+  milestone 801 (packages over the internet)'s `package_fetch_exerciser` in every suite archive,
+  and their three tests stop skipping in `script/test` and in CI's `test` job alike. A build that
+  breaks fails the gate rather than turning three tests into skips.
+- Not a `script/ci-build` row, which is where `rg` is built. A row would have made `script/test`
+  and CI's kernel legs two different suites, and would have needed a CI-only refusal to keep the
+  skip from coming back; building inside `test` needs neither. The CPU-model matrix and the
+  falsification replays go through `cargo xtask test` too, and build their one triple.
+- The host phase. `cryptography_provider` and `pinned_tls_client` run their own tests, the
+  client's against `helpers/tls-peer` (OpenSSL through Python's `ssl`), each by `--manifest-path`
+  and `--locked`, beside `redoxfs_server`. The one test that needs the internet stays `#[ignore]`d.
+- The helpers pin `CARGO_TARGET_DIR` to the package and build `--locked`: the copy step reads
+  `$SRC/target`, and a gate builds the graph its lockfile names.
+- `script/supply-chain` scans `pinned_tls_client` and `pinned_tls_exerciser` beside the
+  provider. Both were clean against `deny.toml` on 2026-10-10.
+- The helpers share one target directory, `target/tls-graph`, so the second reuses the first's
+  `std` and provider graph.
+- `uefi-test` gives its boots a 180 s hang bound, where they had the runner's 90 s default. The
+  x86_64 `system_tests` boot under OVMF already took 86 s on main, and this milestone's three
+  tests took it to 89 s, then to the bound in run 38084427172, which killed it mid-transcript.
+  A passing boot exits as soon as its suite ends, so the bound costs nothing until something hangs.
+
+## What it cost in CI, measured 2026-10-10 (UTC)
+
+Run 38078200852, on the base before QEMU 11.1.2. All three tests passed on every leg, none
+skipped: `package_fetch_exerciser` took 1.1 to 2.1 s per leg, `pinned_tls_exerciser` 1.1 to
+1.8 s, `cryptography_exerciser` 0.2 to 0.9 s.
+
+| | added to the `test` job |
+|---|---|
+| building the programs, three triples, cold | 169 s (83 s and 85 s, separate target directories) |
+| host tests, both workspaces, cold fetch and build | about 16 s |
+| the three kernel tests, five boots | about 18 s |
+| the job | 16.7 min, against a 13.4 min median on main the same day |
+
+A correction, 2026-10-10 (UTC). This lane first read the 17.4 to 18.0 minutes main's `test` job
+took after QEMU 11.1.2 (#1899) as QEMU being slower, projected 855 to 20.7 to 21.3 minutes, and
+asked calef how the job should make room. The premise was wrong, as the maintainer found: 265 to
+273 s of those runs was rebuilding QEMU on a cache miss (see `BUGS`), and the suite step itself
+went from about 731 s to 750 to 811 s. The question was withdrawn. The figure to judge 855 by is
+the job with a warm QEMU cache. Run 38086259776, after the shared target directory, took 15.8
+minutes against the budget of 20. QEMU came from cache in 3 s, the programs built in 87.4 s, and
+the x86_64 `uefi-test` boot took 94 s. The longer `cpu-matrix` shard took 14.4
+minutes, up from about 12.8, for its one riscv64 triple.
+
+## Architectural parity
+
+All three architectures, by the same suite: each leg builds its own triple and boots its own
+archive. Nothing here is per-ISA code.
+
+## BUGS
+
+- A `.qemu-version` change leaves main with no QEMU cache, so every pull request and merge-group
+  run rebuilds QEMU (about 270 s in `test`) until somebody dispatches CI on main. A run can read
+  only its own ref's caches and main's, and a push to main skips the suite, and with it the cache
+  save, when a merge group already tested the commit (the `gate` job). The fix is a mechanism:
+  `gate`, or a small job beside it, saves the QEMU cache on a push to main even when the suite is
+  skipped. Found 2026-10-10 (UTC) by the maintainer after #1899.
+
+- `package_index_tests`' falsification is attested, not replayable. When it was attested no sweep
+  built the TLS graph; the suite now does, so a patch (`package_index::public_address` admitting
+  every address) can be written and replayed. Owed by whoever next touches that test.
+
+## Follow-on
+
+- **Milestone 801.** Its whole-fetch gate runs in CI from this merge; its `BUGS` line is removed.
+- **Milestone 501.** Its "absent from CI" `BUGS` line is removed; the host tests it named run in
+  the host phase.
 
 ## Index row
 
