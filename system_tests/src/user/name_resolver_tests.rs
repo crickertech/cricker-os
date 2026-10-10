@@ -64,7 +64,7 @@ fn image(name: &str) -> &'static [u8] {
 /// the two `virt` boards, the instruction on x86_64's `q35`. The first `ensure` is handed the
 /// service's readiness report and must drain it, or the service parks in its own startup
 /// (`ntp_tests`' `machine_has_no_entropy` has the story).
-fn entropy() -> Option<RendezvousId> {
+pub(super) fn entropy() -> Option<RendezvousId> {
     let image = image("entropy");
     for bus in [
         entropy_service::Bus::Mmio,
@@ -105,7 +105,11 @@ fn stack_pages(pages: u64, held: &mut Holding) -> [Mapping; STACK_PAGES_MAX] {
 /// **Start the resolver on `stack`**, told to ask `fixture::SERVER` on port 53 over TCP. Returns its
 /// endpoint, from a region of its own in `held`: the resolver blocks there between requests, and
 /// reclaiming that region is what wakes it to die at release.
-fn start_resolver(stack: RendezvousId, entropy: RendezvousId, held: &mut Holding) -> RendezvousId {
+pub(super) fn start_resolver(
+    stack: RendezvousId,
+    entropy: RendezvousId,
+    held: &mut Holding,
+) -> RendezvousId {
     let region = crate::memory_region::create(1).expect("no endpoint region for the resolver");
     let service = crate::sched::create_rendezvous_from(region).expect("no resolver endpoint");
     let budget = crate::memory_region::create(BUDGET_PAGES).expect("no untyped for the resolver");
@@ -142,7 +146,7 @@ fn start_resolver(stack: RendezvousId, entropy: RendezvousId, held: &mut Holding
 
 /// Play the spawner's half of a grant: the messages, through the unbadged capability (a kernel
 /// `SEND` carries badge 0).
-fn grant(service: RendezvousId, badge: u32, zone: &str) {
+pub(super) fn grant(service: RendezvousId, badge: u32, zone: &str) {
     for (w0, w1) in grant_messages(badge, zone.as_bytes()).expect("a grantable zone") {
         crate::sched::ipc_send(service, [w0, w1, 0]);
     }
@@ -305,4 +309,117 @@ fn a_granted_client_resolves_inside_its_zone_and_nothing_outside_it() {
 
     w.held
         .release_or_fail("net_stack, name_resolver and its clients");
+}
+
+/// The badge `std_resolve`'s capability carries, granted the same zone as the native client's.
+const GRANTED_STD: u32 = 0x801;
+
+/// What `std_resolve` prints with a grant, in order. The addresses and kinds are std's own
+/// spelling of the fixture's cases: the zone's address on the echo port, NXDOMAIN as `NotFound`,
+/// and a name outside the zone as `PermissionDenied`, which only the grant can produce.
+const STD_GRANTED: &[&str] = &[
+    "std_resolve start",
+    "lookup packages.nife.test: 10.0.2.9:7777",
+    "lookup nosuch.nife.test: NotFound",
+    "lookup example.com: PermissionDenied",
+    "echo by name ok",
+    "std_resolve done",
+];
+
+/// And with no resolver at `RESOLVER_SLOT`: every name is `Unsupported`, including the connect.
+const STD_UNGRANTED: &[&str] = &[
+    "std_resolve start",
+    "lookup packages.nife.test: Unsupported",
+    "lookup nosuch.nife.test: Unsupported",
+    "lookup example.com: Unsupported",
+    "echo by name: Unsupported",
+    "std_resolve done",
+];
+
+/// Run `std_resolve` over `stack`, with `resolver` at its slot or none, and check its transcript.
+fn std_resolve_prints(
+    program_image: &'static [u8],
+    stack: RendezvousId,
+    resolver: Option<(RendezvousId, u32)>,
+    want: &[&str],
+) {
+    use core::sync::atomic::Ordering;
+
+    use crate::arch::exceptions::USER_FAULTS;
+
+    let faults_before = USER_FAULTS.load(Ordering::Relaxed);
+    let spawned = std_service::start_networked_resolving(
+        program_image,
+        image("clock"),
+        image("entropy"),
+        stack,
+        resolver,
+    );
+    let run = &spawned.run;
+    let mut got = [0u8; 1024];
+    let len = super::std_tests::drain_sink(run.report, &mut got, "std_resolve");
+    let text = core::str::from_utf8(&got[..len]).unwrap_or("<not utf-8>");
+    crate::println!("    std_resolve printed:\n{text}");
+    let mut from = 0;
+    for line in want {
+        match text[from..].find(line) {
+            Some(at) => from += at + line.len(),
+            None => panic!("std_resolve never printed `{line}` (after what came before it)"),
+        }
+    }
+    assert!(
+        super::wait_for(|| !crate::sched::is_thread_present(run.thread)),
+        "std_resolve never left",
+    );
+    assert_eq!(
+        USER_FAULTS.load(Ordering::Relaxed),
+        faults_before,
+        "std_resolve trapped instead of exiting",
+    );
+    let _ = crate::sched::reclaim_region(spawned.frames);
+    run.give_back("std_resolve");
+}
+
+/// **A `std` program's `ToSocketAddrs` resolves exactly the zone its resolver badge was granted,
+/// and nothing at all without one** (milestone 801 (packages over the internet), item 3).
+///
+/// The same resolver, zone and peer as the test above, with the std PAL's `lookup_host` as the
+/// client instead of a native one. With the badge, the zone's name resolves to the peer and a
+/// connection by name echoes; NXDOMAIN reads as `NotFound`; `example.com` reads as
+/// `PermissionDenied`, which only the grant can say, since the peer would have answered `REFUSED`.
+/// Without it, the PAL finds the slot empty and answers `Unsupported` before minting a page.
+///
+/// Falsification: replayable `system_tests/falsifications/user.name_resolver_tests.a_std_program_resolves_its_granted_zone_and_nothing_without_a_grant.patch`
+#[test_case]
+fn a_std_program_resolves_its_granted_zone_and_nothing_without_a_grant() {
+    let Some(std_resolve) = program("std_resolve") else {
+        crate::testing::skip!(std_service::NO_STD_EXERCISER);
+    };
+    let Some(entropy) = entropy() else {
+        crate::testing::skip!("no entropy source on this machine, and the resolver needs one");
+    };
+    let mut w = match e1000e_service::start_net_server(
+        image("net_stack"),
+        socket_protocol::NO_LISTEN_GRANT,
+    ) {
+        Ok(w) => w,
+        Err(e1000e_service::Absent::NoController) => {
+            crate::testing::skip!("no e1000e NIC attached");
+        }
+        Err(why) => panic!("the e1000e NIC is on the bus and its bring-up refused: {why:?}"),
+    };
+    let _ = crate::sched::ipc_receive(w.report);
+    let service = start_resolver(w.stack, entropy, &mut w.held);
+    grant(service, GRANTED_STD, fixture::ZONE);
+
+    std_resolve_prints(
+        std_resolve,
+        w.stack,
+        Some((service, GRANTED_STD)),
+        STD_GRANTED,
+    );
+    std_resolve_prints(std_resolve, w.stack, None, STD_UNGRANTED);
+
+    w.held
+        .release_or_fail("net_stack and name_resolver, for std_resolve");
 }

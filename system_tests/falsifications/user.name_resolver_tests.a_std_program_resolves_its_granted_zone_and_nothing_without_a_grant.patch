@@ -1,0 +1,25 @@
+Falsifies `system_tests::user::name_resolver_tests::a_std_program_resolves_its_granted_zone_and_nothing_without_a_grant`.
+
+Architecture: aarch64
+
+The defect: std's `lookup_host` collapses the resolver's refusal into "no such name", the way a
+POSIX resolver reports every failure as one error. A program could then not tell a name outside
+its grant from a name that does not exist, which is the difference milestone 801 (packages over the
+internet) keeps by mapping `DENIED` to `PermissionDenied`.
+
+Expected to fail: the line `lookup example.com: PermissionDenied`, printed as `NotFound`. Measured
+2026-10-09 (UTC) on aarch64, and replayed 2026-10-10 after the refusal kinds grew: red with
+exactly that assertion.
+
+diff --git a/patches/std-nife/overlay/std/src/sys/net/connection/nife.rs b/patches/std-nife/overlay/std/src/sys/net/connection/nife.rs
+--- a/patches/std-nife/overlay/std/src/sys/net/connection/nife.rs
++++ b/patches/std-nife/overlay/std/src/sys/net/connection/nife.rs
+@@ -1155,7 +1155,7 @@
+             }
+             return Ok(LookupHost { addresses, count, next: 0, port });
+         }
+-        resolve::status::DENIED => io::ErrorKind::PermissionDenied,
++        resolve::status::DENIED => io::ErrorKind::NotFound,
+         resolve::status::NO_SUCH_NAME => io::ErrorKind::NotFound,
+         resolve::status::BAD_NAME => io::ErrorKind::InvalidInput,
+         // The resolver asked and heard nothing it could use in time.

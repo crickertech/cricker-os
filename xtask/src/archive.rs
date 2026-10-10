@@ -5,7 +5,8 @@
 
 use crate::disk::{mkfs_elf, redoxfs_server_elf};
 use crate::farm::{
-    cryptography_exerciser_elf, pinned_tls_exerciser_elf, ripgrep_elf, std_exerciser_elf,
+    cryptography_exerciser_elf, package_fetch_exerciser_elf, pinned_tls_exerciser_elf, ripgrep_elf,
+    std_exerciser_elf, std_resolve_elf,
 };
 use crate::host::{bin_elf, workspace_root};
 use crate::inspect::read_stripped;
@@ -233,13 +234,15 @@ fn bin_names(manifest: &str) -> Result<Vec<String>, String> {
 /// **Archive entries packed from outside `components/` and `fixtures/`**, each present only when its
 /// own build ran (see the `initrd_*` functions). Hoisted out of the one test that used to hold it
 /// (milestone 595 (provisional)), because [`check_declared_programs`] now needs the same list.
-const BUILT_ELSEWHERE: [&str; 6] = [
+const BUILT_ELSEWHERE: [&str; 8] = [
     "redoxfs_server",
     "mkfs",
     "std_exerciser",
     "rg",
     "cryptography_exerciser",
     "pinned_tls_exerciser",
+    "std_resolve",
+    "package_fetch_exerciser",
 ];
 
 /// **A `std` program the shell can spawn, built by its own workspace rather than a `[[bin]]`**
@@ -346,6 +349,14 @@ pub(crate) fn initrd_riscv() -> bool {
     ) {
         blobs.push(("std_exerciser", bytes));
     }
+    // `std_resolve` (milestone 801 (packages over the internet)), built by the same step.
+    if let Ok(bytes) = read_stripped(
+        &std_resolve_elf("riscv64-unknown-nife")
+            .display()
+            .to_string(),
+    ) {
+        blobs.push(("std_resolve", bytes));
+    }
     // **Unmodified `ripgrep`** (milestone 121), on the same terms as aarch64's: present iff
     // `helpers/build-ripgrep.sh` has been run, absent from every ordinary build and from CI.
     // DECISIONS §19 is why this leg exists at all: the same experiment on both ISAs, or a scope
@@ -370,6 +381,14 @@ pub(crate) fn initrd_riscv() -> bool {
             .to_string(),
     ) {
         blobs.push(("pinned_tls_exerciser", bytes));
+    }
+    // The package index's client (milestone 801), built by the same helper, on the same terms.
+    if let Ok(bytes) = read_stripped(
+        &package_fetch_exerciser_elf("riscv64-unknown-nife")
+            .display()
+            .to_string(),
+    ) {
+        blobs.push(("package_fetch_exerciser", bytes));
     }
     // The FS server (milestone 32 phase 2), built for the riscv bare target, rides along when
     // present, exactly as std_exerciser does; `test` builds it first.
@@ -520,6 +539,11 @@ pub(crate) fn initrd_x86() -> bool {
     ) {
         blobs.push(("std_exerciser", bytes));
     }
+    // `std_resolve` (milestone 801 (packages over the internet)), built by the same step.
+    if let Ok(bytes) = read_stripped(&std_resolve_elf("x86_64-unknown-nife").display().to_string())
+    {
+        blobs.push(("std_resolve", bytes));
+    }
     // **Unmodified `ripgrep`** (milestones 121 and 184), present iff `helpers/build-ripgrep.sh` ran.
     if let Ok(bytes) = read_stripped(&ripgrep_elf("x86_64-unknown-nife").display().to_string()) {
         blobs.push(("rg", bytes));
@@ -541,6 +565,14 @@ pub(crate) fn initrd_x86() -> bool {
             .to_string(),
     ) {
         blobs.push(("pinned_tls_exerciser", bytes));
+    }
+    // The package index's client (milestone 801), built by the same helper, on the same terms.
+    if let Ok(bytes) = read_stripped(
+        &package_fetch_exerciser_elf("x86_64-unknown-nife")
+            .display()
+            .to_string(),
+    ) {
+        blobs.push(("package_fetch_exerciser", bytes));
     }
     let mut files: Vec<(&str, &[u8])> = blobs.iter().map(|(n, b)| (*n, b.as_slice())).collect();
     // The image's package source, on the same terms as aarch64's (see there). Since milestone 198
@@ -633,6 +665,16 @@ pub(crate) fn initrd_aarch64() -> bool {
     if let Some(bytes) = &std_exerciser {
         files.push(("std_exerciser", bytes.as_slice()));
     }
+    // `std_resolve` (milestone 801 (packages over the internet)), built by the same step.
+    let std_resolve = read_stripped(
+        &std_resolve_elf("aarch64-unknown-nife")
+            .display()
+            .to_string(),
+    )
+    .ok();
+    if let Some(bytes) = &std_resolve {
+        files.push(("std_resolve", bytes.as_slice()));
+    }
     // The FS server (milestone 32 phase 2) rides along IFF built (its own workspace/target; `test`
     // builds it). Absent for a plain interactive boot, which simply skips the FS-server test.
     let redoxfs_server = read_stripped(&redoxfs_server_elf(TARGET)).ok();
@@ -674,6 +716,16 @@ pub(crate) fn initrd_aarch64() -> bool {
     .ok();
     if let Some(bytes) = &pinned_tls {
         files.push(("pinned_tls_exerciser", bytes.as_slice()));
+    }
+    // The package index's client (milestone 801), built by the same helper, on the same terms.
+    let package_fetch = read_stripped(
+        &package_fetch_exerciser_elf("aarch64-unknown-nife")
+            .display()
+            .to_string(),
+    )
+    .ok();
+    if let Some(bytes) = &package_fetch {
+        files.push(("package_fetch_exerciser", bytes.as_slice()));
     }
     // **The image's package source** (milestone 198 (a package manager) rung 3a): every recipe under `packages/` for
     // this architecture is built, written where the package tests' HTTP peer serves it, and its

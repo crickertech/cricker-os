@@ -113,6 +113,9 @@ KEPT = {
     'system_tests/src/user/live_swap_tests.rs':
         ({'cap', 'device_frame_cap', 'memory_region_root_cap', 'notification_cap', 'rendezvous_cap',
           'thread_control_block_insert_cap', 'timer_cap'}, _CALLS),
+    # Milestone 801 (packages over the internet), 2026-10-09 (UTC): a std program's resolver badge
+    # is minted by the existing constructor, and nothing cap-named is minted here.
+    'system_tests/src/user/std_service.rs': ({'rendezvous_cap_badged'}, _CALLS),
 }
 
 EXCLUDED_PREFIXES = ('vendor/', 'patches/', 'target/')

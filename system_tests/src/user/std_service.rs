@@ -1,5 +1,7 @@
 use super::*;
-use crate::cap::{Rights, memory_region_cap, page_frame_cap, rendezvous_cap};
+use crate::cap::{
+    Rights, memory_region_cap, page_frame_cap, rendezvous_cap, rendezvous_cap_badged,
+};
 use crate::sched::RendezvousId;
 use crate::user::holding::Holding;
 
@@ -168,6 +170,10 @@ pub fn start_on_full(
 pub struct Network {
     pub stack: RendezvousId,
     pub frames: u64,
+    /// A name resolver's endpoint and the badge the spawner granted a zone, placed at
+    /// `std_runtime_protocol::RESOLVER_SLOT` (milestone 801 (packages over the internet)). `None`
+    /// leaves the slot empty, and `ToSocketAddrs` then resolves numeric addresses only.
+    pub resolver: Option<(RendezvousId, u32)>,
 }
 
 /// The `std` slot for the `Stack` endpoint and the one for the socket frames' budget.
@@ -200,11 +206,28 @@ pub fn start_networked(
     entropy_image: &'static [u8],
     stack: RendezvousId,
 ) -> NetworkedRun {
+    start_networked_resolving(image, clock_image, entropy_image, stack, None)
+}
+
+/// [`start_networked`], and also `resolver` (an endpoint and the badge its zone was granted to) at
+/// `std_runtime_protocol::RESOLVER_SLOT`, so the program's `ToSocketAddrs` asks it. Milestone 801
+/// (packages over the internet) is the first program to resolve a name through `std::net`.
+pub fn start_networked_resolving(
+    image: &'static [u8],
+    clock_image: &'static [u8],
+    entropy_image: &'static [u8],
+    stack: RendezvousId,
+    resolver: Option<(RendezvousId, u32)>,
+) -> NetworkedRun {
     let report_region = crate::memory_region::create(1).expect("no region for the std stdout");
     let report = crate::sched::create_rendezvous_from(report_region).expect("no std stdout");
     let frames = crate::memory_region::create(NETWORK_FRAME_PAGES)
         .expect("no untyped for the std program's socket frames");
-    let net = Network { stack, frames };
+    let net = Network {
+        stack,
+        frames,
+        resolver,
+    };
     let mut wiring = Wiring(Holding::new());
     let (heap, thread) = spawn_std(
         image,
@@ -341,6 +364,13 @@ fn spawn_std(
                 .expect("the std stack slot was already occupied");
             crate::sched::grant_at(NET_MEMORY_REGION_SLOT, memory_region_cap(net.frames))
                 .expect("the std socket-frame slot was already occupied");
+            if let Some((resolver, badge)) = net.resolver {
+                crate::sched::grant_at(
+                    std_runtime_protocol::RESOLVER_SLOT,
+                    rendezvous_cap_badged(resolver, Rights::WRITE, badge as u64),
+                )
+                .expect("the std resolver slot was already occupied");
+            }
         }
         run(
             image,
