@@ -52,7 +52,7 @@ standing measurements, and the constraints.
 
 ## Follow-on
 
-- **Proposed.** `design/roadmap/proposals/the-comment-block-sweep-continues-again.md`: worth four,
+- **Milestone 864.** Milestone 864 (the comment-block sweep continues again, worth four),
   under the amended method: constraint stays, history goes to the commit message and git, no
   transplant documents. Next worst: `jh7110_clock_and_reset` (184), `current_cpu_protocol`
   (183), `login` (178), `jh7110_entropy` (176) and `board_console` (176).

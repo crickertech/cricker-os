@@ -1,13 +1,18 @@
 ---
-status: PROPOSED
+status: IN-PROGRESS
 raised: 2026-10-09
+branch: milestone/864-the-comment-block-sweep-continues-again
+promoted_from: the-comment-block-sweep-continues-again
 milestone_dependencies: 863
 decision_dependencies: 267
 machine_requirements: none
 specific_machine: none
 needs_person: no
 ---
-# The comment-block sweep continues again, worth four
+# 864. The comment-block sweep continues again, worth four
+
+*(Minted 2026-10-10 (UTC) by lane `milestone/864-the-comment-block-sweep-continues-again` from the proposal `the-comment-block-sweep-continues-again`. The number is provisional until the merge queue lands it; the title and slug are drafts.)*
+
 
 Raised 2026-10-09 (UTC) by the lane that built milestone 863 (the comment-block sweep continues,
 worth three), at the end of its worth. §267 (a comment states the constraint as it is now) caps a
