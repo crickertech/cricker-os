@@ -300,6 +300,11 @@ printf 'nife-tftp!' > "$TFTPDIR/nife"
 BENCH_PEER="$(cd "$(dirname "$0")" && pwd)/network-bench-peer"
 TLS_PEER="$(cd "$(dirname "$0")" && pwd)/tls-peer"
 NAME_SERVER_PEER="$(cd "$(dirname "$0")" && pwd)/name-server-peer"
+# The boot's tag, as in qemu-runner-x86_64.sh: helpers/name-server-peer keys its rebinding answer
+# for milestone 871 (a sixth outsider pass attacks the confinement claim) on it. Missing here at
+# first, so every UEFI boot after the first shared one state file and the probe proved nothing.
+NIFE_BOOT_TAG="$$-$(date +%s)"
+export NIFE_BOOT_TAG
 NET="-netdev user,id=net0,guestfwd=tcp:10.0.2.9:7777-cmd:/bin/cat,guestfwd=tcp:10.0.2.9:8080-cmd:$PACKAGE_PEER,guestfwd=tcp:10.0.2.9:53-cmd:$NAME_SERVER_PEER,guestfwd=tcp:10.0.2.9:9494-cmd:$BENCH_PEER,guestfwd=tcp:10.0.2.9:8443-cmd:$TLS_PEER,tftp=$TFTPDIR -device e1000e,netdev=net0,mac=52:54:00:e1:00:0e,romfile="
 
 exec helpers/qemu-bounded.sh "$TIMEOUT" qemu-system-x86_64 \
