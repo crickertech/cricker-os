@@ -78,7 +78,7 @@ pub fn cold_reset(marker: &str) -> abi::Error {
 
 /// The AXP15060 direct-write route, on the machines that have the plan for it. A no-op with no
 /// output everywhere else, including every machine CI boots. Returns only to say the attempt
-/// failed and the firmware route is next; a write the PMIC honours never comes back.
+/// failed and the firmware route is next; a write the PMIC honors never comes back.
 // The JH7110's polled I2C master, used only by the direct AXP15060 route below, so riscv64-only
 // too. See kernel/src/reboot/designware_i2c.rs.
 #[cfg(target_arch = "riscv64")]
@@ -154,7 +154,7 @@ fn pmic_reset_attempt(marker: &str) {
     let value = current[0] | (1 << PMIC_RESET_BIT);
     println!(
         "{marker} AXP15060: reg {PMIC_RESET_REG:#04x} read {:#04x}, writing {value:#04x} (bit \
-         {PMIC_RESET_BIT} set, every other bit as found); this line is the last if the PMIC honours it",
+         {PMIC_RESET_BIT} set, every other bit as found); this line is the last if the PMIC honors it",
         current[0],
     );
     // The line above is the one the 2026-10-09 bench lost, so it goes out on the wire before the

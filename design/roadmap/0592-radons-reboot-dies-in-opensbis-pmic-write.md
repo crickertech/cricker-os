@@ -208,7 +208,7 @@ What each outcome means, decided before it runs:
                     (bus_root 1, divs 3/2/4, pll2 fbdiv 99 prediv 2 postdiv1 1), standard mode
                     hcnt 208 lcnt 229 sda_hold 15
   soak-test-reboot: AXP15060: reg 0x32 read 0x24, writing 0x64 (bit 6 set, every other bit as
-                    found); this line is the last if the PMIC honours it
+                    found); this line is the last if the PMIC honors it
   soak-test-reboot: AXP15060: write completed without a r        <- power cut mid-word, four times
   ```
 
