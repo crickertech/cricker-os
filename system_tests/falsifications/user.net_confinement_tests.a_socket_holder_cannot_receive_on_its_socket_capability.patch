@@ -1,4 +1,4 @@
-Falsifies `system_tests::user::net_confinement_tests::a_squatter_at_a_shared_stack_endpoint_cannot_capture_the_clients_traffic`,
+Falsifies `system_tests::user::net_confinement_tests::a_socket_holder_cannot_receive_on_its_socket_capability`,
 its receive-probe assertion (`armed[2]`), added by risk 7's fifth outsider pass (2026-10-10 UTC).
 
 Architecture: aarch64, riscv64, x86_64

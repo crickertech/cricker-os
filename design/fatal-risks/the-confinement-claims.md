@@ -242,6 +242,37 @@ pass also made claim 26's test fail rather than hang, red under its recorded pat
 has four entries; the redoxfs name-window race is the next probe, milestone 825 (a hostile client
 races the file server's name window). The fix does not count toward (c): that needs a fresh pass.
 
+### The fifth outsider pass (2026-10-10, milestone 867)
+
+Added under §216, from milestone 867 (a fifth outsider pass attacks the confinement claim),
+whose number is PROVISIONAL. The fifth pass was by Claude (Opus 5.5), informed, on the shipped surfaces.
+The record is [`notes/confinement-outsider-pass-5.md`](../../notes/confinement-outsider-pass-5.md).
+
+It found no new escape and no re-discovery. It went at the §255 (each socket is its own capability)
+socket-capability model first, the surface pass 4's escape and #1817 rewrote, and the one `std::net`
+at the prompt rides. The variant analysis confirmed the fix closed the capture class and not only
+the instance: a socket is named only by a kernel-stamped badge, the front door mints and does
+nothing else, `BADGE` refuses an already-badged source, `CLOSE` unbinds the badge and unmaps the
+page, the badge counter never rewinds, and `ATTACH` unmaps the prior page before mapping.
+
+The one sibling left untested was a kernel plain `RECEIVE` or `RECEIVE_CAP` on a real minted socket
+capability, as opposed to the contract opcode pass 4 tried on the front door. This pass booted it.
+The stack mints each socket's capability from a `WRITE | GRANT` copy of its own serve endpoint, with
+no `READ`. A copy that carried `READ` would let a socket holder dequeue the stack's own incoming
+queue, every other client's request, through a kernel receive. The kernel refuses a receive on a
+`READ`-less endpoint (`kernel/src/syscall.rs`), so the omission of `READ` confines it. The squatter
+now runs both probes on its own socket and
+`net_confinement_tests::a_squatter_at_a_shared_stack_endpoint_cannot_capture_the_clients_traffic`
+asserts both refused, green on aarch64, with a replayable falsification (grant the mint `READ`)
+replayed red on aarch64.
+
+The milestone 801 (packages over the internet) package fetch path was out of scope, unmerged, so not
+a shipped path. Row 26 is no longer unattacked; passes 3 and 4 made its own test fail rather than
+hang. The refusal log's one shipped-path entry is the redoxfs name-window TOCTOU, homed in milestone
+825. By criterion (c) this is a clean pass by an Anthropic model, so it can be the first of the two
+consecutive clean passes; the second must be a non-Anthropic model or a human, so (c) is not yet
+met. The verdict is unchanged, and moving the colour stays calef's.
+
 ### Added 2026-10-03: row 27's hand-off was tested on one of the two `x86_64` boots
 
 From 2026-09-23 to 2026-10-03 (UTC), `port_holder_transmits_then_a_non_holder_faults` (row 27 of

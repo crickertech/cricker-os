@@ -216,14 +216,6 @@ fn a_squatter_at_a_shared_stack_endpoint_cannot_capture_the_clients_traffic() {
          its closed socket)",
         !armed[1] & SQUATTER_ALL_REFUSED,
     );
-    assert_eq!(
-        armed[2],
-        SQUATTER_RECV_REFUSED,
-        "CONFINEMENT ESCAPE: a socket holder reached the stack's own incoming queue through a \
-         kernel receive on its socket capability; of RECEIVE (bit 0) and RECEIVE_CAP (bit 1) these \
-         were NOT refused: {:#b}. The minted socket capability must carry no READ right.",
-        !armed[2] & SQUATTER_RECV_REFUSED,
-    );
 
     // Now the honest exchange, while the squatter watches its page.
     crate::sched::ipc_send(go, [1, 0, 0]);
@@ -243,6 +235,48 @@ fn a_squatter_at_a_shared_stack_endpoint_cannot_capture_the_clients_traffic() {
     );
     held.release_or_fail("the squatter net test's clients");
     crate::sched::reclaim_region(go_region).expect("the go endpoint's region did not come back");
+}
+
+/// **A socket holder cannot receive on its socket capability** (risk 7's fifth outsider pass, new
+/// ground on the §255 (each socket is its own capability) surface).
+///
+/// The stack mints each socket's capability from a `WRITE | GRANT` copy of its own serve endpoint
+/// (`socket_protocol::stack_slots::MINT`), carrying the socket's badge and no `READ`. A copy that
+/// carried `READ` would let its holder run a kernel plain `RECEIVE` or `RECEIVE_CAP` on it and
+/// dequeue the stack's own incoming queue, every other client's request to the stack: the capture
+/// class milestone 649 (every client of a network stack shares its socket numbers) closed, reached
+/// by IPC rather than by the squatted page pass 4 booted. The kernel refuses a receive on a
+/// `READ`-less endpoint (`kernel/src/syscall.rs`), so both are refused at once.
+///
+/// The squatter (role 8) opens a socket of its own and runs both probes on it, reporting the result
+/// in word 2 of its armed report. No victim is needed: the probe is on the squatter's own socket
+/// capability. If the mint carried `READ` the probe would block on the stack's endpoint instead of
+/// being refused, so the squatter would never arm, which this test reads as a failure.
+///
+/// Falsification: replayable `system_tests/falsifications/user.net_confinement_tests.a_socket_holder_cannot_receive_on_its_socket_capability.patch`
+#[test_case]
+fn a_socket_holder_cannot_receive_on_its_socket_capability() {
+    let Some((mut held, stack)) = start_stack() else {
+        crate::testing::skip!("no e1000e NIC attached");
+    };
+    let squatter = spawn_client(NET_ROLE_SQUATTER, Some(stack), &[], &mut held);
+    let armed = next_report(squatter, "squatter");
+    assert_eq!(
+        armed[0], SQUATTER_ARMED,
+        "the squatter did not arm: word {:#x}",
+        armed[0]
+    );
+    assert_eq!(
+        armed[2],
+        SQUATTER_RECV_REFUSED,
+        "CONFINEMENT ESCAPE: a socket holder reached the stack's own incoming queue through a \
+         kernel receive on its socket capability; of RECEIVE (bit 0) and RECEIVE_CAP (bit 1) these \
+         were NOT refused: {:#b}. The minted socket capability must carry no READ right.",
+        !armed[2] & SQUATTER_RECV_REFUSED,
+    );
+    // Let the squatter run out its page watch and exit, so the lane's threads are all reaped.
+    let _ = next_report(squatter, "squatter (final)");
+    held.release_or_fail("the receive-probe squatter");
 }
 
 /// **A socket moves by passing its capability, and a closed socket's capability reaches nothing.**
