@@ -72,6 +72,15 @@ The collisions that produced this rule are in
   puts the reasoning in `notes/` and in its report, and the integrator mints the section at merge.
   If a lane must write the section to make its own gates pass, the number is provisional: say so in
   the report, and expect renumbering.
+- Milestone numbers a lane mints are provisional the same way. When one collides, renumber the
+  block's file and H1, the commits that name the number, and the pull request title, but keep the
+  branch name: renaming the head branch of an open pull request closes the pull request (#1901,
+  2026-10-10 UTC, cut as 868 and merged as 871). The block's status paragraph says it was
+  renumbered, from what, to what, on what date and why; the pull request title carries the new
+  number; and the body's first paragraph gives the old number and the branch it kept. `script/lint`
+  4b finds the moved block when its slug equals the branch's or its text names the branch, so a
+  lane that also retitles writes the branch name into the block. `script/claim` refuses a number
+  an open pull request's title or branch already holds.
 - Counts that span the tree. Take such a number at merge, from the merged tree.
 
 Some shared state is global to the *machine*, not the repo, and `rustup toolchain link` is the one

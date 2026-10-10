@@ -178,7 +178,9 @@ Two failures are common after a rebase and both are yours to fix:
   introduced moves to a free number; the one already on `origin/main` keeps it. Pick the lowest free
   number above 557. Rename with `git mv`, change the H1's number to match, and add a sentence to
   the status paragraph saying it was renumbered, with the date, because a concurrently merged lane
-  had taken the old number.
+  had taken the old number. Retitle the pull request with the new number and keep the branch name,
+  since renaming an open pull request's branch closes it ([the developer
+  lane](../notes/skills/developer-lane/SKILL.md), shared state).
 - A compile error about a function taking more arguments than were supplied. Some function grew
   a parameter on `main` while this branch sat. Find another call site of that function on `main` and
   pass what it passes.

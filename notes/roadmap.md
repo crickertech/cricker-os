@@ -510,9 +510,9 @@ get frontmatter too) proved its migration the same way.
   those revisions still have it. For revisions after 2026-09-21 both fall back to counting the
   blocks. The two answers are not identical for the weeks in between: a week whose revision carried
   a stale table counts what the table said, which is what that week's reader would have seen.
-- Two lanes minting the same milestone number still collide. The shape is two files claiming
-  one number, which `script/roadmap` has always called fatal and which `script/decisions` records
-  as the reason a directory beats a single file.
+- Two lanes minting one milestone number can still collide, which `script/roadmap` calls fatal.
+  `script/claim` refuses a number an open pull request holds (2026-10-10 UTC); same-minute claims
+  and hand renumbers still slip past it.
 - Nothing publishes any of this. calef's sentence retiring the table named a website as where
   the project plan eventually goes; there is no publishing story today, and the gap is written up
   in `design/roadmap/0565-a-website-for-the-project-plan.md`.
