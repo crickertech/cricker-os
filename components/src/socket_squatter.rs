@@ -20,8 +20,8 @@
 //!    none;
 //! 3. tries to mint a socket's capability itself with `BADGE`, which its front door has no `GRANT`
 //!    for;
-//! 4. opens a socket of its own, tries to re-badge that one into another, closes it, and then tries
-//!    the closed capability, which must reach nothing, and must not open a socket either;
+//! 4. opens a socket of its own and tries a kernel `RECEIVE` and `RECEIVE_CAP` on its capability,
+//!    refused as minted without `READ`; re-badges it, closes it, and tries the closed one (nothing);
 //! 5. arms a valid TFTP read request in its own page, reports which of those were refused, and
 //!    watches its page for the victim's traffic, bounded.
 //!
@@ -49,8 +49,8 @@ use abi::rights;
 use socket_protocol::*;
 use user_mode_runtime::mapped_window::{MappedWindow, PAGE};
 use user_mode_runtime::{
-    badge, call, call_receiving, cap_delete, exit, map_page_frame, now, retype_page_frame, send,
-    send_cap, yield_now,
+    badge, call, call_receiving, cap_delete, exit, map_page_frame, now, receive, receive_cap,
+    retype_page_frame, send, send_cap, yield_now,
 };
 
 use crate::socket_test_client::TFTP_NAME;
@@ -68,6 +68,10 @@ pub const RPT_ARMED: u64 = 1;
 pub const RPT_LEAKED: u64 = 1;
 pub const RPT_QUIET: u64 = 0;
 
+// Word 2 of that report (`recv_refused`) sets one bit per kernel-IPC probe on the squatter's own
+// socket capability that was refused: bit 0 a plain `RECEIVE`, bit 1 a `RECEIVE_CAP`. Both set is
+// the held world (the minted socket capability carries no `READ`, so neither can drain the stack).
+//
 // Word 1 of that report sets one bit per attempt that was refused, ten in all. In order: the six
 // socket operations on the front door (`SENDTO`, `SEND`, `CONNECT`, `ACCEPT`, `CLOSE`, `RECEIVE`);
 // minting a socket with `BADGE` on the front door; re-badging its own socket; its own socket after
@@ -131,7 +135,25 @@ pub fn run() -> ! {
 
     // 4. A socket of our own: re-badging it is refused (a badge is set once), and once closed it
     //    reaches nothing, not even the front door's power to open.
+    //
+    //    The two kernel-IPC probes are new ground, risk 7's fifth outsider pass (2026-10-10 UTC).
+    //    The capability the stack mints for a socket is a copy of the stack's own serve endpoint,
+    //    carrying the socket's badge (`socket_protocol::stack_slots::MINT`). If that copy carried
+    //    `READ`, a kernel plain `RECEIVE` or `RECEIVE_CAP` on it would dequeue the stack's own
+    //    incoming queue, every other client's request to the stack, which is the capture class
+    //    milestone 649 closed reached by IPC rather than by a squatted page. The mint omits `READ`
+    //    (it is `WRITE | GRANT`), and the kernel refuses a receive on a `READ`-less endpoint
+    //    (`kernel/src/syscall.rs`, `RECEIVE`/`RECEIVE_CAP`), so both return a negative error at
+    //    once rather than blocking. A permissive kernel would instead block here, which the test
+    //    reads as the squatter never arming.
+    let mut recv_refused = 0u64;
     if let (REP_OK, _, Some(own)) = call_receiving(STACK, OPERATION_OPEN_UDP, 0) {
+        if (receive(own).0 as i64) < 0 {
+            recv_refused |= 1 << 0;
+        }
+        if (receive_cap(own).0 as i64) < 0 {
+            recv_refused |= 1 << 1;
+        }
         if badge(own, SOCKET_BADGE | 2) < 0 {
             refused |= 1 << 7;
         }
@@ -169,7 +191,7 @@ pub fn run() -> ! {
     WINDOW.w16(OFF_DST_PORT, TFTP_PORT);
     WINDOW.w16(OFF_LEN, 0);
 
-    send(REPORT, RPT_ARMED, refused, 0);
+    send(REPORT, RPT_ARMED, refused, recv_refused);
 
     let deadline = now() + WATCH_SECS * user_mode_runtime::cntfrq();
     while now() < deadline && WINDOW.r16(OFF_LEN) == 0 {

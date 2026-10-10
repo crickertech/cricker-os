@@ -1,0 +1,33 @@
+Falsifies `system_tests::user::net_confinement_tests::a_socket_holder_cannot_receive_on_its_socket_capability`,
+its receive-probe assertion (`armed[2]`), added by risk 7's fifth outsider pass (2026-10-10 UTC).
+
+Architecture: aarch64, riscv64, x86_64
+
+The defect is the socket capability carrying `READ`. The stack mints each socket's capability from
+`socket_protocol::stack_slots::MINT`, a copy of its own serve endpoint. The mint is `WRITE | GRANT`
+on purpose, with no `READ`, because a socket holder that could `RECEIVE` on its capability would
+dequeue the stack's own incoming queue, every other client's request to the stack. This hunk gives
+the mint `READ`, so the kernel's `RECEIVE` rights check (kernel/src/syscall.rs) passes and the
+squatter's probe blocks on the stack's endpoint instead of being refused.
+
+Expected to fail: the squatter's kernel `RECEIVE` on its own socket capability no longer returns
+`NotPermitted`; it blocks on the stack's endpoint queue (no sender pending at that point), so the
+squatter never sends its armed report and the test panics at `next_report(squatter, "squatter")`
+rather than reaching `assert_eq!(armed[2], SQUATTER_RECV_REFUSED, ...)`. Confirmed red on
+2026-10-10 (UTC) on aarch64 with `script/test --arch aarch64 --test a_squatter_at_a_shared_stack`:
+`[PANIC] ... the squatter never reported: it, the stack or the peer is blocked`. The hunk is in
+portable kernel wiring, so one patch serves every leg; riscv64 and x86_64 were not replayed by hand.
+
+diff --git a/kernel/src/user/e1000e_service.rs b/kernel/src/user/e1000e_service.rs
+index 13fa284d3..748ccdd2a 100644
+--- a/kernel/src/user/e1000e_service.rs
++++ b/kernel/src/user/e1000e_service.rs
+@@ -245,7 +245,7 @@ fn spawn_server(image: &'static [u8], listen_grant: u64, found: crate::e1000e::F
+         // server's own address space, `run_with_own_space` adds once the space exists.
+         at(
+             socket_protocol::stack_slots::MINT,
+-            rendezvous_cap(stack, Rights::WRITE.union(Rights::GRANT)),
++            rendezvous_cap(stack, Rights::WRITE.union(Rights::GRANT).union(Rights::READ)),
+         );
+         run_with_own_space(
+             image,
