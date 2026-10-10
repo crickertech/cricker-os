@@ -1,10 +1,9 @@
 //! **A thread's own CPU, as a page rather than a crossing.**
 //!
-//! calef ruled on 2026-09-21 that two different questions get two different mechanisms: observing
-//! *another* thread is a selector on the rendezvous surface, and a thread observing *itself* is a
-//! per-thread page on the shape Linux's `rseq(2)` uses. That ruling's `design/decisions/` section
-//! is on another branch and is not on `main` yet, so it is named here rather than cited; the
-//! citation lands when it does. This crate is the self half: one definition of the page the kernel
+//! calef ruled on 2026-09-21 (§204 (how userspace asks where a thread runs)) that two different
+//! questions get two different mechanisms: observing *another* thread is a selector on the
+//! rendezvous surface, and a thread observing *itself* is a per-thread page on the shape Linux's
+//! `rseq(2)` uses. This crate is the self half: one definition of the page the kernel
 //! writes the running core's id into, so the kernel (the one writer) and
 //! `user_mode_runtime::current_cpu` (every reader) cannot drift on the layout or the fixed virtual
 //! address (AGENTS.md rule 7).
@@ -24,8 +23,8 @@
 //!
 //! - **`aarch64`.** `MPIDR_EL1` is EL1 and above, so EL0 cannot read the core's identity at all.
 //!   There is one register a kernel could abuse for this, `TPIDRRO_EL0`, which is EL1-writable and
-//!   EL0-readable, and this tree does not use it for anything today. It was refused rather than
-//!   overlooked: see the refusals below.
+//!   EL0-readable, and this tree does not use it for anything today, and the refusal was a
+//!   ruling rather than an oversight.
 //! - **`riscv64`.** `mhartid` is M-mode. S-mode has `sscratch` and U-mode has nothing, so there is no
 //!   register path at all, not even an abusable one. This is the architecture that decides it.
 //! - **`x86_64`.** `RDPID`, and the older `LSL` against a GDT limit, do give ring 3 a core id, which
@@ -170,17 +169,11 @@
 //!   had already sized an array against. Correct for sizing, useless for iterating, and a consumer
 //!   that wants to iterate the online set is asking the other question, which the selector answers.
 //!
-//! Name: provisional (this lane, 2026-09-21). calef names the crates. `current_cpu` is the
-//! vocabulary the field already uses for exactly this quantity (Linux's `sched_getcpu`,
-//! `smp_processor_id`, `rseq`'s own `cpu_id` field), which puts it in the protected class a reader
-//! already knows; `_protocol` is calef's 2026-09-05 ruling on the suffix, the one
-//! `counter_frequency_protocol` carries. Refused `self_cpu_protocol`, which reads as a property of
-//! a thing called "self" rather than as the current core, and which borrows the branch name rather
-//! than the concept. Refused `cpu_id_protocol` as naming the field rather than the page's question.
-//! Refused `rseq_protocol`: it is the right prior art and the wrong name, because this carries none
-//! of `rseq`'s restartable-sequence machinery and a reader who knew the term would expect it.
-//! Refused a register-shaped name (`tpidrro_protocol` and friends) for the reason the register
-//! section gives, which is that the register does not exist on two of three targets.
+//! Name: provisional (this lane, 2026-09-21); calef names the crates. `current_cpu` is the
+//! vocabulary the field already uses for exactly this quantity (Linux's `sched_getcpu`, `rseq`'s
+//! own `cpu_id` field), and `_protocol` is the suffix ruling `counter_frequency_protocol` carries.
+//! The refused names (`self_cpu_protocol`, `cpu_id_protocol`, `rseq_protocol`, the register-shaped
+//! ones) and their reasons are in git history.
 
 #![cfg_attr(not(test), no_std)]
 

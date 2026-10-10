@@ -49,14 +49,11 @@
 //! (Milestone 243 gave it one dependency, `bitmap_font`, which is ours, has none of its own, and
 //! contains no `unsafe` either.)
 //!
-//! Ten of the tests could not run there in any case, and both families are worth knowing before
-//! anyone points Miri at this crate by hand. Five in [`port`] reach the host filesystem (`open`,
-//! reading `/dev`, the temp directory) and Miri's isolation refuses them. Five in [`watch`] are
-//! **wall-clock driven**: the policy's 15-second quiet timeout and 120-second budget are measured
-//! with `Instant`, so under an interpreter they expire while the replay is still feeding bytes and
-//! the watcher reports `Reached(Banner)` where a real run reaches `Reached(Tour)`. That is Miri
-//! being slow, not this crate being wrong, and it is the same category as `credentialer`'s timing test.
-//! See notes/undefined-behavior.md and the exclusion list in `xtask`.
+//! Ten of the tests could not run there in any case: five in [`port`] reach the host filesystem
+//! and Miri's isolation refuses them, and five in [`watch`] are wall-clock driven, so under an
+//! interpreter the timeouts expire mid-replay and report `Reached(Banner)` where a real run
+//! reaches `Reached(Tour)`. That is Miri being slow, not this crate being wrong. See
+//! notes/undefined-behavior.md and the exclusion list in `xtask`.
 //!
 //! # Examples
 //!

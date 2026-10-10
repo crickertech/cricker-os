@@ -20,23 +20,20 @@
 //!
 //! # Sources
 //!
-//! - **[binding]** Linux, `Documentation/devicetree/bindings/rng/starfive,jh7110-trng.yaml`,
-//!   mainline as of 2026-08-24 (fetched via
-//!   `raw.githubusercontent.com/torvalds/linux/master/...`). Gives the compatible string, the
-//!   `reg` window, the two clock inputs (`hclk`, `ahb`), one reset line, one interrupt, and the
-//!   worked example this crate's DTB fixture is modeled on:
+//! - **[binding]** Linux's `starfive,jh7110-trng.yaml` binding, mainline as of 2026-08-24: the
+//!   compatible string, the `reg` window, two clock inputs (`hclk`, `ahb`), one reset line, one
+//!   interrupt, and the worked example the DTB fixture is modeled on,
 //!   `rng@1600C000 { reg = <0x1600C000 0x4000>; interrupts = <30>; }`.
-//! - **[driver]** Linux, `drivers/char/hw_random/jh7110-trng.c`, mainline as of 2026-08-24,
-//!   fetched the same way. The register offsets and bit positions below are transcribed from it;
-//!   see each constant's doc for what the driver does with it. This is "the strongest grounding
-//!   available without hardware" the milestone's brief asked for: a real, shipped, working Linux
-//!   driver's register sequence, not a guess from the block diagram.
+//! - **[driver]** Linux's `jh7110-trng.c`, mainline as of 2026-08-24: the register offsets and
+//!   bit positions below are transcribed from it, and each constant's doc says what the driver
+//!   does with it. A real, shipped driver's register sequence, not a guess from the block
+//!   diagram.
 //! - **[ds]** `StarFive`, *JH7110 Datasheet*, v1.67 (2025-02-14),
 //!   `doc-en.rvspace.org/JH7110/PDF/JH7110_DS.pdf`, section 2.8.2 "TRNG", extracted with
-//!   `pdftotext -layout` on 2026-08-24 (the `RVspace` TLS certificate had expired; a mirror at
-//!   `elecrow.com/download/product/DTN63002G/JH7110_Datasheet.pdf` served the same PDF). Quoted
-//!   in full because it is short and it is the compliance claim (or its absence) this crate's
-//!   health-test story rests on:
+//!   `pdftotext -layout` on 2026-08-24 (a mirror at
+//!   `elecrow.com/download/product/DTN63002G/JH7110_Datasheet.pdf` served the PDF when the
+//!   `RVspace` certificate had expired). Quoted in full because it is the compliance claim (or
+//!   its absence) this crate's health-test story rests on:
 //!
 //!   > The TRNG module of JH7110 provides the following features.
 //!   > - Ring-oscillator based entropy source
@@ -50,22 +47,19 @@
 //! - **[trm]** `StarFive`, *JH7110 Technical Reference Manual*, Preliminary V2 (2023-04-24, Doc ID
 //!   `JH7110-TRMEN-001`), "TRNG > Control Registers",
 //!   `doc-en.rvspace.org/JH7110/TRM/JH7110_TRM/control_registers_trng.html`, fetched 2026-09-04.
-//!   **This is the register documentation the first two lanes did not have**, and it is what
-//!   settles three things they had to record as unknown: `ISTAT` is `R/W1C`, `AUTO_RQSTS` and
+//!   It settles three things once recorded as unknown: `ISTAT` is `R/W1C`, `AUTO_RQSTS` and
 //!   `AUTO_AGE` are disabled by writing zero, and `MODE.R256` decides whether the answer is four
 //!   words or eight. It also names two `ISTAT` bits no Linux driver defines (`AGE_ALARM`,
-//!   `RQST_ALARM`) and one `STAT` field worth knowing about, `LAST_RESEED`, whose value `0x7`
-//!   means "Unseeded (zeroized state)". The register map it gives is `CTRL` 0x00, `STAT` 0x04,
+//!   `RQST_ALARM`) and the `STAT` field `LAST_RESEED`, whose `0x7` means "Unseeded (zeroized
+//!   state)". The register map it gives is `CTRL` 0x00, `STAT` 0x04,
 //!   `MODE` 0x08, `SMODE` 0x0C, `IE` 0x10, `ISTAT` 0x14, `FEATURES` 0x1C, `RAND0..7` 0x20..0x3C,
 //!   `SEED0..7` 0x40..0x5C, `AUTO_RQSTS` 0x60, `AUTO_AGE` 0x64, `BUILD_CONFIG` 0x68, which agrees
 //!   with [driver] everywhere the two overlap. **Caveat, stated because it changes what can be
 //!   claimed**: the bit *positions* live in the page's figures, which are images, so the numbering
 //!   in this file comes from [driver] and [netbsd] and the TRM supplies the names and meanings.
-//! - **[netbsd]** `NetBSD`, `sys/arch/riscv/starfive/jh7110_trng.c`, `$NetBSD: jh7110_trng.c,v 1.2
-//!   2025/02/09 09:09:49 skrll Exp $`, fetched 2026-09-04 from
-//!   `raw.githubusercontent.com/NetBSD/src/trunk/sys/arch/riscv/starfive/jh7110_trng.c`. A third,
-//!   independent driver for the same block, and the most useful one here because **it is the only
-//!   one that polls**. It supplies the bit positions mainline omits
+//! - **[netbsd]** `NetBSD`'s `jh7110_trng.c` (revision 1.2, 2025-02-09, fetched 2026-09-04): a
+//!   third, independent driver for the same block, and the most useful one here because **it is
+//!   the only one that polls**. It supplies the bit positions mainline omits
 //!   (`IENABLE`/`ISTATUS`: `RAND_RDY` 0, `SEED_DONE` 1, `AGE_ALARM` 2, `RQST_LOCKUP` 3,
 //!   `LFSR_LOCKUP` 4, `GLOBAL` 31) and it is the source of the `SEEDED` gate this crate applies:
 //!   its poll path reads `STAT` and only trusts `ISTAT.RAND_RDY` when `STAT.SEEDED` is set,

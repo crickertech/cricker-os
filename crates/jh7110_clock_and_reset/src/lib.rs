@@ -29,104 +29,34 @@
 //!
 //! Every number below appears in **two independent published trees** that describe the same
 //! silicon, and they agree. That agreement is the reason this crate is willing to carry a
-//! constant at all; see [`STG`]'s own note.
+//! constant at all; see [`STG`]'s own note. The full quoted listings (both device trees, both
+//! drivers, the binding headers) are in this section's git history and in the linked sources.
 //!
-//! - **[mainline-dts]** Linux, `arch/riscv/boot/dts/starfive/jh7110.dtsi`, mainline, fetched
-//!   2026-09-04 via `raw.githubusercontent.com/torvalds/linux/master/...`:
-//!
-//!   ```text
-//!   rng: rng@1600c000 {
-//!       compatible = "starfive,jh7110-trng";
-//!       reg = <0x0 0x1600C000 0x0 0x4000>;
-//!       clocks = <&stgcrg JH7110_STGCLK_SEC_AHB>,
-//!                <&stgcrg JH7110_STGCLK_SEC_MISC_AHB>;
-//!       clock-names = "hclk", "ahb";
-//!       resets = <&stgcrg JH7110_STGRST_SEC_AHB>;
-//!       interrupts = <30>;
-//!   };
-//!   ```
-//!
-//!   with `stgcrg` being `compatible = "starfive,jh7110-stgcrg"` at
-//!   `reg = <0x0 0x10230000 0x0 0x10000>`.
-//! - **[mainline-trng]** Linux, `drivers/char/hw_random/jh7110-trng.c`, fetched 2026-09-04. The
-//!   probe order this crate's [`TRNG_BRING_UP`] reproduces:
-//!
-//!   ```c
-//!   trng->hclk = devm_clk_get(&pdev->dev, "hclk");
-//!   trng->ahb  = devm_clk_get(&pdev->dev, "ahb");
-//!   trng->rst  = devm_reset_control_get_shared(&pdev->dev, NULL);
-//!   clk_prepare_enable(trng->hclk);
-//!   clk_prepare_enable(trng->ahb);
-//!   reset_control_deassert(trng->rst);
-//!   ```
-//!
-//! - **[mainline-ids]** Linux, `include/dt-bindings/clock/starfive,jh7110-crg.h` and
-//!   `include/dt-bindings/reset/starfive,jh7110-crg.h`, fetched 2026-09-04:
-//!   `JH7110_STGCLK_SEC_AHB 15`, `JH7110_STGCLK_SEC_MISC_AHB 16`, `JH7110_STGRST_SEC_AHB 3`,
-//!   `JH7110_STGRST_END 23`.
-//! - **[mainline-clk]** Linux, `drivers/clk/starfive/clk-starfive-jh71x0.c` and its header,
-//!   fetched 2026-09-04. One 32-bit register per clock, `void __iomem *reg = priv->base + 4 *
-//!   clk->idx;`, and `#define JH71X0_CLK_ENABLE BIT(31)`.
-//! - **[mainline-rst]** Linux, `drivers/reset/starfive/reset-starfive-jh7110.c` and
-//!   `drivers/reset/starfive/reset-starfive-jh71x0.c`, fetched 2026-09-04:
-//!
-//!   ```c
-//!   static const struct jh7110_reset_info jh7110_stg_info = {
-//!       .nr_resets = JH7110_STGRST_END,
-//!       .assert_offset = 0x74,
-//!       .status_offset = 0x78,
-//!   };
-//!   ```
-//!
-//!   and the update rule, which is where [`is_deasserted`]'s inverted sense comes from:
-//!
-//!   ```c
-//!   u32 done = data->asserted ? data->asserted[offset] & mask : 0;
-//!   if (!assert)
-//!           done ^= mask;
-//!   ...
-//!   ret = readl_poll_timeout_atomic(reg_status, value, (value & mask) == done, 0, 1000);
-//!   ```
-//!
-//!   The JH7110 passes `asserted = NULL`, so `done` is `0` for an assert and `mask` for a
-//!   deassert: **a set status bit means the line is out of reset.**
-//! - **[vendor-dts]** `starfive-tech/u-boot`, branch `JH7110_VisionFive2_devel`,
-//!   `arch/riscv/dts/jh7110.dtsi`, fetched 2026-09-04. **This is the firmware radon actually
-//!   runs**, and it spells the same wiring differently:
-//!
-//!   ```text
-//!   trng: trng@1600C000 {
-//!       compatible = "starfive,trng";
-//!       clocks = <&clkgen JH7110_SEC_HCLK>, <&clkgen JH7110_SEC_MISCAHB_CLK>;
-//!       clock-names = "hclk", "miscahb_clk";
-//!       resets = <&rstgen RSTN_U0_SEC_TOP_HRESETN>;
-//!       status = "disabled";
-//!   };
-//!
-//!   clkgen: clock-controller {
-//!       compatible = "starfive,jh7110-clkgen";
-//!       reg = <0x0 0x13020000 0x0 0x10000>,
-//!             <0x0 0x10230000 0x0 0x10000>,
-//!             <0x0 0x17000000 0x0 0x10000>;
-//!       reg-names = "sys", "stg", "aon";
-//!   };
-//!
-//!   rstgen: reset-controller {
-//!       compatible = "starfive,jh7110-reset";
-//!       reg-names = "syscrg", "stgcrg", "aoncrg", "ispcrg", "voutcrg";
-//!   };
-//!   ```
-//!
-//! - **[vendor-ids]** the same branch's `include/dt-bindings/clock/starfive-jh7110-clkgen.h` and
-//!   `include/dt-bindings/reset/starfive-jh7110.h`, fetched 2026-09-04. The vendor numbers are
+//! - **[mainline-dts]** Linux's `jh7110.dtsi`: the TRNG node wired to `stgcrg` clocks
+//!   `JH7110_STGCLK_SEC_AHB` and `JH7110_STGCLK_SEC_MISC_AHB` ("hclk", "ahb") and reset
+//!   `JH7110_STGRST_SEC_AHB`; `stgcrg` is `starfive,jh7110-stgcrg` at `0x1023_0000`, 0x10000
+//!   wide.
+//! - **[mainline-trng]** Linux's `jh7110-trng.c`: the probe order [`TRNG_BRING_UP`] reproduces,
+//!   two `clk_prepare_enable` calls then `reset_control_deassert`.
+//! - **[mainline-ids]** the binding headers: `JH7110_STGCLK_SEC_AHB 15`,
+//!   `JH7110_STGCLK_SEC_MISC_AHB 16`, `JH7110_STGRST_SEC_AHB 3`, `JH7110_STGRST_END 23`.
+//! - **[mainline-clk]** `clk-starfive-jh71x0.c`: one 32-bit register per clock,
+//!   `base + 4 * idx`, enable bit `BIT(31)`.
+//! - **[mainline-rst]** `reset-starfive-jh7110.c`: the STG block asserts at `0x74`, reads status
+//!   at `0x78`, and the JH7110 passes `asserted = NULL`, which inverts the poll's sense:
+//!   **a set status bit means the line is out of reset.** That inversion is
+//!   [`is_deasserted`]'s whole reason to exist.
+//! - **[vendor-dts]** and **[vendor-ids]** `starfive-tech/u-boot`, the `JH7110_VisionFive2_devel`
+//!   branch, which is the firmware radon actually runs. It spells the same wiring differently
+//!   (`starfive,trng`, `clkgen`, `rstgen`, the TRNG node `status disabled`), and its numbers are
 //!   **flat across all the domains**, so they must be rebased before they mean anything:
-//!   `JH7110_SEC_HCLK 205` and `JH7110_SEC_MISCAHB_CLK 206` against a stg group starting at
-//!   `JH7110_HIFI4_CLK_CORE 190`, giving **15** and **16**; `RSTN_U0_SEC_TOP_HRESETN 131`
-//!   against a stg group starting at `RSTN_U0_STG_SYSCON_PRESETN 128`, giving **3**.
+//!   `JH7110_SEC_HCLK 205` against a stg group starting at 190 gives 15, and
+//!   `JH7110_SEC_MISCAHB_CLK 206` gives 16; `RSTN_U0_SEC_TOP_HRESETN 131` against a group
+//!   starting at 128 gives 3.
 //!
-//! **So the two trees converge**: `15`, `16`, `3`, in the STG domain at `0x1023_0000`. That is
-//! worth stating plainly because the vendor spellings look nothing like mainline's, and a reader
-//! who only checked one would reasonably fear the driver was written against the wrong chip.
+//! **So the two trees converge**: 15, 16, 3, in the STG domain at `0x1023_0000`. The vendor
+//! spellings look nothing like mainline's, and a reader who checked only one would reasonably
+//! fear the driver was written against the wrong chip.
 //!
 //! # This has not run against real silicon
 //!
@@ -137,21 +67,10 @@
 //! is `notes/jh7110-clock-and-reset.md`.
 //!
 //! Name: ratified 2026-09-13 (calef, working the unratified worklist), replacing the provisional
-//! `jh7110_crg`. CRG expands to clock and reset generator and the expansion teaches, which the
-//! old block already conceded. Refused `jh7110_clock` (this controller also owns resets, so a name
-//! saying only clock makes the reset half read as a surprise), `jh7110_clkgen` (the vendor's label,
-//! naming one of two published spellings while this crate reads both), and
-//! `jh7110_clock_and_reset_generator` (the generator is the hardware; what this crate is, is the two
-//! things it controls). **The argument that lost** was stronger here than for its sibling: `crg` is
-//! not a spelling this project coined, since both device trees describing this chip use `syscrg`,
-//! `stgcrg` and `aoncrg`. The 2026-09-13 amendment to decision 113 ends the external-standard
-//! exemption for acronym crates even so. `jh7110` stays: a part number is a proper noun. Kept as
-//! the crates.io name by calef on 2026-10-07 (UTC), pull request #1806's publish-ours review, whose
-//! maintainer comment reads: "one milestone per crate, minted now, each keeping its tree name (all
-//! free on crates.io as of today) [...] Names are ratified now and permanent on first
-//! publication." His words: "Yes, one per crate". Milestone 819 (JH7110 clock and reset logic,
-//! proven, then released on its own) publishes it.
-//!
+//! `jh7110_crg`, and kept as the crates.io name on 2026-10-07 (#1806). The refused names
+//! (`jh7110_clock`, `jh7110_clkgen`, `jh7110_clock_and_reset_generator`), the argument that lost
+//! over `crg`, and the vendor-spelling evidence are in git history; milestone 819 (JH7110 clock
+//! and reset logic, proven, then released on its own) publishes it.
 //! # Examples
 //!
 //! ```
