@@ -1,7 +1,7 @@
-# toolchain: nightly-2026-10-09
+# toolchain: nightly-2026-10-10
 # qemu: 11.1.2
 # date: 2026-10-10
-# why: 2026-10-10: QEMU 11.1.1 to 11.1.2, the emulator term alone. Homebrew upgraded patagonia's QEMU on 2026-10-10 and can install only the newest, so calef ruled (option Q1) to move .qemu-version to 11.1.2 in its own pull request, before and apart from any nightly bump. Same tree (main 3c861eadd), same nightly (nightly-2026-10-09), run under both emulators on one machine (11.1.1 built from source for the comparison): every aarch64 row moved under 0.4% between the two, of both signs, the largest ipc_rtt_el0 +0.10% to +0.35%, which is this row's own run-to-run spread on one emulator. Rows that moved over 0.5% against the old floor, every one of them main's drift since the 2026-10-08 save and none of it the emulator's (the same counts reproduce on 11.1.1): yield_switch -5.3% and ctx_switch -5.0%, bisected to #1852 (milestone 139 (drive the unsafe count down) round 10, the scheduler queue ownership token, whose description predicted ctx_switch about -5%); ipc_rtt +2.8%, which already read +3.8% over this floor at the floor's own merge (#1842), so a build-to-build wobble that predates everything since; ipc_rtt_el0 -1.2%, the same kind of row. Nothing moved 10%.
+# why: 2026-10-10: nightly-2026-10-09 to nightly-2026-10-10, the compiler term alone, on QEMU 11.1.2 and the tree #1899 re-recorded the floors on (calef's option Q1 moved the emulator first, so this save carries no emulator term). The restamp job refused this floor because its one-runner A/B on CI read map_el0 -2.849% (300745 to 292177). This machine does not reproduce that: map_el0 reads 300428 on nightly-2026-10-10 against 300427 on nightly-2026-10-09, and CI already read the same code on 10-09 0.1% off this machine, so the row looks sensitive to the build host (plausibly the image's layout) rather than to codegen in the path; not established. Every aarch64 row is within 0.2% of the floor this replaces (largest ipc_rtt_el0 -0.20%, inside its own run-to-run spread); no row moved over 0.5%.
 # bench/baseline-aarch64.txt: deterministic icount tick counts (cargo xtask bench --save).
 # Recorded against the QEMU pinned in .qemu-version. icount counts guest instructions, so the
 # emulator version is part of what these numbers mean: script/qemu-check warns when the QEMU on
@@ -20,11 +20,11 @@ relay_rtt 2132829 1000
 call_reply 1114470 1000
 broker_rtt 2224920 1000
 spawn_reap 231325 64
-map_new 16573 64
-coremark 20915891 256
+map_new 16574 64
+coremark 20915892 256
 null_syscall 357503 20000
-ctx_switch 2999751 5000
-ipc_rtt_el0 10888105 5000
-sink_throughput 4478151 80000
-map_el0 300427 500
+ctx_switch 2999750 5000
+ipc_rtt_el0 10866141 5000
+sink_throughput 4477490 80000
+map_el0 300428 500
 spawn_el0 1405263 100
