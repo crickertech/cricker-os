@@ -353,6 +353,88 @@ jobs:
         if: always()
         run: python3 helpers/job-budget.py check "${{ github.job }}" "$JOB_STARTED_AT"
 
+  # **On every push to `main`, `main` holds the QEMU and patched-Kani caches for the tree as it now
+  # is** (milestone 870 (main keeps its CI caches warm), provisional; the job id and name are
+  # provisional too). A pull request or merge group restores `actions/cache` entries from its own
+  # ref and from `refs/heads/main` only. A′ above skips the suite on a push to `main` that a merge
+  # group already tested, which is nearly every push, so no job on `main` ran a cache step and a new
+  # key never reached `main`. After #1899 moved `.qemu-version` to 11.1.2, `main` held only 11.1.1
+  # entries and every pull request and merge-group QEMU job spent 265 to 274 s in "Build QEMU if
+  # the cache missed"; `test` went from about 13 to 18.5 minutes until calef dispatched this
+  # workflow on `main` by hand (run 38084559582). verify.yml's `prove-kernel-riscv64` has the same
+  # gap for the patched Kani, and A′ skips it the same way.
+  #
+  # **It does not ask the gate, on purpose.** It runs on every push to `main` whether the suite runs
+  # or not, so a later change to A′ cannot reopen the gap. `lookup-only` asks whether `main` has the
+  # key without downloading it: a hit is a few seconds and builds nothing. On a miss the same script
+  # every job calls builds into the cached path, and `actions/cache`'s post step saves it under the
+  # same key, on `refs/heads/main` because that is the ref a push to `main` runs on. The keys and
+  # paths are copied from the jobs that restore them; a copy that drifts saves an entry nobody
+  # reads, which is why each key below is character for character the restoring job's. The same
+  # mechanism heals an evicted entry: the next push to `main` puts it back.
+  #
+  # **Coverage, by runner.** QEMU on both pools: x64 serves `swish-check-x86_64` and `bench`, ARM64
+  # serves `test`, `swish-check`, `boot-check`, `cpu-matrix-shard` and `watchdog`. The patched Kani
+  # on ARM64 only, the one runner `prove-kernel-riscv64` uses. Not covered: `supply-chain`'s vendor
+  # tarballs (a miss costs one HTTP request) and rust-cache (calef's ruling (a) on #1814 dropped it
+  # from every job but three; notes/actions-cache-budget-2026-10-07.md).
+  #
+  # BUGS: when the suite also runs on a push to `main` with a cold key, this job and the suite's
+  # QEMU jobs build at once and one save wins; the others log "another job may be creating this
+  # cache" and carry on. That costs runner minutes on a rare push, never a result.
+  main-caches:
+    name: main-caches (keep main's QEMU and Kani caches warm, ${{ matrix.runner }})
+    if: ${{ github.event_name == 'push' }}
+    runs-on: ${{ matrix.runner }}
+    # Stated per job although it equals the workflow's default: this job writes caches, and the
+    # Actions cache service authorizes that with the runner's own token, not GITHUB_TOKEN.
+    permissions:
+      contents: read
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - runner: ubuntu-24.04
+            kani: false
+          - runner: ubuntu-24.04-arm
+            kani: true
+    # Cold: QEMU about 4.5 minutes (265 to 274 s in the runs above), the patched Kani about 3.
+    timeout-minutes: 25
+    steps:
+      - name: Start the job wall-time clock
+        run: echo "JOB_STARTED_AT=$(date +%s)" >> "$GITHUB_ENV"
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+      # The `test` job's key, path and build step.
+      - name: Does main hold QEMU for this .qemu-version?
+        id: qemu
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6
+        with:
+          path: ~/.cache/nife-qemu
+          key: qemu-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('.qemu-version') }}
+          lookup-only: true
+      - name: Build QEMU if the cache missed
+        if: steps.qemu.outputs.cache-hit != 'true'
+        run: script/ci-qemu
+      # verify.yml's `prove-kernel-riscv64` key, path and build step.
+      - name: Name the carried Kani patch
+        id: kani
+        if: matrix.kani
+        run: echo "patch=$(basename patches/kani-*-riscv64-target.patch .patch)" >> "$GITHUB_OUTPUT"
+      - name: Does main hold the patched Kani?
+        id: kani-cache
+        if: matrix.kani
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6
+        with:
+          path: ~/.cache/nife-kani-riscv64
+          key: kani-riscv64-${{ runner.os }}-${{ runner.arch }}-${{ steps.kani.outputs.patch }}-${{ hashFiles('patches/kani-*-riscv64-target.patch', 'script/verify-riscv64') }}
+          lookup-only: true
+      - name: Build the patched Kani if the cache missed
+        if: matrix.kani && steps.kani-cache.outputs.cache-hit != 'true'
+        run: script/verify-riscv64 --build-only
+      - name: Check the job's wall time against its budget
+        if: always()
+        run: python3 helpers/job-budget.py check "${{ github.job }}" "$JOB_STARTED_AT"
+
   test:
     name: test (host crates and the kernel suite under QEMU)
     runs-on: ubuntu-24.04-arm
