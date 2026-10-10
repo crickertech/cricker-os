@@ -39,6 +39,8 @@
 
 #![cfg_attr(not(test), no_std)]
 
+use core::net::{Ipv4Addr, Ipv6Addr, SocketAddr};
+
 use measured_boot::{DIGEST_TEXT_LEN, Digest, digest_text, parse_digest};
 use package_archive::{CatalogMiss, Installable, Refusal, STEM_LEN, installable_as, matching_stem};
 
@@ -157,6 +159,84 @@ impl<'a> Location<'a> {
         }
         Some(Location { host, port, path })
     }
+
+    /// **Q1's safeguard on one resolution, and the addresses a client may then connect to.**
+    /// `resolved` is what this location's host resolved to, asked once. Every address must be one
+    /// [`public_address`] admits, or the location is refused; on success the returned
+    /// [`CheckedLocation`] holds that very slice, and its addresses are the only ones a client
+    /// connects to for this location.
+    ///
+    /// The shape is the fix for the DNS rebinding escape milestone 871 (a sixth outsider pass
+    /// attacks the confinement claim) booted on 2026-10-10 (UTC): a client that checked one
+    /// resolution and then connected by NAME resolved a second time, and a rebinding name server
+    /// answered the check public and the connect private. Resolving once and dialing only what
+    /// was checked is curl's `CURLOPT_RESOLVE` and Go's `net.Dialer.Control` (the check runs on
+    /// the address actually dialed); calef ruled it on #1901, 2026-10-10. The host name stays in
+    /// the [`CheckedLocation`] for TLS alone: the server name a client sends and the name the
+    /// certificate must carry, never a name to resolve again.
+    ///
+    /// Any address that is not IPv4 is refused, because [`public_address`] judges only IPv4 and an
+    /// address nothing judged must not reach a dial. An empty resolution is refused too, since
+    /// there is nothing to connect to.
+    pub fn check<'r>(
+        &self,
+        resolved: &'r [SocketAddr],
+    ) -> Result<CheckedLocation<'a, 'r>, AddressRefusal> {
+        if resolved.is_empty() {
+            return Err(AddressRefusal::NoAddress);
+        }
+        for address in resolved {
+            match address {
+                SocketAddr::V4(v4) if public_address(v4.ip().octets()) => {}
+                SocketAddr::V4(v4) => return Err(AddressRefusal::Private(*v4.ip())),
+                SocketAddr::V6(v6) => return Err(AddressRefusal::NotJudged(*v6.ip())),
+            }
+        }
+        Ok(CheckedLocation {
+            location: *self,
+            addresses: resolved,
+        })
+    }
+}
+
+/// **A listed location whose one resolution passed Q1's check**, made only by
+/// [`Location::check`]. A client connects to [`CheckedLocation::addresses`] and to nothing else,
+/// and uses [`CheckedLocation::host`] only as the TLS server name. The fields are private so that
+/// no other path can pair a location with addresses nobody checked.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub struct CheckedLocation<'a, 'r> {
+    location: Location<'a>,
+    addresses: &'r [SocketAddr],
+}
+
+impl<'a, 'r> CheckedLocation<'a, 'r> {
+    /// The addresses that were checked, the only ones to dial, in the resolver's order.
+    pub fn addresses(&self) -> &'r [SocketAddr] {
+        self.addresses
+    }
+
+    /// The host name, for TLS only: what the client sends as the server name, and what the
+    /// certificate must be valid for. Resolving it again would reopen the escape.
+    pub fn host(&self) -> &'a str {
+        self.location.host
+    }
+
+    /// The request path.
+    pub fn path(&self) -> &'a str {
+        self.location.path
+    }
+}
+
+/// Why [`Location::check`] refused a resolution.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum AddressRefusal {
+    /// The host resolved to nothing.
+    NoAddress,
+    /// An address [`public_address`] refuses: private, link-local, or another range Q1 keeps a
+    /// listed location away from.
+    Private(Ipv4Addr),
+    /// An IPv6 address, which [`public_address`] does not judge.
+    NotJudged(Ipv6Addr),
 }
 
 fn ipv4_literal(host: &str) -> Option<[u8; 4]> {
@@ -631,5 +711,36 @@ mod tests {
             accept(&entry, b"not a package").map(|i| i.program),
             Err(Refusal::Unreadable)
         );
+    }
+
+    /// The check judges the exact addresses it is handed, and a passed check hands back that same
+    /// slice: one resolution, checked and dialed, never a second (milestone 871's escape).
+    #[test]
+    fn a_listed_location_is_dialed_only_at_the_addresses_its_check_passed() {
+        let at = Location::parse("https://mirror.example:8443/g.nifepkg").unwrap();
+        let public: [SocketAddr; 2] = [
+            "192.0.2.1:8443".parse().unwrap(),
+            "8.8.8.8:8443".parse().unwrap(),
+        ];
+        let checked = at.check(&public).unwrap();
+        assert!(core::ptr::eq(checked.addresses(), &public[..]));
+        assert_eq!(
+            (checked.host(), checked.path()),
+            ("mirror.example", "/g.nifepkg")
+        );
+
+        // One private answer among public ones refuses the whole location.
+        let mixed: [SocketAddr; 2] = [
+            "192.0.2.1:8443".parse().unwrap(),
+            "10.0.2.9:8443".parse().unwrap(),
+        ];
+        assert_eq!(
+            at.check(&mixed),
+            Err(AddressRefusal::Private(Ipv4Addr::new(10, 0, 2, 9)))
+        );
+        // IPv6 is refused rather than passed unjudged; nothing resolved is refused too.
+        let v6: [SocketAddr; 1] = ["[fe80::1]:8443".parse().unwrap()];
+        assert!(matches!(at.check(&v6), Err(AddressRefusal::NotJudged(_))));
+        assert_eq!(at.check(&[]), Err(AddressRefusal::NoAddress));
     }
 }

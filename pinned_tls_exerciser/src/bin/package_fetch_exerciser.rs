@@ -12,7 +12,7 @@
 //! | `fetched greeting-... from basalt.test's targets` | the repository's own copy is the fallback, admitted by the index's digest |
 //! | `refused uptime-...: NotCataloged` | a repository copy with one byte flipped: only the digest can tell |
 //! | `refused nosuch: not in the index` | nothing is fetched for a name the index does not list |
-//! | `passed over https://rebind.basalt.test...` then `fetched rebound-... from basalt.test's targets` | the twin listed under the rebinding name: what its refusal says is the record of the address-check attack (milestone 871 (a sixth outsider pass attacks the confinement claim)) |
+//! | `passed over https://rebind.basalt.test...` then `fetched rebound-... from basalt.test's targets` | the twin listed under the rebinding name: the client dials only the public address its check passed, never the private one a second resolution would name (milestone 871 (a sixth outsider pass attacks the confinement claim)) |
 //!
 //! It installs nothing: installing from an index is milestone 809 (the package client becomes a
 //! program)'s `jig`. Under slirp every listed location is private, so taking bytes from one is
@@ -22,22 +22,23 @@
 //!
 //! # BUGS
 //!
-//! - `from_location`'s address check inspects only `SocketAddr::V4`; a IPv6 answer passes the
-//!   check untouched, while Q1's ruling says "a private or link-local address" with no family
-//!   named. Unreachable today (the tree carries no IPv6); found by milestone 871 (a sixth
-//!   outsider pass attacks the confinement claim), 2026-10-10.
-//! - `from_location` checks one resolution of a listed location's host and then hands the name
-//!   to `TcpStream::connect`, which resolves again; the resolver has no cache, so a rebinding
-//!   name server reaches the client past the check. Booted red by milestone 871; the fix
-//!   (connect by a checked address) is not this program's to choose unilaterally.
+//! - The fix is a type at the listed path and a test at the rest. A listed location's addresses
+//!   come only from `package_index::Location::check`, but nothing stops a future caller from
+//!   resolving the name again and handing [`get`] the fresh answer. What catches that is
+//!   `package_index_tests`' rebinding assertion, falsified on all three architectures.
+//! - Under slirp the fixed client dials the checked public address, 192.0.2.1, for real: a SYN
+//!   leaves the emulator for RFC 5737 documentation space, and the net server's connect gives up
+//!   within its 15 s bound. That is the honest cost of connecting where the check approved.
 
 use std::net::{SocketAddr, TcpStream, ToSocketAddrs};
 
 use entropy_backend as _;
-use package_index::fixture::{ABSENT, BACKUP_HOST, GENUINE, INDEX_PORT, PRIMARY_HOST, REBOUND, TAMPERED};
+use package_index::fixture::{
+    ABSENT, BACKUP_HOST, GENUINE, INDEX_PORT, PRIMARY_HOST, REBOUND, TAMPERED,
+};
 use package_index::{
-    Entry, Index, Location, Miss, PATH_MAX, PROVISIONAL_CHANNEL, Repository, STAND_IN_INDEX_FILE,
-    Source, accept, public_address,
+    AddressRefusal, Entry, Index, Location, Miss, PATH_MAX, PROVISIONAL_CHANNEL, Repository,
+    STAND_IN_INDEX_FILE, Source, accept,
 };
 use pinned_tls_client::{PinnedPeer, Session};
 
@@ -46,10 +47,16 @@ use pinned_tls_client::{PinnedPeer, Session};
 /// location's host must chain to is a question this lane put back on #1884.
 const PINNED_ROOT: &[u8] = include_bytes!("../../../pinned_tls_client/fixtures/pinned-root.der");
 
-/// One `GET` over TLS to `host:port`, pinned to the test root. The body, or why not.
-fn get(host: &str, port: u16, path: &str) -> Result<Vec<u8>, String> {
-    let peer = PinnedPeer::new(host, PINNED_ROOT).map_err(|e| format!("{e:?}"))?;
-    let tcp = TcpStream::connect((host, port)).map_err(|e| format!("{:?}", e.kind()))?;
+/// One `GET` over TLS, connected to one of `to` and speaking to `server_name`, pinned to the test
+/// root. The body, or why not.
+///
+/// It takes addresses, never a name to resolve: `server_name` is for TLS alone (the server name
+/// sent and the name the certificate must carry). Connecting by name resolved a second time, and
+/// that second resolution is the rebinding escape milestone 871 (a sixth outsider pass attacks the
+/// confinement claim) booted; `TcpStream::connect` on a slice of `SocketAddr` asks no resolver.
+fn get(server_name: &str, to: &[SocketAddr], path: &str) -> Result<Vec<u8>, String> {
+    let peer = PinnedPeer::new(server_name, PINNED_ROOT).map_err(|e| format!("{e:?}"))?;
+    let tcp = TcpStream::connect(to).map_err(|e| format!("{:?}", e.kind()))?;
     let session = Session::handshake(&peer, tcp).map_err(|e| format!("{e:?}"))?;
     let mut body = Vec::new();
     match session.get(path, |part| body.extend_from_slice(part)) {
@@ -59,33 +66,48 @@ fn get(host: &str, port: u16, path: &str) -> Result<Vec<u8>, String> {
     }
 }
 
+/// Resolve `host` once. A repository's address is the owner's or the image's choice and is not
+/// held to Q1, so nothing is checked here; it still resolves once, so [`get`] never resolves.
+fn resolve(host: &str, port: u16) -> Result<Vec<SocketAddr>, String> {
+    Ok((host, port)
+        .to_socket_addrs()
+        .map_err(|e| format!("{:?}", e.kind()))?
+        .collect())
+}
+
+/// `GET` from a repository the owner or the image chose.
+fn from_repository(repo: &Repository<'_>, path: &str) -> Result<Vec<u8>, String> {
+    get(repo.host, &resolve(repo.host, repo.port)?, path)
+}
+
 /// The index from the first of the image's addresses that answers (Q2).
 fn fetch_index<'r>(addresses: &'r [Repository<'r>]) -> (String, &'r Repository<'r>) {
     for repo in addresses {
         let mut buf = [0u8; PATH_MAX];
         let path = repo.metadata_path(STAND_IN_INDEX_FILE, &mut buf).unwrap();
-        match get(repo.host, repo.port, path) {
-            Ok(body) => return (String::from_utf8(body).expect("the index is not text"), repo),
+        match from_repository(repo, path) {
+            Ok(body) => {
+                return (
+                    String::from_utf8(body).expect("the index is not text"),
+                    repo,
+                );
+            }
             Err(why) => println!("index unreachable at {}: {why}", repo.host),
         }
     }
     panic!("no index address answered");
 }
 
-/// A listed location, if every address its host resolves to is public (Q1's safeguard).
+/// A listed location, if every address its host resolves to is public (Q1's safeguard), fetched
+/// from exactly those addresses. One resolution is checked and the same one is dialed:
+/// `Location::check` hands back the slice it passed, the only addresses this connects to.
 fn from_location(at: &Location<'_>) -> Result<Vec<u8>, String> {
-    let addresses: Vec<SocketAddr> = (at.host, at.port)
-        .to_socket_addrs()
-        .map_err(|e| format!("{:?}", e.kind()))?
-        .collect();
-    for a in &addresses {
-        if let SocketAddr::V4(v4) = a {
-            if !public_address(v4.ip().octets()) {
-                return Err(format!("a private address ({})", v4.ip()));
-            }
-        }
-    }
-    get(at.host, at.port, at.path)
+    let resolved = resolve(at.host, at.port)?;
+    let checked = at.check(&resolved).map_err(|why| match why {
+        AddressRefusal::Private(ip) => format!("a private address ({ip})"),
+        other => format!("{other:?}"),
+    })?;
+    get(checked.host(), checked.addresses(), checked.path())
 }
 
 /// Ask the index for `name`, try its sources in order, and say what happened.
@@ -100,14 +122,17 @@ fn install_check(index: &Index<'_>, from: &Repository<'_>, name: &str, architect
             Source::Listed(at) => match from_location(&at) {
                 Ok(bytes) => (bytes, format!("{}:{}", at.host, at.port)),
                 Err(why) => {
-                    println!("passed over https://{}:{}{}: {why}", at.host, at.port, at.path);
+                    println!(
+                        "passed over https://{}:{}{}: {why}",
+                        at.host, at.port, at.path
+                    );
                     continue;
                 }
             },
             Source::Repository(repo) => {
                 let mut buf = [0u8; PATH_MAX];
                 let path = repo.target_path(entry.stem, &mut buf).unwrap();
-                match get(repo.host, repo.port, path) {
+                match from_repository(repo, path) {
                     Ok(bytes) => (bytes, format!("{}'s targets", repo.host)),
                     Err(why) => return println!("refused {}: fetch failed: {why}", entry.stem),
                 }
