@@ -13,7 +13,7 @@
 #
 # The whole point of milestone 121 is that the source is somebody else's and is untouched. There is
 # no patch, no vendored copy, and no fork. What differs from a Linux build is entirely on the
-# command line below: the target spec, `-Zbuild-std` against the patched `nife-dev` toolchain, and
+# command line below: the target spec, `-Zbuild-std` against the patched std farm, and
 # the three link arguments `std_exerciser/build.rs` supplies for a program built in-tree (the shared
 # linker script, `-u_start`, and no build id).
 #
@@ -68,13 +68,14 @@ if [ ! -f "$SRC/Cargo.toml" ]; then  # a half-unpacked tree from an interrupted 
   tar xzf "$BUILD/ripgrep-$VERSION.crate" -C "$BUILD"
 fi
 
-# The patched std lives in the `nife-dev` toolchain, which `xtask std-src` builds and links.
-# `RUSTUP_TOOLCHAIN` rather than `+nife-dev` for the reason `xtask::std_exerciser` records: the
+# The patched std lives in this checkout's farm, which `xtask std-src` builds and links.
+# `RUSTUP_TOOLCHAIN` rather than a `+toolchain` selector for the reason `xtask::std_exerciser` records: the
 # cargo proxy exports `RUSTUP_TOOLCHAIN=nightly`, which would override a `+` selector. And by
-# path rather than by name (2026-09-30): `nife-dev` is one symlink for the whole user account,
-# so a lane gating beside this build can steal it mid-run and the name then resolves another
+# path rather than by name (2026-09-30): `nife-dev` was then one symlink for the whole user
+# account, so a lane gating beside this build could steal it mid-run and the name then resolves another
 # worktree's farm with no diagnostic. `std-src` above has just built "$ROOT/target/nife-farm",
-# so the path is the farm this checkout chose.
+# so the path is the farm this checkout chose. Each checkout has had its own name since 2026-10-10,
+# and the path is still the one that needs no name at all.
 (cd "$ROOT" && cargo xtask std-src)
 
 # `-Copt-level=s` and `-Cstrip=debuginfo` are not tuning: ripgrep's own release profile sets

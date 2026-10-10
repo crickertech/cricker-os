@@ -46,8 +46,8 @@
 #     floor. A build is not an answer about what the code computes.
 #   * Versions re-resolve on every run, so a row can change because crates.io moved. The resolved
 #     version is stamped beside each result.
-#   * It needs the network and it takes the account-wide `nife-dev` toolchain link (through
-#     `cargo xtask std-src`), so it is not a CI gate and `script/test` does not run it.
+#   * It needs the network, so it is not a CI gate and `script/test` does not run it. It builds
+#     against this checkout's own farm by path, so no other lane's `cargo xtask std-src` reaches it.
 #   * Three architectures times the probe list is a lot of build-std; the first run is slow and
 #     every later one shares one target directory per architecture.
 
@@ -357,8 +357,8 @@ write_probe() {
     # `aarch64-unknown-nife` build wrong on an aarch64 host, silently, while riscv64 and x86_64
     # stay right. `RUSTUP_TOOLCHAIN` in the environment is what works for all three, and it works
     # only because `$WORK` is outside the repository. Since 2026-09-30 it names the farm by PATH
-    # for the same reason `xtask::std_exerciser` does: the `nife-dev` name is account-wide, and a
-    # lane gating beside these probes would steal it mid-run.
+    # for the same reason `xtask::std_exerciser` does: the `nife-dev` name was then account-wide,
+    # and a lane gating beside these probes would steal it mid-run.
     {
         echo 'use entropy_backend as _;'
         probe_main "$name"
@@ -406,7 +406,7 @@ for arg in "$@"; do
 done
 [ -n "$want" ] || want=$(probe_names)
 
-echo "==> refreshing the patched-std farm (this takes the account-wide nife-dev link)"
+echo "==> refreshing this checkout's patched-std farm"
 (cd "$ROOT" && cargo xtask std-src) || {
     echo "crypto-probes: cargo xtask std-src failed" >&2
     exit 1

@@ -82,12 +82,10 @@
 # - **A dry run keeps its reds in the queue but not in its own stack.** Entries behind a red one are
 #   tested as though it had been removed, which is what `--act` does and what a failed group does.
 #   Until someone acts, the real queue will build them with it.
-# - **It takes the `nife-dev` toolchain link**, because `script/test` relinks it to whichever worktree
-#   ran `xtask std-src` last (notes/std.md). On exit it puts the link back where it found it, or on
-#   the main checkout's farm if that lane's worktree was pruned during the walk, and only if the link
-#   still points into the scratch worktree: a lane that took it in the meantime keeps it.
-#   A lane gating at the same moment can still be crossed, which is the ambient hazard AGENTS.md
-#   names, not a new one.
+# - **It leaves one toolchain link behind**: the scratch worktree's own (`nife-dev-<dir>-<hash>`,
+#   notes/std.md), which `script/test` makes there and reuses on the next walk. Until 2026-10-10
+#   every worktree shared one `nife-dev` link and this script saved and restored it; the stack is
+#   always merged onto `main`, so it never runs the code that took that link.
 # - **A red is attributed to the entry, not to the pair.** "Fails on top of the entries ahead" can
 #   mean the entry is broken alone or that it conflicts semantically with one ahead of it; this does
 #   not re-test it alone on `main` to say which. Its own pull request's CI already answers that.
@@ -205,20 +203,6 @@ def git(*args, check=True):
 
 # --- leaving the machine as it was found --------------------------------------------------------
 
-def nife_dev_link():
-    r = sh(["rustup", "toolchain", "list", "-v"], check=False)
-    for line in r.stdout.splitlines():
-        if line.startswith("nife-dev"):
-            return line.split(None, 1)[1].strip() if len(line.split(None, 1)) > 1 else None
-    return None
-
-
-LINK_BEFORE = nife_dev_link()
-# The main checkout, which owns the canonical farm: the parent of the shared `.git`.
-ROOT_CHECKOUT = os.path.dirname(os.path.realpath(subprocess.run(
-    ["git", "rev-parse", "--git-common-dir"], capture_output=True, text=True, cwd=ROOT).stdout.strip()))
-
-
 def kill_our_qemus():
     """Kill every QEMU whose command line names the scratch worktree. Returns the survivors."""
     r = sh(["pgrep", "-f", "qemu-system.*" + re.escape(WT)], check=False)
@@ -237,30 +221,6 @@ def cleanup():
     left = kill_our_qemus()
     if left:
         say("WARNING: QEMU still running after SIGTERM: %s" % " ".join(left))
-    now = nife_dev_link()
-    if not (now and now.startswith(WT)):
-        if now != LINK_BEFORE:
-            say("nife-dev now points at %s, not taken by this run; left alone" % now)
-        return
-    # **Put it back somewhere that exists, and say so only once rustup agrees.** Its first proof
-    # run (2026-09-24) "relinked" to the farm of a lane worktree that had been pruned while the walk
-    # ran; rustup refused, the exit code was not read, and the message claimed success while the link
-    # still pointed into the scratch tree. So: the link as found if that farm still exists, else the
-    # main checkout's farm, which is where briefs/merge-and-cleanup.md relinks it anyway.
-    main_farm = os.path.join(ROOT_CHECKOUT, "target", "nife-farm")
-    target = next((t for t in (LINK_BEFORE, main_farm) if t and os.path.isdir(t)), None)
-    if target is None:
-        say("nife-dev still points into %s: neither %s nor %s exists. Relink it from the main "
-            "checkout (briefs/merge-and-cleanup.md step 4)" % (WT, LINK_BEFORE, main_farm))
-        return
-    r = subprocess.run(["rustup", "toolchain", "link", "nife-dev", target],
-                       capture_output=True, text=True, stdin=subprocess.DEVNULL)
-    if r.returncode == 0 and nife_dev_link() == target:
-        say("nife-dev relinked to %s (the scratch worktree had taken it%s)" %
-            (target, "" if target == LINK_BEFORE else "; the farm it pointed at before is gone"))
-    else:
-        say("nife-dev relink to %s FAILED (%s); it still points at %s" %
-            (target, (r.stderr or "rustup exited %d" % r.returncode).strip(), nife_dev_link()))
 
 atexit.register(cleanup)
 signal.signal(signal.SIGTERM, lambda *_: sys.exit(130))
@@ -289,7 +249,7 @@ MAIN = sh(["git", "rev-parse", "origin/main"]).stdout.strip()
 
 # **One run per scratch worktree, and nobody else inside it.** Found by this script's own first run
 # (2026-09-24): a person was running `script/test --hvf` by hand in the same scratch worktree, and this
-# script's `reset --hard` and the two runs' rebuilds of one `nife-dev` farm crossed, failing an HVF
+# script's `reset --hard` and the two runs' rebuilds of one farm crossed, failing an HVF
 # leg with missing std sources that looked like a red `main`. So two checks, both before any reset:
 # an exclusive lock that a second run of this script cannot take, and a refusal if any process at all
 # has its working directory inside the scratch tree, which is what catches a person who is not this

@@ -238,7 +238,7 @@ fn main() -> ExitCode {
         //   cargo xtask std-stamp                        # in the main checkout
         //   git worktree add /tmp/w HEAD && (cd /tmp/w && cargo xtask std-stamp)
         // The two must print the same value. If they ever diverge, something location-dependent has
-        // crept back into `std_inputs_stamp`, and `nife-dev` will start being stolen again.
+        // crept back into `std_inputs_stamp`, and every worktree's farm will rebuild on every run.
         "std-stamp" => {
             println!("{:016x}", std_inputs_stamp());
             true

@@ -2,7 +2,8 @@
 //!
 //! std's Platform Abstraction Layer for nife lives in patches/std-nife (the Hermit shape:
 //! a `sys` backend on the capability ABI, not a libc shim). `std-src` materializes a patched
-//! rust-src into a linked `nife-dev` toolchain; `std-exerciser` builds the `std_exerciser` program for the
+//! rust-src into a farm linked as this worktree's own toolchain ([`toolchain_name`]);
+//! `std-exerciser` builds the `std_exerciser` program for the
 //! custom targets with -Zbuild-std against it. See notes/std.md.
 
 use std::os::unix::fs::MetadataExt;
@@ -19,14 +20,97 @@ const STD_TARGETS: [&str; 3] = [
     "x86_64-unknown-nife",
 ];
 
-/// The linked toolchain name (`rustup toolchain link`) whose rust-src carries the nife PAL.
-const NIFE_TOOLCHAIN: &str = "nife-dev";
+/// The prefix of every worktree's linked toolchain name (`rustup toolchain link`); the rest of the
+/// name is [`toolchain_name`]'s. Provisional, minted 2026-10-10 (UTC) by lane
+/// maintainer/per-worktree-toolchain; calef has not ruled on it.
+///
+/// **Each worktree links its own name, and none links the bare `nife-dev`.** Until 2026-10-10 every
+/// worktree linked one name, `nife-dev`, and `rustup toolchain link` is one symlink per user
+/// account, so `script/test` in any lane took the name from every other. Three false alarms that
+/// day alone; before that, a pruned worktree left the shared name dangling for the whole machine
+/// (2026-07-31), and a mid-run relink compiled one lane's std out of another's farm (2026-08-18).
+/// Builds had already moved to naming the farm by path (`RUSTUP_TOOLCHAIN=<farm>`, 2026-09-27), so
+/// the shared name was kept only for people typing `+nife-dev`, and it still cost every lane a
+/// relink. A name per worktree keeps the convenience and removes the thing two lanes could fight
+/// over. The legacy `nife-dev` link is never written, read for a build, or deleted here: lanes cut
+/// before this change still relink it until they rebase, and it is the maintainer's to remove once
+/// they have (briefs/merge-and-cleanup.md).
+const TOOLCHAIN_PREFIX: &str = "nife-dev-";
 
 /// Bump to force every farm to rebuild after a change to the patch logic itself (not the inputs).
 const STD_SRC_PATCH_VERSION: u32 = 10;
 
 fn farm_dir() -> PathBuf {
     workspace_root().join("target/nife-farm")
+}
+
+/// **This worktree's toolchain name**: `nife-dev-<directory>-<hash>`, such as
+/// `nife-dev-per-worktree-toolchain-3f9a12c0`.
+///
+/// The directory's name is there so `rustup toolchain list` reads as a list of worktrees. The hash
+/// is of the canonical workspace path, because two checkouts can share a directory name (a
+/// stranger-test clone and the main checkout are both `nife`) and a shared name is the whole bug
+/// this replaces. It is a function of the path alone, so a worktree keeps its name across runs and
+/// nothing has to be recorded.
+pub(crate) fn toolchain_name() -> String {
+    let root = workspace_root();
+    toolchain_name_for(&std::fs::canonicalize(&root).unwrap_or(root))
+}
+
+fn toolchain_name_for(root: &Path) -> String {
+    let base: String = root
+        .file_name()
+        .map(|n| n.to_string_lossy().to_ascii_lowercase())
+        .unwrap_or_default()
+        .chars()
+        .map(|c| if c.is_ascii_alphanumeric() { c } else { '-' })
+        .take(48)
+        .collect();
+    let h = fnv(
+        0xcbf2_9ce4_8422_2325u64,
+        root.as_os_str().as_encoded_bytes(),
+    );
+    // The fold keeps eight hex digits from all sixty-four bits rather than the low half alone.
+    format!("{TOOLCHAIN_PREFIX}{base}-{:08x}", (h ^ (h >> 32)) as u32)
+}
+
+/// `$RUSTUP_HOME/toolchains`, where `rustup toolchain link` writes its symlinks.
+fn toolchains_dir() -> Option<PathBuf> {
+    std::env::var_os("RUSTUP_HOME")
+        .map(PathBuf::from)
+        .or_else(|| std::env::var_os("HOME").map(|h| PathBuf::from(h).join(".rustup")))
+        .map(|h| h.join("toolchains"))
+}
+
+/// **Remove every per-worktree link whose farm is gone**, which is what a pruned worktree leaves.
+///
+/// A dangling per-worktree link breaks nothing else (no other worktree resolves through it), so
+/// this is housekeeping, run from `std-src` so it needs nobody to remember it. It removes only a
+/// symlink whose name starts with [`TOOLCHAIN_PREFIX`] and whose target no longer exists: a live
+/// worktree's farm exists, and the legacy bare `nife-dev` does not carry the prefix's trailing
+/// hyphen, so neither can match. A worktree caught between `std-src`'s `remove_dir_all` and its
+/// `create_dir_all` could lose its link here; it relinks at the end of that same `std-src`, and no
+/// build reads the name. Returns the names removed.
+fn sweep_dangling_links(dir: &Path) -> Vec<String> {
+    let mut gone = Vec::new();
+    let Ok(entries) = std::fs::read_dir(dir) else {
+        return gone;
+    };
+    for e in entries.flatten() {
+        let name = e.file_name().to_string_lossy().into_owned();
+        let p = e.path();
+        let is_link = std::fs::symlink_metadata(&p).is_ok_and(|m| m.file_type().is_symlink());
+        // `exists()` follows the link, so it is false exactly when the farm is gone.
+        if name.starts_with(TOOLCHAIN_PREFIX)
+            && is_link
+            && !p.exists()
+            && std::fs::remove_file(&p).is_ok()
+        {
+            gone.push(name);
+        }
+    }
+    gone.sort();
+    gone
 }
 
 /// The real nightly sysroot the farm is hardlink-cloned from.
@@ -237,11 +321,12 @@ pub(crate) fn std_inputs_stamp() -> u64 {
     for f in files {
         // **Hash the path RELATIVE to the workspace root, never the absolute path.** An absolute path
         // makes the stamp a function of *where the checkout lives*, so two trees with byte-identical
-        // inputs never match, `std_src` rebuilds the farm unconditionally, and `rustup toolchain link`
-        // repoints `nife-dev`, which is global to the machine, not to the worktree. That is the
-        // race behind three broken toolchains on 2026-07-31: an agent worktree ran `script/test`, took
-        // the link, and deleting that worktree left `nife-dev` dangling for everything else, failing
-        // far from the cause as "override toolchain 'nife-dev' is not installed".
+        // inputs never match and `std_src` rebuilds the farm unconditionally. Until 2026-10-10 that
+        // rebuild also repointed the one machine-wide `nife-dev` link, which is the race behind
+        // three broken toolchains on 2026-07-31: an agent worktree ran `script/test`, took the
+        // link, and deleting that worktree left `nife-dev` dangling for everything else, failing
+        // far from the cause as "override toolchain 'nife-dev' is not installed". Each worktree
+        // links its own name now ([`toolchain_name`]); a needless rebuild still costs minutes.
         //
         // The stamp is meant to answer "are the farm's *inputs* unchanged", and a checkout's location
         // is not one of its inputs. `strip_prefix` cannot fail here (every path is built from `root` or
@@ -270,54 +355,48 @@ fn collect_files(dir: &Path, out: &mut Vec<PathBuf>) {
     }
 }
 
-/// Where the machine-global `nife-dev` name currently resolves, if it is a link we can read.
+/// Where this worktree's own toolchain name currently resolves, if it is a link we can read.
 ///
 /// `rustup toolchain link` writes a symlink under `$RUSTUP_HOME/toolchains`, so the target is
 /// readable without shelling out. `None` covers every shape we cannot interpret (no such link, a
 /// real directory rather than a symlink, an unreadable home), and the caller treats `None` as
-/// "cannot prove it is ours", which relinks. Relinking when it was already correct costs one
-/// idempotent `rustup` call; assuming it was correct costs a silently wrong build.
+/// "cannot prove it is ours", which links. Linking when it was already correct costs one idempotent
+/// `rustup` call.
 fn linked_farm() -> Option<PathBuf> {
-    let home = std::env::var_os("RUSTUP_HOME")
-        .map(PathBuf::from)
-        .or_else(|| std::env::var_os("HOME").map(|h| PathBuf::from(h).join(".rustup")))?;
-    std::fs::read_link(home.join("toolchains").join(NIFE_TOOLCHAIN)).ok()
+    std::fs::read_link(toolchains_dir()?.join(toolchain_name())).ok()
 }
 
-/// Point `nife-dev` at *this* worktree's farm, loudly, if it currently points anywhere else.
+/// Link this worktree's own name at its farm if it does not already point there, and sweep the
+/// links pruned worktrees left behind.
 ///
-/// Called on the warm-farm path, which is the one that used to trust the name without checking it.
-/// See the comment at that call site for the failure this closes.
-fn relink_farm_if_stolen() -> bool {
+/// The name is this worktree's alone, so a mismatch here means the farm moved or the link was
+/// never made (a fresh worktree, a cleaned `target/`), never that another lane took it. Builds name
+/// the farm by path and do not depend on this; it is for a person typing `+<name>`.
+fn link_own_toolchain() -> bool {
+    if let Some(dir) = toolchains_dir() {
+        for name in sweep_dangling_links(&dir) {
+            eprintln!("std-src: removed `{name}`, whose worktree's farm no longer exists");
+        }
+    }
     let farm = farm_dir();
+    let name = toolchain_name();
     // Canonicalize both sides: a worktree reached through a symlinked path (/tmp on macOS is one)
     // would otherwise compare unequal to the same directory recorded literally, and relink on every
-    // single call. Falling back to the uncanonicalized path keeps a missing directory readable in
-    // the message rather than swallowing it.
+    // single call.
     let canon = |p: &PathBuf| std::fs::canonicalize(p).unwrap_or_else(|_| p.clone());
     if linked_farm().map(|l| canon(&l)) == Some(canon(&farm)) {
         return true;
     }
-    eprintln!(
-        "--- std-src: `{NIFE_TOOLCHAIN}` did not point at this worktree's farm; relinking ---"
-    );
-    match linked_farm() {
-        Some(other) => eprintln!("std-src:   it pointed at {}", other.display()),
-        None => eprintln!("std-src:   it pointed at nothing this tool could read"),
-    }
-    eprintln!("std-src:   now {}", farm.display());
-    eprintln!(
-        "std-src: if another lane is mid-gate it has just lost the link, which is how this shared \
-         name has always worked (AGENTS.md). The integrator relinks from the main checkout at merge."
-    );
-    if !run("rustup", &["toolchain", "link", NIFE_TOOLCHAIN, &s(farm)]) {
-        eprintln!("std-src: `rustup toolchain link {NIFE_TOOLCHAIN}` failed");
+    if !run("rustup", &["toolchain", "link", &name, &s(farm.clone())]) {
+        eprintln!("std-src: `rustup toolchain link {name}` failed");
         return false;
     }
+    eprintln!("std-src: linked this worktree's farm as `{name}` (cargo +{name} ...)");
     true
 }
 
-/// **Materialize the patched `nife-dev` toolchain** (milestone 27).
+/// **Materialize the patched std toolchain** (milestone 27 (Rust `std` on the native ABI)), linked
+/// as [`toolchain_name`].
 ///
 /// build-std reads std's source from the sysroot of the rustc it invokes, so a patched std means
 /// a toolchain whose sysroot IS patched. We hardlink-clone the real nightly (`cp -al`, near-zero
@@ -335,22 +414,9 @@ pub(crate) fn std_src() -> bool {
     if farm_std_src().is_dir()
         && std::fs::read_to_string(&stamp_file).ok().as_deref() == Some(&stamp.to_string())
     {
-        // A warm, correctly-stamped farm is not enough, and this early return used to be the whole
-        // check. The stamp says *this worktree's farm is built*; it says nothing about where the
-        // machine-global `nife-dev` name currently points, and every build downstream of here
-        // resolves std through that name rather than through `farm_dir()`.
-        //
-        // So two lanes gating at once silently built each other's std. That is not hypothetical:
-        // on 2026-08-18 lane `55-durability` relinked mid-run and lane `64-more`'s `std_exerciser`
-        // compiled against 55's farm, caught only by a person reading the `Compiling std` path out
-        // of the build output. AGENTS.md predicted this failure in prose and nothing looked for it.
-        //
-        // Relink rather than refuse. The lane calling this is about to build and needs the name to
-        // mean its own farm, taking the link is what every lane already does by design, and failing
-        // here would only convert a silent wrong build into a stopped gate. What changes is that
-        // the theft is now deliberate and printed, so `Compiling std` from a foreign path cannot
-        // happen without a line above it saying who took what.
-        if !relink_farm_if_stolen() {
+        // A warm farm still checks its link: a cleaned `toolchains/`, or a worktree whose link
+        // was swept, would otherwise stay unnamed until its stamp next changed.
+        if !link_own_toolchain() {
             return false;
         }
         return true;
@@ -361,7 +427,7 @@ pub(crate) fn std_src() -> bool {
         return false;
     };
     let farm = farm_dir();
-    eprintln!("--- std-src: building the patched nife-dev toolchain (this recompiles std) ---");
+    eprintln!("--- std-src: building the patched std toolchain (this recompiles std) ---");
 
     // Fresh farm. `cp -al` clones bin+lib as hardlinks; the src subtree is then a real copy so
     // patching it never mutates the shared rustup toolchain.
@@ -421,13 +487,7 @@ pub(crate) fn std_src() -> bool {
         return false;
     }
 
-    // Link (or relink) the farm as `nife-dev`. Idempotent: rustup replaces an existing link to
-    // the same path.
-    if !run(
-        "rustup",
-        &["toolchain", "link", NIFE_TOOLCHAIN, &s(farm.clone())],
-    ) {
-        eprintln!("std-src: `rustup toolchain link {NIFE_TOOLCHAIN}` failed");
+    if !link_own_toolchain() {
         return false;
     }
 
@@ -930,21 +990,22 @@ fn exerciser_target_dir(inherited: Option<&str>) -> (PathBuf, Vec<String>) {
 }
 
 /// **Build the `std_exerciser` program for every custom target** (milestone 27; `x86_64` since 184), via -Zbuild-std against
-/// the patched `nife-dev` toolchain. panic=abort and singlethread come from the target specs;
+/// this worktree's patched std farm. panic=abort and singlethread come from the target specs;
 /// `compiler-builtins-mem` supplies memcpy/memset for the bare target.
 ///
-/// `RUSTUP_TOOLCHAIN` is set explicitly rather than via `+nife-dev`, because the cargo proxy
+/// `RUSTUP_TOOLCHAIN` is set explicitly rather than via a `+toolchain` selector, because the cargo proxy
 /// that launched this xtask already exports `RUSTUP_TOOLCHAIN=nightly`, which would override a
 /// `+` selector and silently build std from the *unpatched* sysroot.
 ///
 /// **It names this worktree's farm by path, not `nife-dev` by name** (a correction, found by
-/// milestone 606's lane on 2026-09-27). `nife-dev` is one symlink for the whole machine, and a
+/// milestone 606's lane on 2026-09-27). `nife-dev` was then one symlink for the whole machine, and a
 /// lane gating beside another lane had it relinked away mid-build: `std_src` relinked it to this
 /// farm, another lane's gate relinked it to theirs a moment later, and this build compiled an
 /// unpatched std and failed three times running. rustup accepts a toolchain path in
 /// `RUSTUP_TOOLCHAIN`, so the build now uses the farm it just checked and cannot be pointed
-/// elsewhere. The link is still made, for people who type `+nife-dev`; the `helpers/` builds
-/// name the farm by path too, since 2026-09-30, for this same reason.
+/// elsewhere. The `helpers/` builds name the farm by path too, since 2026-09-30, for this same
+/// reason. Since 2026-10-10 the link is per worktree ([`toolchain_name`]), for a person typing
+/// `+<name>`, and nothing here reads it.
 ///
 /// **The build is pinned to `std_exerciser/target` by `CARGO_TARGET_DIR`** (the sysroot-theft
 /// fix, 2026-09-30). `Command` inherits the environment, and AGENTS.md tells every lane to gate
@@ -1057,10 +1118,10 @@ pub(crate) fn std_aborts() -> bool {
             eprintln!("  {}", p.display());
         }
         eprintln!(
-            "\nstd-aborts: this is not a defect in the file or line above; it is the account-wide \
-             `nife-dev` rustup link having pointed at a DIFFERENT worktree's farm the last time \
-             `cargo xtask std-exerciser` ran here (two worktrees racing `xtask std-src` on one \
-             machine). Fix: rm -rf std_exerciser/target && cargo xtask std-exerciser, which \
+            "\nstd-aborts: this is not a defect in the file or line above; it is a build that resolved \
+             a DIFFERENT worktree's farm the last time `cargo xtask std-exerciser` ran here (before \
+             2026-10-10, two worktrees racing `xtask std-src` for the one account-wide `nife-dev` \
+             rustup link did this). Fix: rm -rf std_exerciser/target && cargo xtask std-exerciser, which \
              rebuilds the dep-info against this worktree's own farm. Re-running without clearing it \
              first reproduces this exact failure in about thirty seconds, because cargo considers \
              the (foreign) build unit fresh. See notes/std.md's BUGS."
@@ -1344,9 +1405,9 @@ fn compiled_std_sources() -> Vec<PathBuf> {
 
 /// Which of `compiled` were not, in fact, compiled out of this worktree's own farm.
 ///
-/// `nife-dev` is an account-wide `rustup toolchain link`: two worktrees racing `cargo xtask
-/// std-src` on one machine leave the loser's toolchain pointed at the winner's `target/nife-farm`,
-/// and `-Zbuild-std`'s dep-info then caches the winner's absolute paths as inputs to what looks
+/// Until 2026-10-10 `nife-dev` was one account-wide `rustup toolchain link`: two worktrees racing
+/// `cargo xtask std-src` on one machine left the loser's toolchain pointed at the winner's `target/nife-farm`,
+/// and `-Zbuild-std`'s dep-info then cached the winner's absolute paths as inputs to what looks
 /// like this worktree's own build. Left unchecked, [`std_aborts`] reads those paths, finds a body
 /// it has never seen, and reports it as a defect in this project's source with a file and a line
 /// number that in fact name a different checkout entirely. Comparing each path's canonical form
@@ -1382,6 +1443,69 @@ fn std_relative(p: &Path) -> String {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    /// The falsification of the shared link: two worktrees must never compute one toolchain name,
+    /// even when their directories share a basename, and no worktree may compute the legacy
+    /// `nife-dev` that lanes cut before 2026-10-10 still relink. Under the old code both roots
+    /// below answered `nife-dev`, which is the whole churn this replaces.
+    #[test]
+    fn two_worktrees_never_share_a_toolchain_name() {
+        let a = toolchain_name_for(Path::new("/w/nife-worktrees/lane-a"));
+        let b = toolchain_name_for(Path::new("/w/nife-worktrees/lane-b"));
+        let main = toolchain_name_for(Path::new("/w/nife"));
+        let clone = toolchain_name_for(Path::new("/tmp/stranger/nife"));
+        for n in [&a, &b, &main, &clone] {
+            assert!(n.starts_with(TOOLCHAIN_PREFIX), "{n}");
+            assert_ne!(n, "nife-dev");
+            assert!(
+                n.chars().all(|c| c.is_ascii_alphanumeric() || c == '-'),
+                "{n}"
+            );
+        }
+        assert_ne!(a, b);
+        assert_ne!(main, clone, "same basename, different checkout");
+        assert!(a.starts_with("nife-dev-lane-a-"), "{a}");
+        assert_eq!(
+            a,
+            toolchain_name_for(Path::new("/w/nife-worktrees/lane-a")),
+            "stable across runs"
+        );
+    }
+
+    /// The sweep removes a per-worktree link whose farm is gone and nothing else: not a live
+    /// worktree's link, not the legacy `nife-dev` even when it dangles, and not a real install.
+    #[cfg(unix)]
+    #[test]
+    fn the_sweep_removes_only_dangling_per_worktree_links() {
+        use std::os::unix::fs::symlink;
+        let base =
+            std::env::temp_dir().join(format!("nife-toolchain-sweep-test-{}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&base);
+        let (dir, live) = (base.join("toolchains"), base.join("live-farm"));
+        std::fs::create_dir_all(&dir).unwrap();
+        std::fs::create_dir_all(&live).unwrap();
+        std::fs::create_dir_all(dir.join("nightly-2026-10-10-aarch64-apple-darwin")).unwrap();
+        let gone = base.join("pruned-farm");
+        symlink(&live, dir.join("nife-dev-live-00000001")).unwrap();
+        symlink(&gone, dir.join("nife-dev-pruned-00000002")).unwrap();
+        symlink(&gone, dir.join("nife-dev")).unwrap();
+        symlink(&gone, dir.join("other-dangling")).unwrap();
+
+        assert_eq!(sweep_dangling_links(&dir), ["nife-dev-pruned-00000002"]);
+        for kept in [
+            "nife-dev-live-00000001",
+            "nife-dev",
+            "other-dangling",
+            "nightly-2026-10-10-aarch64-apple-darwin",
+        ] {
+            assert!(
+                std::fs::symlink_metadata(dir.join(kept)).is_ok(),
+                "{kept} must survive"
+            );
+        }
+        assert!(sweep_dangling_links(&dir).is_empty(), "idempotent");
+        let _ = std::fs::remove_dir_all(&base);
+    }
 
     /// After the hard-link clone, rustc and its driver must be independent inodes and nothing else
     /// may be, since copying `libLLVM` would add 140 MB per worktree for no benefit. The

@@ -65,10 +65,10 @@
 #
 # **Nothing here writes into the repository.** The tree is bind-mounted READ-ONLY and cloned inside
 # the container; the clone, the build products and the toolchains live in a named podman volume.
-# A lane's worktree cannot be touched by a run, and neither can the account-global `nife-dev`
-# toolchain link, because the container has a `$HOME` of its own. That last one is not tidiness: on
-# this project `script/test` takes that link account-wide, and a fifty-boot loop that held it for
-# three hours would break every other lane on the machine.
+# A lane's worktree cannot be touched by a run, and neither can the machine's `rustup` toolchain
+# links, because the container has a `$HOME` of its own. That last one was not tidiness: until
+# 2026-10-10 `script/test` took one `nife-dev` link account-wide, and a fifty-boot loop that held
+# it for three hours would have broken every other lane on the machine.
 #
 # **QEMU cannot leak out of a run.** The emulators live in the container's PID namespace inside the
 # podman VM, so the host's `pgrep qemu` never sees them and `--rm` on a container that exits takes

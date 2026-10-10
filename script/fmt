@@ -58,7 +58,7 @@ cargo fmt --manifest-path fuzz/Cargo.toml "$@"
 # `std_exerciser` is a fifth, and finding it unformatted is the third time this exact lesson has been
 # learned in this file. It has been its own workspace since milestone 27 and this gate has never
 # reached it, so the file it holds had a rustfmt diff sitting in a CI-green tree, exactly as
-# `redoxfs_server` did. Nothing about `std_exerciser` needs the `nife-dev` toolchain to be *formatted*:
+# `redoxfs_server` did. Nothing about `std_exerciser` needs the patched std farm to be *formatted*:
 # rustfmt parses, it does not build, so no target spec and no build-std are involved.
 cargo fmt --manifest-path std_exerciser/Cargo.toml "$@"
 
