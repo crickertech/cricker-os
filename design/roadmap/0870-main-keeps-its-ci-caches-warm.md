@@ -81,9 +81,12 @@ on `main` itself.
 
 ## BUGS
 
-- A key that drifts from its restoring job's saves an entry nobody reads, and nothing gates that.
-  The two copies sit in one file and the comment above the job says so; a lint check comparing them
-  would be the next rung.
+- ~~A key that drifts from its restoring job's saves an entry nobody reads, and nothing gates
+  that.~~ Closed 2026-10-10 (UTC) by #1908 (an owed correction: this entry was true when merged).
+  `helpers/cache_save_scope.py`, run by `script/lint`, now fails when a path, key or pinned
+  `actions/cache` SHA in `main-caches` differs from any restoring step's in any workflow, or when
+  no step restores it at all. What it still does not compare is runners: a restoring job moved to
+  a pool `main-caches` has no leg for reads a key `main` never saves.
 - When the suite also runs on a push to `main` with a cold key (a commit landed outside the queue),
   this job and the suite's QEMU jobs all build, and one save wins. That costs runner minutes, never
   a result.
@@ -92,9 +95,8 @@ on `main` itself.
 
 ## Follow-on
 
-- **Recorded.** A lint check that each key here equals its restoring job's key is the next rung
-  above the comment; the limitation is in this block's BUGS, beside the job in
-  `.github/workflows/ci.yml`.
+- **Done.** A lint check that each key here equals its restoring job's key, in
+  `helpers/cache_save_scope.py` (#1908, 2026-10-10 UTC). It covers paths and the pinned SHA too.
 - **Refused.** Warming `supply-chain`'s vendor tarballs: a miss costs one HTTP request, less than
   the job would.
 

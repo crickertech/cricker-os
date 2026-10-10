@@ -3274,7 +3274,13 @@ python3 helpers/job-budget.py lint
 # No rust-cache entry is saved from a merge group, where no later run can restore it
 # (lane/actions-cache-budget, provisional; notes/actions-cache-budget-2026-10-07.md). Watched
 # failing 2026-10-07 against base 1f5be6843: 18 unscoped steps in ci.yml and verify.yml.
-echo "==> merge groups save no rust-cache entry"
+# The same helper holds ci.yml's `main-caches` job (milestone 870 (`main` keeps its CI caches
+# warm), provisional) to the jobs that restore what it saves: each actions/cache step there has a
+# restorer in some workflow, and the same path, key and pinned SHA as every one of them
+# (maintainer/cache-key-drift-lint, #1908). Watched failing 2026-10-10 against base 6ddfd707a, with
+# a drifted QEMU key, Kani path and Kani SHA planted in ci.yml one at a time; the selftest plants
+# the same three.
+echo "==> merge groups save no rust-cache entry; main-caches saves what jobs restore"
 python3 helpers/cache_save_scope.py --selftest >/dev/null
 python3 helpers/cache_save_scope.py
 # Milestone 640 (a gate is not evidence until somebody has watched it fail), provisional: every

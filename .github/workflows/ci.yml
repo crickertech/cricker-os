@@ -370,7 +370,9 @@ jobs:
   # every job calls builds into the cached path, and `actions/cache`'s post step saves it under the
   # same key, on `refs/heads/main` because that is the ref a push to `main` runs on. The keys and
   # paths are copied from the jobs that restore them; a copy that drifts saves an entry nobody
-  # reads, which is why each key below is character for character the restoring job's. The same
+  # reads, which is why each key below is character for character the restoring job's.
+  # `helpers/cache_save_scope.py`, run by `script/lint`, fails when a path, key or pinned
+  # `actions/cache` SHA here differs from any restoring job's in any workflow (#1908). The same
   # mechanism heals an evicted entry: the next push to `main` puts it back.
   #
   # **Coverage, by runner.** QEMU on both pools: x64 serves `swish-check-x86_64` and `bench`, ARM64
