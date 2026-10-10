@@ -2,8 +2,9 @@
 #
 # Cut a lane's branch and worktree, refusing a bad name before either exists.
 #
-#     script/claim milestone/238-a-thing
-#     script/claim maintainer/some-fix --worktree ../nife-worktrees/somefix --no-claim
+#     script/claim milestone/238-a-thing --new-work
+#     script/claim maintainer/some-fix --debt-paydown --worktree ../nife-worktrees/somefix --no-claim
+#     script/claim maintainer/bold-sweep --debt-paydown
 #
 # # Why this exists
 #
@@ -39,6 +40,17 @@
 # The claim commit carries a Co-Authored-By trailer because .githooks/commit-msg requires one of any
 # agent's commit; without it this script died at its own first commit (found 2026-10-05 UTC).
 #
+# # Why it refuses an unclassified lane
+#
+# Every lane says at the claim whether it repays debt, with exactly one of `--debt-paydown` or
+# `--new-work`, and this refuses to run with neither or both (calef's ruling R1 on #1894,
+# 2026-10-10 UTC). An optional flag counted only the lanes whose briefer remembered it; a required
+# one is asked of every lane at the moment it knows its own purpose best. `--debt-paydown` opens
+# the draft with the `debt-paydown` label on; `--new-work` adds no label, and the draft's body
+# records which was chosen. notes/debt-paydown.md has the definition. The name `debt-paydown`, as
+# label and flag, was ratified by calef on 2026-10-10 (UTC); `--new-work` is provisional.
+# helpers/claim-selftest.sh, run by script/lint, holds the refusal to that.
+#
 # See notes/scripts.md.
 
 set -eu
@@ -50,7 +62,7 @@ repo_root="$(cd "$(dirname "$0")/.." && pwd)"
 
 usage() {
     cat >&2 <<'EOF'
-usage: script/claim <branch-name> [--worktree <dir>] [--title <text>] [--no-claim]
+usage: script/claim <branch-name> (--debt-paydown | --new-work) [--worktree <dir>] [--title <text>] [--no-claim]
 
   <branch-name>     e.g. milestone/238-a-thing or maintainer/some-fix. Checked against the same
                      shape rule script/lint's check 4 enforces, before anything is created.
@@ -61,6 +73,11 @@ usage: script/claim <branch-name> [--worktree <dir>] [--title <text>] [--no-clai
   --title <text>    the draft pull request's title, and the text after "claim: " in the empty
                      commit. Default: the branch name itself; `gh pr edit` renames the pull
                      request later if a better title turns up mid-work.
+  --debt-paydown    the work repairs, cleans up, fixes a record or brings the tree up to a
+                     standard it already has (notes/debt-paydown.md); the draft gets the
+                     debt-paydown label. Exactly one of this or --new-work is required.
+  --new-work        anything else: a capability, a milestone's first build, a proposal, a
+                     measurement. No label. Exactly one of this or --debt-paydown is required.
   --no-claim        stop once the branch and worktree exist. Skip the empty commit, the push, and
                      the draft pull request (AGENTS.md §90's claim). Without this flag the claim is
                      made, because that is every lane's documented first act and a front door that
@@ -72,6 +89,8 @@ branch=""
 worktree=""
 title=""
 make_claim=yes
+label=""
+kind=""
 
 while [ $# -gt 0 ]; do
     case "$1" in
@@ -82,6 +101,12 @@ while [ $# -gt 0 ]; do
             [ $# -ge 2 ] || { echo "claim: --title needs text" >&2; exit 2; }
             title="$2"; shift 2 ;;
         --no-claim) make_claim=no; shift ;;
+        --debt-paydown|--new-work)
+            if [ -n "$kind" ] && [ "$kind" != "$1" ]; then
+                echo "claim: --debt-paydown and --new-work both given; a lane is one or the other" >&2
+                exit 2
+            fi
+            kind="$1"; shift ;;
         -h|--help) usage; exit 0 ;;
         -*)
             echo "claim: unknown argument $1" >&2
@@ -100,6 +125,15 @@ if [ -z "$branch" ]; then
     usage
     exit 2
 fi
+
+# Before anything touches git or the disk, like the name check below: an unclassified lane costs
+# one retyped command here.
+if [ -z "$kind" ]; then
+    echo "claim: say whether this lane repays debt: add --debt-paydown or --new-work" >&2
+    echo "  (definition in notes/debt-paydown.md; calef's ruling R1 on #1894)" >&2
+    exit 2
+fi
+[ "$kind" = --debt-paydown ] && label=debt-paydown
 
 # The refusal this script exists for, and it runs first: before the worktree, before the branch,
 # before a single file changes on disk.
@@ -166,9 +200,9 @@ Co-Authored-By: ${NIFE_CLAIM_MODEL:-Claude Code} <noreply@anthropic.com>"
     else
         account="$(gh api user --jq .login 2>/dev/null || echo "the \`gh\` user")"
     fi
-    gh pr create --draft --title "$claim_text" --body "**Lane:** \`$branch\`, written by an agent; $account's account is the author GitHub shows.
+    gh pr create --draft ${label:+--label "$label"} --title "$claim_text" --body "**Lane:** \`$branch\`, written by an agent; $account's account is the author GitHub shows.
 
-Claim commit only so far."
+Claim commit only so far. Classified at claim: \`${kind#--}\`."
 )
 
 echo "claim: worktree $worktree, branch $branch, draft pull request opened"

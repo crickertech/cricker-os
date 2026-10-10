@@ -35,6 +35,11 @@ The maintainer side of the same queue is in [the maintainer](../maintainer/SKILL
   cannot silently take the same milestone: the board is `gh pr list --draft`. The empty commit is
   what keeps that true: without it GitHub closes the draft as *merged* when the lane's base lands.
   Check that board before briefing, alongside `git ls-remote --heads`.
+- `script/claim <branch> --debt-paydown` or `script/claim <branch> --new-work` makes that claim in
+  one command, and refuses a lane that passes neither or both (calef's ruling R1 on #1894,
+  2026-10-10 UTC). `--debt-paydown` is for work that meets the definition in
+  [notes/debt-paydown.md](../../debt-paydown.md), and it puts the `debt-paydown` label on the draft.
+  Everything else is `--new-work`. A brief says which one, so the lane doesn't have to guess.
 - A developer works in a lane, and the lane is the isolation rather than the person: its own
   worktree, its own branch, one milestone, no visibility into the others. Two developers in one lane
   is forbidden; it is the merge problem this vocabulary exists to prevent.

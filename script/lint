@@ -2978,6 +2978,10 @@ python3 "$(dirname "$0")/../helpers/smelter-token" --selftest >/dev/null
 #     unblocked, still waiting, closed unmerged, already labelled) are each fixtures-only, no `gh`.
 "$(dirname "$0")/../helpers/blocked-by-selftest.sh"
 "$(dirname "$0")/../helpers/blocked-by-resolution-selftest.sh"
+#     And the classified claim (calef's ruling R1 on #1894, 2026-10-10 UTC): script/claim refuses a
+#     lane with neither or both of `--debt-paydown` and `--new-work`, before git, `gh` or the disk.
+#     Both tools are stubs here, so a refusal that regresses fails this rather than claiming.
+"$(dirname "$0")/../helpers/claim-selftest.sh" >/dev/null
 
 #     The empty-diff check (milestone 627 (a pull request that changes nothing does not merge), provisional number; helpers/empty-diff-check.sh): a merge
 #     whose tree equals its first parent's. Fixtures in throwaway repositories, the failing cases

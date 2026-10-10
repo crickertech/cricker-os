@@ -36,7 +36,7 @@ count; see the Result section.
 
 calef launches GLM 5.3 with opencode, and opencode can read a milestone. So this block is the brief.
 
-1. Open a lane: `script/claim milestone/800-a-non-anthropic-model-attacks-the-confinement-claim`.
+1. Open a lane: `script/claim milestone/800-a-non-anthropic-model-attacks-the-confinement-claim --new-work`.
 2. `cd` into the worktree it prints.
 3. Start opencode with GLM 5.3 and say: "read milestone 800 and do it".
 4. When it finishes, push the branch and hand the pull request to the maintainer.
