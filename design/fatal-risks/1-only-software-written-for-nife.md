@@ -81,12 +81,21 @@ adoption"*, risk 8's paper ([`notes/incremental-path.md`](../../notes/incrementa
 (`std::thread::spawn` runs real threads in one address space)), so `ripgrep`'s threads become
 reachable; `fork` is refused and spawn supported (§264 (`fork` is declined for good), milestone 172
 (a capability-native subprocess primitive)).
+
+Fact, 2026-10-10 (UTC), from milestone 835 (a C library, stage 1: files, clock and memory)'s block
+and #1896: two programs that are neither Rust nor related to `ripgrep` now run unmodified here.
+SQLite 3.50.4's `speedtest1` and ioping 1.3 run under QEMU on all three architectures, and
+`speedtest1` prints the same verification hash as on macOS. Like `rg` before #1853, they run only
+where their helpers were run, never in CI. Whether this closes gap 2 is calef's, under §216
+(fatal-risk facts are correctable, and verdicts are the architect's), so the verdict stays AMBER.
+
 ## Benchmarks that inform this risk
 
 As of 2026-10-08 (UTC), under §262 (nife is measured with the field's standard benchmarks).
-Each is to run unmodified on nife and on Linux, none has produced a number yet, and every nife
-port waits on a C library, which §262 leaves to calef.
+Each is to run unmodified on nife and on Linux, and none has produced a number yet. Corrected
+2026-10-10 (UTC): no port waits on a C library now. Milestone 835 (#1896) built one from relibc, as
+§265 (a C library started from relibc) ruled, and `speedtest1` and ioping already run on nife.
 
-- [Milestone 831 (SQLite's speedtest1 on nife and Linux)](../roadmap/0831-sqlite-speedtest1-on-nife-and-linux.md). Needs only a C library.
+- [Milestone 831 (SQLite's speedtest1 on nife and Linux)](../roadmap/0831-sqlite-speedtest1-on-nife-and-linux.md). Runs on nife since 835; the Linux row is open.
 - [Milestone 833 (the same storage benchmark on nife and Linux, by porting real fio)](../roadmap/0833-the-same-storage-benchmark-on-nife-and-linux.md). Waits on threads too.
-- [Milestone 834 (ioping on nife and Linux)](../roadmap/0834-ioping-on-nife-and-linux.md). Needs only a C library.
+- [Milestone 834 (ioping on nife and Linux)](../roadmap/0834-ioping-on-nife-and-linux.md). Runs on nife since 835; the Linux row is open.

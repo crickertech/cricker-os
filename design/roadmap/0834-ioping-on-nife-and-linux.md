@@ -1,8 +1,8 @@
 ---
 status: NOT-STARTED
 raised: 2026-10-08
-milestone_dependencies: 261
-decision_dependencies: 262, unwritten
+milestone_dependencies: 261, 835
+decision_dependencies: 262, 265
 machine_requirements: x86_64 silicon with VT-d and an NVMe drive
 specific_machine: xenon (the Micron 2450 that risk 6's first comparison was taken on)
 needs_person: yes
@@ -60,11 +60,11 @@ transcribed by hand.
 
 ## What it waits on
 
-ioping is POSIX C, and nife has no C library that runs one unmodified. §31 (the foreign-language
-seam) lets C make no syscalls, and full POSIX is milestone 478 (tier three: full POSIX behind the
-foreign-language seam), refused until a component needs it. Whether §262 makes these programs that
-component is calef's call, and nobody has written that question up, so this block carries
-`decision_dependencies: unwritten`.
+Corrected 2026-10-10 (UTC). The C library this waited on is built. calef ruled the question on
+2026-10-08 as §265 (a C library started from relibc), and milestone 835 (a C library, stage 1:
+files, clock and memory) built it in #1896. ioping 1.3 already runs unmodified on nife under QEMU on
+all three architectures. What remains is the comparison on xenon. The fields now name 835 and §265
+in place of `unwritten`.
 
 It needs nothing else that is missing. From memory, to be checked against the pinned source, ioping
 uses `open`, `pread` and `pwrite`, `clock_gettime` and `getopt`, with no threads and no `fork`. Of
@@ -91,4 +91,4 @@ cannot reach the board writes nothing rather than a TCG number.
 
 The lightest standard storage benchmark, unmodified on nife and Linux on xenon with real logs and a
 latency per request, so risk 6's unexplained 2.16x read is explained or corrected before fio can
-run. Waits only on a C library.
+run. Its C library is milestone 835, built.

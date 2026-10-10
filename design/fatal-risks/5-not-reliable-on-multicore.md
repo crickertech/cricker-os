@@ -42,8 +42,10 @@ thread mode need to run here at all.
 ## Benchmarks that inform this risk
 
 As of 2026-10-08 (UTC), under §262 (nife is measured with the field's standard benchmarks).
-Each is to run unmodified on nife and on Linux, none has produced a number yet, and every nife
-port waits on a C library, which §262 leaves to calef.
+Each is to run unmodified on nife and on Linux, and none has produced a number yet. Corrected
+2026-10-10 (UTC): a port no longer waits on a C library, since milestone 835 (#1896) built one from
+relibc under §265 (a C library started from relibc). It still waits on whatever that first stage
+lacks, such as threads or sockets.
 
 - [Milestone 827 (hackbench on nife and Linux)](../roadmap/0827-hackbench-on-nife-and-linux.md), run long as a second soak.
 - [Milestone 830 (schbench on nife and Linux)](../roadmap/0830-schbench-on-nife-and-linux.md), wakeup-latency tails.

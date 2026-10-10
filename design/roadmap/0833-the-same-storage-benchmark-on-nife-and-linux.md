@@ -2,8 +2,8 @@
 status: NOT-STARTED
 raised: 2026-10-07
 promoted_from: the-same-storage-benchmark-on-nife-and-linux
-milestone_dependencies: 261, 812
-decision_dependencies: 262, unwritten
+milestone_dependencies: 261, 812, 835
+decision_dependencies: 262, 265
 machine_requirements: x86_64 silicon with VT-d and an NVMe drive
 specific_machine: xenon (the Micron 2450 the first comparison was taken on)
 needs_person: yes
@@ -63,11 +63,10 @@ the Linux side. No nife-side benchmark program is written, so there is no shim t
 
 ## What it waits on
 
-Every program in this family is POSIX C, and nife has no C library that runs one unmodified. §31
-(the foreign-language seam) lets C make no syscalls, and full POSIX is milestone 478 (tier three:
-full POSIX behind the foreign-language seam), refused until a component needs it. Whether §262 makes
-these programs that component is calef's call, and nobody has written that question up, so this
-block carries `decision_dependencies: unwritten`.
+Corrected 2026-10-10 (UTC). The C library this waited on exists. calef ruled the question on
+2026-10-08 as §265 (a C library started from relibc), and milestone 835 (a C library, stage 1:
+files, clock and memory) built its first stage in #1896. The fields now name 835 and §265 in place
+of `unwritten`. This program's other needs are below.
 
 Threads. fio times its jobs with its own threads even when jobs are processes. Threads are milestone
 812 (`std::thread::spawn` runs real threads in one address space), option A of §105

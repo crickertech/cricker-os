@@ -41,10 +41,12 @@ Caveats. Every figure is one command in flight, polled completion, and one pass 
 ## Benchmarks that inform this risk
 
 As of 2026-10-08 (UTC), under §262 (nife is measured with the field's standard benchmarks).
-Each is to run unmodified on nife and on Linux, none has produced a number yet, and every nife
-port waits on a C library, which §262 leaves to calef.
+Each is to run unmodified on nife and on Linux, and none has produced a number yet. Corrected
+2026-10-10 (UTC): a port no longer waits on a C library, since milestone 835 (#1896) built one from
+relibc under §265 (a C library started from relibc). It still waits on whatever that first stage
+lacks, such as threads or sockets.
 
 - [Milestone 828 (iperf3 on nife and Linux)](../roadmap/0828-iperf3-on-nife-and-linux.md), the NIC half.
 - [Milestone 829 (netperf TCP_RR on nife and Linux)](../roadmap/0829-netperf-tcp-rr-on-nife-and-linux.md), a driver's fixed delay.
 - [Milestone 833 (the same storage benchmark on nife and Linux, by porting real fio)](../roadmap/0833-the-same-storage-benchmark-on-nife-and-linux.md), at queue depths 1, 4 and 32. Waits on threads.
-- [Milestone 834 (ioping on nife and Linux)](../roadmap/0834-ioping-on-nife-and-linux.md), one request at a time. Needs only a C library.
+- [Milestone 834 (ioping on nife and Linux)](../roadmap/0834-ioping-on-nife-and-linux.md), one request at a time. Runs on nife since 835; the Linux row is open.
