@@ -53,7 +53,8 @@ const NO_PROGRAM: &str = "no package_fetch_exerciser in this archive: build it w
 /// `pinned_tls_exerciser/src/bin/package_fetch_exerciser.rs` patched to connect by name again
 /// (`TcpStream::connect((server_name, to[0].port()))`), the exerciser rebuilt, and this test booted
 /// on aarch64, riscv64 and x86_64: red on all three with the certificate error above, green on all
-/// three with the patch reverted. A replay needs `package_fetch_exerciser` in the archive, which
+/// three with the patch reverted. The x86_64 leg under OVMF, re-booted once its runner exported
+/// the boot tag, went the same way: green, and red under the patch. A replay needs `package_fetch_exerciser` in the archive, which
 /// no gate builds until milestone 855 (the TLS graph enters the gated build).
 #[test_case]
 fn a_package_is_fetched_through_the_index_by_name_over_tls_and_judged_by_its_digest() {
@@ -162,6 +163,16 @@ fn a_package_is_fetched_through_the_index_by_name_over_tls_and_judged_by_its_dig
          location whose checked resolution was public (192.0.2.1): a TLS error ({reason}) means a \
          server answered, and slirp's only TLS server is the private one, so the connection \
          disagreed with the check",
+    );
+    // The probe proves something only if the client's one resolution saw the PUBLIC answer: a
+    // client refused at the check never dials, so neither the escape nor the fix is exercised.
+    // That happened on the UEFI x86_64 leg, whose runner did not export the boot tag, so every
+    // boot after the first shared one state file and got the private answer first (2026-10-10).
+    assert!(
+        !reason.starts_with("a private address"),
+        "the rebinding probe proved nothing: the client's check saw the private answer ({reason}), \
+         so the name server did not answer this boot's first query public. Is NIFE_BOOT_TAG \
+         exported by this architecture's runner?",
     );
     assert!(
         super::wait_for(|| !crate::sched::is_thread_present(run.thread)),

@@ -148,6 +148,11 @@ what was tried in one sentence, and whose refusal it was.
   either refuses at once or leaves the net server's connect to give up at its 15 s bound. It was
   refused at once on patagonia on all three ISAs. A hermetic fixture would need a public address
   slirp answers locally, and slirp refuses a `guestfwd` outside its own network.
+- The UEFI x86_64 leg (`helpers/qemu-uefi-x86_64.sh`) did not export the boot tag at first, so
+  every UEFI boot after the first shared one state file and saw the private answer first. The
+  probe there proved nothing and still passed. Found 2026-10-10 on the fix's last boot; that
+  runner now exports the tag, and the test fails when the check saw the private answer. Re-booted
+  the same day: green with the fix, red with connect-by-name patched back.
 - The rebound twin is served `greeting`'s bytes under a `rebound` stem, so the digest admits the
   fetch but the member check refuses it (`NotRequested`). That is harmless for the reach proof,
   since the reach precedes admission, and visible as a line in the exerciser's report.
