@@ -53,8 +53,7 @@ documents):
 
 ## Follow-on
 
-- **Proposed.** `design/roadmap/proposals/the-comment-block-sweep-continues-a-third-time.md`:
-  worth five. Next worst: `components/src/timetable.rs:1` (191), `components/src/login.rs:1`
+- **Milestone 865.** Milestone 865 (the comment-block sweep's worth five). Next worst: `components/src/timetable.rs:1` (191), `components/src/login.rs:1`
   (177), `crates/current_cpu_protocol/src/lib.rs:1` (176), `components/src/system_installer.rs:1`
   (175), `crates/board_console/src/lib.rs:1` (173).
 

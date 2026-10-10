@@ -104,8 +104,7 @@
 //!
 //! Name: ratified 2026-09-13 (calef, working the unratified worklist), with `crates/timetable` and
 //! `components/timetable.conf` in one ruling, which is what a crate-and-program pair means. See the
-//! crate's module docs for the argument and the refusals. Milestone 129's own block declined to
-//! propose a name and said the eventual one was calef's.
+//! crate's module docs for the argument.
 //!
 //! # BUGS
 //!
@@ -115,8 +114,8 @@
 //!   computes exactly what a timed wait would block until, so the fix is one line here once
 //!   milestone 106's fork is decided; until then a running timetable costs a core's worth of yields.
 //!   **This program is that fork's fifth consumer** (the block counts four: `net_stack`'s retransmit
-//!   window, milestone 51 (wall-clock time)'s `thread::sleep`, `RECEIVE`'s no-timeout limitation, and the shell's `^C`
-//!   poll), and it is the first one whose *whole purpose* is to act at a time.
+//!   window, milestone 51 (wall-clock time)'s `thread::sleep`, `RECEIVE`'s no-timeout
+//!   limitation, the shell's `^C` poll), and the first whose *whole purpose* is to act at a time.
 //!
 //! - **Corpses are collected lazily, when their memory is needed.** Nothing reaps between fires,
 //!   because reaping means blocking on the supervision endpoint and blocking means not watching the
