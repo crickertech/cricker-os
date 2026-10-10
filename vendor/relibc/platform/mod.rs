@@ -1,3 +1,4 @@
+// Seeded from relibc (MIT, vendor/relibc/LICENSE) at 893a3b9133ac, 2026-10-10 (UTC), for milestone 835; nife owns it from here, and its edits say `nife:` where they are (vendor/README.md).
 //! Platform abstractions and environment.
 
 use crate::{
@@ -5,44 +6,54 @@ use crate::{
     io::{self, Read, Write},
     raw_cell::RawCell,
 };
-use alloc::{boxed::Box, vec::Vec};
+use alloc::vec::Vec;
 use core::{cell::Cell, fmt, ptr};
 
-pub use self::allocator::*;
-
-mod allocator;
-
-pub mod logger;
-
-pub use self::pal::{Pal, PalEpoll, PalPtrace, PalSignal, PalSocket};
+pub use self::pal::{Pal, PalSignal};
 
 mod pal;
 
 pub use self::sys::Sys;
 
-#[cfg(target_os = "linux")]
-#[path = "linux/mod.rs"]
-pub(crate) mod sys;
-
-#[cfg(target_os = "redox")]
-#[path = "redox/mod.rs"]
-pub(crate) mod sys;
+// nife's platform layer (milestone 835, §265): the `Pal` implemented on nife's own Rust `std`,
+// which already speaks every capability protocol a stage-1 call needs. Replaces relibc's
+// `linux/` and `redox/` arms, neither of which is seeded.
+#[path = "../../../c_library/src/platform/nife.rs"]
+pub mod sys;
 
 pub use self::rlb::{Line, RawLineBuffer};
 pub mod rlb;
 
-#[cfg(target_os = "linux")]
-pub mod auxv_defs;
 
-#[cfg(target_os = "redox")]
-pub use redox_rt::auxv_defs;
+pub use self::allocator::{alloc, alloc_align, alloc_usable_size, free, realloc};
+// nife: `malloc` on `std`'s allocator, nife's code (c_library/src/platform/allocator.rs).
+#[path = "../../../c_library/src/platform/allocator.rs"]
+mod allocator;
 
 use self::types::{c_char, c_int};
 pub mod types;
 
 /// The global `errno` variable used internally in relibc.
-#[thread_local]
-pub static ERRNO: Cell<c_int> = Cell::new(0);
+///
+/// nife: one cell for the whole process, not `#[thread_local]`, because a stage-1 program has one
+/// thread (the userspace targets are `singlethread`). Stage 2 (milestone 836) makes it per thread.
+pub static ERRNO: ErrnoCell = ErrnoCell(Cell::new(0));
+
+/// A `Cell` the one thread of a stage-1 program may share with itself as a `static`.
+pub struct ErrnoCell(Cell<c_int>);
+// SAFETY: a stage-1 process has exactly one thread, so no second thread can observe the cell.
+unsafe impl Sync for ErrnoCell {}
+impl ErrnoCell {
+    pub fn get(&self) -> c_int {
+        self.0.get()
+    }
+    pub fn set(&self, v: c_int) {
+        self.0.set(v)
+    }
+    pub fn as_ptr(&self) -> *mut c_int {
+        self.0.as_ptr()
+    }
+}
 
 /// The `argv` argument available to a program's `main` function.
 // TODO: change remaining static mut to RawCell
@@ -281,137 +292,3 @@ impl<T: Write> Write for CountingWriter<T> {
     }
 }
 
-// TODO: Set a global variable once get_auxvs is called, and then implement getauxval based on
-// get_auxv.
-
-#[cold]
-pub unsafe fn auxv_iter<'a>(ptr: *const usize) -> impl Iterator<Item = [usize; 2]> + 'a {
-    struct St(*const usize);
-    impl Iterator for St {
-        type Item = [usize; 2];
-
-        fn next(&mut self) -> Option<Self::Item> {
-            unsafe {
-                if *self.0 == self::auxv_defs::AT_NULL {
-                    return None;
-                }
-                let kind = *self.0;
-                let value = *self.0.add(1);
-                self.0 = self.0.add(2);
-
-                Some([kind, value])
-            }
-        }
-    }
-    St(ptr)
-}
-
-#[cold]
-pub unsafe fn get_auxvs(ptr: *const usize) -> Box<[[usize; 2]]> {
-    //traverse the stack and collect argument environment variables
-    let mut auxvs = unsafe { auxv_iter(ptr) }.collect::<Vec<_>>();
-
-    auxvs.sort_unstable_by_key(|[kind, _]| *kind);
-    auxvs.into_boxed_slice()
-}
-// TODO: Find an auxv replacement for Redox's execv protocol
-#[cold]
-pub unsafe fn get_auxv_raw(ptr: *const usize, requested_kind: usize) -> Option<usize> {
-    unsafe { auxv_iter(ptr) }.find_map(|[kind, value]| (kind == requested_kind).then_some(value))
-}
-pub fn get_auxv(auxvs: &[[usize; 2]], key: usize) -> Option<usize> {
-    auxvs
-        .binary_search_by_key(&key, |[entry_key, _]| *entry_key)
-        .ok()
-        .map(|idx| auxvs[idx][1])
-}
-
-#[cold]
-#[cfg(target_os = "redox")]
-// SAFETY: Must only be called when only one thread exists.
-pub unsafe fn init(auxvs: Box<[[usize; 2]]>) {
-    use self::auxv_defs::*;
-    use redox_rt::proc::FdGuard;
-
-    let Some(proc_fd) = get_auxv(&auxvs, AT_REDOX_PROC_FD) else {
-        panic!("Missing proc and thread fd!");
-    };
-    let Some(ns_fd) = get_auxv(&auxvs, AT_REDOX_NS_FD) else {
-        panic!("Missing namespace fd!");
-    };
-    unsafe {
-        redox_rt::initialize(
-            FdGuard::new(proc_fd).to_upper().unwrap(),
-            if ns_fd == usize::MAX {
-                None
-            } else {
-                Some(FdGuard::new(ns_fd).to_upper().unwrap())
-            },
-        );
-        init_inner(auxvs)
-    }
-}
-#[cold]
-#[cfg(target_os = "redox")]
-pub unsafe fn init_inner(auxvs: Box<[[usize; 2]]>) {
-    use self::auxv_defs::*;
-    use crate::header::sys_stat::S_ISVTX;
-    use redox_rt::proc::FdGuard;
-    use syscall::MODE_PERM;
-
-    // TODO: Is it safe to assume setup_sighandler has been called at this point?
-    redox_rt::sys::this_proc_call(
-        syscall::CallFlags::empty(),
-        &[redox_protocols::protocol::ProcCall::SyncSigPctl as u64],
-    )
-    .expect("failed to sync signal pctl");
-
-    if let (Some(cwd_ptr), Some(cwd_len), Some(cwd_fd)) = (
-        get_auxv(&auxvs, AT_REDOX_INITIAL_CWD_PTR),
-        get_auxv(&auxvs, AT_REDOX_INITIAL_CWD_LEN),
-        get_auxv(&auxvs, AT_REDOX_CWD_FD),
-    ) {
-        let cwd_bytes: &'static [u8] =
-            unsafe { core::slice::from_raw_parts(cwd_ptr as *const u8, cwd_len) };
-        if let (Ok(Ok(cwd_path)), Some(cwd_fd)) = (
-            core::str::from_utf8(cwd_bytes).map(self::sys::path::CwdPath::from),
-            (cwd_fd != usize::MAX).then(|| {
-                FdGuard::new(cwd_fd)
-                    .to_upper()
-                    .expect("failed to move cwd fd to upper table")
-            }),
-        ) {
-            self::sys::path::set_cwd_manual(cwd_path, cwd_fd)
-                .expect("cwd_path is not valid redox path")
-        }
-    }
-
-    let mut inherited_sigignmask = 0_u64;
-    if let Some(mask) = get_auxv(&auxvs, AT_REDOX_INHERITED_SIGIGNMASK) {
-        inherited_sigignmask |= mask as u64;
-    }
-    #[cfg(target_pointer_width = "32")]
-    if let Some(mask) = get_auxv(&auxvs, AT_REDOX_INHERITED_SIGIGNMASK_HI) {
-        inherited_sigignmask |= (mask as u64) << 32;
-    }
-    redox_rt::signal::apply_inherited_sigignmask(inherited_sigignmask);
-
-    let mut inherited_sigprocmask = 0_u64;
-
-    if let Some(mask) = get_auxv(&auxvs, AT_REDOX_INHERITED_SIGPROCMASK) {
-        inherited_sigprocmask |= mask as u64;
-    }
-    #[cfg(target_pointer_width = "32")]
-    if let Some(mask) = get_auxv(&auxvs, AT_REDOX_INHERITED_SIGPROCMASK_HI) {
-        inherited_sigprocmask |= (mask as u64) << 32;
-    }
-    redox_rt::signal::set_sigmask(Some(inherited_sigprocmask), None).unwrap();
-
-    if let Some(umask) = get_auxv(&auxvs, AT_REDOX_UMASK) {
-        let _ =
-            redox_rt::sys::swap_umask((umask as u32) & u32::from(MODE_PERM) & !(S_ISVTX as u32));
-    }
-}
-#[expect(clippy::boxed_local)]
-#[cfg(not(target_os = "redox"))]
-pub unsafe fn init(_auxvs: Box<[[usize; 2]]>) {}

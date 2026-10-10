@@ -1,3 +1,4 @@
+// Seeded from relibc (MIT, vendor/relibc/LICENSE) at 893a3b9133ac, 2026-10-10 (UTC), for milestone 835; nife owns it from here, and its edits say `nife:` where they are (vendor/README.md).
 use crate::{
     c_str::CStr,
     error::{Errno, ResultExt},
@@ -155,7 +156,7 @@ impl Drop for File {
         if !self.reference
             && let Err(e) = Sys::close(self.fd)
         {
-            log::warn!("Close did not succeed: {e:?}");
+            let _ = e;
         }
     }
 }

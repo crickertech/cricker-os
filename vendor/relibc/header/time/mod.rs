@@ -1,34 +1,21 @@
+// Seeded from relibc (MIT, vendor/relibc/LICENSE) at 893a3b9133ac, 2026-10-10 (UTC), for milestone 835; nife owns it from here, and its edits say `nife:` where they are (vendor/README.md).
 //! `time.h` implementation.
 //!
 //! See <https://pubs.opengroup.org/onlinepubs/9799919799/basedefs/time.h.html>.
 
 use crate::{
-    c_str::{CStr, CString},
     error::{Errno, ResultExt},
-    header::{
-        errno::{EINVAL, ENOMEM, EOVERFLOW, ETIMEDOUT},
-        signal::sigevent,
-        stdlib::getenv,
-        time::posix_tz::PosixTz,
-        unistd::readlink,
-    },
+    header::errno::{ENOMEM, EOVERFLOW, ETIMEDOUT},
     out::Out,
     platform::{
         self, Pal, Sys,
         types::{
-            c_char, c_double, c_int, c_long, clock_t, clockid_t, pid_t, size_t, time_t, timer_t,
+            c_char, c_double, c_int, c_long, clock_t, clockid_t, pid_t, size_t, time_t,
         },
     },
     raw_cell::RawCell,
-    sync::{Mutex, MutexGuard},
 };
-use alloc::collections::BTreeSet;
-use chrono::{
-    DateTime, Datelike, NaiveDate, NaiveDateTime, Offset, TimeZone, Timelike, Utc,
-    offset::MappedLocalTime,
-};
-use chrono_tz::{OffsetComponents, OffsetName, Tz};
-use core::{cell::OnceCell, convert::TryFrom, mem, ptr};
+use core::{convert::TryFrom, mem, ptr};
 
 pub use crate::header::bits_timespec::timespec;
 
@@ -36,7 +23,6 @@ pub use self::constants::*;
 
 pub mod constants;
 
-mod posix_tz;
 mod strftime;
 mod strptime;
 pub use strptime::strptime;
@@ -83,16 +69,6 @@ static mut ASCTIME: [c_char; 26] = [0; 26];
 pub struct TzName([*mut c_char; 2]);
 
 unsafe impl Sync for TzName {}
-
-/// cbindgen:ignore
-// Name storage for the `tm_zone` field.
-static TIMEZONE_NAMES: Mutex<OnceCell<BTreeSet<CString>>> = Mutex::new(OnceCell::new());
-
-/// cbindgen:ignore
-// relibc functions should hold `TIMEZONE_LOCK` when accessing `daylight`,
-// `timezone`, and `tzname`. However, it cannot guard those variables against
-// user access (see `tzset()` specs for details).
-static TIMEZONE_LOCK: Mutex<(Option<CString>, Option<CString>)> = Mutex::new((None, None));
 
 // Should only be accessed by relibc when `TIMEZONE_LOCK` is held
 /// See <https://pubs.opengroup.org/onlinepubs/9799919799/functions/tzset.html>.
@@ -347,12 +323,12 @@ pub unsafe extern "C" fn gmtime(timer: *const time_t) -> *mut tm {
 pub unsafe extern "C" fn gmtime_r(timer: *const time_t, result: *mut tm) -> *mut tm {
     // SAFETY: the caller is required to ensure that `timer` is a valid pointer.
     let timer_val = unsafe { *timer };
-
-    // SAFETY: the caller is required to ensure that `result` is convertible
-    // to an `Out<tm>`.
-    let result_out = unsafe { Out::nonnull(result) };
-
-    let _ = get_localtime(timer_val, result_out);
+    let Some(t) = utc_tm(timer_val) else {
+        platform::ERRNO.set(EOVERFLOW);
+        return ptr::null_mut();
+    };
+    // SAFETY: the caller is required to ensure that `result` is convertible to an `Out<tm>`.
+    unsafe { Out::nonnull(result) }.write(t);
     result
 }
 
@@ -384,100 +360,17 @@ pub unsafe extern "C" fn localtime(timer: *const time_t) -> *mut tm {
 ///   by user code for the duration of the call.
 #[unsafe(no_mangle)]
 pub unsafe extern "C" fn localtime_r(timer: *const time_t, result: *mut tm) -> *mut tm {
-    // SAFETY: the caller is required to ensure that `timer` is a valid pointer.
-    let timer_val = unsafe { *timer };
-
-    // SAFETY: the caller is required to ensure that `result` is convertible
-    // to an `Out<tm>`.
-    let result_out = unsafe { Out::nonnull(result) };
-
-    let mut lock = TIMEZONE_LOCK.lock();
-
-    // SAFETY: the caller is required to ensure that `daylight`, `timezone`
-    // and `tzname` are not accessed by user code.
-    unsafe { clear_timezone(&mut lock) };
-    if let (Some(std_time), dst_time) = get_localtime(timer_val, result_out) {
-        // SAFETY: the caller is required to ensure that `daylight`,
-        // `timezone` and `tzname` are not accessed by user code.
-        unsafe { set_timezone(&mut lock, &std_time, dst_time) };
-    }
-    result
+    // nife: local time is UTC (see `utc_tm`).
+    unsafe { tzset() };
+    unsafe { gmtime_r(timer, result) }
 }
 
 /// See <https://pubs.opengroup.org/onlinepubs/9799919799/functions/mktime.html>.
 #[unsafe(no_mangle)]
 pub unsafe extern "C" fn mktime(timeptr: *mut tm) -> time_t {
-    let mut lock = TIMEZONE_LOCK.lock();
-    unsafe { clear_timezone(&mut lock) };
-
-    let year = unsafe { (*timeptr).tm_year } + 1900;
-    let month = (unsafe { (*timeptr).tm_mon } + 1) as _;
-    let day = unsafe { (*timeptr).tm_mday } as _;
-    let hour = unsafe { (*timeptr).tm_hour } as _;
-    let minute = unsafe { (*timeptr).tm_min } as _;
-    let second = unsafe { (*timeptr).tm_sec } as _;
-
-    let Some(naive_local) = NaiveDate::from_ymd_opt(year, month, day)
-        .and_then(|date| date.and_hms_opt(hour, minute, second))
-    else {
-        platform::ERRNO.set(EOVERFLOW);
-        return -1;
-    };
-
-    match time_zone() {
-        Some(tz) => {
-            // IANA
-            let isdst = unsafe { (*timeptr).tm_isdst };
-            let tz_datetime = match tz.from_local_datetime(&naive_local) {
-                MappedLocalTime::Single(datetime) => datetime,
-                MappedLocalTime::Ambiguous(early, late) => {
-                    if isdst > 0 {
-                        early
-                    } else {
-                        late
-                    }
-                }
-                MappedLocalTime::None => {
-                    platform::ERRNO.set(EOVERFLOW);
-                    return -1;
-                }
-            };
-            let timestamp = tz_datetime.timestamp();
-
-            unsafe { ptr::write(timeptr, datetime_to_tm(&tz_datetime)) };
-
-            // Convert UTC time to local time
-            let (std_time, dst_time) = match tz.timestamp_opt(timestamp, 0) {
-                MappedLocalTime::Single(t) => (t, None),
-                // This variant contains the two possible results, in the order (earliest, latest).
-                MappedLocalTime::Ambiguous(t1, t2) => (t2, Some(t1)),
-                MappedLocalTime::None => return timestamp,
-            };
-            {
-                unsafe { set_timezone(&mut lock, &std_time, dst_time) };
-            }
-
-            timestamp
-        }
-        None => {
-            // POSIX
-            // GOAL: Make a new TZ of UTC, get the timestamp, add/subtract the 'timezone'
-            let utc_datetime = naive_local.and_utc();
-            let timestamp = utc_datetime.timestamp();
-
-            let tz_posix = get_current_time_zone();
-            let tz = PosixTz::parse(tz_posix);
-
-            unsafe {
-                set_timezone_posix(&mut lock, &tz);
-            }
-            #[cfg(target_pointer_width = "64")]
-            let offset = unsafe { timezone };
-            #[cfg(target_pointer_width = "32")]
-            let offset = unsafe { i64::from(timezone) };
-            timestamp + offset
-        }
-    }
+    // nife: local time is UTC (see `utc_tm`).
+    unsafe { tzset() };
+    unsafe { timegm(timeptr) }
 }
 
 // FIXME seems redox-rt sys posix_nanosleep calls wrapper which disables signals
@@ -536,108 +429,29 @@ pub unsafe extern "C" fn time(tloc: *mut time_t) -> time_t {
 /// Non-POSIX, see <https://www.man7.org/linux/man-pages/man3/timegm.3.html>.
 #[unsafe(no_mangle)]
 pub unsafe extern "C" fn timegm(tm: *mut tm) -> time_t {
+    // SAFETY: the caller passes a valid `tm`.
     let tm_val = unsafe { &mut *tm };
-    let Some(dt) = convert_tm_generic(&Utc, tm_val) else {
+    let Some(secs) = utc_from_tm(tm_val) else {
+        platform::ERRNO.set(EOVERFLOW);
         return -1;
     };
-
-    unsafe {
-        (*tm).tm_wday = dt.weekday().num_days_from_sunday() as _;
-        (*tm).tm_yday = dt.ordinal0() as _; // day of year starting at 0
-        (*tm).tm_isdst = 0; // UTC does not use DST
-        (*tm).tm_gmtoff = 0; // UTC offset is zero
-        (*tm).tm_zone = UTC_STR.as_ptr().cast::<c_char>();
+    // `mktime` normalizes the fields it was given (a 32nd of January becomes the 1st of
+    // February) and fills in the weekday and the day of the year.
+    match utc_tm(secs) {
+        Some(t) => *tm_val = t,
+        None => {
+            platform::ERRNO.set(EOVERFLOW);
+            return -1;
+        }
     }
-
-    dt.timestamp()
+    secs
 }
 
 /// Non-POSIX, see <https://www.man7.org/linux/man-pages/man3/timegm.3.html>.
 #[deprecated]
 #[unsafe(no_mangle)]
 pub unsafe extern "C" fn timelocal(tm: *mut tm) -> time_t {
-    let tm_val = unsafe { &mut *tm };
-    // POSIX TODO
-    let tz = time_zone().unwrap_or(Tz::UTC);
-    let Some(dt) = convert_tm_generic(&tz, tm_val) else {
-        return -1;
-    };
-
-    let tz_name = CString::new(tz.name()).unwrap();
-    #[cfg(target_pointer_width = "64")]
-    let tm_gmtoff = dt.offset().fix().local_minus_utc().into();
-    #[cfg(target_pointer_width = "32")]
-    let tm_gmtoff = dt.offset().fix().local_minus_utc();
-    unsafe {
-        (*tm).tm_wday = dt.weekday().num_days_from_sunday() as _;
-        (*tm).tm_yday = dt.ordinal0() as _; // day of year starting at 0
-        (*tm).tm_isdst = dt.offset().dst_offset().num_hours() as _;
-        (*tm).tm_gmtoff = tm_gmtoff;
-        (*tm).tm_zone = tz_name.into_raw().cast();
-    }
-
-    dt.timestamp()
-}
-
-/// See <https://pubs.opengroup.org/onlinepubs/9799919799/functions/timer_create.html>.
-#[unsafe(no_mangle)]
-pub unsafe extern "C" fn timer_create(
-    clock_id: clockid_t,
-    evp: *mut sigevent,
-    timerid: *mut timer_t,
-) -> c_int {
-    let (Some(evp), Some(mut timerid)) = (unsafe { (evp.as_ref(), Out::nullable(timerid)) }) else {
-        return Err(Errno(EINVAL)).or_minus_one_errno();
-    };
-    Sys::timer_create(clock_id, evp)
-        .map(|timer| {
-            timerid.write(timer);
-            0
-        })
-        .or_minus_one_errno()
-}
-
-/// See <https://pubs.opengroup.org/onlinepubs/9799919799/functions/timer_delete.html>.
-#[unsafe(no_mangle)]
-pub unsafe extern "C" fn timer_delete(timerid: timer_t) -> c_int {
-    Sys::timer_delete(timerid).map(|()| 0).or_minus_one_errno()
-}
-
-/// See <https://pubs.opengroup.org/onlinepubs/9799919799/functions/timer_getoverrun.html>.
-// #[unsafe(no_mangle)]
-#[expect(unused_variables, reason = "function not yet implemented")]
-pub extern "C" fn timer_getoverrun(timerid: timer_t) -> c_int {
-    unimplemented!();
-}
-
-/// See <https://pubs.opengroup.org/onlinepubs/9799919799/functions/timer_gettime.html>.
-#[unsafe(no_mangle)]
-pub unsafe extern "C" fn timer_gettime(timerid: timer_t, value: *mut itimerspec) -> c_int {
-    let Some(mut value) = (unsafe { Out::nullable(value) }) else {
-        return Err(Errno(EINVAL)).or_minus_one_errno();
-    };
-    Sys::timer_gettime(timerid)
-        .map(|itimer| {
-            value.write(itimer);
-            0
-        })
-        .or_minus_one_errno()
-}
-
-/// See <https://pubs.opengroup.org/onlinepubs/9799919799/functions/timer_settime.html>.
-#[unsafe(no_mangle)]
-pub unsafe extern "C" fn timer_settime(
-    timerid: timer_t,
-    flags: c_int,
-    value: *const itimerspec,
-    ovalue: *mut itimerspec,
-) -> c_int {
-    let (Some(value), ovalue) = (unsafe { (value.as_ref(), Out::nullable(ovalue)) }) else {
-        return Err(Errno(EINVAL)).or_minus_one_errno();
-    };
-    Sys::timer_settime(timerid, flags, value, ovalue)
-        .map(|()| 0)
-        .or_minus_one_errno()
+    unsafe { timegm(tm) }
 }
 
 /// ISO C equivalent to [`Sys::clock_gettime`].
@@ -671,251 +485,47 @@ pub unsafe extern "C" fn timespec_getres(res: *mut timespec, base: c_int) -> c_i
 /// not accessed by user code for the duration of the call.
 #[unsafe(no_mangle)]
 pub unsafe extern "C" fn tzset() {
-    let mut lock = TIMEZONE_LOCK.lock();
-    // SAFETY: the caller is required to ensure that `daylight`, `timezone`
-    // and `tzname` are not accessed by user code.
-    unsafe { clear_timezone(&mut lock) };
-
-    let tz_option = time_zone();
-
-    match tz_option {
-        Some(tz) => {
-            // IANA
-            let datetime = now();
-            let (std_time, dst_time) = match tz.from_local_datetime(&datetime) {
-                MappedLocalTime::Single(t) => (t, None),
-                // This variant contains the two possible results, in the order (earliest, latest).
-                MappedLocalTime::Ambiguous(t1, t2) => (t2, Some(t1)),
-                MappedLocalTime::None => return,
-            };
-
-            // SAFETY: the caller is required to ensure that `daylight`, `timezone`
-            // and `tzname` are not accessed by user code.
-            unsafe { set_timezone(&mut lock, &std_time, dst_time) }
-        }
-        None => {
-            // POSIX
-            let tz_posix = get_current_time_zone();
-            let tz = PosixTz::parse(tz_posix);
-            unsafe {
-                set_timezone_posix(&mut lock, &tz);
-            }
-        }
-    }
-}
-
-fn convert_tm_generic<Tz: TimeZone>(tz: &Tz, tm_val: &tm) -> Option<DateTime<Tz>> {
-    // Adjust fields: tm_year is years since 1900; tm_mon is 0-indexed.
-    let year = tm_val.tm_year + 1900;
-    let month = tm_val.tm_mon + 1; // convert to 1-indexed
-    let day = tm_val.tm_mday;
-    let hour = tm_val.tm_hour;
-    let minute = tm_val.tm_min;
-    let second = tm_val.tm_sec;
-
-    match tz.with_ymd_and_hms(
-        year,
-        month as u32,
-        day as u32,
-        hour as u32,
-        minute as u32,
-        second as u32,
-    ) {
-        MappedLocalTime::Single(dt) => Some(dt),
-        MappedLocalTime::Ambiguous(dt1, _dt2) => Some(dt1), // choose the earliest value
-        _ => None,
-    }
-}
-
-/// # Safety
-/// The caller must ensure that `daylight`, `timezone` and `tzname` are not
-/// accessed by user code for the duration of the call (relibc functions are
-/// required to hold `TIMEZONE_LOCK` when accessing these).
-unsafe fn clear_timezone(guard: &mut MutexGuard<'_, (Option<CString>, Option<CString>)>) {
-    guard.0 = None;
-    guard.1 = None;
-
-    // SAFETY: the caller is required to ensure access exclusively for the
-    // holder of `TIMEZONE_LOCK`.
+    // nife: always UTC, whatever `TZ` says (see `utc_tm`).
     unsafe {
-        tzname.0[0] = ptr::null_mut();
-        tzname.0[1] = ptr::null_mut();
+        tzname.0[0] = UTC_STR.as_ptr().cast_mut().cast();
+        tzname.0[1] = UTC_STR.as_ptr().cast_mut().cast();
         timezone = 0;
         daylight = 0;
     }
 }
 
-#[inline(always)]
-fn get_system_time_zone<'a>() -> Option<&'a str> {
-    // Resolve the symlink for localtime
-    const BSIZE: size_t = 100;
-    let mut buffer: [u8; BSIZE] = [0; BSIZE];
-
-    #[cfg(not(target_os = "redox"))]
-    let (localtime, prefix) = (c"/etc/localtime", "/usr/share/zoneinfo/");
-
-    #[cfg(target_os = "redox")]
-    let (localtime, prefix) = (c"/etc/localtime", "/usr/share/zoneinfo/");
-
-    if unsafe { readlink(localtime.as_ptr().cast(), buffer.as_mut_ptr().cast(), BSIZE) } == -1 {
-        return None;
-    }
-
-    let path = unsafe { CStr::from_ptr(buffer.as_mut_ptr().cast()) };
-
-    if let Ok(tz_name) = path.to_str()
-        && let Some(stripped) = tz_name.strip_prefix(prefix)
-    {
-        return Some(stripped);
-    }
-
-    None
-}
-
-fn get_current_time_zone<'a>() -> &'a str {
-    // Check the `TZ` environment variable
-    let tz_env = unsafe { getenv(c"TZ".as_ptr().cast()) };
-    if !tz_env.is_null()
-        && let Ok(tz) = unsafe { CStr::from_ptr(tz_env) }.to_str()
-    {
-        return tz;
-    }
-
-    // Fallback to the system's default time zone
-    if let Some(tz) = get_system_time_zone() {
-        return tz;
-    }
-
-    // If all else fails, use UTC
-    "UTC"
-}
-
-#[inline(always)]
-fn time_zone() -> Option<Tz> {
-    get_current_time_zone().parse().ok() //.unwrap_or(Tz::UTC)
-}
-
-#[inline(always)]
-fn now() -> NaiveDateTime {
-    let mut now = timespec::default();
-    if Sys::clock_gettime(CLOCK_REALTIME, Out::from_mut(&mut now)).is_ok() {}; // TODO what to do if Err?
-    DateTime::from_timestamp(now.tv_sec, now.tv_nsec as _)
-        .unwrap_or_default()
-        .naive_local()
-}
-
-#[inline(always)]
-fn get_localtime(
-    timer: time_t,
-    mut result: Out<tm>,
-) -> (Option<DateTime<Tz>>, Option<DateTime<Tz>>) {
-    // POSIX TODO
-    let tz = time_zone().unwrap_or(Tz::UTC);
-
-    // Convert UTC time to local time
-    let (std_time, dst_time) = match tz.timestamp_opt(timer, 0) {
-        MappedLocalTime::Single(t) => (Some(t), None),
-        // This variant contains the two possible results, in the order (earliest, latest).
-        MappedLocalTime::Ambiguous(t1, t2) => (Some(t2), Some(t1)),
-        MappedLocalTime::None => return (None, None),
-    };
-
-    let localtime = datetime_to_tm(&std_time.unwrap());
-    result.write(localtime);
-    (std_time, dst_time)
-}
-
-fn datetime_to_tm(local_time: &DateTime<Tz>) -> tm {
-    let tz = local_time.timezone().name();
-    let tz = tz.strip_prefix("Etc/").unwrap_or(tz);
-
+/// nife: a `tm` in UTC, from the in-tree `calendar` crate, in place of relibc's `chrono` and
+/// `chrono-tz`. nife has no time-zone database (`/usr/share/zoneinfo`), so local time is UTC and
+/// `TZ` is not read (c_library/README.md, BUGS). `calendar` covers years 0 to 9999, and a time
+/// outside them is `EOVERFLOW`.
+fn utc_tm(timer: time_t) -> Option<tm> {
+    let c = calendar::Civil::from_unix(timer).ok()?;
     let mut t = blank_tm();
-    // Populate the `tm` structure
-    t.tm_sec = local_time.second() as _;
-    t.tm_min = local_time.minute() as _;
-    t.tm_hour = local_time.hour() as _;
-    t.tm_mday = local_time.day() as _;
-    t.tm_mon = local_time.month0() as _; // 0-based month
-    t.tm_year = (local_time.year() - 1900) as _; // Years since 1900
-    t.tm_wday = local_time.weekday().num_days_from_sunday() as _;
-    t.tm_yday = local_time.ordinal0() as _; // 0-based day of year
-
-    let offset = local_time.offset();
-    t.tm_isdst = offset.dst_offset().num_hours() as _;
-    // Get the UTC offset in seconds
-    #[cfg(target_pointer_width = "64")]
-    let tm_gtoff = offset.fix().local_minus_utc().into();
-    #[cfg(target_pointer_width = "32")]
-    let tm_gtoff = offset.fix().local_minus_utc();
-    t.tm_gmtoff = tm_gtoff;
-
-    let tm_zone = {
-        let mut timezone_names = TIMEZONE_NAMES.lock();
-        timezone_names.get_or_init(BTreeSet::new);
-        let cstr = CString::new(tz).unwrap();
-        timezone_names.get_mut().unwrap().insert(cstr.clone());
-        timezone_names.get().unwrap().get(&cstr).unwrap().as_ptr()
-    };
-
-    t.tm_zone = tm_zone.cast();
-    t
+    t.tm_sec = c_int::from(c.second());
+    t.tm_min = c_int::from(c.minute());
+    t.tm_hour = c_int::from(c.hour());
+    t.tm_mday = c_int::from(c.day());
+    t.tm_mon = c_int::from(c.month()) - 1;
+    t.tm_year = c.year() - 1900;
+    t.tm_wday = c_int::from(c.weekday().iso_number() % 7);
+    t.tm_yday = c_int::from(c.day_of_year()) - 1;
+    t.tm_isdst = 0;
+    t.tm_gmtoff = 0;
+    t.tm_zone = UTC_STR.as_ptr().cast();
+    Some(t)
 }
 
-/// # Safety
-/// The caller must ensure that `daylight`, `timezone` and `tzname` are not
-/// accessed by user code for the duration of the call (relibc functions are
-/// required to hold `TIMEZONE_LOCK` when accessing these).
-unsafe fn set_timezone(
-    guard: &mut MutexGuard<'_, (Option<CString>, Option<CString>)>,
-    std: &DateTime<Tz>,
-    dst: Option<DateTime<Tz>>,
-) {
-    // SAFETY: the caller is required to ensure access exclusively for the
-    // holder of `TIMEZONE_LOCK`.
-    unsafe {
-        let ut_offset = std.offset();
-
-        guard.0 = Some(CString::new(ut_offset.abbreviation().expect("Wrong timezone")).unwrap());
-        tzname.0[0] = guard.0.as_ref().unwrap().as_ptr().cast_mut();
-
-        match dst {
-            Some(dst) => {
-                guard.1 = Some(
-                    CString::new(dst.offset().abbreviation().expect("Wrong timezone")).unwrap(),
-                );
-                tzname.0[1] = guard.1.as_ref().unwrap().as_ptr().cast_mut();
-                daylight = 1;
-            }
-            None => {
-                guard.1 = None;
-                tzname.0[1] = guard.0.as_ref().unwrap().as_ptr().cast_mut();
-                daylight = 0;
-            }
-        }
-
-        timezone = -c_long::from(ut_offset.fix().local_minus_utc());
-    }
-}
-
-/// # Safety
-/// The caller must ensure that `daylight`, `timezone` and `tzname` are not
-/// accessed by user code for the duration of the call (relibc functions are
-/// required to hold `TIMEZONE_LOCK` when accessing these).
-unsafe fn set_timezone_posix(
-    guard: &mut MutexGuard<'_, (Option<CString>, Option<CString>)>,
-    tz: &PosixTz<'_>,
-) {
-    // SAFETY: the caller is required to ensure access exclusively for the
-    // holder of `TIMEZONE_LOCK`.
-    unsafe {
-        guard.0 = Some(CString::new(tz.std).unwrap());
-        guard.1 = Some(CString::new(tz.dst).unwrap());
-
-        tzname.0[0] = guard.0.as_ref().unwrap().as_ptr().cast_mut();
-        tzname.0[1] = guard.1.as_ref().unwrap().as_ptr().cast_mut();
-        daylight = i32::from(tz.daylight);
-        timezone = tz.timezone.unwrap_or(0);
-    }
+/// The UTC time a `tm` names, with every field allowed out of range the way `mktime` allows it.
+fn utc_from_tm(t: &tm) -> Option<time_t> {
+    let months = i64::from(t.tm_year) * 12 + i64::from(t.tm_mon);
+    let year = i32::try_from(1900 + months.div_euclid(12)).ok()?;
+    let month = u8::try_from(months.rem_euclid(12) + 1).ok()?;
+    let first = calendar::Civil::new(year, month, 1, 0, 0, 0).ok()?;
+    let days = first.days_since_epoch() + i64::from(t.tm_mday) - 1;
+    days.checked_mul(SECS_PER_DAY)?
+        .checked_add(i64::from(t.tm_hour) * 3600)?
+        .checked_add(i64::from(t.tm_min) * 60)?
+        .checked_add(i64::from(t.tm_sec))
 }
 
 const fn blank_tm() -> tm {

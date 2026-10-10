@@ -1,5 +1,5 @@
+// Seeded from relibc (MIT, vendor/relibc/LICENSE) at 893a3b9133ac, 2026-10-10 (UTC), for milestone 835; nife owns it from here, and its edits say `nife:` where they are (vendor/README.md).
 use core::{
-    cell::Cell,
     sync::atomic::{AtomicU32 as AtomicUint, Ordering},
 };
 
@@ -233,27 +233,9 @@ enum Ty {
     Recursive,
 }
 
-// Children after fork can only call async-signal-safe functions until they exec.
-#[thread_local]
-static CACHED_OS_TID_INVALID_AFTER_FORK: Cell<u32> = Cell::new(0);
-
-// Assumes TIDs are unique between processes, which I only know is true for Redox.
+// nife: relibc caches the thread ID in a `#[thread_local]`; a stage-1 process has one thread and
+// `gettid` is a constant, so it is asked each time. The lock word reserves 0 for "unlocked", which
+// is why the platform layer's thread ID is 1 and not 0.
 fn os_tid_invalid_after_fork() -> u32 {
-    // TODO: Coordinate better if using shared == PTHREAD_PROCESS_SHARED, with up to 2^32 separate
-    // threads within possibly distinct processes, using the mutex. OS thread IDs on Redox are
-    // pointer-sized, but relibc and POSIX uses int everywhere.
-
-    let value = CACHED_OS_TID_INVALID_AFTER_FORK.get();
-
-    if value == 0 {
-        let tid = Sys::gettid();
-
-        assert_ne!(tid, -1, "failed to obtain current thread ID");
-
-        CACHED_OS_TID_INVALID_AFTER_FORK.set(tid.cast_unsigned());
-
-        tid.cast_unsigned()
-    } else {
-        value
-    }
+    Sys::gettid().cast_unsigned()
 }

@@ -1,3 +1,4 @@
+// Seeded from relibc (MIT, vendor/relibc/LICENSE) at 893a3b9133ac, 2026-10-10 (UTC), for milestone 835; nife owns it from here, and its edits say `nife:` where they are (vendor/README.md).
 //! `wchar.h` implementation.
 //!
 //! See <https://pubs.opengroup.org/onlinepubs/9799919799/basedefs/wchar.h.html>.
@@ -979,12 +980,12 @@ pub extern "C" fn wctob(c: wint_t) -> c_int {
 #[unsafe(no_mangle)]
 pub extern "C" fn wcwidth(wc: wchar_t) -> c_int {
     match char::from_u32(wc as u32) {
-        Some(c) => match unicode_width::UnicodeWidthChar::width(c) {
-            Some(width) => {
-                c_int::try_from(width).expect("unicode character width within c_int::MAX")
-            }
-            None => -1,
-        },
+        // nife: without relibc's `unicode-width` dependency, every printable character is one
+        // column wide: right for Latin text, wrong for East Asian wide characters and combining
+        // marks (c_library/README.md, BUGS).
+        Some('\0') => 0,
+        Some(c) if c.is_control() => -1,
+        Some(_) => 1,
         None => -1,
     }
 }

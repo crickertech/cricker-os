@@ -1,3 +1,4 @@
+// Seeded from relibc (MIT, vendor/relibc/LICENSE) at 893a3b9133ac, 2026-10-10 (UTC), for milestone 835; nife owns it from here, and its edits say `nife:` where they are (vendor/README.md).
 //! `fcntl.h` implementation.
 //!
 //! See <https://pubs.opengroup.org/onlinepubs/9799919799/basedefs/fcntl.h.html>.
@@ -18,7 +19,7 @@ pub use crate::header::bits_open_flags::*;
 
 use super::errno::EINVAL;
 
-#[cfg(target_os = "linux")]
+#[cfg(any(target_os = "linux", target_os = "nife"))]
 #[path = "linux.rs"]
 pub mod sys;
 

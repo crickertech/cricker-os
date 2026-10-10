@@ -1,3 +1,4 @@
+// Seeded from relibc (MIT, vendor/relibc/LICENSE) at 893a3b9133ac, 2026-10-10 (UTC), for milestone 835; nife owns it from here, and its edits say `nife:` where they are (vendor/README.md).
 //! `limits.h` implementation.
 //!
 //! See <https://pubs.opengroup.org/onlinepubs/9799919799/basedefs/limits.h.html>.
@@ -77,7 +78,7 @@ pub const LLONG_MIN: c_longlong = -LLONG_MAX - 1;
 
 // TODO: 4096 for most architectures as determined by a quick grep of musl's source; need a better
 // way to determine it for other archs or to hard code a value.
-#[cfg(target_os = "linux")]
+#[cfg(any(target_os = "linux", target_os = "nife"))]
 pub const PAGE_SIZE: usize = 4096;
 
 // These POSIX symbols must have these values regardless of OS

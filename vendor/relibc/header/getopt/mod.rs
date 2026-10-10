@@ -1,3 +1,4 @@
+// Seeded from relibc (MIT, vendor/relibc/LICENSE) at 893a3b9133ac, 2026-10-10 (UTC), for milestone 835; nife owns it from here, and its edits say `nife:` where they are (vendor/README.md).
 //! `getopt.h` implementation.
 //!
 //! Non-POSIX, see <https://www.man7.org/linux/man-pages/man3/getopt.3.html>.
@@ -42,6 +43,34 @@ pub unsafe extern "C" fn getopt_long(
     longopts: *const option,
     longindex: *mut c_int,
 ) -> c_int {
+    unsafe { getopt_long_impl(argc, argv, optstring, longopts, longindex, false) }
+}
+
+/// Non-POSIX, see <https://www.man7.org/linux/man-pages/man3/getopt.3.html>.
+///
+/// nife: added to the seed (relibc has no `getopt_long_only`; ioping calls it). `getopt_long`,
+/// except that a word with one dash is also tried as a long option. glibc's rule decides which:
+/// a single-dash word is a long option unless it is one character that `optstring` names, so
+/// `-c` stays the short option `c` while `-count` is the long option `count`.
+#[unsafe(no_mangle)]
+pub unsafe extern "C" fn getopt_long_only(
+    argc: c_int,
+    argv: *const *mut c_char,
+    optstring: *const c_char,
+    longopts: *const option,
+    longindex: *mut c_int,
+) -> c_int {
+    unsafe { getopt_long_impl(argc, argv, optstring, longopts, longindex, true) }
+}
+
+unsafe fn getopt_long_impl(
+    argc: c_int,
+    argv: *const *mut c_char,
+    optstring: *const c_char,
+    longopts: *const option,
+    longindex: *mut c_int,
+    long_only: bool,
+) -> c_int {
     // if optarg is not set, we still don't want the previous value leaking
     unsafe {
         optarg = ptr::null_mut();
@@ -75,8 +104,19 @@ pub unsafe extern "C" fn getopt_long(
                 // remove the '-'
                 let current_arg = unsafe { current_arg.add(1) };
 
-                if unsafe { *current_arg == ByteLiteral::cast_cchar(b'-') } && !longopts.is_null() {
-                    let current_arg = unsafe { current_arg.add(1) };
+                let double_dash = unsafe { *current_arg == ByteLiteral::cast_cchar(b'-') };
+                let single_as_long = long_only
+                    && !double_dash
+                    && unsafe {
+                        *current_arg.add(1) != 0
+                            || string::strchr(optstring, c_int::from(*current_arg as u8)).is_null()
+                    };
+                if (double_dash || single_as_long) && !longopts.is_null() {
+                    let current_arg = if double_dash {
+                        unsafe { current_arg.add(1) }
+                    } else {
+                        current_arg
+                    };
                     // is a long option
                     for i in 0.. {
                         let opt = unsafe { &*longopts.offset(i) };

@@ -1,3 +1,4 @@
+// Seeded from relibc (MIT, vendor/relibc/LICENSE) at 893a3b9133ac, 2026-10-10 (UTC), for milestone 835; nife owns it from here, and its edits say `nife:` where they are (vendor/README.md).
 /// Linux sysconf implementation.
 /// Constants borrowed from musl.
 use core::{
@@ -6,7 +7,7 @@ use core::{
 };
 
 use crate::{
-    header::{errno, limits::*, signal, unistd::sysconf::constants::*},
+    header::{errno, limits::*, unistd::sysconf::constants::*},
     platform,
 };
 
@@ -166,7 +167,7 @@ pub(super) fn sysconf_impl(name: c_int) -> c_long {
         _SC_MQ_PRIO_MAX => -1,
         _SC_VERSION => _POSIX_VERSION,
         _SC_PAGE_SIZE => PAGE_SIZE.try_into().unwrap_or(-1),
-        _SC_RTSIG_MAX => (signal::SIGRTMAX - signal::SIGRTMIN)
+        _SC_RTSIG_MAX => (0 /* nife: no signals */)
             .try_into()
             .unwrap_or(-1),
         // TODO: limits.h

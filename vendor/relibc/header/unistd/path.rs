@@ -1,6 +1,7 @@
+// Seeded from relibc (MIT, vendor/relibc/LICENSE) at 893a3b9133ac, 2026-10-10 (UTC), for milestone 835; nife owns it from here, and its edits say `nife:` where they are (vendor/README.md).
 use core::slice::Split;
 
-use arrayvec::ArrayVec;
+use alloc::vec::Vec;
 
 use crate::{c_str::CStr, header::limits::PATH_MAX};
 
@@ -23,7 +24,7 @@ impl<'a> PathSearchIter<'a> {
 }
 
 impl<'a> Iterator for PathSearchIter<'a> {
-    type Item = ArrayVec<u8, PATH_MAX>;
+    type Item = Vec<u8>;
 
     fn next(&mut self) -> Option<Self::Item> {
         for path in &mut self.path_splits {
@@ -31,10 +32,11 @@ impl<'a> Iterator for PathSearchIter<'a> {
             if len > PATH_MAX {
                 continue;
             }
-            let mut program: ArrayVec<u8, PATH_MAX> = ArrayVec::new();
-            program.try_extend_from_slice(path).unwrap();
+            // nife: a `Vec` in place of relibc's `arrayvec`; the length was checked just above.
+            let mut program: Vec<u8> = Vec::with_capacity(len);
+            program.extend_from_slice(path);
             program.push(b'/');
-            program.try_extend_from_slice(self.file_bytes).unwrap();
+            program.extend_from_slice(self.file_bytes);
             program.push(b'\0');
             return Some(program);
         }

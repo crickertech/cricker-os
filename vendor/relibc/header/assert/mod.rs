@@ -1,3 +1,4 @@
+// Seeded from relibc (MIT, vendor/relibc/LICENSE) at 893a3b9133ac, 2026-10-10 (UTC), for milestone 835; nife owns it from here, and its edits say `nife:` where they are (vendor/README.md).
 //! `assert.h` implementation.
 //!
 //! See <https://pubs.opengroup.org/onlinepubs/9799919799/basedefs/assert.h.html>.
@@ -37,5 +38,6 @@ pub unsafe extern "C" fn __assert_fail(
 
     eprintln!("{}: {}:{}: Assertion `{}` failed.", func, file, line, cond);
 
-    core::intrinsics::abort();
+    // nife: `std`'s abort, a breakpoint fault the kernel attributes (notes/std.md).
+    std::process::abort();
 }

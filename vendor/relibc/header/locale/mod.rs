@@ -1,3 +1,4 @@
+// Seeded from relibc (MIT, vendor/relibc/LICENSE) at 893a3b9133ac, 2026-10-10 (UTC), for milestone 835; nife owns it from here, and its edits say `nife:` where they are (vendor/README.md).
 //! `locale.h` implementation.
 //!
 //! See <https://pubs.opengroup.org/onlinepubs/9799919799/basedefs/locale.h.html>.
@@ -31,7 +32,7 @@ pub const LC_GLOBAL_LOCALE: locale_t = -1isize as locale_t;
 /// process-wide locale, used by setlocale() and localeconv()
 static mut GLOBAL_LOCALE: *mut GlobalLocaleData = ptr::null_mut();
 /// thread-wide locale, used by uselocale() and localeconv()
-#[thread_local]
+// nife: one thread in stage 1, so one cell rather than relibc's `#[thread_local]` (milestone 836).
 pub(crate) static mut THREAD_LOCALE: *mut LocaleData = ptr::null_mut();
 
 /// See <https://pubs.opengroup.org/onlinepubs/9799919799/functions/localeconv.html>.

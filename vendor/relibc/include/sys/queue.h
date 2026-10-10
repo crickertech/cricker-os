@@ -1,3 +1,4 @@
+/* Seeded from relibc (MIT, vendor/relibc/LICENSE) at 893a3b9133ac, 2026-10-10 (UTC), for milestone 835 (vendor/README.md). */
 /*	$NetBSD: queue.h,v 1.70 2015/11/02 15:21:23 christos Exp $	*/
 
 /*

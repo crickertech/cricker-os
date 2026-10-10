@@ -1,3 +1,4 @@
+// Seeded from relibc (MIT, vendor/relibc/LICENSE) at 893a3b9133ac, 2026-10-10 (UTC), for milestone 835; nife owns it from here, and its edits say `nife:` where they are (vendor/README.md).
 //! `math.h` implementation.
 //!
 //! See <https://pubs.opengroup.org/onlinepubs/9799919799/basedefs/math.h.html>.
@@ -387,12 +388,20 @@ pub unsafe extern "C" fn ilogbf(x: c_float) -> c_int {
 // TODO ilogbl (long double)
 
 /// See <https://pubs.opengroup.org/onlinepubs/9799919799/functions/isfinite.html>.
+///
+/// nife: kept as a symbol for a caller that `#undef`s the macro; `math.h` defines `isfinite` as
+/// a macro on clang's builtin, so cbindgen does not declare it.
+/// cbindgen:ignore
 #[unsafe(no_mangle)]
 unsafe extern "C" fn isfinite(x: c_double) -> c_int {
     if x.is_finite() { 1 } else { 0 }
 }
 
 /// See <https://pubs.opengroup.org/onlinepubs/9799919799/functions/isinf.html>.
+///
+/// nife: kept as a symbol for a caller that `#undef`s the macro; `math.h` defines `isinf` as
+/// a macro on clang's builtin, so cbindgen does not declare it.
+/// cbindgen:ignore
 #[unsafe(no_mangle)]
 unsafe extern "C" fn isinf(x: c_double) -> c_int {
     match x {
@@ -403,12 +412,20 @@ unsafe extern "C" fn isinf(x: c_double) -> c_int {
 }
 
 /// See <https://pubs.opengroup.org/onlinepubs/9799919799/functions/isnan.html>.
+///
+/// nife: kept as a symbol for a caller that `#undef`s the macro; `math.h` defines `isnan` as
+/// a macro on clang's builtin, so cbindgen does not declare it.
+/// cbindgen:ignore
 #[unsafe(no_mangle)]
 unsafe extern "C" fn isnan(x: c_double) -> c_int {
     if x.is_nan() { 1 } else { 0 }
 }
 
 /// See <https://pubs.opengroup.org/onlinepubs/9799919799/functions/isnormal.html>.
+///
+/// nife: kept as a symbol for a caller that `#undef`s the macro; `math.h` defines `isnormal` as
+/// a macro on clang's builtin, so cbindgen does not declare it.
+/// cbindgen:ignore
 #[unsafe(no_mangle)]
 unsafe extern "C" fn isnormal(x: c_double) -> c_int {
     if x.is_normal() { 1 } else { 0 }

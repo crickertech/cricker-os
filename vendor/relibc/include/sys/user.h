@@ -1,3 +1,4 @@
+/* Seeded from relibc (MIT, vendor/relibc/LICENSE) at 893a3b9133ac, 2026-10-10 (UTC), for milestone 835 (vendor/README.md). */
 #ifndef _SYS_USER_H
 #define _SYS_USER_H
 #if defined(__amd64__) || defined(__amd64) || defined(__x86_64__) || defined(__x86_64) || defined(_M_AMD64)

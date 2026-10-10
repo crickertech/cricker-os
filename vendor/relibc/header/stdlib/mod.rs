@@ -1,14 +1,9 @@
+// Seeded from relibc (MIT, vendor/relibc/LICENSE) at 893a3b9133ac, 2026-10-10 (UTC), for milestone 835; nife owns it from here, and its edits say `nife:` where they are (vendor/README.md).
 //! `stdlib.h` implementation.
 //!
 //! See <https://pubs.opengroup.org/onlinepubs/9799919799/basedefs/stdlib.h.html>.
 
-use core::{convert::TryFrom, intrinsics, iter, mem, ptr, slice};
-use rand::{
-    RngExt, SeedableRng,
-    distr::{Alphanumeric, Distribution, Uniform},
-};
-use rand_jitter::JitterRng;
-use rand_xorshift::XorShiftRng;
+use core::{convert::TryFrom, iter, mem, ptr, slice};
 
 use crate::{
     c_str::CStr,
@@ -18,17 +13,15 @@ use crate::{
     header::{
         ctype,
         errno::{self, *},
-        fcntl::{O_ACCMODE, O_CLOEXEC, O_CREAT, O_EXCL, O_PATH, O_RDWR, open},
+        fcntl::{O_ACCMODE, O_CLOEXEC, O_CREAT, O_EXCL, O_PATH, O_RDWR},
         limits,
         stdio::flush_io_streams,
         stdlib::sort::{QsortContext, QsortRContext},
         string::{strlen, strncmp},
-        sys_ioctl::{TIOCGPTN, TIOCSPTLCK, ioctl},
         time::constants::CLOCK_MONOTONIC,
         unistd::{self, _SC_PAGESIZE, sysconf},
         wchar::*,
     },
-    ld_so,
     out::Out,
     platform::{
         self, Pal, Sys,
@@ -38,7 +31,6 @@ use crate::{
         },
     },
     raw_cell::RawCell,
-    sync::Once,
 };
 
 mod rand48;
@@ -62,13 +54,22 @@ pub const MB_LEN_MAX: c_int = 4;
 static ATEXIT_FUNCS: RawCell<[Option<extern "C" fn()>; 32]> = RawCell::new([None; 32]);
 static AT_QUICK_EXIT_FUNCS: RawCell<[Option<extern "C" fn()>; 32]> = RawCell::new([None; 32]);
 static L64A_BUFFER: RawCell<[c_char; 7]> = RawCell::new([0; 7]); // up to 6 digits plus null terminator
-static mut RNG: Option<XorShiftRng> = None;
+// nife: `rand`, `srand` and `rand_r` are musl's (MIT, src/prng/rand.c and rand_r.c), the source
+// relibc's own `random()` is already ported from, in place of relibc's three `rand` crates. Each
+// crate kept is a §46 ruling, and these are a few lines each.
+static RAND_SEED: RawCell<u64> = RawCell::new(0);
 
-// TODO: This could be const fn, but the trait system won't allow that.
-static RNG_SAMPLER: Once<Uniform<c_int>> = Once::new();
+fn musl_rand_next(seed: &mut u64) -> c_int {
+    *seed = seed.wrapping_mul(6364136223846793005).wrapping_add(1);
+    (*seed >> 33) as c_int
+}
 
-fn rng_sampler() -> &'static Uniform<c_int> {
-    RNG_SAMPLER.call_once(|| Uniform::new_inclusive(0, RAND_MAX).expect("within bounds"))
+fn musl_temper(mut x: c_uint) -> c_uint {
+    x ^= x >> 11;
+    x ^= x << 7 & 0x9D2C5680;
+    x ^= x << 15 & 0xEFC60000;
+    x ^= x >> 18;
+    x
 }
 
 /// See <https://pubs.opengroup.org/onlinepubs/9799919799/functions/_Exit.html>.
@@ -118,8 +119,8 @@ pub unsafe extern "C" fn a64l(s: *const c_char) -> c_long {
 /// See <https://pubs.opengroup.org/onlinepubs/9799919799/functions/abort.html>.
 #[unsafe(no_mangle)]
 pub unsafe extern "C" fn abort() -> ! {
-    log::error!("Abort");
-    intrinsics::abort();
+    // nife: `std`'s abort, a breakpoint fault the kernel attributes (notes/std.md).
+    std::process::abort();
 }
 
 #[cfg(not(target_pointer_width = "64"))]
@@ -356,27 +357,14 @@ pub unsafe extern "C" fn erand48(xsubi: *mut c_ushort) -> c_double {
 /// Causes normal process termination to occur.
 #[unsafe(no_mangle)]
 pub unsafe extern "C" fn exit(status: c_int) -> ! {
-    unsafe extern "C" {
-        static __fini_array_start: extern "C" fn();
-        static __fini_array_end: extern "C" fn();
-    }
-
     for i in (0..unsafe { ATEXIT_FUNCS.unsafe_ref().len() }).rev() {
         if let Some(func) = unsafe { ATEXIT_FUNCS.unsafe_ref() }[i] {
             (func)();
         }
     }
 
-    // Look for the neighbor functions in memory until the end
-    let mut f = core::ptr::from_ref(unsafe { &__fini_array_end });
-    while f > &raw const __fini_array_start {
-        f = unsafe { f.sub(1) };
-        (unsafe { *f })();
-    }
-
-    unsafe { ld_so::fini() };
-
-    unsafe { crate::pthread::terminate_from_main_thread() };
+    // nife: no `.fini_array` walk, no dynamic linker to finalize and no other threads to stop.
+    // A static C program's destructors are not run (c_library/README.md, BUGS).
 
     unsafe { flush_io_streams() };
 
@@ -513,17 +501,6 @@ pub unsafe extern "C" fn getsubopt(
 
     unsafe { *valuep = start };
     -1
-}
-
-/// See <https://pubs.opengroup.org/onlinepubs/9799919799/functions/grantpt.html>.
-///
-/// Grants access to the subterm pseudo-terminal device.
-///
-/// # Implementation
-/// This is a no-op and unconditionally returns 0 indicating success.
-#[unsafe(no_mangle)]
-pub extern "C" fn grantpt(_fildes: c_int) -> c_int {
-    0
 }
 
 /// See <https://pubs.opengroup.org/onlinepubs/9799919799/functions/initstate.html>.
@@ -772,12 +749,15 @@ where
         }
     }
 
-    let mut rng = JitterRng::new_with_timer(get_nstime);
-    let _ = rng.test_timer();
+    // nife: six alphanumerics from musl's `rand` step, seeded from the monotonic clock, in place
+    // of relibc's `rand_jitter`. The name only has to be unlikely to collide; `O_EXCL` makes the
+    // creation safe.
+    const ALNUM: &[u8; 62] = b"ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789";
+    let mut seed = get_nstime() ^ (name as u64);
 
     for _ in 0..100 {
         let char_iter = iter::repeat(())
-            .map(|()| rng.sample(Alphanumeric))
+            .map(|()| ALNUM[(musl_rand_next(&mut seed) as usize) % ALNUM.len()])
             .take(6)
             .enumerate();
         unsafe {
@@ -819,6 +799,9 @@ pub unsafe extern "C" fn mkdtemp(name: *mut c_char) -> *mut c_char {
 }
 
 /// See <https://pubs.opengroup.org/onlinepubs/9799919799/functions/mkdtemp.html>.
+// nife: weak, so a program that brings its own `mkostemp` (ioping does, as its fallback on a
+// platform it does not know) keeps it, as it would against a C library linked as an archive.
+#[linkage = "weak"]
 #[unsafe(no_mangle)]
 pub unsafe extern "C" fn mkostemp(name: *mut c_char, flags: c_int) -> c_int {
     unsafe { mkostemps(name, 0, flags) }
@@ -914,6 +897,9 @@ pub unsafe extern "C" fn nrand48(xsubi: *mut c_ushort) -> c_long {
 }
 
 /// See <https://pubs.opengroup.org/onlinepubs/9799919799/functions/posix_memalign.html>.
+// nife: weak, so a program that brings its own `posix_memalign` (ioping does, as its fallback on a
+// platform it does not know) keeps it, as it would against a C library linked as an archive.
+#[linkage = "weak"]
 #[unsafe(no_mangle)]
 pub unsafe extern "C" fn posix_memalign(
     memptr: *mut *mut c_void,
@@ -929,99 +915,6 @@ pub unsafe extern "C" fn posix_memalign(
     } else {
         unsafe { *memptr = ptr::null_mut() };
         EINVAL
-    }
-}
-
-/// See <https://pubs.opengroup.org/onlinepubs/9799919799/functions/posix_openpt.html>.
-///
-/// Establishes a connection between a manager device for a pseudo-terminal and
-/// a file descriptor.
-///
-/// Upon success, opens a file desciptor for a manager pseudo-terminal device
-/// and returns a non-negative integer representing a file descriptor. Upon
-/// failure, returns `-1` and sets errno to indicate the error.
-#[unsafe(no_mangle)]
-pub unsafe extern "C" fn posix_openpt(flags: c_int) -> c_int {
-    #[cfg(target_os = "redox")]
-    let r = unsafe { open(c"/scheme/pty/ptmx".as_ptr(), flags) };
-    #[cfg(target_os = "linux")]
-    let r = unsafe { open(c"/dev/ptmx".as_ptr(), flags) };
-
-    if r < 0 && platform::ERRNO.get() == ENOSPC {
-        platform::ERRNO.set(EAGAIN);
-    }
-
-    r
-}
-
-/// See <https://pubs.opengroup.org/onlinepubs/9799919799/functions/ptsname.html>.
-///
-/// Returns the name of the subsidiary pseudo-terminal device associated with a
-/// manager pseudo-terminal device.
-///
-/// Upon success, returns a pointer to a string which is the name of the
-/// subsidiary pseudo-terminal device. Upon failure, returns a null pointer and
-/// sets errno to indicate the error value.
-///
-/// # Safety
-/// - The application shall not modify the string returned.
-/// - The returned pointer might be invalidated or the string content might be
-///   overwritten by a subsequent call to `ptsname()`.
-/// - The returned pointer and string content might be invalidated if the
-///   calling thread is terminated.
-#[unsafe(no_mangle)]
-pub unsafe extern "C" fn ptsname(fildes: c_int) -> *mut c_char {
-    const PTS_BUFFER_LEN: usize = limits::TTY_NAME_MAX as usize;
-    static mut PTS_BUFFER: [c_char; PTS_BUFFER_LEN] = [0; PTS_BUFFER_LEN];
-    let ret = unsafe { ptsname_r(fildes, (&raw mut PTS_BUFFER).cast(), PTS_BUFFER_LEN) };
-    if ret != 0 {
-        platform::ERRNO.set(ret);
-        ptr::null_mut()
-    } else {
-        (&raw mut PTS_BUFFER).cast()
-    }
-}
-
-/// See <https://pubs.opengroup.org/onlinepubs/9799919799/functions/ptsname.html>.
-///
-/// Stores the name of the subsidiary pseudo-terminal device corresponding to
-/// `fildes` in the character array referenced by `name`. The array is
-/// `namesize` characters long and should have space for the `name` and the
-/// terminating null character.
-///
-/// Upon success, returns `0`. Upon failure, an error number is returned to
-/// indicate the error.
-#[unsafe(no_mangle)]
-pub unsafe extern "C" fn ptsname_r(fildes: c_int, name: *mut c_char, namesize: size_t) -> c_int {
-    if name.is_null() {
-        EINVAL
-    } else {
-        let mut pty: c_int = 0;
-
-        if unsafe { ioctl(fildes, TIOCGPTN, ptr::from_mut(&mut pty).cast::<c_void>()) } == 0 {
-            // Linux and Redox use different resource names for PTS's.
-            #[cfg(target_os = "linux")]
-            let inner_name = format!("/dev/pts/{}", pty);
-            #[cfg(target_os = "redox")]
-            let inner_name = format!("/scheme/pty/{}", pty);
-            let len = inner_name.len();
-            // We need + 1 to account for the NUL terminator.
-            if len + 1 > namesize {
-                ERANGE
-            } else {
-                // we have checked the string will fit in the buffer
-                // so can use strcpy safely
-                let s = inner_name.as_ptr().cast();
-                unsafe { ptr::copy_nonoverlapping(s, name, len) };
-                // NUL-terminate the result.
-                unsafe { *(name.add(len)) = 0 };
-                0
-            }
-        } else {
-            let errno = platform::ERRNO.get();
-            log::warn!("ptsname_r ioctl failure: {errno}");
-            errno
-        }
     }
 }
 
@@ -1112,17 +1005,7 @@ pub unsafe extern "C" fn quick_exit(status: c_int) -> ! {
 /// See <https://pubs.opengroup.org/onlinepubs/9799919799/functions/rand.html>.
 #[unsafe(no_mangle)]
 pub unsafe extern "C" fn rand() -> c_int {
-    unsafe {
-        match RNG {
-            Some(ref mut rng) => rng_sampler().sample(rng),
-            None => {
-                let mut rng = XorShiftRng::from_seed([1; 16]);
-                let ret = rng_sampler().sample(&mut rng);
-                RNG = Some(rng);
-                ret
-            }
-        }
-    }
+    musl_rand_next(unsafe { RAND_SEED.unsafe_mut() })
 }
 
 /// See <https://pubs.opengroup.org/onlinepubs/9699919799/functions/rand.html>.
@@ -1134,17 +1017,11 @@ pub unsafe extern "C" fn rand() -> c_int {
 #[unsafe(no_mangle)]
 pub unsafe extern "C" fn rand_r(seed: *mut c_uint) -> c_int {
     if seed.is_null() {
-        errno::EINVAL
-    } else {
-        // set the type explicitly so this will fail if the array size for XorShiftRng changes
-        let seed_arr: [u8; 16] = unsafe { mem::transmute([*seed; 16 / mem::size_of::<c_uint>()]) };
-
-        let mut rng = XorShiftRng::from_seed(seed_arr);
-        let ret = rng_sampler().sample(&mut rng);
-
-        unsafe { *seed = ret as _ };
-
-        ret
+        return errno::EINVAL;
+    }
+    unsafe {
+        *seed = (*seed).wrapping_mul(1103515245).wrapping_add(12345);
+        (musl_temper(*seed) / 2) as c_int
     }
 }
 
@@ -1368,7 +1245,7 @@ pub unsafe extern "C" fn setstate(state: *mut c_char) -> *mut c_char {
 /// See <https://pubs.opengroup.org/onlinepubs/9799919799/functions/rand.html>.
 #[unsafe(no_mangle)]
 pub unsafe extern "C" fn srand(seed: c_uint) {
-    unsafe { RNG = Some(XorShiftRng::from_seed([seed as u8; 16])) };
+    unsafe { *RAND_SEED.unsafe_mut() = u64::from(seed).wrapping_sub(1) };
 }
 
 /// See <https://pubs.opengroup.org/onlinepubs/9799919799/functions/drand48.html>.
@@ -1671,28 +1548,6 @@ pub unsafe extern "C" fn system(command: *const c_char) -> c_int {
 // #[unsafe(no_mangle)]
 pub extern "C" fn ttyslot() -> c_int {
     unimplemented!();
-}
-
-/// See <https://pubs.opengroup.org/onlinepubs/9799919799/functions/unlockpt.html>.
-///
-/// Unlocks the subterm pseudo-terminal device associated with the manager
-/// device to which `fildes` refers.
-///
-/// Upon success, returns `0`. Upon failure, returns `-1` and sets errno to
-/// indicate the error.
-///
-/// # Implementation
-/// Uses `ioctl()` internally.
-#[unsafe(no_mangle)]
-pub unsafe extern "C" fn unlockpt(fildes: c_int) -> c_int {
-    let mut u: c_int = 0;
-    unsafe {
-        ioctl(
-            fildes,
-            TIOCSPTLCK,
-            ptr::from_mut::<i32>(&mut u).cast::<c_void>(),
-        )
-    }
 }
 
 /// See <https://pubs.opengroup.org/onlinepubs/9799919799/functions/unsetenv.html>.

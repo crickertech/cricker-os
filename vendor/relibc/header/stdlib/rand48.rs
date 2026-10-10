@@ -1,11 +1,9 @@
+// Seeded from relibc (MIT, vendor/relibc/LICENSE) at 893a3b9133ac, 2026-10-10 (UTC), for milestone 835; nife owns it from here, and its edits say `nife:` where they are (vendor/README.md).
 //! Helper functions for pseudorandom number generation using LCG, see <https://pubs.opengroup.org/onlinepubs/9799919799/functions/drand48.html>.
 
 use crate::{
     platform::types::{c_double, c_long, c_ushort},
-    sync::{
-        Mutex, MutexGuard,
-        rwlock::{self, RwLock},
-    },
+    sync::{Mutex, MutexGuard},
 };
 
 /// A 48-bit integer, used for the 48-bit arithmetic in these functions.
@@ -124,19 +122,20 @@ impl Params {
     }
 }
 
-static PARAMS: RwLock<Params> = RwLock::<Params>::new(Params::new());
+// nife: a `Mutex` in place of relibc's `RwLock`, which stage 1 does not seed.
+static PARAMS: Mutex<Params> = Mutex::<Params>::new(Params::new());
 
 /// Immediately get the global [`Params`] lock for reading, or panic if unsuccessful.
-pub fn params<'a>() -> rwlock::ReadGuard<'a, Params> {
+pub fn params<'a>() -> MutexGuard<'a, Params> {
     PARAMS
-        .try_read()
+        .try_lock()
         .expect("unable to acquire LCG parameter lock")
 }
 
 /// Immediately get the global [`Params`] lock for writing, or panic if unsuccessful.
-pub fn params_mut<'a>() -> rwlock::WriteGuard<'a, Params> {
+pub fn params_mut<'a>() -> MutexGuard<'a, Params> {
     PARAMS
-        .try_write()
+        .try_lock()
         .expect("unable to acquire LCG parameter lock")
 }
 

@@ -1,3 +1,4 @@
+// Seeded from relibc (MIT, vendor/relibc/LICENSE) at 893a3b9133ac, 2026-10-10 (UTC), for milestone 835; nife owns it from here, and its edits say `nife:` where they are (vendor/README.md).
 // TODO: reuse more code with the wide printf impl
 use alloc::{
     collections::BTreeMap,
@@ -156,6 +157,16 @@ impl VaArg {
             (FmtKind::AnyNotation | FmtKind::Decimal | FmtKind::Scientific, IntKind::LongLong) => {
                 VaArg::c_longdouble(unsafe { VaArg::extract_longdouble(ap) })
             }
+            // nife: every nife userspace target is soft-float (helpers/c-library-cflags.sh), so a
+            // C caller passes a `double` vararg in a general register, exactly as it passes a
+            // 64-bit integer. Rust's `va_arg::<f64>` on aarch64 and x86_64 reads the FP register
+            // save area instead, which a soft-float caller never fills: ioping's every `%f`
+            // printed 0. Reading the bits as a `u64` is the soft-float ABI's own rule.
+            #[cfg(target_os = "nife")]
+            (FmtKind::AnyNotation | FmtKind::Decimal | FmtKind::Scientific, _) => {
+                VaArg::c_double(c_double::from_bits(unsafe { ap.next_arg::<u64>() }))
+            }
+            #[cfg(not(target_os = "nife"))]
             (FmtKind::AnyNotation | FmtKind::Decimal | FmtKind::Scientific, _) => {
                 VaArg::c_double(unsafe { ap.next_arg::<c_double>() })
             }

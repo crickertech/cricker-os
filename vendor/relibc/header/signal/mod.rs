@@ -1,12 +1,12 @@
+// Seeded from relibc (MIT, vendor/relibc/LICENSE) at 893a3b9133ac, 2026-10-10 (UTC), for milestone 835; nife owns it from here, and its edits say `nife:` where they are (vendor/README.md).
 //! `signal.h` implementation.
 //!
 //! See <https://pubs.opengroup.org/onlinepubs/9799919799/basedefs/signal.h.html>.
 
 use core::{mem, ptr};
 
-use cbitset::BitSet;
 
-#[cfg(target_os = "linux")]
+#[cfg(any(target_os = "linux", target_os = "nife"))]
 use crate::platform::types::c_short;
 #[cfg(target_os = "redox")]
 use crate::platform::types::pthread_attr_t;
@@ -14,8 +14,8 @@ use crate::{
     error::{Errno, ResultExt},
     header::{bits_sigset_t::sigset_t, errno, time::timespec},
     platform::{
-        self, ERRNO, Pal, PalSignal, Sys,
-        types::{c_char, c_int, c_ulonglong, c_void, pid_t, pthread_t, size_t, uid_t},
+        self, ERRNO, PalSignal, Sys,
+        types::{c_char, c_int, c_ulonglong, c_void, pid_t, size_t, uid_t},
     },
 };
 
@@ -28,7 +28,7 @@ use super::{
     stdio::{fprintf, stderr},
 };
 
-#[cfg(target_os = "linux")]
+#[cfg(any(target_os = "linux", target_os = "nife"))]
 #[path = "linux.rs"]
 pub mod sys;
 
@@ -36,7 +36,27 @@ pub mod sys;
 #[path = "redox.rs"]
 pub mod sys;
 
-type SigSet = BitSet<[u64; 1]>;
+// nife: a 64-bit signal set, in place of relibc's `cbitset` dependency. `sigset_t` is one word on
+// Linux's layout, which this module's `cast::<SigSet>()` calls rely on.
+#[repr(transparent)]
+struct SigSet([u64; 1]);
+impl SigSet {
+    fn insert(&mut self, i: usize) {
+        self.0[0] |= 1 << i;
+    }
+    fn remove(&mut self, i: usize) {
+        self.0[0] &= !(1 << i);
+    }
+    fn contains(&self, i: usize) -> bool {
+        self.0[0] & (1 << i) != 0
+    }
+    fn clear(&mut self) {
+        self.0[0] = 0;
+    }
+    fn fill(&mut self, _all: core::ops::RangeFull, value: bool) {
+        self.0[0] = if value { !0 } else { 0 };
+    }
+}
 
 /// cbindgen:ignore
 /// Request for default signal handling.
@@ -110,7 +130,7 @@ pub struct sigaltstack {
 /// See <https://pubs.opengroup.org/onlinepubs/9799919799/basedefs/signal.h.html>.
 #[repr(C)]
 #[derive(Clone)]
-#[cfg(not(target_os = "linux"))]
+#[cfg(not(any(target_os = "linux", target_os = "nife")))]
 pub struct sigevent {
     /// Signal value.
     pub sigev_value: sigval,
@@ -131,7 +151,7 @@ pub struct sigevent {
 /// See <https://docs.rs/libc/0.2.186/src/libc/unix/linux_like/mod.rs.html#300-322>.
 #[repr(C)]
 #[derive(Clone)]
-#[cfg(target_os = "linux")]
+#[cfg(any(target_os = "linux", target_os = "nife"))]
 pub struct sigevent {
     /// Signal value.
     pub sigev_value: sigval,
@@ -150,7 +170,7 @@ pub struct sigevent {
 
 #[repr(C)]
 #[derive(Clone, Copy)]
-#[cfg(not(target_os = "linux"))]
+#[cfg(not(any(target_os = "linux", target_os = "nife")))]
 pub struct siginfo {
     /// Signal number.
     pub si_signo: c_int,
@@ -170,7 +190,7 @@ pub struct siginfo {
     pub si_value: sigval,
 }
 
-#[cfg(target_os = "linux")]
+#[cfg(any(target_os = "linux", target_os = "nife"))]
 #[repr(C)]
 #[derive(Clone, Copy)]
 pub struct siginfo {
@@ -188,7 +208,7 @@ pub struct siginfo {
     pub _sifields: siginfo_sifields,
 }
 
-#[cfg(target_os = "linux")]
+#[cfg(any(target_os = "linux", target_os = "nife"))]
 #[repr(C)]
 #[derive(Clone, Copy)]
 pub union siginfo_sifields {
@@ -198,7 +218,7 @@ pub union siginfo_sifields {
     pub _pad: [c_char; 112],
 }
 
-#[cfg(target_os = "linux")]
+#[cfg(any(target_os = "linux", target_os = "nife"))]
 #[repr(C)]
 #[derive(Clone, Copy)]
 pub struct siginfo_common {
@@ -207,7 +227,7 @@ pub struct siginfo_common {
     pub si_value: sigval,
 }
 
-#[cfg(target_os = "linux")]
+#[cfg(any(target_os = "linux", target_os = "nife"))]
 #[repr(C)]
 #[derive(Clone, Copy)]
 pub struct siginfo_sigfault {
@@ -282,42 +302,6 @@ pub extern "C" fn sigqueue(pid: pid_t, signo: c_int, value: sigval) -> c_int {
 #[unsafe(no_mangle)]
 pub extern "C" fn killpg(pgrp: pid_t, sig: c_int) -> c_int {
     Sys::killpg(pgrp, sig).map(|()| 0).or_minus_one_errno()
-}
-
-/// See <https://pubs.opengroup.org/onlinepubs/9799919799/functions/pthread_kill.html>.
-///
-/// Requests that a signal be delivered to the specified thread. It shall not
-/// be an error if `thread` is a zombie thread.
-///
-/// Upon success, returns `0`. Upon failure, returns an error number and does
-/// not send the signal.
-#[unsafe(no_mangle)]
-pub unsafe extern "C" fn pthread_kill(thread: pthread_t, sig: c_int) -> c_int {
-    let os_tid = {
-        let pthread = unsafe { &*(thread as *const crate::pthread::Pthread) };
-        unsafe { pthread.os_tid.get().read() }
-    };
-    crate::header::pthread::e(unsafe { Sys::rlct_kill(os_tid, sig as usize) })
-}
-
-/// See <https://pubs.opengroup.org/onlinepubs/9799919799/functions/pthread_sigmask.html>.
-///
-/// Examines or changes (or both) the calling thread's signal mask.
-///
-/// Upon success, returns `0`. Upon failure, returns an error number.
-#[unsafe(no_mangle)]
-pub unsafe extern "C" fn pthread_sigmask(
-    how: c_int,
-    set: *const sigset_t,
-    oldset: *mut sigset_t,
-) -> c_int {
-    // On Linux and Redox, pthread_sigmask and sigprocmask are equivalent
-    if unsafe { sigprocmask(how, set, oldset) } == 0 {
-        0
-    } else {
-        //TODO: Fix race
-        platform::ERRNO.get()
-    }
 }
 
 /// See <https://pubs.opengroup.org/onlinepubs/9799919799/functions/raise.html>.

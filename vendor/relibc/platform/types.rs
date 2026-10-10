@@ -1,3 +1,4 @@
+// Seeded from relibc (MIT, vendor/relibc/LICENSE) at 893a3b9133ac, 2026-10-10 (UTC), for milestone 835; nife owns it from here, and its edits say `nife:` where they are (vendor/README.md).
 //! C data types for this platform.
 
 /// The `void` type in C.
@@ -81,10 +82,10 @@ pub type regoff_t = size_t;
 /// The `off_t` type provided in [`sys/types.h`](crate::header::sys_types).
 pub type off_t = c_longlong;
 /// The `mode_t` type provided in [`sys/types.h`](crate::header::sys_types).
-#[cfg(target_os = "linux")]
+#[cfg(any(target_os = "linux", target_os = "nife"))]
 pub type mode_t = c_uint;
 /// The `mode_t` type provided in [`sys/types.h`](crate::header::sys_types).
-#[cfg(not(target_os = "linux"))]
+#[cfg(not(any(target_os = "linux", target_os = "nife")))]
 pub type mode_t = c_int;
 /// The `time_t` type provided in [`sys/types.h`](crate::header::sys_types).
 pub type time_t = c_longlong;
@@ -120,12 +121,12 @@ pub type fsfilcnt_t = c_ulong;
 #[deprecated]
 pub type useconds_t = c_uint;
 /// The `suseconds_t` type provided in [`sys/types.h`](crate::header::sys_types).
-#[cfg(target_os = "linux")]
+#[cfg(any(target_os = "linux", target_os = "nife"))]
 pub type suseconds_t = c_long;
 // TODO: Should we break this to c_long as well? This also breaks timeval as well
 //       but it will be consistent with timespec.tv_nsec (note that syscall already uses c_int)
 /// The `suseconds_t` type provided in [`sys/types.h`](crate::header::sys_types).
-#[cfg(not(target_os = "linux"))]
+#[cfg(not(any(target_os = "linux", target_os = "nife")))]
 pub type suseconds_t = c_int;
 
 /// The `clock_t` type provided in [`sys/types.h`](crate::header::sys_types).

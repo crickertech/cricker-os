@@ -1,20 +1,15 @@
+// Seeded from relibc (MIT, vendor/relibc/LICENSE) at 893a3b9133ac, 2026-10-10 (UTC), for milestone 835; nife owns it from here, and its edits say `nife:` where they are (vendor/README.md).
 //! Synchronization primitives.
 
-pub mod barrier;
-pub mod cond;
 // TODO: Merge with pthread_mutex
 pub mod mutex;
 
 pub mod once;
 pub mod pthread_mutex;
-pub mod rwlock;
-pub mod semaphore;
-pub mod waitval;
 
 pub use self::{
     mutex::{Mutex, MutexGuard},
     once::Once,
-    semaphore::Semaphore,
 };
 
 use crate::{
@@ -73,7 +68,7 @@ impl FutexAtomicTy for AtomicU32 {
         #[cfg(target_os = "redox")]
         return AtomicU32::as_ptr(self);
 
-        #[cfg(target_os = "linux")]
+        #[cfg(any(target_os = "linux", target_os = "nife"))]
         return AtomicU32::as_mut_ptr(self);
 
         */
@@ -91,7 +86,7 @@ impl FutexAtomicTy for AtomicI32 {
         /*#[cfg(target_os = "redox")]
         return AtomicI32::as_ptr(self);
 
-        #[cfg(target_os = "linux")]
+        #[cfg(any(target_os = "linux", target_os = "nife"))]
         return AtomicI32::as_mut_ptr(self);*/
 
         ptr::from_ref::<AtomicI32>(self) as *mut i32

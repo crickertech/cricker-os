@@ -1,3 +1,4 @@
+// Seeded from relibc (MIT, vendor/relibc/LICENSE) at 893a3b9133ac, 2026-10-10 (UTC), for milestone 835; nife owns it from here, and its edits say `nife:` where they are (vendor/README.md).
 use crate::platform::types::{c_int, c_uint, int32_t, off_t};
 
 pub const EOF: c_int = -1;
@@ -27,9 +28,9 @@ pub const _IONBF: c_int = 2;
 /// Rename but don't replace the target if it exists.
 pub const RENAME_NOREPLACE: c_uint = 0x01;
 /// Atomically swap two files.
-#[cfg(target_os = "linux")]
+#[cfg(any(target_os = "linux", target_os = "nife"))]
 pub const RENAME_EXCHANGE: c_uint = 0x02;
-#[cfg(target_os = "linux")]
+#[cfg(any(target_os = "linux", target_os = "nife"))]
 pub const RENAME_WHITEOUT: c_uint = 0x04;
 
 // /dev/tty + nul

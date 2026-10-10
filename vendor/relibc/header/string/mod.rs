@@ -1,17 +1,14 @@
+// Seeded from relibc (MIT, vendor/relibc/LICENSE) at 893a3b9133ac, 2026-10-10 (UTC), for milestone 835; nife owns it from here, and its edits say `nife:` where they are (vendor/README.md).
 //! `string.h` implementation.
 //!
 //! See <https://pubs.opengroup.org/onlinepubs/9799919799/basedefs/string.h.html>.
 
 use core::{iter::once, mem, ptr, slice};
 
-use cbitset::BitSet256;
 
 use crate::{
-    casting::{CCharToU8, U8PtrToCCharPtr},
-    header::{
-        errno::{ENOMEM, ERANGE, STR_ERROR, STRERROR_MAX},
-        signal,
-    },
+    casting::CCharToU8,
+    header::errno::{ENOMEM, ERANGE, STR_ERROR, STRERROR_MAX},
     iter::{NulTerminated, NulTerminatedInclusive, SrcDstPtrIter},
     platform::{
         self,
@@ -58,7 +55,7 @@ pub unsafe extern "C" fn memchr(
 ) -> *mut c_void {
     let haystack = unsafe { slice::from_raw_parts(haystack.cast::<u8>(), len) };
 
-    match memchr::memchr(needle as u8, haystack) {
+    match haystack.iter().position(|&b| b == needle as u8) /* nife: in place of the `memchr` crate */ {
         Some(index) => haystack[index..].as_ptr() as *mut c_void,
         None => ptr::null_mut(),
     }
@@ -182,7 +179,7 @@ pub unsafe extern "C" fn memrchr(
 ) -> *mut c_void {
     let haystack = unsafe { slice::from_raw_parts(haystack.cast::<u8>(), len) };
 
-    match memchr::memrchr(needle as u8, haystack) {
+    match haystack.iter().rposition(|&b| b == needle as u8) /* nife: in place of the `memchr` crate */ {
         Some(index) => haystack[index..].as_ptr() as *mut c_void,
         None => ptr::null_mut(),
     }
@@ -351,16 +348,19 @@ pub unsafe fn inner_strspn(s1: *const c_char, s2: *const c_char, cmp: bool) -> s
     // number can hold up to 8 * mem::size_of::<usize>() bits. We need 256 bits
     // in total, to fit one byte.
 
-    let mut set = BitSet256::new();
+    // nife: a 256-bit set as four words, in place of relibc's `cbitset` dependency.
+    let mut set = [0u64; 4];
 
     while unsafe { *s2 } != 0 {
-        set.insert(unsafe { *s2 } as usize);
+        let b = unsafe { *s2 } as usize;
+        set[b / 64] |= 1 << (b % 64);
         s2 = unsafe { s2.add(1) };
     }
 
     let mut i = 0;
     while unsafe { *s1 } != 0 {
-        if set.contains(unsafe { *s1 } as usize) != cmp {
+        let b = unsafe { *s1 } as usize;
+        if (set[b / 64] & 1 << (b % 64) != 0) != cmp {
             break;
         }
         i += 1;
@@ -606,24 +606,6 @@ pub unsafe extern "C" fn strrchr(s: *const c_char, c: c_int) -> *mut c_char {
         i -= 1;
     }
     ptr::null_mut()
-}
-
-/// See <https://pubs.opengroup.org/onlinepubs/9799919799/functions/strsignal.html>.
-///
-/// Maps the signal number in `signum` to an implementation defined string and
-/// returns a pointer to it.
-///
-/// # Implementation
-/// An invalid signal number will return a pointer to a string signifying an
-/// unknown signal.
-#[unsafe(no_mangle)]
-pub unsafe extern "C" fn strsignal(signum: c_int) -> *mut c_char {
-    U8PtrToCCharPtr::cast_mut(
-        signal::SIGNAL_STRINGS
-            .get(usize::try_from(signum).unwrap_or(0))
-            .unwrap_or(&signal::SIGNAL_STRINGS[0]) // Unknown signal message
-            .as_ptr(),
-    )
 }
 
 /// See <https://pubs.opengroup.org/onlinepubs/9799919799/functions/strspn.html>.

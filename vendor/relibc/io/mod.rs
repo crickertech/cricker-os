@@ -1,3 +1,4 @@
+// Seeded from relibc (MIT, vendor/relibc/LICENSE) at 893a3b9133ac, 2026-10-10 (UTC), for milestone 835; nife owns it from here, and its edits say `nife:` where they are (vendor/README.md).
 // Copyright 2015 The Rust Project Developers. See the COPYRIGHT
 // file at the top-level directory of this distribution and at
 // http://rust-lang.org/COPYRIGHT.
@@ -404,7 +405,7 @@ fn read_until<R: BufRead + ?Sized>(r: &mut R, delim: u8, buf: &mut Vec<u8>) -> R
                 Err(ref e) if e.kind() == ErrorKind::Interrupted => continue,
                 Err(e) => return Err(e),
             };
-            match memchr::memchr(delim, available) {
+            match available.iter().position(|&b| b == delim) /* nife: in place of the `memchr` crate */ {
                 Some(i) => {
                     buf.extend_from_slice(&available[..=i]);
                     (true, i + 1)

@@ -1,3 +1,4 @@
+/* Seeded from relibc (MIT, vendor/relibc/LICENSE) at 893a3b9133ac, 2026-10-10 (UTC), for milestone 835 (vendor/README.md). */
 /* Copyright (C) 2008-2018 Free Software Foundation, Inc.
 
 This file is part of GCC.

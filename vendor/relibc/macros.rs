@@ -1,3 +1,4 @@
+// Seeded from relibc (MIT, vendor/relibc/LICENSE) at 893a3b9133ac, 2026-10-10 (UTC), for milestone 835; nife owns it from here, and its edits say `nife:` where they are (vendor/README.md).
 /// Print to stdout
 #[macro_export]
 macro_rules! print {
@@ -47,9 +48,9 @@ pub const ISSUE_URL: &str = "https://gitlab.redox-os.org/redox-os/relibc/-/issue
 macro_rules! todo_skip {
     ($issue:expr, $($arg:tt)*) => {
         if $issue != 0 {
-            log::info!("TODO ({}{}): {}", $crate::macros::ISSUE_URL, $issue, format_args!($($arg)*))
+            let _ = ($issue, format_args!($($arg)*));
         } else {
-            log::info!("TODO: {}", format_args!($($arg)*))
+            let _ = format_args!($($arg)*);
         }
     };
 }
@@ -59,9 +60,9 @@ macro_rules! todo_skip {
 macro_rules! todo_error {
     ($issue:expr, $err:expr, $($arg:tt)*) => {
         if $issue != 0 {
-            log::error!("TODO ({}{}): {}: {}", $crate::macros::ISSUE_URL, $issue, format_args!($($arg)*), $err)
+            $crate::eprintln!("TODO ({}{}): {}: {:?}", $crate::macros::ISSUE_URL, $issue, format_args!($($arg)*), $err)
         } else {
-            log::error!("TODO: {}: {:?}", format_args!($($arg)*), $err)
+            $crate::eprintln!("TODO: {}: {:?}", format_args!($($arg)*), $err)
         }
     };
 }
@@ -78,55 +79,15 @@ macro_rules! todo_panic {
     };
 }
 
+// nife: relibc's `log` dependency is not taken, so tracing is compiled out unconditionally, as
+// relibc's own default `no_trace` feature already had it.
 #[macro_export]
-#[cfg(feature = "no_trace")]
 macro_rules! trace_expr {
     ($expr:expr, $($arg:tt)*) => {
         $expr
     };
 }
 
-#[macro_export]
-#[cfg(not(feature = "no_trace"))]
-macro_rules! trace_expr {
-    ($expr:expr, $($arg:tt)*) => ({
-        use $crate::header::errno::STR_ERROR;
-        use $crate::platform;
-
-        let trace_old_errno = platform::ERRNO.get();
-        platform::ERRNO.set(0);
-
-        let ret = $expr;
-
-        let trace_errno = platform::ERRNO.get() as isize;
-        if trace_errno == 0 {
-            platform::ERRNO.set(trace_old_errno);
-        }
-
-        let trace_strerror = if trace_errno >= 0 && trace_errno < STR_ERROR.len() as isize {
-            STR_ERROR[trace_errno as usize]
-        } else {
-            "Unknown error"
-        };
-
-        log::trace!("{} = {} ({}, {})", format_args!($($arg)*), ret, trace_errno, trace_strerror);
-
-        ret
-    });
-}
-
-// log::trace! but functions inside them will
-// not be evaluated or compiled unless enabled
-macro_rules! trace_log {
-    ($($arg:tt)+) => {
-        #[cfg(not(feature = "no_trace"))]
-        {
-            if log::log_enabled!(log::Level::Trace) {
-                log::trace!($($arg)+);
-            }
-        }
-    };
-}
 
 #[macro_export]
 macro_rules! skipws {

@@ -1,3 +1,4 @@
+/* Seeded from relibc (MIT, vendor/relibc/LICENSE) at 893a3b9133ac, 2026-10-10 (UTC), for milestone 835 (vendor/README.md). */
 // From musl, license MIT
 #ifndef _SYS_SYSMACROS_H
 #define _SYS_SYSMACROS_H

@@ -1,3 +1,4 @@
+// Seeded from relibc (MIT, vendor/relibc/LICENSE) at 893a3b9133ac, 2026-10-10 (UTC), for milestone 835; nife owns it from here, and its edits say `nife:` where they are (vendor/README.md).
 //! `sys/time.h` implementation.
 //!
 //! See <https://pubs.opengroup.org/onlinepubs/9799919799/basedefs/sys_time.h.html>.
@@ -12,7 +13,7 @@ use crate::{
     header::{sys_select::timeval, time::timespec},
     out::Out,
     platform::{
-        Pal, PalSignal, Sys,
+        Pal, Sys,
         types::{c_char, c_int, c_long},
     },
 };
@@ -62,20 +63,6 @@ pub struct timezone {
     pub tz_dsttime: c_int,
 }
 
-/// See <https://pubs.opengroup.org/onlinepubs/9699919799/functions/getitimer.html>.
-///
-/// # Deprecation
-/// The `getitimer()` function was marked obsolescent in the Open Group Base
-/// Specifications Issue 7, and removed in Issue 8.
-#[deprecated]
-#[expect(deprecated)]
-#[unsafe(no_mangle)]
-pub unsafe extern "C" fn getitimer(which: c_int, value: *mut itimerval) -> c_int {
-    Sys::getitimer(which, unsafe { &mut *value })
-        .map(|()| 0)
-        .or_minus_one_errno()
-}
-
 /// See <https://pubs.opengroup.org/onlinepubs/9699919799/functions/gettimeofday.html>.
 ///
 /// See also <https://www.man7.org/linux/man-pages/man2/gettimeofday.2.html>
@@ -93,25 +80,6 @@ pub unsafe extern "C" fn gettimeofday(tp: *mut timeval, tzp: *mut timezone) -> c
 }
 
 // `select()` declared in `sys/select.h`, as specified in modern POSIX
-
-/// See <https://pubs.opengroup.org/onlinepubs/9699919799/functions/getitimer.html>.
-///
-/// # Deprecation
-/// The `setitimer()` function was marked obsolescent in the Open Group Base
-/// Specifications Issue 7, and removed in Issue 8.
-#[deprecated]
-#[expect(deprecated)]
-#[unsafe(no_mangle)]
-pub unsafe extern "C" fn setitimer(
-    which: c_int,
-    value: *const itimerval,
-    ovalue: *mut itimerval,
-) -> c_int {
-    // TODO setitimer is unimplemented on Redox
-    Sys::setitimer(which, unsafe { &*value }, unsafe { ovalue.as_mut() })
-        .map(|()| 0)
-        .or_minus_one_errno()
-}
 
 /// See <https://pubs.opengroup.org/onlinepubs/9799919799/functions/utimes.html>.
 ///

@@ -1,3 +1,4 @@
+// Seeded from relibc (MIT, vendor/relibc/LICENSE) at 893a3b9133ac, 2026-10-10 (UTC), for milestone 835; nife owns it from here, and its edits say `nife:` where they are (vendor/README.md).
 //! Wrapper for the "out pointer" pattern.
 //!
 //! This is functionally equivalent to `&Cell<MaybeUninit<T>>` except the only allowed operation is
@@ -174,7 +175,7 @@ impl<'a, T> Out<'a, [T]> {
     }
 }
 // TODO: use bytemuck
-impl<T: plain::Plain> Out<'_, [T]> {
+impl<T: crate::plain::Plain> Out<'_, [T]> {
     pub fn zero(&mut self) {
         let l = self.ptr.len();
         unsafe {

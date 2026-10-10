@@ -1,10 +1,14 @@
+// Seeded from relibc (MIT, vendor/relibc/LICENSE) at 893a3b9133ac, 2026-10-10 (UTC), for milestone 835; nife owns it from here, and its edits say `nife:` where they are (vendor/README.md).
 use super::{sigset_t, stack_t};
 use crate::platform::types::{c_longlong, c_uchar, c_uint, c_ulong, c_ulonglong, c_ushort};
+#[cfg(target_os = "linux")]
 use core::arch::global_asm;
 
 // Needs to be defined in assembly because it can't have a function prologue
 // rax is register, 15 is RT_SIGRETURN
-#[cfg(target_arch = "x86_64")]
+// nife: the Linux signal trampoline is a raw syscall, which nife's C library never makes (§31
+// rule 1 as amended by §265), and nife delivers no signals for it to return from.
+#[cfg(all(target_os = "linux", target_arch = "x86_64"))]
 global_asm!(
     "
     .global __restore_rt
@@ -14,7 +18,9 @@ global_asm!(
 "
 );
 // x8 is register, 139 is RT_SIGRETURN
-#[cfg(target_arch = "aarch64")]
+// nife: the Linux signal trampoline is a raw syscall, which nife's C library never makes (§31
+// rule 1 as amended by §265), and nife delivers no signals for it to return from.
+#[cfg(all(target_os = "linux", target_arch = "aarch64"))]
 global_asm!(
     "
     .global __restore_rt
@@ -24,7 +30,9 @@ global_asm!(
 "
 );
 
-#[cfg(target_arch = "riscv64")]
+// nife: the Linux signal trampoline is a raw syscall, which nife's C library never makes (§31
+// rule 1 as amended by §265), and nife delivers no signals for it to return from.
+#[cfg(all(target_os = "linux", target_arch = "riscv64"))]
 global_asm!(
     "
     .global __restore_rt

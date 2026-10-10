@@ -1,3 +1,4 @@
+// Seeded from relibc (MIT, vendor/relibc/LICENSE) at 893a3b9133ac, 2026-10-10 (UTC), for milestone 835; nife owns it from here, and its edits say `nife:` where they are (vendor/README.md).
 //! `stdio.h` implementation.
 //!
 //! See <https://pubs.opengroup.org/onlinepubs/9799919799/basedefs/stdio.h.html>.
@@ -26,7 +27,7 @@ use crate::{
         errno::{self, STR_ERROR},
         fcntl,
         pthread::RlctMutex,
-        pwd, stdlib,
+        stdlib,
         string::{self, strlen, strncpy},
         unistd,
     },
@@ -162,7 +163,7 @@ impl FileInnerWriter {
         FileInnerWriter::Unbuffered(match writer {
             Ok(writer) => writer,
             Err(IntoInnerError(writer, e)) => {
-                log::warn!("to_unbuffered flush failure: {e:?}");
+                let _ = e;
                 writer
             }
         })
@@ -437,41 +438,6 @@ pub unsafe extern "C" fn ctermid(s: *mut c_char) -> *mut c_char {
     }
 
     unsafe { strncpy(s, (&raw mut TERMID).cast::<c_char>(), L_ctermid) }
-}
-
-/// See <https://pubs.opengroup.org/onlinepubs/7908799/xsh/cuserid.html>
-///
-/// Marked legacy in SUS Version 2.
-// #[unsafe(no_mangle)]
-#[deprecated]
-pub unsafe extern "C" fn cuserid(s: *mut c_char) -> *mut c_char {
-    let mut buf: Vec<c_char> = vec![0; 256];
-    let mut pwd: pwd::passwd = unsafe { mem::zeroed() };
-    let mut pwdbuf: *mut pwd::passwd = unsafe { mem::zeroed() };
-    if !s.is_null() {
-        unsafe {
-            *s.add(0) = 0;
-        }
-    }
-    unsafe {
-        pwd::getpwuid_r(
-            unistd::geteuid(),
-            &raw mut pwd,
-            buf.as_mut_ptr(),
-            buf.len(),
-            &raw mut pwdbuf,
-        )
-    };
-    if pwdbuf.is_null() {
-        return s;
-    }
-
-    if !s.is_null() {
-        unsafe { strncpy(s, (*pwdbuf).pw_name, unistd::L_cuserid) };
-        return s;
-    }
-
-    unsafe { (*pwdbuf).pw_name }
 }
 
 /// See <https://pubs.opengroup.org/onlinepubs/9799919799/functions/fclose.html>.

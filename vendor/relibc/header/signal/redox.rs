@@ -1,3 +1,4 @@
+// Seeded from relibc (MIT, vendor/relibc/LICENSE) at 893a3b9133ac, 2026-10-10 (UTC), for milestone 835; nife owns it from here, and its edits say `nife:` where they are (vendor/README.md).
 use redox_rt::signal::SiginfoAbi;
 
 #[cfg(any(target_arch = "x86", target_arch = "aarch64", target_arch = "riscv64"))]

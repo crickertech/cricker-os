@@ -1,38 +1,25 @@
+// Seeded from relibc (MIT, vendor/relibc/LICENSE) at 893a3b9133ac, 2026-10-10 (UTC), for milestone 835; nife owns it from here, and its edits say `nife:` where they are (vendor/README.md).
 use core::num::NonZeroU64;
 
 use super::types::*;
 use crate::{
     c_str::CStr,
-    error::{Errno, Result},
+    error::Result,
     header::{
         fcntl::{AT_EMPTY_PATH, AT_FDCWD, AT_REMOVEDIR, AT_SYMLINK_NOFOLLOW, F_DUPFD},
-        signal::sigevent,
-        sys_resource::{rlimit, rusage},
         sys_select::timeval,
         sys_stat::stat,
-        sys_statvfs::statvfs,
         sys_time::timezone,
         sys_uio::iovec,
         sys_utsname::utsname,
-        time::{itimerspec, timespec},
+        time::timespec,
     },
-    iter::NulTerminated,
-    ld_so::tcb::OsSpecific,
     out::Out,
-    pthread,
 };
 
-pub use self::epoll::PalEpoll;
-mod epoll;
-
-pub use self::ptrace::PalPtrace;
-mod ptrace;
 
 pub use self::signal::PalSignal;
 mod signal;
-
-pub use self::socket::PalSocket;
-mod socket;
 
 /// Platform abstraction layer, a platform-agnostic abstraction over syscalls.
 pub trait Pal {
@@ -94,8 +81,6 @@ pub trait Pal {
     /// Platform implementation of [`_Exit()`](crate::header::stdlib::_Exit) from [`stdlib.h`](crate::header::stdlib) (or the equivalent [`_exit()`](crate::header::unistd::_exit) from [`unistd.h`](crate::header::unistd)).
     fn exit(status: c_int) -> !;
 
-    unsafe fn exit_thread(stack_base: *mut (), stack_size: usize) -> !;
-
     /// Platform implementation of [`fchdir()`](crate::header::unistd::fchdir) from [`unistd.h`](crate::header::unistd).
     fn fchdir(fildes: c_int) -> Result<()>;
 
@@ -138,9 +123,6 @@ pub trait Pal {
 
     /// Platform implementation of [`fstatat()`](crate::header::sys_stat::fstatat) from [`sys/stat.h`](crate::header::sys_stat).
     fn fstatat(fildes: c_int, path: Option<CStr>, buf: Out<stat>, flags: c_int) -> Result<()>;
-
-    /// Platform implementation of [`fstatvfs()`](crate::header::sys_statvfs::fstatvfs) from [`sys/statvfs.h`](crate::header::sys_statvfs).
-    fn fstatvfs(fildes: c_int, buf: Out<statvfs>) -> Result<()>;
 
     /// Platform implementation of [`fcntl()`](crate::header::fcntl::fcntl) from [`fcntl.h`](crate::header::fcntl).
     fn fcntl(fildes: c_int, cmd: c_int, arg: c_ulonglong) -> Result<c_int>;
@@ -241,15 +223,6 @@ pub trait Pal {
         euid: Option<Out<uid_t>>,
         suid: Option<Out<uid_t>>,
     ) -> Result<()>;
-
-    /// Platform implementation of [`getrlimit()`](crate::header::sys_resource::getrlimit) from [`sys/resource.h`](crate::header::sys_resource).
-    fn getrlimit(resource: c_int, rlim: Out<rlimit>) -> Result<()>;
-
-    /// Platform implementation of [`setrlimit()`](crate::header::sys_resource::setrlimit) from [`sys/resource.h`](crate::header::sys_resource).
-    unsafe fn setrlimit(resource: c_int, rlim: *const rlimit) -> Result<()>;
-
-    /// Platform implementation of [`getrusage()`](crate::header::sys_resource::getrusage) from [`sys/resource.h`](crate::header::sys_resource).
-    fn getrusage(who: c_int, r_usage: Out<rusage>) -> Result<()>;
 
     /// Platform implementation of [`getsid()`](crate::header::unistd::getsid) from [`unistd.h`](crate::header::unistd).
     fn getsid(pid: pid_t) -> Result<pid_t>;
@@ -367,15 +340,6 @@ pub trait Pal {
     /// Platform implementation of [`posix_getdents()`](crate::header::dirent::posix_getdents) from [`dirent.h`](crate::header::dirent).
     fn posix_getdents(fildes: c_int, buf: &mut [u8]) -> Result<usize>;
 
-    unsafe fn rlct_clone(
-        stack: *mut usize,
-        os_specific: &mut OsSpecific,
-    ) -> Result<pthread::OsTid, Errno>;
-
-    unsafe fn rlct_kill(os_tid: pthread::OsTid, signal: usize) -> Result<()>;
-
-    fn current_os_tid() -> pthread::OsTid;
-
     /// Platform implementation of [`read()`](crate::header::unistd::read) from [`unistd.h`](crate::header::unistd).
     fn read(fildes: c_int, buf: &mut [u8]) -> Result<usize>;
 
@@ -438,14 +402,6 @@ pub trait Pal {
     /// Platform implementation of [`setsid()`](crate::header::unistd::setsid) from [`unistd.h`](crate::header::unistd).
     fn setsid() -> Result<c_int>;
 
-    unsafe fn spawn(
-        program: CStr,
-        fac: Option<&crate::header::spawn::posix_spawn_file_actions_t>,
-        fat: Option<&crate::header::spawn::posix_spawnattr_t>,
-        argv: NulTerminated<*mut c_char>,
-        envp: Option<NulTerminated<*mut c_char>>,
-    ) -> Result<pid_t>;
-
     /// Platform implementation of [`symlink()`](crate::header::unistd::symlink) from [`unistd.h`](crate::header::unistd).
     fn symlink(path1: CStr, path2: CStr) -> Result<()> {
         Self::symlinkat(path1, AT_FDCWD, path2)
@@ -456,23 +412,6 @@ pub trait Pal {
 
     /// Platform implementation of [`sync()`](crate::header::unistd::sync) from [`unistd.h`](crate::header::unistd).
     fn sync() -> Result<()>;
-
-    /// Platform implementation of [`timer_create()`](crate::header::time::timer_create) from [`time.h`](crate::header::time).
-    fn timer_create(clock_id: clockid_t, evp: &sigevent) -> Result<timer_t>;
-
-    /// Platform implementation of [`timer_delete()`](crate::header::time::timer_delete) from [`time.h`](crate::header::time).
-    fn timer_delete(timerid: timer_t) -> Result<()>;
-
-    /// Platform implementation of [`timer_gettime()`](crate::header::time::timer_gettime) from [`time.h`](crate::header::time).
-    fn timer_gettime(timerid: timer_t) -> Result<itimerspec>;
-
-    /// Platform implementation of [`timer_settime()`](crate::header::time::timer_settime) from [`time.h`](crate::header::time).
-    fn timer_settime(
-        timerid: timer_t,
-        flags: c_int,
-        value: &itimerspec,
-        ovalue: Option<Out<itimerspec>>,
-    ) -> Result<()>;
 
     // Always successful
     /// Platform implementation of [`umask()`](crate::header::sys_stat::umask) from [`sys/stat.h`](crate::header::sys_stat).

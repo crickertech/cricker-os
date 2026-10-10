@@ -1,3 +1,4 @@
+// Seeded from relibc (MIT, vendor/relibc/LICENSE) at 893a3b9133ac, 2026-10-10 (UTC), for milestone 835; nife owns it from here, and its edits say `nife:` where they are (vendor/README.md).
 //! Non-POSIX extras for `sys/types.h` implementation.
 
 use crate::platform::types::{c_char, c_longlong, c_uchar, c_uint, c_ulong, c_ulonglong, c_ushort};

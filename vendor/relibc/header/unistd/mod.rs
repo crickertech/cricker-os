@@ -1,3 +1,4 @@
+// Seeded from relibc (MIT, vendor/relibc/LICENSE) at 893a3b9133ac, 2026-10-10 (UTC), for milestone 835; nife owns it from here, and its edits say `nife:` where they are (vendor/README.md).
 //! `unistd.h` implementation.
 //!
 //! See <https://pubs.opengroup.org/onlinepubs/9799919799/basedefs/unistd.h.html>.
@@ -15,50 +16,41 @@ use crate::{
     c_str::CStr,
     error::{Errno, ResultExt},
     header::{
-        bits_sigset_t::sigset_t,
-        crypt::{crypt_data, crypt_r},
         errno::{self, ENAMETOOLONG},
         fcntl, limits,
-        signal::{sigprocmask, sigsuspend},
         stdlib::getenv,
-        sys_ioctl, sys_resource,
-        sys_select::timeval,
-        sys_time, sys_utsname, termios,
+        sys_utsname,
         time::timespec,
-        unistd::{alarm::alarm_timespec, path::PathSearchIter},
+        unistd::path::PathSearchIter,
     },
     out::Out,
     platform::{
         self, ERRNO, Pal, Sys,
         types::{
             c_char, c_int, c_long, c_short, c_uint, c_ulonglong, c_void, gid_t, off_t, pid_t,
-            size_t, ssize_t, suseconds_t, time_t, uid_t,
+            size_t, ssize_t, time_t, uid_t,
         },
     },
 };
 
 pub use self::{brk::*, getopt::*, pathconf::*, sysconf::*};
-pub use crate::header::pthread::fork_hooks;
 
 // Inclusion of ctermid() prototype marked as obsolescent since Issue 7, cf.
 // <https://pubs.opengroup.org/onlinepubs/9699919799/basedefs/unistd.h.html>.
 // cuserid() marked legacy in Issue 5.
 #[deprecated]
 pub use crate::header::stdio::ctermid;
-#[expect(deprecated)]
-pub use crate::header::stdio::cuserid;
 
 use super::{
     errno::{E2BIG, EINVAL, ENOMEM},
     stdio::snprintf,
 };
 
-mod alarm;
 mod brk;
 mod getopt;
-mod getpass;
 pub mod path;
 mod pathconf;
+// nife: relibc's `syscall()` is not built (§31 rule 1 as amended by §265).
 #[cfg(target_os = "linux")]
 pub mod syscall;
 mod sysconf;
@@ -163,15 +155,6 @@ pub unsafe extern "C" fn faccessat(
         .or_minus_one_errno()
 }
 
-/// See <https://pubs.opengroup.org/onlinepubs/9799919799/functions/alarm.html>.
-#[unsafe(no_mangle)]
-pub extern "C" fn alarm(seconds: c_uint) -> c_uint {
-    alarm_timespec(timespec {
-        tv_sec: seconds.into(),
-        tv_nsec: 0,
-    })
-}
-
 /// See <https://pubs.opengroup.org/onlinepubs/9799919799/functions/chdir.html>.
 #[unsafe(no_mangle)]
 pub unsafe extern "C" fn chdir(path: *const c_char) -> c_int {
@@ -235,13 +218,6 @@ pub unsafe extern "C" fn confstr(name: c_int, buf: *mut c_char, len: size_t) -> 
             0
         }
     }
-}
-
-/// See <https://pubs.opengroup.org/onlinepubs/9799919799/functions/crypt.html>.
-#[unsafe(no_mangle)]
-pub unsafe extern "C" fn crypt(key: *const c_char, salt: *const c_char) -> *mut c_char {
-    let mut data = crypt_data::new();
-    unsafe { crypt_r(key, salt, &raw mut data) }
 }
 
 /// Non-POSIX, see <https://www.man7.org/linux/man-pages/man3/daemon.3.html>.
@@ -464,20 +440,9 @@ pub extern "C" fn fdatasync(fildes: c_int) -> c_int {
 /// operation on the lock results in undefined behaviour.
 #[unsafe(no_mangle)]
 pub unsafe extern "C" fn fork() -> pid_t {
-    for prepare in unsafe { &fork_hooks[0] } {
-        prepare();
-    }
-    let pid = unsafe { Sys::fork() }.or_minus_one_errno();
-    if pid == 0 {
-        for child in unsafe { &fork_hooks[2] } {
-            child();
-        }
-    } else if pid != -1 {
-        for parent in unsafe { &fork_hooks[1] } {
-            parent();
-        }
-    }
-    pid
+    // nife: declined for good (§264). No `pthread_atfork` hooks to run, because there is no fork
+    // to run them around; `Sys::fork` says `ENOSYS`.
+    unsafe { Sys::fork() }.or_minus_one_errno()
 }
 
 /// See <https://pubs.opengroup.org/onlinepubs/9799919799/functions/fsync.html>.
@@ -538,22 +503,9 @@ pub unsafe extern "C" fn getcwd(mut buf: *mut c_char, mut size: size_t) -> *mut 
 #[deprecated]
 #[unsafe(no_mangle)]
 pub extern "C" fn getdtablesize() -> c_int {
-    // TODO: Have getrlimit working in Redox
-    #[cfg(not(target_os = "redox"))]
-    {
-        let mut lim = mem::MaybeUninit::<sys_resource::rlimit>::uninit();
-        let r = unsafe {
-            sys_resource::getrlimit(
-                sys_resource::RLIMIT_NOFILE as c_int,
-                lim.as_mut_ptr().cast::<sys_resource::rlimit>(),
-            )
-        };
-        if r == 0 {
-            let cur = unsafe { lim.assume_init() }.rlim_cur;
-            return i32::try_from(cur).unwrap_or(i32::MAX);
-        }
-    }
-    -1
+    // nife: the descriptor table is a growable vector in the platform layer, with no limit but
+    // memory; this is the number POSIX's `OPEN_MAX` minimum would suggest, as glibc's default is.
+    1024
 }
 
 /// See <https://pubs.opengroup.org/onlinepubs/9799919799/functions/getegid.html>.
@@ -787,12 +739,10 @@ pub unsafe extern "C" fn getwd(path_name: *mut c_char) -> *mut c_char {
 /// returns `0` to indicate it is not.
 #[unsafe(no_mangle)]
 pub extern "C" fn isatty(fildes: c_int) -> c_int {
-    let mut t = termios::termios::default();
-    if unsafe { termios::tcgetattr(fildes, &raw mut t) == 0 } {
-        1
-    } else {
-        0
-    }
+    // nife: no terminal interface (`termios`) in stage 1, so nothing is a terminal.
+    let _ = fildes;
+    platform::ERRNO.set(errno::ENOTTY);
+    0
 }
 
 /// See <https://pubs.opengroup.org/onlinepubs/9799919799/functions/lchown.html>.
@@ -875,7 +825,7 @@ pub extern "C" fn lseek(fildes: c_int, offset: off_t, whence: c_int) -> off_t {
 /// See <https://pubs.opengroup.org/onlinepubs/9799919799/functions/nice.html>.
 #[unsafe(no_mangle)]
 pub extern "C" fn nice(incr: c_int) -> c_int {
-    let prio = Sys::getpriority(sys_resource::PRIO_PROCESS, 0).or_minus_one_errno();
+    let prio = Sys::getpriority(0 /* nife: PRIO_PROCESS */, 0).or_minus_one_errno();
     if prio < 0 {
         return prio;
     }
@@ -883,7 +833,7 @@ pub extern "C" fn nice(incr: c_int) -> c_int {
     let current_nice = 20 - prio;
     let new_nice = current_nice.saturating_add(incr).clamp(-20, 19);
 
-    if Sys::setpriority(sys_resource::PRIO_PROCESS, 0, new_nice)
+    if Sys::setpriority(0 /* nife: PRIO_PROCESS */, 0, new_nice)
         .map(|()| 0)
         .or_minus_one_errno()
         < 0
@@ -892,15 +842,6 @@ pub extern "C" fn nice(incr: c_int) -> c_int {
     }
 
     new_nice
-}
-
-/// See <https://pubs.opengroup.org/onlinepubs/9799919799/functions/pause.html>.
-#[unsafe(no_mangle)]
-pub unsafe extern "C" fn pause() -> c_int {
-    let mut pset = mem::MaybeUninit::<sigset_t>::uninit();
-    unsafe { sigprocmask(0, ptr::null_mut(), pset.as_mut_ptr()) };
-    let set = unsafe { pset.assume_init() };
-    unsafe { sigsuspend(&raw const set) }
 }
 
 /// See <https://pubs.opengroup.org/onlinepubs/9799919799/functions/pipe.html>.
@@ -1249,48 +1190,6 @@ pub extern "C" fn sync() {
     if let Ok(()) = Sys::sync() {}; // TODO handle error
 }
 
-/// See <https://pubs.opengroup.org/onlinepubs/9799919799/functions/tcgetpgrp.html>.
-///
-/// Returns the value of the process group ID of the foreground process group
-/// associated with the terminal. Calling this function is allowed from a
-/// process that is a member of the background process group; however, the
-/// information may be subsequently changed by a process that is a member of
-/// the foreground process group.
-///
-/// Upon success, returns the value of the process group ID of the foreground
-/// process group associated with the terminal. If there is no foreground
-/// process group, returns a value greater than `1` that does not match the
-/// process group ID of any existing process group. Upon failure, returns `-1`
-/// and sets errno to indicate the error.
-#[unsafe(no_mangle)]
-pub extern "C" fn tcgetpgrp(fildes: c_int) -> pid_t {
-    let mut pgrp = 0;
-    if unsafe { sys_ioctl::ioctl(fildes, sys_ioctl::TIOCGPGRP, (&raw mut pgrp).cast()) } < 0 {
-        return -1;
-    }
-    pgrp
-}
-
-/// See <https://pubs.opengroup.org/onlinepubs/9799919799/functions/tcsetpgrp.html>.
-///
-/// If the process has a controlling terminal, sets the foreground process
-/// group ID associated with the terminal to `pgid_id`. Using this function
-/// from a process which is a member of the background process group on a
-/// `fildes` associated with its controlling terminal shall cause the process
-/// group to be sent a `SIGTTOU` signal. If the calling thread is blocking
-/// `SIGTTOU` signals or the process is ignoring `SIGTTOU` signals, the process
-/// shall be allowed to perform the operation, and no signal is sent.
-///
-/// Upon success, returns `0`. Upon failure, returns `-1` and sets errno to
-/// indicate the error.
-#[unsafe(no_mangle)]
-pub extern "C" fn tcsetpgrp(fildes: c_int, pgid_id: pid_t) -> c_int {
-    if unsafe { sys_ioctl::ioctl(fildes, sys_ioctl::TIOCSPGRP, &raw const pgid_id as _) } < 0 {
-        return -1;
-    }
-    pgid_id
-}
-
 /// See <https://pubs.opengroup.org/onlinepubs/9799919799/functions/truncate.html>.
 #[unsafe(no_mangle)]
 pub unsafe extern "C" fn truncate(path: *const c_char, length: off_t) -> c_int {
@@ -1337,40 +1236,6 @@ pub extern "C" fn ttyname_r(fildes: c_int, name: *mut c_char, namesize: size_t) 
     name[len.cast_unsigned()] = 0;
 
     0
-}
-
-/// See <https://pubs.opengroup.org/onlinepubs/009695399/functions/ualarm.html>.
-///
-/// # Deprecation
-/// The `ualarm()` function was marked obsolescent in the Open Group Base
-/// Specifications Issue 6, and removed in Issue 7.
-#[deprecated]
-#[expect(deprecated)]
-#[unsafe(no_mangle)]
-pub extern "C" fn ualarm(usecs: useconds_t, interval: useconds_t) -> useconds_t {
-    // TODO setitimer is unimplemented on Redox and obsolete
-    let mut timer = sys_time::itimerval {
-        it_value: timeval {
-            tv_sec: 0,
-            tv_usec: usecs as suseconds_t,
-        },
-        it_interval: timeval {
-            tv_sec: 0,
-            tv_usec: interval as suseconds_t,
-        },
-    };
-    let errno_backup = platform::ERRNO.get();
-    let ret =
-        if unsafe { sys_time::setitimer(sys_time::ITIMER_REAL, &raw const timer, &raw mut timer) }
-            < 0
-        {
-            0
-        } else {
-            timer.it_value.tv_sec as useconds_t * 1_000_000 + timer.it_value.tv_usec as useconds_t
-        };
-    platform::ERRNO.set(errno_backup);
-
-    ret
 }
 
 /// See <https://pubs.opengroup.org/onlinepubs/9799919799/functions/unlink.html>.

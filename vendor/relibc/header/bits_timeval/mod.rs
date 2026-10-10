@@ -1,3 +1,4 @@
+// Seeded from relibc (MIT, vendor/relibc/LICENSE) at 893a3b9133ac, 2026-10-10 (UTC), for milestone 835; nife owns it from here, and its edits say `nife:` where they are (vendor/README.md).
 use crate::platform::types::{suseconds_t, time_t};
 
 /// See <https://pubs.opengroup.org/onlinepubs/9799919799/basedefs/sys_select.h.html>.
@@ -15,4 +16,4 @@ pub struct timeval {
     /// Microseconds.
     pub tv_usec: suseconds_t,
 }
-unsafe impl plain::Plain for timeval {}
+unsafe impl crate::plain::Plain for timeval {}

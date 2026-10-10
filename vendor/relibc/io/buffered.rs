@@ -1,3 +1,4 @@
+// Seeded from relibc (MIT, vendor/relibc/LICENSE) at 893a3b9133ac, 2026-10-10 (UTC), for milestone 835; nife owns it from here, and its edits say `nife:` where they are (vendor/README.md).
 // Copyright 2013 The Rust Project Developers. See the COPYRIGHT
 // file at the top-level directory of this distribution and at
 // http://rust-lang.org/COPYRIGHT.
@@ -726,7 +727,7 @@ impl<W: Write> Write for LineWriter<W> {
         // Find the last newline character in the buffer provided. If found then
         // we're going to write all the data up to that point and then flush,
         // otherwise we just write the whole block to the underlying writer.
-        let Some(i) = memchr::memrchr(b'\n', buf) else {
+        let Some(i) = buf.iter().rposition(|&b| b == b'\n') /* nife: in place of the `memchr` crate */ else {
             return self.inner.write(buf);
         };
 

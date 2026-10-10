@@ -1,3 +1,4 @@
+// Seeded from relibc (MIT, vendor/relibc/LICENSE) at 893a3b9133ac, 2026-10-10 (UTC), for milestone 835; nife owns it from here, and its edits say `nife:` where they are (vendor/README.md).
 //! `sys/mman.h` implementation.
 //!
 //! See <https://pubs.opengroup.org/onlinepubs/9799919799/basedefs/sys_mman.h.html>.
@@ -14,7 +15,7 @@ use crate::{
 
 pub use self::sys::*;
 
-#[cfg(target_os = "linux")]
+#[cfg(any(target_os = "linux", target_os = "nife"))]
 #[path = "linux.rs"]
 pub mod sys;
 
@@ -175,7 +176,7 @@ pub unsafe extern "C" fn munmap(addr: *mut c_void, len: size_t) -> c_int {
         .or_minus_one_errno()
 }
 
-#[cfg(target_os = "linux")]
+#[cfg(any(target_os = "linux", target_os = "nife"))]
 static SHM_PATH: &[u8] = b"/dev/shm/";
 
 #[cfg(target_os = "redox")]

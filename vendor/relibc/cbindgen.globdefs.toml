@@ -3,6 +3,7 @@
 [defines]
 "target_os=redox" = "__redox__"
 "target_os=linux" = "__linux__"
+"target_os=nife" = "__nife__"
 "target_pointer_width=64" = "__LP64__"
 "target_pointer_width=32" = "__ILP32__"
 "target_arch=x86" = "__i386__"
