@@ -101,11 +101,12 @@ skipped: `package_fetch_exerciser` took 1.1 to 2.1 s per leg, `pinned_tls_exerci
 | the three kernel tests, five boots | about 18 s |
 | the job | 16.7 min, against a 13.4 min median on main the same day |
 
-That leaves the job over its budget. QEMU 11.1.2 (#1899) moved main's `test` job from about 13.3
-to 17.4 to 18.0 minutes on its own, past the 17-minute warning line, and 3.3 more projects 20.7 to
-21.3 against `helpers/job-budget.py`'s 20, which fails the job. The shared target directory
-should take back up to a minute of the build, which still leaves it at the limit. How the job
-makes room is calef's, asked on PR #1902.
+A correction, 2026-10-10 (UTC). This lane first read the 17.4 to 18.0 minutes main's `test` job
+took after QEMU 11.1.2 (#1899) as QEMU being slower, projected 855 to 20.7 to 21.3 minutes, and
+asked calef how the job should make room. The premise was wrong, as the maintainer found: 265 to
+273 s of those runs was rebuilding QEMU on a cache miss (see `BUGS`), and the suite step itself
+went from about 731 s to 750 to 811 s. The question was withdrawn. The figure to judge 855 by is
+the job with a warm QEMU cache, below.
 
 ## Architectural parity
 
@@ -113,6 +114,13 @@ All three architectures, by the same suite: each leg builds its own triple and b
 archive. Nothing here is per-ISA code.
 
 ## BUGS
+
+- A `.qemu-version` change leaves main with no QEMU cache, so every pull request and merge-group
+  run rebuilds QEMU (about 270 s in `test`) until somebody dispatches CI on main. A run can read
+  only its own ref's caches and main's, and a push to main skips the suite, and with it the cache
+  save, when a merge group already tested the commit (the `gate` job). The fix is a mechanism:
+  `gate`, or a small job beside it, saves the QEMU cache on a push to main even when the suite is
+  skipped. Found 2026-10-10 (UTC) by the maintainer after #1899.
 
 - `package_index_tests`' falsification is attested, not replayable. When it was attested no sweep
   built the TLS graph; the suite now does, so a patch (`package_index::public_address` admitting
