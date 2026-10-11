@@ -1,0 +1,23 @@
+# The FS server: the appendices to notes/fs-server.md
+
+[`notes/fs-server.md`](../fs-server.md) is the page to read: the three processes, the contract,
+the write path, and one summary per measured property. The files here hold the evidence and the
+history behind each summary.
+
+- [`block-server.md`](block-server.md): whole-block requests, interrupt completion, and the disk
+  order.
+- [`stack-sizing.md`](stack-sizing.md): the stack overflow that cost a day, and the measurement.
+- [`crash-consistency.md`](crash-consistency.md): the property, the injector, the controls and the
+  device test.
+- [`mkfs-on-target.md`](mkfs-on-target.md): creating a filesystem on the target, and the divergence.
+- [`write-path-history.md`](write-path-history.md): the write that seemed to loop, and why it never
+  did.
+- [`verb-table.md`](verb-table.md): one row per opcode, and the row that carries a security property.
+- [`statfs.md`](statfs.md): op 18 in full.
+- [`throughput.md`](throughput.md): where the milliseconds go, the cache, the transfer unit and the
+  throughput BUGS.
+
+Name: provisional, minted 2026-10-11 (UTC) by `lane/ten-longest-notes`, which split the parent under
+§212 (a prose budget), for the directory and every stem in it. The directory follows the
+`notes/<stem>/` appendix convention §212 set, so its name is the parent's stem. Each file is named
+for its content. calef names directories and files, and `script/names --unratified` lists each stem.

@@ -5,10 +5,13 @@ before the board was ever powered on, and every fact names its source. What docu
 establish is in "To measure at the bench" at the end, deliberately, rather than guessed. The board
 arrived 2026-08-14.
 
-The one-sentence summary: the JH7110 is startlingly close to QEMU's `virt` machine (UART base,
-PLIC base, CLINT base, OpenSBI, SBI HSM, Sv39 all match), and the differences that remain are
-exactly four: where DRAM starts, how the UART's registers are strided and clocked, how the PLIC
-numbers its contexts, and the monitor core that must not be started.
+The summary: the JH7110 is startlingly close to QEMU's `virt` machine. UART base, PLIC base,
+CLINT base, OpenSBI, SBI HSM and Sv39 all match. The differences that remain are exactly four:
+where DRAM starts, how the UART's registers are strided and clocked, how the PLIC numbers its
+contexts, and the monitor core that must not be started.
+
+The evidence for each section lives in [`visionfive2/`](visionfive2/README.md), one appendix per
+topic, and each section below links the one it summarizes.
 
 Sources cited throughout:
 
@@ -44,454 +47,68 @@ One difference in who the boot hart is: on QEMU `virt` every hart is identical a
 lottery picks any of 0..3. On the JH7110 hart 0 is the S7 monitor core (see "Harts" below), so the
 boot hart will be one of the U74s, harts 1..4.
 
-## The Image header, and the load-address trick
+## How the board differs from QEMU virt
 
-U-Boot's `booti` refuses a payload that does not carry the RISC-V Linux Image header: a 64-byte
-prelude whose one checked field is the u32 magic 0x05435352 ("RSC\x05") at offset 0x38 [uboot-img].
-The header format is Linux's [linux-hdr]; `kernel/src/arch/riscv64/boot.s` now emits it (milestone
-16a), and QEMU never reads it (the ELF goes in via `-kernel`), so it is 64 dead bytes there.
+Each row is built and QEMU- or host-proven; what QEMU cannot emulate is a bench fact.
+[`visionfive2/jh7110-against-virt.md`](visionfive2/jh7110-against-virt.md) holds the evidence and
+the code each row names.
 
-`booti` then relocates the image to `ram_base + text_offset` whenever the loaded file sits in
-RAM, which it always does [uboot-img]:
+| | QEMU `virt` | VisionFive 2 | What the kernel does |
+|---|---|---|---|
+| DRAM base | 0x8000_0000 | 0x4000_0000 [dtsi] | reads `/memory` from the DTB; boot table maps gigapage 1 too |
+| Kernel runs at | 0x8020_0000 | 0x8020_0000 | Image header `text_offset = 0x40200000`, so `booti` relocates there |
+| UART reg-shift, io-width | 0, 1 | 2, 4 [dtsi] | `Shape` read from the DTB before the first `println!` |
+| UART clock | 3.6864 MHz | 24 MHz [uboot-cfg] | divisor only from a stated clock (13 at 24 MHz) |
+| UART PLIC irq | 10 | 32 [dtsi] | read from the console node's `interrupts` |
+| PLIC S context of hart h | `2h + 1` | `2h` | decoded from `interrupts-extended` |
+| Hart 0 | a normal hart | the S7: no MMU, no S-mode | refused by `status` and by its `riscv,isa` |
+| Timebase | 10 MHz | 4 MHz [dtsi] | read from the DTB |
+| PCIe | generic ECAM | PLDA XpressRICH, no driver | windows mapped only when the DTB has an ECAM node |
 
-```c
-if (force_reloc ||
-   (gd->ram_base <= image && image < gd->ram_base + gd->ram_size)) {
-    *relocated_addr = gd->ram_base + lhdr->text_offset;
-}
-```
+The `text_offset` is an exception and a foot gun, on the record. Linux means "2 MiB into RAM,
+wherever RAM is"; ours means "0x8020_0000 absolute, on any board whose RAM starts at 0x4000_0000".
+A future board with a different DRAM base gets the wrong address from this header.
 
-That line is why the kernel needs no board relink. The kernel is linked for physical
-0x8020_0000 (`link-riscv64.ld`), which on QEMU `virt` is DRAM base + 2 MiB. The VF2's DRAM starts
-at 0x4000_0000 [dtsi], so our header states `text_offset = 0x40200000` and `booti` moves the image
-to 0x4000_0000 + 0x4020_0000 = 0x8020_0000, the linked address, which is comfortably inside DRAM on
-every VF2 variant (even the 2 GB board's RAM runs to 0xC000_0000).
-
-This is an exception and a foot gun, on the record. Linux uses `text_offset = 0x200000` ("2 MiB
-into RAM, wherever RAM is"); ours means "0x8020_0000 absolute, on any board whose RAM starts at
-0x4000_0000". A future board with a different DRAM base gets the wrong address from this header.
-The alternatives, if that day comes: a board-specific link (PHYS_START, plus the boot page table's
-gigapage index in `arch/riscv64/mmu.rs`, plus this header value), or teaching `boot.s` to run at an
-arbitrary 2 MiB-aligned load address the way Linux does. Both were deliberately not built for one
-board that does not need them.
-
-## DRAM
-
-| | QEMU `virt` | VisionFive 2 |
-|---|---|---|
-| DRAM base | 0x8000_0000 | 0x4000_0000 [dtsi] |
-| Kernel runs at | 0x8020_0000 | 0x8020_0000 (via the header, above) |
-| Size | whatever `-m` says | 2/4/8 GB by variant; the 4 GB board's node is `reg = <0x0 0x40000000 0x1 0x0>` [dtsi] |
-
-Consequences the kernel already handles: RAM extent comes from the DTB `/memory` node
-(`kernel/src/memory.rs`), not from a constant, so the base difference is discovered rather than
-assumed. And, since 2026-08-14, the boot page table maps gigapage 1 as well (0x4000_0000..
-0x8000_0000, `arch/riscv64/mmu.rs`), so a DTB at U-Boot's default `fdt_addr_r` = 0x4600_0000
-[uboot-cfg] is readable before the fine tables exist; it used to fault there before the trap path
-could print. Still out of reach: `$fdtcontroladdr` (the control DTB) near the top of RAM, above
-gigapage 2 on every variant and above 4 GiB on an 8 GB board. The runbook below moves the DTB to
-0x8600_0000 (inside gigapage 2) for exactly that case, and keeping the `fdt move` in the manual
-first boot removes one variable from a first bring-up.
-
-An 8 GB board's RAM spans past 4 GiB (0x4000_0000 + 8 GiB = 0x2_4000_0000), and the JH7110
-additionally aliases DRAM uncached at 0x24_0000_0000 [uboot-doc]; the alias appears in no `/memory`
-node and needs nothing from us.
-
-## The UART
-
-Same base address as QEMU `virt`, different silicon behind it. The JH7110's UART0 is a Synopsys
-DesignWare DW_apb_uart, an 8250 derivative [dtsi]:
-
-| | QEMU `virt` NS16550 | JH7110 UART0 |
-|---|---|---|
-| compatible | `ns16550a` | `starfive,jh7110-uart`, `snps,dw-apb-uart` [dtsi] |
-| base | 0x1000_0000 | 0x1000_0000, size 0x10000 [dtsi] |
-| reg-shift | 0 (byte registers, consecutive) | **2** (registers 4 bytes apart) [dtsi] |
-| reg-io-width | 1 | **4** (32-bit accesses) [dtsi] |
-| clock | 3.6864 MHz (QEMU ignores the divisor anyway) | **24 MHz** [uboot-cfg] |
-| PLIC irq | 10 | **32** [dtsi] |
-
-What `drivers/ns16550.rs` grew on 2026-08-14, built and QEMU-proven; the JH7110 side of each is
-still a bench question, because QEMU emulates none of this silicon:
-
-1. A register stride and access width, carried as data. The driver's `Shape` holds
-   `reg-shift` and `reg-io-width`, defaulting to QEMU's byte wiring. On the board LSR lives at
-   byte offset 0x14, not 5, and the old byte access at offset 5 read the middle of the IER word,
-   so the THRE poll span on garbage.
-2. The divisor from the stated clock, and only from a stated clock.
-   `console::configure_from_dtb` programs `clock-frequency / (16 x 115200)` rounded (24 MHz gives
-   13, actual rate 115385, 0.16% high; the two expected divisors are proved at compile time in the
-   driver) and leaves the divisor and line controls alone when the tree states no clock.
-   Mainline JH7110 trees express the UART clock as a `clocks` phandle this kernel does not
-   resolve, and U-Boot has already programmed 115200 8N1 on any board that showed a prompt, so
-   not touching it is correct there too; a divisor guessed against the wrong clock is 1.5 Mbaud
-   garbage at the far terminal, which is the failure this rule exists to avoid. QEMU's tree states
-   3.6864 MHz, so the suite now programs divisor 2 where it used to write a constant 1; QEMU
-   ignores both.
-3. The DW busy quirk, keyed on the `snps,dw-apb-uart` compatible: a DW_apb_uart ignores an LCR
-   write while busy and latches a "busy" interrupt, so `init` drains the transmitter (LSR.TEMT,
-   bounded) before touching LCR.
-4. The shape is adopted before the first `println!`. `kernel_main` calls
-   `console::configure_from_dtb(dtb)` immediately after `console::init`, so no output is ever
-   produced with a stale stride. The node is matched by its name, `serial@10000000`, pinned beside
-   the equally hardcoded base address; the jh7110 fixture test
-   (crates/machine_discovery/tests/riscv64_jh7110.rs) is the witness for both.
-
-With that built, the honest first-boot expectation moves up one rung: the banner should
-appear, provided the DTB U-Boot hands us is readable (see DRAM above) and the silicon matches
-the dtsi's description. The triage ladder below still covers every way that can fail.
-
-## Harts, the PLIC, and the CLINT
-
-Five harts, one of which must not be started. The JH7110 is 1x SiFive S7 (hart 0) + 4x U74
-(harts 1..4). The S7 is `rv64imac_zba_zbb`, has no MMU and no S-mode, and its cpu node says
-`status = "disabled"` [dtsi]. The U74s are `rv64imafdc_zba_zbb`, `mmu-type = "riscv,sv39"` [dtsi],
-exactly the kernel's contract.
-
-Correction (2026-08-14): the roster half of this was already built when this note first claimed
-otherwise. `CpuList` has read `status` since milestone 100 (read the machine's PSCI and its CPU list,), and `smp::bring_up_secondaries`
-refuses a disabled hart by name rather than starting it; what `sbi_hart_start` would answer for
-hart 0 stays on the bench list only to confirm the refusal is the right call. What was genuinely
-missing, and was built 2026-08-14: the ISA record (`isa::riscv64`) counted disabled harts, so
-the S7's `rv64imac` narrowed the machine's common extensions, and an S7 whose tree spells its MMU
-as `riscv,none` would have read as a machine that cannot run us at all. A disabled hart now
-contributes nothing to the record, host-proven against the hand-written jh7110 fixture
-(crates/machine_discovery/tests/riscv64_jh7110.rs). The roster limitation this paragraph used to end on
-(`cpu::MAX_CPUS` was 4 against this SoC's five described harts) closed on 2026-08-14: the constant
-is 8 and the roster seats cores by hart id, so hart 4 has a seat; the BUGS below carry the details
-and what boot 10 must still prove.
-
-Second bench stop (2026-08-14): the vendor tree lies about the S7, twice, and the fix above
-never fires on the real board. Everything in this note cited from [dtsi] describes mainline; the
-tree the flashed firmware hands over was read at the U-Boot prompt (`fdt print`) and says
-something else. Measured: all five cpu nodes carry `status = "okay"`, and cpu@0 carries
-`riscv,isa = "rv64imacu"` with `mmu-type = "riscv,sv39"`. So the vendor tree marks the S7 okay and
-claims it has an Sv39 MMU, and both are false: the S7 has no MMU and no S-mode. With `status`
-telling that lie, hart 0 came up startable, the kernel handed it to `sbi hart_start`, and vendor
-OpenSBI died on it: an M-mode load access fault at OpenSBI's own scratch area, `mepc` inside
-OpenSBI, reported for hart 0, immediately after our bring-up call. If a boot ends in an OpenSBI
-trap dump whose `mepc` is in firmware and whose hart is 0, this is what it looks like; the kernel
-code that caused it is a `hart_start` the roster should never have issued.
-
-The one truthful property on that node is the ISA string itself, and it answers by omission:
-`rv64imacu` is the old spelling that lists privilege letters in the single-letter run, and it
-spells `u` (user) without `s` (supervisor). The U74s beside it say `rv64imafdcbsux`, four single
-letters `b s u x` at the tail, `s` present. A hart without S-mode cannot run this kernel whatever
-the rest of its node claims, so since 2026-08-14 startability requires supervisor mode, read
-from the hart's own `riscv,isa` (`isa::riscv64::supervisor_mode_claim`, enforced in
-`smp::read_cpu_list`), and such a hart is likewise kept out of the machine record's intersection
-and `mmu` (`isa::riscv64`). The boot line names the exclusion in the machine's own terms: "cpu 0's
-riscv,isa names user mode and not supervisor".
-
-The rule needs a witness, and this is the part worth remembering before generalizing it: a
-missing `s` alone proves nothing. Modern ISA strings spell no privilege letters at all (Linux
-rejects them; QEMU dropped `s`/`u` in 5.1), so QEMU `virt` today says `rv64imafdch_...` and the
-mainline jh7110 dtsi says `rv64imac_zba_zbb`/`rv64imafdc_zba_zbb`, silent about privilege on
-machines that have S-mode. Absence of `s` is a denial only when a bare `u` in the same
-single-letter run proves the writer was spelling privilege modes; otherwise it is silence, and
-silence is not evidence of absence. Multi-letter `_s`-prefixed extensions (`_sstc`, `_svadu`,
-QEMU's own string is full of them) never count: only the run before the first `_` is scanned.
-Host-proven on both generations of spelling and both JH7110 trees
-(crates/machine_discovery/tests/riscv64_isa_strings.rs, riscv64_jh7110.rs, riscv64_jh7110_vendor.rs): the
-mainline fixture's S7 is excluded by `status`, the vendor fixture's by its ISA string, and the
-same conclusion arrives through the two trees' different lies.
-
-Third bench stop (2026-08-14): the online set is {1,2,3}, and the kernel indexed it as
-{0,1,2}. With the S7 refused, the machine's online cpus are harts 1..3 (hart 4 was past
-`MAX_CPUS`, then 4; fixed later that day, see BUGS), the first time this kernel ever ran with a
-set not contiguous from zero;
-on QEMU `virt` the set is always {0..n-1}, so every `0..online_count()` loop and every
-`rng % online_count()` pick had been right by coincidence. On the board, spawn placement's
-modulo-count produced index 0 and placed `init` into parked slot 0's inbox, which nothing drains,
-ever. It took three boots to pin: the placement is randomized, so roughly one placement in three
-landed dead, and the symptoms disagreed with each other (outlaw's 3-then-0 syscall counts one
-boot, `init` hanging outright the next two). The thread-dump diagnostic added for it (commit
-`3833422`, watching the threads while the demo waits) showed the shape in one line: a parked
-core's inbox holding a runnable thread. Fixed on the critical path in commit `1329874`
-(`smp::online_cpus()` / `nth_online`, placement and steal converted), and the remaining
-count-as-index sites, wake targeting, both ISAs' IRQ-affinity round-robins, the hang watchdog's
-liveness scan and the suite's own per-core loops, were swept in the follow-up branch, with the
-{1,2,3} shape host-proven in `crates/cpu_set` since QEMU cannot boot it.
-
-Fourth bench stop (2026-08-14): boot 7's impossible pair, what the audit ruled out, and what
-boot 8 will say. Boot 7 carried the online-set sweep and the new cross-hart `fence.i` and hung in
-a shape none of the previous stops produced, stable across five thread dumps over ten seconds:
-`init` (the only user thread) `Blocked` with its saved user pc at 0x00400188, a plain store loop in
-the builder's memset, and the boot thread `Running`, `on_cpu`, as core 2's current the whole time,
-with two endpoints each holding one parked receiver, no senders, no pending signals, and the
-syscall count frozen at 20.
-
-First, what the dump could honestly claim, established by reading its locking rather than assuming
-it: `state`, `on_cpu`, `wake_pending` and the endpoint counts are one consistent snapshot (every
-writer holds SCHED and the dump holds SCHED). The pc column is the trap frame at the thread's
-stack top, which trap entry writes without the lock, so it is a racing read for a thread on a cpu
-and trustworthy for a parked one: the frame write happened-before the state write on the thread's
-own core, and the dump's lock acquire synchronizes with that core's release. So init's memset pc is
-evidence, not a dump artifact, and the dump now says this about itself (the `pc*` marker and the
-honesty comment in `sched::dump_threads`).
-
-And it is evidence of a state no legal transition sequence produces. The audit walked every write
-of `State::Blocked` in the tree: five sites, all under SCHED, all applied to the executing core's
-own current thread. A user thread reaches any of them only through its own `ecall`, and the syscall
-path advances the frame's `sepc` past the `ecall`, so a legitimately blocked user thread's dumped
-pc is its syscall site, never a memset store. A timer preemption leaves `Ready`, and nothing blocks
-a `Ready` thread in absentia. The wake-before-switch-out family was read against this state and
-holds: a preempted thread's context is saved before any core can pop it (single-owner run queues,
-interrupts masked from the requeue through `finish_switch`), a deferred wake (`wake_pending`)
-completes on the thread's own core after the context is real, and the one lock-free cross-core
-protocol, the steal slot, is loom-checked in `crates/steal_request`. The block/wake protocol itself
-had no loom coverage when this was written: it is lock-based, and modeling it means extracting
-SCHED plus the run queues plus the inbox into a host-checkable crate, which is a milestone of its
-own, not a bench-night patch. (Since done, 2026-08-14: `crates/wake_handshake` extracts the
-handshake with SCHED as a loom mutex, and each of this protocol's recorded races is a harness plus
-a failing reconstruction; notes/interleaving.md.) The riscv64 `tp` plumbing, the prior art for exactly this smell, was re-audited
-and reads correct: trap entry reloads `tp` from the per-hart stash, an S-mode return keeps the live
-`tp`, `switch_to` never carries one, and the stash is per-hart, written once.
-
-Three mechanisms survive the audit, and boot 8's serial log now discriminates them (the
-instrumentation commit on this branch):
-
-1. A `Blocked` byte written outside the block paths: a stray write into the TCB, or a block
-   applied to the wrong thread through a wrong per-cpu resolution. `Thread::wait_on` (endpoint and
-   sender/receiver/reply role) is written in the same SCHED-held statement as `Blocked` and printed
-   per thread. `Blocked` beside `wait=-` at boot 8 is corruption; `wait=ep/role` means the block
-   path ran, and names the endpoint it ran against.
-2. A hart wedged where no trap can land. The boot thread `Running` as core 2's current for ten
-   seconds, with SCHED demonstrably free (the dumps kept printing), means core 2 reached no
-   scheduler entry for ten seconds: an S-mode spin with interrupts masked, or an SBI call that
-   never returned. Boot 7 was the first boot to carry `sbi_remote_fence_i`, issued for every
-   executable-page map, into vendor OpenSBI, the same firmware whose HSM fell over on hart 0
-   (second stop). A hart parked in M-mode takes no delegated S-interrupts, so it freezes with its
-   last `current` on display and, until now, nothing in the dump to say so. The per-core `ticks`
-   column is the discriminator: a wedged core's tick count holds still between dumps, and the
-   `steal_req` column shows the same wedge from a thief's side (a claimed slot that is never
-   served).
-3. An intrusive-link double-enqueue. One `Thread::next` link serves run queues, inboxes and
-   endpoint queues, so a double-enqueue corrupts two structures silently; no path that produces one
-   was found, but the class cannot be ruled out from the end state alone. The per-cpu event ring
-   (the last 16 scheduler events each core performed: switch, block, wake, deferred wake, remote
-   place, steal serve, inbox drain; printed by the dump) is what will show the path if the state
-   machine took an illegal step.
-
-The third stop's parked-inbox dump line is a debug assertion in the placement path now, per
-the audit lane's handoff: loud in every QEMU test build, compiled out of the release board image,
-where the dump line remains the field diagnostic.
-
-Why QEMU is not expected to reproduce this, said before the runs rather than after: TCG's
-emulated memory model is far stronger than the U74's (guest accesses execute in the host's
-program order, and MTTCG serializes cross-vCPU visibility through host atomics), QEMU `virt`'s
-online set is contiguous from zero, and its firmware is mainline OpenSBI, so all three candidate
-mechanisms are structurally hidden there. A green QEMU suite says the instrument is safe to fly,
-not that boot 7 cannot recur. Attempted anyway, as it should be: the full riscv64 suite (which
-includes the steal/migration hammers: the cpu-bound batch, the migrated-`tp` waves, the cross-hart
-ASID shootdown) passed at `-smp 4` unloaded, on the sifive-u54 model, and again with the host
-starved by six busy loops. No reproduction, which is the expected null result, recorded so nobody
-mistakes it for evidence of health.
-
-Boot 8 (2026-08-14): the instrument worked, the ring caught the transition, and the transition
-is now impossible. *(Overturned 2026-08-15: the fifth stop below re-read these same dumps and
-the "undelivered" wake was the worker's real send; the state read as fabricated is the terminal
-state of a completed tour. The paragraphs are kept as written because the reasoning is the
-record; read them with the fifth stop's correction in hand.)* The dump discriminated the candidates exactly as designed. Every core's tick
-count climbed normally across ten seconds of dumps, so no hart was wedged in M-mode: candidate 2
-is out, and the `sbi_remote_fence_i` suspicion with it. The wait column was populated on every
-blocked thread, so no bare corrupted state byte: candidate 1's simplest form is out. What the
-boot hart's event ring showed instead was the path itself: `block:0x0/0` (the boot thread parking
-in `ipc_receive` on the report endpoint), later `wake:0x0`, `steal:0x100000005/2` (the diag watcher
-handed to core 2, which is the core the dumps then printed from), `switch:0x0`, and then nothing,
-for ten seconds, while the boot thread sat `Running` as that core's current with `wait=-` and the
-report endpoint's receiver queue empty. A receiver woken with nothing delivered. The receive
-tail (`sched::ipc_receive`) read the mailbox unconditionally after `schedule()` returned, so an
-undelivered wake completed a rendezvous that never happened, off a mailbox holding whatever it
-last held, with the TCB's endpoint linkage in whatever state the spurious waker left it. That is
-the strand: the receive neither completes with a message nor re-parks, because the code had no way
-to notice the difference.
-
-The wake's issuer is not established, and the census says that plainly. Every `wake()` caller
-in the tree delivers something first: the four rendezvous sites stage a mailbox, `irq_notify`
-counts a signal, `deliver_death` stages a death message, `ipc_reply` stages a reply, and the
-revocation drain flags an abort. On the wedged boot none of them was reachable: the syscall
-counter was frozen (no user thread was sending), the boot tour parks in this demo *before* the
-UART-driver step, so no IRQ was routed to any endpoint and no reply capability had ever been
-minted, and nothing was being revoked. The ring proved the transition happened without any legal
-path having produced it. So the fix closes the transition, not a caller: `wake()` and
-`wake_load_aware` now refuse to make a waiting thread Ready unless the waker delivered
-(`Thread::ipc_served`, set in the same SCHED critical section that stages the message or signal,
-or `ipc_aborted`), and a refused wake is recorded on the ring as `refuse:tid`. `ipc_reply`, the
-one wake site addressed by tid rather than through an endpoint pop, additionally refuses any
-thread not parked awaiting a reply. And `schedule()` refuses to switch into its own current
-thread (the pop-yourself shape a spuriously queued current produces), because doing so restores
-an already-consumed context: execution time-travels to its previous switch-out point on a reused
-stack and spins there forever, off every instrument, which is precisely the silence boot 8's ring
-recorded after `switch:0x0`. Boot 9 therefore either completes the demo, or its dump now carries
-`refuse:` events naming the core that issued the spurious wake and the thread it aimed at, which
-is the culprit's address. Proven red-then-green in QEMU by
-`a_wake_without_delivery_cannot_complete_a_parked_receive` and
-`a_reply_to_a_thread_parked_as_a_receiver_is_dropped` (sched.rs), which inject through the real
-wake path rather than by poking state.
-
-Two rows of that dump are a finding of their own, recorded rather than absorbed. *(Overturned
-2026-08-15, fifth stop: both rows are real, legitimate, parked-by-design waiters of the tour's
-UART-driver step, which had already run. The census this paragraph rests on was correct about the
-park point and wrong about which moment the dump was showing.)* The dump
-showed init (tid 0x400000004) `Blocked` as a *Receiver* on ep 0x1 with its saved user pc in the
-builder's memset loop, and a gen-2 kernel thread in slot 6 `Blocked` as a Receiver on ep 0x2. Both
-read as legitimate parked waiters, and neither survives the code. `components/src/builder.rs`, the
-program init runs on this boot, issues no receive of any kind: its only verbs are `invoke`
-(retype/map/configure/start), `send`, and `exit`. And at the point this boot parks, exactly one
-endpoint exists: the report endpoint, created at `user.rs`'s `riscv_initrd_demo`, which the
-registry names 0x0; the UART demo that creates the next two runs later in the tour and was never
-reached, and no reachable path (the builder's retypes included) creates an endpoint in between.
-So ep 0x1 and ep 0x2, and the two receivers parked on them, are kernel state no code that ran
-can have written. The instrument's own honesty note said `wait=ep/role` means "the block path
-ran"; boot 8 is the counterexample: it means the field holds those bytes, and corruption
-can produce that. Candidate 3's class (structure corruption, whether from a stray write, the
-U74's memory model meeting a latent race, or the vendor firmware) is therefore still open, with a
-narrower fingerprint: it fabricates *coherent-looking* waiter state, not garbage. The gate does
-not fix that and does not claim to; it makes the scheduler refuse to act on one consequence of
-it, and the `refuse:` ring events are the tripwire that will show where it fires from.
-
-Fifth bench stop (2026-08-15, boots 9 and 10): the fourth stop's conviction falls. The dumps
-were showing a finished tour, and every "fabricated" value is the fingerprint of health. Boot
-10 (`booti ${kernel_addr_r} - <dtb>`, no initrd) ran the whole tour on silicon, through
-preemption on three harts to the final banner: the base kernel is good, and the failure is
-initrd-path-coupled. Boot 9 (initrd, the undelivered-wake gate live) reproduced the "hang" with
-the gate silent: zero `refuse:` events, the boot thread's wake carried `ipc_served`, no message
-print followed, and the same rows as boots 7 and 8: one user thread `Blocked` as a Receiver on
-ep `0x1` at pc `0x00400188`, a slot-6 gen-2 kernel thread `Blocked` as a Receiver on ep `0x2` at
-a stack-top-looking pc, svc frozen at 20.
-
-The re-audit of the fourth stop's endpoint census confirmed its two positive claims and
-overturned its conclusion. At the park point on this path the report endpoint is the only
-endpoint (`0x0`: the tour's release build creates no other, `boot_via_progenitor` and the service
-modules being aarch64- or test-gated), and `components/src/builder.rs` issues no receive (its
-verbs are `invoke`, `send`, `cap_delete`, `exit`, and its retypes are ASPACE, FRAME and TCB,
-never ENDPOINT). What the census never asked is what the machine looks like *after* the receive
-returns, and the answer is: exactly like those dumps. Five independent identifications, each
-checkable from the tree:
-
-1. The endpoint names. The next two endpoints ever created on this path are
-   `riscv_uart_driver_demo`'s `irq_ep` then `report` (kernel/src/user.rs), which the registry
-   names `0x1` and `0x2`, in that order, because names are minted lowest-slot-first
-   (crates/slots).
-2. The roles and the kinds of thread on them. The driver program's first act is `WAIT` on
-   its Irq capability, which parks it as a *Receiver* on `0x1` (a user thread, aspace nonzero);
-   the tour then spawns a kernel thread whose whole body is `ipc_receive(report)`
-   (kernel/src/main.rs, the byte receiver), a *Receiver* on `0x2` with no aspace. Both wait
-   forever by design: nobody types on a bench boot.
-3. The pc columns. Every user program links at 0x40_0000, so the driver's post-`ecall` pc
-   (`0x00400188`) resolves "plausibly against several binaries at once", which is the dump's own
-   recorded warning; the fourth stop resolved it against the builder and got "memset". And a
-   kernel thread's pc column reads a trap frame that was never written (kernel threads take no
-   user traps), so its bytes are stack-top garbage: "a receiver parked at a stack-top pc" is
-   what a *healthy* parked kernel receiver looks like in this dump.
-4. The generations. On the board (three online harts, so slots 0..3 are the boot thread and
-   three idles), slot 4's occupants in order are: a scheduler-step probe thread (gen 0), the
-   outlaw wrapper (gen 1), init itself (gen 2), a preemption spinner (gen 3), then the driver
-   at gen 4, which is the observed `0x400000004`. Slot 6: the worker child (gen 0), the second
-   spinner (gen 1), then the byte receiver at gen 2, the observed `0x200000006`. The
-   "init" row was the driver wearing init's reaped slot.
-5. The syscall count. The worker ELF has one loadable page (118 bytes, one `PT_LOAD`), so
-   the whole choreography is exactly 20 ecalls: outlaw 3 (yield, yield, exit), builder 14 (1
-   aspace retype, 4 for its one page, 3 for the stack, 5 for the TCB, 1 exit), worker 2 (send,
-   exit), driver 1 (the WAIT it parks in). A count *frozen at 20* is not a build stalled
-   mid-memset; it is every user program finished or parked.
-
-QEMU settles it: a healthy tour run with the same initrd prints every line ("the child sent 81
-(expected 81)", preemption, driver started, the banner) and its post-completion dumps show the
-identical state, shifted one slot because QEMU's fourth idle thread occupies slot 4: the one
-user thread is `0x400000005` `Blocked` `wait=0x1/Receiver` at pc `0x00400188`, the byte receiver
-sits on `0x2`, eps `0x1`/`0x2` hold one receiver each, svc is 20, and the boot thread stands
-`Running` as its core's current forever with climbing ticks and a silent ring, because that is
-what `arch::halt()`'s wfi loop looks like from this dump. The boot-8 "wake with no sender in
-existence" re-reads: the sender was the worker, whose `SEND` of 81 staged the mailbox and
-set `ipc_served` in the same SCHED section (sched.rs `ipc_send`), which is why boot 9's gate
-passed it; the delivered word goes into the "init/build" line the receive's caller prints. The new
-`serve:` ring event shows it directly (`serve:0x0/1` on the QEMU run).
-
-What actually remains broken, and it is not the scheduler. The machine state says the tour's
-printing steps ran on boots 7 through 9 (the state they left is the proof), and the tick counts
-say the boot hart kept executing, yet the bench record has none of the tour's lines after
-"init : measured, built, started". No in-kernel loss mechanism was found: `write_byte`'s THRE
-poll is unbounded (a wedged transmitter hangs the printer, it never drops), and the console lock
-was demonstrably free because the diag dumps kept printing through it. So either the lines are
-in the raw captures and were misread under the hang assumption (re-examine the boot 7, 8 and 9
-logs for "init/build", "device IRQ" and the banner), or bytes were lost downstream of the
-kernel. Boot 11 answers this without needing the lines themselves: every dump header now carries
-the tour stage last reached, the diag line carries `tx=` (bytes handed to the transmitter), the
-ring carries `serve:` events naming who completed each rendezvous, and the corruption canary
-(armed across the demo window) prints every byte that changes in the thread table and endpoint
-registry with address, tick and before/after. A boot 11 dump showing stage 10 and a grown `tx`
-while the wire shows no banner proves emitted-then-lost; a stalled stage number names the real
-wedge point; and the canary either shows legal deltas matching the choreography or the stray
-write the corruption theory needs, which as of tonight has no observed instance.
-
-The PLIC is at QEMU's address with a different context map. `sifive,plic-1.0.0` at 0xC00_0000,
-136 sources [dtsi]. On QEMU `virt` every hart has an M and an S context and hart h's S context is
-`2h + 1`, which is the formula `kernel/src/smp.rs` uses. On the JH7110 the disabled S7 contributes
-only an M context, so the layout per the dtsi's `interrupts-extended`
-(`<&cpu0_intc 11>, <&cpu1_intc 11>, <&cpu1_intc 9>, <&cpu2_intc 11>, <&cpu2_intc 9>, ...`) is:
-context 0 = hart 0 M, then for U74 hart h in 1..4, context `2h - 1` = M and context `2h` = S.
-Hart h's S context is `2h` on this board, not `2h + 1`.
-
-Built 2026-08-14: the mapping comes from the DTB now. `isa::plic::PlicContexts` decodes
-`interrupts-extended` (entry k is context k; interrupt 9 marks an S context; phandles resolve to
-harts through each cpu's `riscv,cpu-intc` child), `arch::irq::init_contexts` records it at boot,
-and the `2h + 1` formula survives only as the fallback for a tree that does not state the layout.
-The PLIC node itself is found by its `sifive,plic-1.0.0` compatible rather than by name, because
-the JH7110 spells the node `interrupt-controller@c000000` where QEMU says `plic@c000000`, and the
-old `plic@` name-prefix read found nothing there. QEMU-proven in both directions: the kernel suite
-asserts the live `virt` tree reproduces `2h + 1`, and the host fixtures hold the JH7110's `2h`
-answer with no S context for hart 0 (crates/machine_discovery/tests/riscv64_plic_contexts.rs). What QEMU cannot
-prove, the real PLIC honoring context `2h`, is a bench fact like everything else here.
-
-The CLINT is at QEMU's address. `starfive,jh7110-clint` at 0x200_0000 [dtsi]; timer and IPI go
-through SBI anyway, so this is OpenSBI's problem, not ours.
-
-Timebase is 4 MHz (`/cpus/timebase-frequency` [dtsi]), against QEMU `virt`'s 10 MHz. Already
-handled: `arch/riscv64/timer.rs` reads the rate from the DTB and panics rather than assumes.
-
-## PCIe
-
-The JH7110's PCIe is a PLDA XpressRICH controller (`starfive,jh7110-pcie` in mainline trees).
-That is not the `pci-host-ecam-generic` device QEMU's `virt` boards expose, and it has no driver
-here; driving it is its own milestone, not a bench fix.
-
-Since 2026-08-14 the kernel's PCIe windows (the ECAM config space and the 32-bit memory window
-BARs are placed in) come from the device tree: `memory::init` reads the generic-ECAM node's
-`reg` and `ranges`, `mmu::map_everything` maps the windows only when the node exists, and every
-probe in kernel/src/pci.rs reports nobody home when it does not (notes/pcie.md). On this board
-there is no such node, so nothing PCIe is mapped or touched, which is the honest statement of
-where the PLDA controller stands.
-
-Before that the windows were QEMU constants, and the first bench boot paid for it: the BAR
-constant 0x4000_0000 is this board's DRAM base (see the DRAM table above), so `map_everything`
-tried to lay a device mapping over memory step 1 had already direct-mapped, and the mapper's
-overwrite refusal panicked the boot right after the banner. The first DECISIONS §43 casualty
-proven on silicon rather than predicted.
-
-## SBI extensions
-
-OpenSBI is the vendor firmware's M-mode resident, so TIME, IPI, RFENCE and HSM (the bring-up
-path `arch::psci_cpu_on` uses) are the standard set, and SRST (system reset) is how the board can
-reboot or power off from S-mode. Which OpenSBI version is in the shipped flash, and whether its
-**PMU** extension is present and how many of the U74's hpmcounters it exposes, is deliberately on
-the bench list: the version banner prints on every boot and `sbi probe` answers the rest, and
-guessing a counter count here would be exactly the manufactured fact this note exists to avoid.
+The DTB caveat matters at the prompt. `$fdtcontroladdr`, the control DTB near the top of RAM, is
+outside the boot page table, so every boot path moves it to 0x8600_0000 (inside gigapage 2).
 
 ## "The test suite where semihosting allows", concretely
 
-There is no semihosting on this board. The riscv test exit (`arch/riscv64/semihosting.rs`) is not
-semihosting at all but QEMU `virt`'s `sifive_test` finisher, an MMIO word at physical 0x10_0000
-that tells QEMU to exit with a status. The JH7110 has no such device; a store to 0x10_0000
-there is a bus error at best. So the kernel's test build, as it stands, cannot report pass/fail on
-silicon.
+There is no semihosting on this board. The riscv test exit is QEMU's `sifive_test` finisher, an
+MMIO word at 0x10_0000 the JH7110 does not have. The board build reports instead with a UART marker
+line (`NIFE-TEST-EXIT: PASS` or `FAIL <code>`) and SBI SRST shutdown, which landed on 2026-08-21
+([`visionfive2/on-board-test-suite.md`](visionfive2/on-board-test-suite.md)).
 
-The proposal, recorded now and deliberately not built until the bench says it is needed: a UART
-pass/fail marker (a fixed final line, `CRICKER-TEST-EXIT: PASS` or `FAIL <code>`, that a harness
-on the serial line greps for) followed by SBI SRST shutdown so the run terminates. Both halves
-are a dozen lines against interfaces the kernel already has. The `sifive_test` path stays for QEMU,
-selected the same way the finisher address already is.
+## Harts, and what the bench stops found
+
+Five harts, one of which must not be started: 1x SiFive S7 (hart 0) and 4x U74 (harts 1..4). The
+first nights on silicon, 2026-08-14 and 2026-08-15, made five bench stops. Other files cite them by
+number, and each conclusion is here with the appendix that holds it.
+
+- The second bench stop: the vendor tree lies about the S7. It marks all five cpu nodes `okay` and
+  gives cpu@0 an Sv39 MMU, and vendor OpenSBI dies if asked to start it. Startability therefore
+  requires supervisor mode, read from the hart's own `riscv,isa`. A bare `u` without `s` in the
+  single-letter run is a denial; a modern string with no privilege letters is silence.
+  [`visionfive2/hart-roster-stops.md`](visionfive2/hart-roster-stops.md) has it, with the first
+  stop's correction.
+- The third bench stop: the online set was {1,2,3}, the first not contiguous from zero, and every
+  count-as-index loop was wrong. Fixed in `1329874` and swept; `crates/cpu_set` holds the shape.
+  [`visionfive2/hart-roster-stops.md`](visionfive2/hart-roster-stops.md)
+- The fourth bench stop: boots 7 and 8 looked like a hang and were read as an undelivered wake.
+  The wake gate and the pop-own-current guard were built against it and stay as hardening.
+  [`visionfive2/boots-7-and-8.md`](visionfive2/boots-7-and-8.md)
+- The fifth bench stop: boots 9 and 10 overturned that reading. The "hung" dumps were the terminal
+  state of a finished tour, identified five independent ways, so no corruption has been observed
+  on this board. [`visionfive2/boots-9-and-10.md`](visionfive2/boots-9-and-10.md)
+- Boots 12 to 14 closed the story: measured boot refused a mismatched pair, then ran the right
+  pair, and boot 14 put all four U74s online.
+  [`visionfive2/bench-boots-2026-08.md`](visionfive2/bench-boots-2026-08.md)
+
+## SBI extensions
+
+OpenSBI is the vendor firmware's M-mode resident, so TIME, IPI, RFENCE and HSM are the standard
+set, and SRST is how the board reboots or powers off from S-mode. The OpenSBI version and its PMU
+extension are bench questions, read off the boot log rather than guessed.
 
 ## Boot-mode switches
 
@@ -499,7 +116,7 @@ Two DIP switches (RGPIO_1, RGPIO_0) select the boot media, read once at power-on
 
 | RGPIO_1 | RGPIO_0 | Mode |
 |---|---|---|
-| 0 (L) | 0 (L) | 1-bit QSPI NOR flash (the vendor firmware; **use this**) |
+| 0 (L) | 0 (L) | 1-bit QSPI NOR flash (the vendor firmware; use this) |
 | 0 (L) | 1 (H) | SDIO 3.0 (SD card holds the firmware too) |
 | 1 (H) | 0 (L) | eMMC |
 | 1 (H) | 1 (H) | UART recovery (XMODEM loader) |
@@ -526,164 +143,40 @@ board has its own power).
 
 ## The microSD payload
 
-`script/board-image` (name provisional) builds it: the flat `Image`-format kernel
-(`llvm-objcopy -O binary`, header at offset 0), the userspace archive the kernel measures, and a
-U-Boot boot script. Given `--card <dir>` it copies all three onto a card you have already
-formatted and mounted; without it, it prints the steps. It still formats nothing: `dd` and
-`diskutil eraseDisk` name a whole device, and that is the person at the bench's decision.
-
-**Three files, and they are one set.** The kernel compiles in a hash of the archive it was built
-against, so a card carrying a new kernel over an old archive halts at `MEASURED BOOT REFUSED`
-(the gate working, and it fired for real on 2026-09-01). That is why `--card` exists at all:
-milestone 217's answer to whether a script may copy files is that copying a set into a named,
-mounted filesystem is not the destructive act the formatting steps are, and only the script can
-make the set indivisible.
-
-**Ask the board's question before you walk to the board** (milestone 223 (read a card and say whether its kernel and archive match)). `--card` makes a card written by
-this script consistent by construction, and that is all it can do: a card written by hand, written
-by an older script, half-copied, or carried in from another machine is still expressible. So:
+`script/board-image` (name provisional) builds three files: the flat `Image`-format kernel, the
+userspace archive the kernel measures, and a U-Boot boot script. They are one set. The kernel
+compiles in a hash of its archive, so a new kernel over an old archive halts at
+`MEASURED BOOT REFUSED`. That is why `--card <dir>` copies all three onto a card you formatted and
+mounted. It formats nothing; that is the person at the bench's decision. Before walking to the
+board, ask the card the board's question:
 
 ```
 script/card-check /Volumes/NIFE     # 0 it boots, 1 it halts at MEASURED BOOT REFUSED, 2 nothing there
 ```
 
-It reads the card and writes nothing. It hashes each archive entry the kernel may enter and looks
-for that digest in the kernel image's compiled-in trust root, which is the fact the board's own
-refusal turns on, and when the answer is no it says which of the two files is the stale one by
-comparing both against `target/board`. `script/board-image` now runs it on every payload it builds
-and on every card it writes, so the ordering this section relies on is read off the bytes rather
-than asserted in a comment. The kernel's check is still the authority; this one is the early
-warning, and if they ever disagree the board is right.
+The card is one FAT32 partition carrying `boot.scr.uimg` and no `extlinux.conf`. The extlinux path
+is a dead end on this board, because U-Boot's pxe path hands `bootm` no device tree. The boot
+script is the manual sequence, unchanged: load the kernel and the archive, move the DTB to
+0x8600_0000, `booti`. [`visionfive2/microsd-payload.md`](visionfive2/microsd-payload.md) has the
+script line by line, the address choices and the captured transcripts.
 
-The card layout U-Boot's distro boot wants [uboot-doc]: one FAT32 partition (MBR or GPT both work;
-the special GPT partition GUIDs in [uboot-doc] matter only when the card holds the firmware
-itself, and ours stays in QSPI flash). U-Boot scans each partition first for
-`/extlinux/extlinux.conf`, then for the boot scripts named in `$boot_scripts`, which is
-`boot.scr.uimg boot.scr` [uboot-doc].
+## Booting over the network
 
-**The extlinux path is a dead end on this board, and the reason is upstream of us**
-(milestone 218, captured 2026-09-01 in
-`crates/board_console/tests/fixtures/captured/vf2-2026-09-01-extlinux-refused.log`). With no
-`fdt`/`fdtdir` line in the label, U-Boot's pxe path hands `bootm` no device tree at all, and
-RISC-V's `boot_prep_linux` refuses rather than guessing:
-
-```
-Moving Image from 0x40200000 to 0x80200000, end=802ff000
-Device tree not found or missing FDT support
-### ERROR ### Please RESET the board ###
-```
-
-Read what that transcript does *not* say. The image was loaded and relocated, and then the
-firmware stopped: no instruction of ours ran, so this is not the boot-map caveat below
-arriving as a fault, and widening the kernel's page table cannot touch it. The error is
-`boot_prep_linux`'s `hang()` [uboot-bootm], which only the reset button clears, and the vendor
-build's own `bad CRC, using default environment` means whatever `fdt_addr_r` that pxe path wanted
-was not there to fall back to.
-
-So the card carries `boot.scr.uimg` and no `extlinux.conf`, and U-Boot's script scan runs it.
-The script is the manual sequence, unchanged, which is the point: every line of it is a line the
-same day's successful boot already proves
-(`vf2-2026-09-01-manual-boot.log`). `cargo xtask board-script` writes it, `target/board/boot.cmd`
-is the same text in readable form, and this is what it says:
-
-```
-echo nife: boot.scr is driving this boot, milestone 218
-load ${devtype} ${devnum}:${distro_bootpart} ${kernel_addr_r} /nife-vf2.img
-load ${devtype} ${devnum}:${distro_bootpart} 0x90000000 /nife-initrd.img
-setenv nife_archive_size ${filesize}
-fdt addr ${fdtcontroladdr}
-fdt move ${fdtcontroladdr} 0x86000000
-booti ${kernel_addr_r} 0x90000000:${nife_archive_size} 0x86000000
-```
-
-0x8600_0000 is inside boot gigapage 2 and clear of the image (which ends well below 0x8100_0000)
-and of `kernel_comp_addr_r` = 0x8800_0000 [uboot-cfg]; 0x9000_0000 is clear of both. The device
-comes from the variables distro boot sets before sourcing a script rather than from a literal
-`mmc 1:1`, and the archive's length is stashed under a name of ours the moment `load` reports it,
-so nothing later that touches `filesize` can change what `booti` is handed.
-
-**The DTB fallback caveat still stands for anyone hand-typing `booti`**: `$fdtcontroladdr` is the
-control DTB near the top of RAM, above gigapage 2 on every variant and above 4 GiB on this 8 GB
-board, which is why the sequence moves it to 0x8600_0000 rather than passing it where it lies.
-
-## Booting over the network, so the card stops being the tax
-
-**Built by milestone 257** (2026-09-05), after the path was proved by hand at the prompt on
-2026-09-04. The paragraph this replaces predicted the day it would matter and was right: the
-2026-09-04 bench session wrote the card six times, once per boot, because a comparison of two
-builds has to interleave them. It also got one thing wrong, corrected by calef the same evening.
-**The server is on patagonia, not cordoba.** radon's UART goes into patagonia and patagonia is
-where the images are built, so serving from there means there is no copy step at all: build, power
-cycle, watch, on one machine.
-
-Two commands, in two terminals:
+Milestone 257 (boot radon over the network) serves the payload over TFTP from patagonia, the machine that builds it
+and that radon's UART goes into, so the card stops being the tax. Two commands, in two terminals:
 
 ```
 script/board-image --tftp --card /Volumes/NIFE   # once, ever
 script/board-netboot                                # in the other terminal, while you work
 ```
 
-Then every later boot is `script/board-image --tftp` and a power cycle. The card is never touched
-again unless the boot script itself changes.
-
-**The card is still underneath, and that is the point rather than a hedge.** The generated script
-tries `dhcp` and two `tftpboot` transfers, and falls back to `load` from the card's own copy when
-any of it fails: no cable, no hub, no lease, and the board still boots something. A card that can
-be bricked by an unplugged cable would be a worse rig than the one being replaced. `netretry` is
-set to `no` first, so a network that is not there fails in seconds rather than retrying while
-nobody is watching.
-
-**Nothing is ever assembled from two places.** The kernel and the archive are one measured pair, so
-a transfer that gets the kernel and loses the archive falls all the way back and takes *both* from
-the card. Half a pair halts at `MEASURED BOOT REFUSED`, which is the gate working, and it would be
-working on a fault we built.
-
-**There is no server address written down anywhere in this tree, on purpose.** `192.168.8.216` was
-true on the evening the path was proved, it is checked by nobody afterwards, and a DHCP lease can
-move it: milestone 256's defect class exactly. So `cargo xtask board-script --tftp` reads the
-address off the machine writing the card, at the moment it writes it, and the script echoes it at
-boot:
-
-```
-nife: tftp server is 192.168.8.216, setenv nife_boot_server to point somewhere else
-```
-
-A console log therefore says what a card expects before anything depends on it. When the address
-has moved, the fix is one line at the prompt and no card reader:
-
-```
-StarFive # setenv nife_boot_server 192.168.8.42
-StarFive # source ${scriptaddr}
-```
-
-**It reads interfaces, not the routing table**, and the first version did the opposite and was
-wrong. The obvious trick is a connected UDP socket whose local address the kernel picks from the
-route; on patagonia the default route belongs to a Tailscale interface, so every probe answered
-`100.75.22.70`, a CGNAT address radon has no path to. Interfaces are enumerated instead and
-anything outside RFC 1918 is dropped. patagonia has two addresses on the bench LAN (`en0` at
-`.216` and a USB adapter at `.206`); either serves equally well because the server binds every
-interface, the first is taken, and both are printed so `--server` can pick the other.
-
-**Measured on 2026-09-04, over the wire**: 282,624 bytes of kernel in 1.4 s, 9,044,480 bytes of
-archive in 20.6 s, which is 428 KiB/s and about 6,200 round trips. Slower than a card read and
-very much faster than a walk to the bench.
-
-**And that boot was a control nobody asked for.** The image served was the padded E3 build, so it
-is a fourth reading of that condition taken through a completely different load path: DHCP, ARP and
-TFTP instead of a FAT read. `ipc_rtt` 4311, `call_reply` 5089, `ipc_rtt_el0` 124917, every one
-inside the card-booted cluster of three. How the kernel arrives does not perturb what it
-measures, which is the one thing that could have made this workflow useless for the bench work it
-exists to serve.
-
-**Why `script/board-netboot` and not dnsmasq.** dnsmasq is somebody else's tested code and is not in
-the shipping graph, which is a real argument and is why the decision was made rather than assumed
-(DECISIONS §46). It lost on one point: dnsmasq is a DHCP server that also does TFTP, this LAN is a
-family's house network with a router already handing out leases, and a second DHCP server on it is
-an outage for everyone in the building. `--port=0 --enable-tftp` with no `--dhcp-range` is safe,
-and only as long as every future invocation stays right. A tool that cannot speak DHCP at all
-cannot get that wrong. python3 is also already what ten `script/` entry points are written in, so
-this asks nothing new of anybody's machine while `brew install dnsmasq` does. Port 69 binds without
-root on patagonia (checked 2026-09-04, rechecked 2026-09-05), so there is no `sudo` in the runbook.
+Then every later boot is `script/board-image --tftp` and a power cycle. The card is still
+underneath: the script falls back to the card's own copy when any transfer fails, and takes both
+files from one place, never half a pair. The server address is read off the serving machine when
+the card is written and echoed at boot. When it has moved, `setenv nife_boot_server <addr>` then
+`source ${scriptaddr}` retries at the prompt. A TFTP-loaded boot measured the same as a card boot.
+[`visionfive2/network-boot.md`](visionfive2/network-boot.md) has the design, the measurements and
+why this is not dnsmasq.
 
 ## The bench runbook
 
@@ -709,26 +202,18 @@ Setup, in order:
    when you need to *type* at U-Boot, which the tool deliberately cannot do.
 4. Power: USB-C. The board boots on power, there is no power button.
 
-**Both halves of this were captured on 2026-09-01** and the transcripts are committed under
-`crates/board_console/tests/fixtures/captured/`: a successful manual boot, and the extlinux path
-failing. Read those rather than re-deriving what the board prints. Two facts they settled that this
-note did not have. The extlinux path does not work: it loads and relocates the image and then
-prints `Device tree not found or missing FDT support` and `### ERROR ### Please RESET the board
-###`. That is not the fallback-DTB caveat arriving as a firmware error, which is how this
-paragraph first read it: U-Boot passed `bootm` no device tree at all, so nothing of ours ran and
-the kernel's boot map was never consulted. Milestone 218 replaced that path with a boot script on
-the card, which types the manual sequence for you; the commands themselves are unchanged. And
-**the card's U-Boot environment is degraded** (`bad CRC, using default environment`, repeated
-`Invalid partition 3`, `"boot2" not defined`); the board boots through all of it and none of it is
-our payload's doing.
+Transcripts of a successful manual boot and of the extlinux failure are committed under
+`crates/board_console/tests/fixtures/captured/`; read those rather than re-deriving what the board
+prints. The card's U-Boot environment is degraded (`bad CRC, using default environment`), and the
+board boots through it.
 
 What appears, in order, on a good day: the SPL banner, OpenSBI's banner (version line included:
 record it), U-Boot's banner and countdown, then either the extlinux menu or the `StarFive #`
 prompt for the manual commands, then `## Flattened Device Tree`/`Starting kernel ...`, then ours:
 
-With a `--tftp` card the boot script says which path it took before any of that, and the line is
-worth reading rather than skipping, because a session that thinks it is testing a fresh build off
-the network and is silently booting the card's older copy is a session whose numbers mean nothing:
+With a `--tftp` card the boot script says which path it took before any of that. The line is
+worth reading rather than skipping. A session that thinks it is testing a fresh build off the
+network, and is silently booting the card's older copy, is a session whose numbers mean nothing:
 
 ```
 nife: tftp server is 192.168.8.216, setenv nife_boot_server to point somewhere else
@@ -759,95 +244,16 @@ memory-map work).
 | `Starting kernel ...` then silence | Expected until the UART driver handles reg-shift/io-width: the kernel may be running and polling LSR at the wrong offset. Also: DTB left at `$fdtcontroladdr`/`fdt_addr_r` (outside the boot map, faults with the trap path not yet printing); or the relocation did not happen (check U-Boot printed `Moving Image from ... to 0x80200000`) |
 | `Starting kernel ...` then garbage | Kernel is alive and the divisor is wrong: driver reprogrammed the divisor against the wrong clock (needs 13 at 24 MHz, not 1) |
 | Banner, then hang or trap dump | DTB parsing or the memory map: RAM at 0x4000_0000 exercises paths QEMU never did (bitmap placement, gigapage 1 unmapped, the S7's cpu node in `smp::init`, the PLIC context formula) |
-| Banner, then an **OpenSBI** trap dump (`mepc` in firmware, hart 0) | The kernel started the S7: the vendor tree's `status`/`mmu-type` lies got past the roster. The supervisor rule ("Second bench stop" above) exists to refuse hart 0; if this dump is back, that gate has regressed or the tree found a third lie |
+| Banner, then an **OpenSBI** trap dump (`mepc` in firmware, hart 0) | The kernel started the S7: the vendor tree's `status`/`mmu-type` lies got past the roster. The supervisor rule ([`visionfive2/hart-roster-stops.md`](visionfive2/hart-roster-stops.md)) exists to refuse hart 0; if this dump is back, that gate has regressed or the tree found a third lie |
 
-## Read off the board, 2026-09-03, and three of these were guesses until then
+## Read off the board, 2026-09-03
 
-The first bench session that drove radon from a script rather than by hand.
-
-**`boot.scr.uimg` works.** Milestone 218 (every boot of the VisionFive 2 needs a human typing four
-commands into U-Boot) had never run on the board. It does:
-
-```
-Found U-Boot script /boot.scr.uimg
-nife: boot.scr is driving this boot, milestone 218
-```
-
-**Fourteen point seven seconds from power to the end of the boot tour, with nothing typed.** That was
-the last piece standing between this project and an unattended run.
-
-**Two environment values nobody had ever read**, which milestone 218's lane had to leave as
-assumptions:
-
-```
-scriptaddr  = 0x43900000
-fdt_addr_r  = 0x46000000
-```
-
-`fdt_addr_r` is the interesting one. It sits below `0x8000_0000`, which is this note's own
-DTB caveat with a number under it at last: the extlinux fallback puts the device tree outside the
-kernel's boot page table, which is why the manual path moves it to `0x8600_0000` and why the boot
-script does the same.
-
-**The TRNG is not in the tree.** Milestone 159's (a real hardware entropy source: the JH7110's TRNG)
-driver reported `hw entropy : skipped`, and the prompt confirms why rather than leaving it inferred:
-
-```
-StarFive # fdt print /soc/rng@1600c000
-libfdt fdt_path_offset() returned FDT_ERR_NOTFOUND
-```
-
-`fdt list /soc` returns 56 nodes and none of them was read as a random number generator. The
-absence looked specific rather than general: `crypto@16000000` and `sec_dma@16008000`, the TRNG's
-neighbors in the same security block, are both described. That went to milestone 239 (radon's
-device tree does not describe the TRNG, so a working driver never runs).
-
-**Correction, 2026-09-03, and the conclusion above is the part that was wrong.** Milestone 239 went
-to the firmware's own source rather than re-reading the board, and the node is there. The tree
-radon hands us is built from `arch/riscv/dts/jh7110.dtsi` in StarFive's U-Boot fork, and that file
-spells it:
-
-```
-trng: trng@1600C000 {
-	compatible = "starfive,trng";
-	reg = <0x0 0x1600C000 0x0 0x4000>;
-	clocks = <&clkgen JH7110_SEC_HCLK>,
-		 <&clkgen JH7110_SEC_MISCAHB_CLK>;
-	clock-names = "hclk", "miscahb_clk";
-	resets = <&rstgen RSTN_U0_SEC_TOP_HRESETN>;
-	interrupts = <30>;
-	status = "disabled";
-};
-```
-
-(starfive-tech/u-boot, branch `JH7110_VisionFive2_devel`, commit `bfbdce9b86a2` of 2023-01-06, the
-last change to that file before this board's `Feb 12 2023` firmware build; unchanged at that
-branch's head. Read 2026-09-03.)
-
-So every observation above holds and none of them meant what they were read to mean. **`fdt print
-/soc/rng@1600c000` failed because the node is not called that**, twice over: it is `trng`, not
-`rng`, and its unit address carries an upper-case C, so even `/soc/trng@1600c000` misses. And
-the driver skipped because it matched mainline's `starfive,jh7110-trng` only, against a tree that
-says `starfive,trng`. The neighbors were visible for the same reason they are visible in that
-file: `crypto@16000000` and `sec_dma@16008000` are spelled the same way in both.
-
-The `status = "disabled"` is U-Boot's, not the board's: StarFive's own Linux enables the identical
-node from `jh7110-common.dtsi` (`&trng { status = "okay"; };`), and their kernel driver had
-already moved to `starfive,jh7110-trng` in December 2022, two months before that firmware was
-built. U-Boot's control DTB is a stale fork of the vendor's own hardware description, and
-nobody on their side noticed because Linux on this board reads its own DTB and never sees U-Boot's.
-
-Milestone 239 taught `crates/jh7110_entropy`'s `discover` both spellings and made it carry the
-`status` it found, so the next boot answers this rather than inferring it. None of that has run
-on the board; the two commands that settle it are in that milestone's block.
-
-**And it explains a second number in the same boot.** The tour reported `capability slots: 4 of 24 at
-peak` where QEMU reports 21. That is not a different measurement: milestone 230 (`script/shell-check`
-is red on `main`, on both architectures, and nothing says so) established that init builds the login
-stack only when it has an entropy client. No TRNG node, no entropy, no login stack, a much smaller
-peak. The 24-slot ceiling was sized against a QEMU boot richer than the real board's, and the
-correction above does not change that until a boot proves the driver reaches bytes: a node found is
-not a device driven.
+The first session that drove radon from a script settled three guesses. `boot.scr.uimg` works, with
+14.7 seconds from power to the end of the tour and nothing typed. `scriptaddr` is 0x4390_0000 and
+`fdt_addr_r` is 0x4600_0000, outside the boot map, as the DTB caveat predicted. And the TRNG node
+is present under the vendor spelling `trng@1600C000`, `starfive,trng`, `status = "disabled"`, which
+is why the driver skipped. [`visionfive2/read-off-the-board-2026-09-03.md`](visionfive2/read-off-the-board-2026-09-03.md)
+has the transcripts and the correction.
 
 ## The eight-hour soak, 2026-09-25
 
@@ -856,292 +262,42 @@ anomaly are in [`visionfive2/soak-2026-09-25.md`](visionfive2/soak-2026-09-25.md
 
 ## To measure at the bench
 
-Facts documentation could not settle, each an explicit measurement, none guessed above:
+Facts documentation could not settle, each an explicit measurement, none guessed above.
+[`visionfive2/bench-questions.md`](visionfive2/bench-questions.md) has each in full.
 
-1. **OpenSBI version in the shipped flash** (banner), and which SBI extensions `sbi probe` reports;
-   specifically whether PMU is present and how many hpmcounters it exposes on the U74s. The kernel
-   now answers most of this itself (milestone 74 (cycle counters)): it probes the PMU extension and prints the
-   result on the `firmware    :` line, then prints which counter and CSR firmware gave it for CPU
-   cycles on a `cycles      :` line beside it. notes/riscv-cycle-counters.md is the procedure, with
-   a table for each line of output; this row is now "read two lines of a boot log" rather than
-   "type at U-Boot".
-2. **What `sbi_hart_start` returns for hart 0** (the disabled S7): error, or a start that must
-   never be requested. Measured 2026-08-14: the worse answer. Vendor OpenSBI does not refuse
-   it; it starts the S-incapable core and dies in its own trap handler (see "Second bench stop"
-   above). The refusal has to be ours, and now is.
-3. **The vendor U-Boot's actual environment**: whether its distro boot scans our single-partition
-   card (vendor firmware predates some mainline conventions), and the values of `kernel_addr_r`
-   and `fdt_addr_r` in the flashed environment (`printenv`), documented above from mainline
-   [uboot-cfg].
-4. **Whether `booti` in the vendor build relocates as mainline does** (the `Moving Image` line);
-   the source says yes [uboot-img], the flash is whatever was built from it.
-5. **The boot hart id** OpenSBI hands us (`a0`), and whether `smp.rs`'s hwid-vs-index assumptions
-   hold with hart ids 1..4.
-6. **DRAM size of this specific board** (the memory node U-Boot patches in), and whether the
-   `/memory` walk and bitmap placement behave with RAM at 0x4000_0000.
-7. **UART reality check**: that byte-wide access at unshifted offsets truly fails (predicted, not
-   yet observed), and the DW busy quirk's visibility.
-8. **Boot-to-banner wall time**, once there is a banner, as the first real-hardware number.
-9. **Whether the tree radon hands us carries the TRNG node under the vendor spelling**
-   (`trng@1600C000`, `compatible = "starfive,trng"`, `status = "disabled"`), which is what the
-   firmware's source says and what nobody has yet confirmed at the prompt, and whether its clocks
-   and reset are left running by U-Boot. The first is milestone 239's (radon's device tree does not
-   describe the TRNG, so a working driver never runs) and its block carries the two commands; the
-   second is milestone 159's, and both are read off the `hw entropy` line the riscv64 boot
-   tour now prints last; `design/roadmap/0159-jh7110-trng-driver.md` carries the ordered bench
-   procedure and a table of what each of the five possible lines means. This is the first real,
-   non-virtio device a confined userspace process on this project has been asked to drive, which
-   makes it `design/fatal-risks/README.md`'s risk 6 rather than a driver.
-10. **Whether this U-Boot can boot from a USB stick, and through UEFI** (added 2026-09-19, from
-   DECISIONS §157: the customer's stick should be the bench's stick too). Nothing in the tree says,
-   and the boot log is suggestive rather than decisive: U-Boot 2021.10's init lists `MMC` and `Net`
-   and no USB line (`bench/radon-2026-09-04/probe-234257.log`), so it does not bring USB up by
-   itself. The BootROM cannot boot USB at all (the boot-mode table above has no USB row), so "radon
-   boots from USB" means U-Boot, loaded from flash as today, reads nife from the stick. Recalled,
-   not read: the USB 3 ports sit behind a VL805 PCIe controller, and whether this vendor build
-   drives it is the open question. With a FAT32 stick in a USB port, at `StarFive #`:
-
-   ```
-   usb start
-   usb storage
-   fatls usb 0:1 /
-   help bootefi
-   printenv boot_targets
-   ```
-
-   | Result | Meaning |
-   |---|---|
-   | `usb storage` lists the stick and `fatls` shows its files | radon reads USB; a nife boot from the stick is one boot script or one `bootefi` away |
-   | `usb start` finds no storage, or the command is missing | this firmware cannot; the next step is a newer StarFive U-Boot in SPI flash, recoverable over UART (boot mode 1:1) |
-   | `help bootefi` prints usage | the universal stick's premise holds on radon; notes/boot-stick.md, "At the bench", has the two commands that then boot it |
-   | `boot_targets` contains `usb` | U-Boot scans USB unprompted, with no script |
+1. The OpenSBI version, its SBI extensions, and the PMU's hpmcounters: now two lines of a boot log
+   (`firmware    :`, `cycles      :`), per notes/riscv-cycle-counters.md.
+2. What `sbi_hart_start` returns for hart 0. Measured 2026-08-14: vendor OpenSBI starts it and
+   dies, so the refusal is ours.
+3. The vendor U-Boot's environment and distro-boot scan of our card.
+4. Whether vendor `booti` relocates as mainline does (the `Moving Image` line).
+5. The boot hart id in `a0`, and `smp.rs`'s hwid-vs-index assumptions with hart ids 1..4.
+6. This board's DRAM size, and `/memory` and bitmap placement with RAM at 0x4000_0000.
+7. That byte-wide UART access at unshifted offsets truly fails, and the DW busy quirk.
+8. Boot-to-banner wall time, as the first real-hardware number.
+9. The TRNG node's spelling at the prompt, and its clocks and reset (milestones 239 and 159; the
+   `hw entropy` line answers both). It is `design/fatal-risks/README.md`'s risk 6.
+10. Whether this U-Boot can boot from a USB stick, and through UEFI (§157 (a trivial install is a web page, a USB drive, and packages)). The five
+   commands and what each result means are in the appendix.
 
 ## BUGS
 
-The kernel first ran on this board on 2026-08-14 and got through its banner (DW-8250 console,
-DTB parse, paging, traps, timer, frame allocator) before panicking on the QEMU PCIe constants;
-the PCIe section above records that failure and its fix. The second boot that day carried the
-PCIe fix, got through fine paging and ISA discovery, and died starting hart 0 (the "Second
-bench stop" above): the vendor tree's `status` lie walked the S7 past the disabled-hart
-handling, and vendor OpenSBI crashed rather than refuse the start. The boots after that carried
-the supervisor rule and the PLIC context map through, and hit the third stop: the first
-non-contiguous online set this kernel ever ran on exposed every count-as-index cpu loop at once,
-starting with spawn placement putting `init` into parked slot 0's inbox (the "Third bench stop"
-above; three boots to diagnose, fixed in `1329874` and swept after). The supervisor rule and the
-context map are QEMU- and host-proven and board-proven as far as those boots reached; the
-online-set sweep's {1,2,3} shape is host-proven in `crates/cpu_set`; whether the fixed placement
-carries the board through the demo is the next bench boot's fact, like everything QEMU cannot
-prove, which is what "To measure at the bench" is for. Boot 7, the first with the placement fix
-and the cross-hart `fence.i`, appeared to hang a fourth way, in a state the transition audit
-said no legal path produces (the "Fourth bench stop" above); boot 8's instrumented dump was read
-as catching an undelivered wake, and the undelivered-wake gate was built against it. The fifth
-stop (2026-08-15) overturned that reading: the dumps of boots 7 through 9 show the terminal
-state of a *completed* tour (the parked receivers are the UART demo's driver and byte receiver,
-the wake was the worker's real send, svc=20 is the choreography's exact total), so no
-undelivered wake, no fabricated state and no corruption have been observed on this board. The
-gate and the pop-own-current guard stay as hardening with their injection tests; their origin
-story is corrected in notes/scheduler.md. What the fifth stop leaves open is why the tour's
-serial lines after "init : measured, built, started" are absent from the bench record while the
-machine state proves the printing steps ran; boot 11 carries the discriminators (tour stage in
-every dump header, `tx=` in the diag line, `serve:` ring events, the registry canary), and the
-first move is to re-examine the boot 7 through 9 captures for the missing lines.
+The bench history, boot by boot, is in
+[`visionfive2/bench-boots-2026-08.md`](visionfive2/bench-boots-2026-08.md) and
+[`visionfive2/on-board-test-suite.md`](visionfive2/on-board-test-suite.md). What is still open:
 
-**Boots 12 and 13 (2026-08-15) closed the story, as the measured-boot pair.** Boot 12, the first
-under the name `nife`, cleared the whole bring-up and was refused at the trust boundary:
-`MEASURED BOOT REFUSED: 'program_measurements' is not what this kernel image was built against`,
-and the kernel halted rather than hand the archive to init. The mismatch was real and ours:
-`script/board-image` built the kernel before packing the archive that regenerates the manifest
-the kernel compiles in, so the kernel on the card vouched for the *previous* archive. QEMU never
-hit it because `xtask` orders those steps correctly; the fix swapped the script's order and its
-comment carries this story. Boot 13, with the pair built in order, ran the tour to the final
-banner: init measured and built `worker` from the 6,294,016-byte archive (child sent 81,
-expected 81), preemption ran two never-yield threads 3.3M and 28.3M iterations with 61
-preemptions, and every discriminator boot 11 was instrumented for reported a healthy machine:
-the five diag dumps show `svc=20` frozen, identical event rings, and the two parked receivers of
-the demo's terminal state. Two observations from 13, recorded rather than chased: the early
-`scheduler :` smoke line reported `0 of 2 kernel threads ran` (boot 12 said 1 of 2; the
-preemption numbers prove scheduling, so the smoke line races real timing and its wording
-overclaims; fixed 2026-08-15: the check was four yields on the boot hart, a yield count
-rather than a duration, which the other harts outran; it now waits clock-bounded, two seconds,
-until both threads have run, and the success wording prints only then, with a loud FAILED line
-on the timeout path, so the next bench boot should read `2 of 2 kernel threads ran`), and a
-key press at the prompt did nothing, which confirms on silicon the
-UART-IRQ limitation below (the driver armed line 10; the board interrupts on 32). The refusal
-followed by the pass is the measured-boot demonstration end to end: the same board, the wrong
-pair refused, the right pair run.
-
-**Boot 14 (2026-08-15) put all four U74s online**, the first boot with the eight-seat, by-hart-id
-kernel (the revived fifth-hart work): `5 core(s) in the device tree, 4 startable`, the S7
-exclusion line with its reason, then `4 core(s) online` and the tour straight through to the
-banner with nothing after it, the stage-gated watcher staying quiet exactly as a finished tour
-should have it. Measured boot passed silently. The preemption line is where the fourth core
-shows: 82 preemptions, and the two never-yield threads' iteration counts landing far closer
-together (6.5M and 7.4M) than boot 13's three-core spread. The `scheduler :` smoke line said
-`0 of 2` again, its second board boot in a row; that line's wording overclaims on real timing
-and now has enough evidence to be a lane, not a shrug.
-
-Three limitations found while building those, honestly not fixed that night (the first has since
-been closed; its entry carries the record):
-
-- **The tour's UART-driver step arms QEMU's interrupt number on the board.** `main.rs` passes
-  `UART_IRQ = 10` (QEMU `virt`'s NS16550 line) to `riscv_uart_driver_demo`, which binds it and
-  enables that PLIC source; on the JH7110 UART0 interrupts on line 32 [dtsi], so the board
-  build enables an unrelated source and the driver can never receive a real keystroke there.
-  Quiet in practice tonight (source 10 never fired, or the driver's dump row would show it
-  running rather than parked), and not the fifth stop's bug, but the number needs to come from
-  the device tree like everything else on this page before the driver demo means anything on
-  silicon. Confirmed on silicon 2026-08-15 (boot 13): a key press at the completed tour's
-  prompt reached nothing, exactly as this entry predicts.
-
-  **Fixed 2026-08-15, the same day boot 13 confirmed it.** The number now comes from the
-  machine's own tree: `memory::init` reads the console node's `interrupts`, resolves the
-  inheritable `interrupt-parent` (the serial node's own on QEMU riscv64, the root's on QEMU
-  aarch64, `/soc`'s per the mainline dtsi), asks the controller that phandle names for its
-  `#interrupt-cells`, and decodes the entry per that count rather than assuming it
-  (`isa::interrupt_id`; one cell is a PLIC source verbatim, three are the GIC's
-  `<type number flags>` with the bank base added). Host tests hold the whole claim: the same
-  read answers 10 on QEMU's tree and 32 on both JH7110 fixtures
-  (`crates/machine_discovery/tests/interrupt_ids.rs`), and 33 on aarch64 `virt`, where `UART_RX_INTID = 33`
-  was the same bug one board away and was fixed in the same motion (`user::boot_progenitor` now asks
-  the tree first). The constants survive as the documented fallback for a tree that does not
-  say, and every boot path prints a `uart irq` line naming which source won, so the next bench
-  transcript answers this question instead of raising it. What QEMU cannot prove, as ever: that
-  a keystroke at the board's prompt now reaches the driver is the next bench boot's fact, and
-  the `uart irq    : source 32 (device tree)` line in its transcript is the first thing to read.
-
-- **The shell path's userspace input driver still speaks QEMU's UART layout.**
-  `components/src/input.rs` reads the NS16550 at byte-stride offsets (LSR at 0x05), so on the board the
-  kernel console will print but the interactive shell's input path reads garbage until that driver
-  learns the same shape the kernel driver did. Not on the first-boot path (the tour and test
-  builds take no input); bites at the shell milestone.
-- **`cpu::MAX_CPUS` was 4 against this SoC's five described harts, fixed 2026-08-14**: the
-  constant is 8 and the roster seats each core at the slot its own hart id names
-  (`smp::read_cpu_list`), so the unusable S7 occupies only slot 0 and U74 hart 4 sits at slot 4
-  instead of falling off a positional truncation. The logical-id-equals-hardware-id assumption is
-  untouched; seating by id makes it hold by construction, and a hart whose id has no seat gets a
-  named line and stays parked, the same refusal as before, earlier. QEMU-proven at `-smp 5` and
-  `-smp 8` (every described hart online) and host-proven against both JH7110 fixtures (startable
-  set exactly {1,2,3,4}); what QEMU cannot prove, the fourth U74 actually running this kernel's
-  code beside the other three on silicon, is boot 10's fact. Its banner should read
-  "5 core(s) in the device tree, 4 startable" plus the cpu 0 exclusion line, then
-  "4 core(s) online" (three secondaries beside the boot hart): correct arithmetic and, for the
-  first time, the whole machine.
-
-- **The boot script has never run on the board.** Written 2026-09-02 from the two captured
-  transcripts, with radon powered down and unreachable, so every claim about it is reasoning plus
-  a byte-level check of the image format on the host. Three things only a bench boot can settle,
-  and `design/roadmap/0218-hands-free-board-boot.md` carries the ordered procedure: that this
-  vendor U-Boot's distro boot scans for scripts at all, that `scriptaddr` is set in the default
-  environment it falls back to (the same environment whose missing `fdt_addr_r` is why the
-  extlinux path failed), and that its parser accepts the seven lines as written. Every one of
-  those failures leaves the board at the `StarFive #` prompt rather than hung, which is already
-  better than what it replaced, and the manual commands still work from there.
-
-The `text_offset` in the Image header encodes one board's DRAM base; the header comment in
-`boot.s` and the section above carry the caveat.
-
-Everything cited from "mainline" (Linux dtsi, U-Boot doc and source) describes current upstream;
-the flash on the board runs StarFive's vendor fork of unknown vintage. The relocation logic was
-verified in the vendor branch too, the environment defaults were not, which is why they sit on the
-bench list.
-
-**Boot 15+ (2026-08-21): the on-board test-suite exit landed, and the `#[test_case]` suite ran on
-silicon for the first time, immediately finding six real hardware bugs no QEMU boot could have
-caught.** The UART pass/fail marker and SBI SRST shutdown (this milestone's own remaining item,
-"the test suite where semihosting allows") worked exactly as designed: every failure below printed
-`NIFE-TEST-EXIT: FAIL 1` and drove SBI SRST, which OpenSBI accepted and attempted (the board's PMIC
-I2C read then failed completing the power-off, a firmware fact, not a kernel one). Six board boots,
-each fixing the failure the previous one found:
-
-1. **`PlicContexts::from_device_tree` read zero contexts against the board's real control DTB.**
-   The kernel's own `compatible = "sifive,plic-1.0.0"` match found nothing: the VisionFive 2's
-   U-Boot-supplied tree (captured at the bench via `fdt addr`/`save mmc`, read with `dtc`) names
-   its PLIC `compatible = "riscv,plic0"` only, the older generic RISC-V PLIC binding, not the
-   SiFive-specific string either JH7110 fixture in `crates/machine_discovery/tests/fixtures/` had assumed.
-   Fixed by trying both strings; a new host fixture
-   (`crates/machine_discovery/tests/fixtures/visionfive2-uboot-control.dtb`, trimmed from the real 42 KB
-   capture) holds the real board's tree so this cannot regress silently. The S-context formula
-   itself (hart h's context is 2h on this board) was already correct; only the node-finding step
-   was wrong.
-2. **Two `#[test_case]`s asserted `satp.ASID bits >= 8`**, in `kernel/src/arch/riscv64/isa.rs` and
-   `kernel/src/arch/riscv64/mmu.rs`. The U74 measures zero implemented bits
-   (`satp.ASID 0 bits measured` in every boot summary since), which RISC-V's WARL `satp.ASID`
-   field permits and the kernel's own `asid_tagging_is_trusted` mechanism (milestone 58) already
-   defends against by keeping the `sfence.vma` flush on a narrow machine. Both tests asserted the
-   wrong invariant (a floor on the width) instead of the right one (the trust flag agrees with
-   whatever the width actually is); fixed to check the latter, which holds on any width including
-   zero.
-3. **A test asserted `Isa::described == Isa::harts`**, named "QEMU virt describes every hart it
-   has." `described` excludes disabled harts by its own doc comment, and the JH7110's S7 is
-   exactly that hart: 5 `cpu@` nodes, `described == 4` by design. Fixed to the invariant that
-   actually holds on a heterogeneous machine: `described` is nonzero and no larger than `harts`.
-4. **Two MMU tests hardcoded `0x1_0000_0000` / `0x1_0100_0000` as "not RAM on QEMU virt."** True
-   when written; false on a board with 8 GiB of DRAM starting at `0x4000_0000`, where both
-   addresses land inside the direct map and the test's own first `map_page` call failed with
-   `AlreadyMapped` before either test's logic ran. Fixed with a shared helper that computes an
-   address past the top of every RAM region the device tree actually describes, so it is correct
-   on any machine's memory map rather than a wider guess.
-5. **A test asserted RAM totaled exactly `256 * 1024 * 1024`**, QEMU's runner-supplied `-m 256M`.
-   The board's tree states 4 GiB (`reg = <0x0 0x40000000 0x1 0x0>`, distinct from the 8 GiB the
-   U-Boot banner claims for the physical DRAM, a fact not yet chased further). Fixed to a
-   plausibility floor (16 MiB) instead of an exact QEMU literal.
-
-**Then the suite hit a different kind of wall, correctly: `nvme.rs`'s end-to-end test expects a
-synthetic NVMe controller `xtask` always attaches under QEMU (`NIFE_NVME`), and the board's manual
-U-Boot boot attaches nothing.** Its own comment already says why this is not a bug: "the test flow
-always attaches a controller... absence is a lost QEMU flag, not a machine without a disk." A
-`grep` across `kernel/src/` for the same shape (`.expect("no virtio-... device", ...)`) found at
-least six more tests with the identical assumption, spanning RNG (`credential_tests.rs`,
-`disk_tests.rs`, `ntp_tests.rs`, `std_service.rs`), GPU (`display_tests.rs`), and the disk surveyor
-programs, all correct on QEMU, all unreachable on bare silicon, because `helpers/qemu-runner-riscv64.sh`
-wires roughly forty `NIFE_*`-gated synthetic devices the manual boot path has no equivalent for.
-
-**This is the honest stopping point for "run the test suite on silicon" as currently scoped.** The
-`#[test_case]` suite's design point is a QEMU machine loaded with synthetic fixtures, not a bare
-board; making it skip gracefully when a fixture is missing is a real mechanism to design (what
-does "this test needs hardware the current boot doesn't have" mean, and how does a test declare
-it), not a bench fix. Recorded here rather than chased further tonight; a milestone or decision for
-whoever picks this up next should scope that mechanism rather than patch the seventh `expect()`.
-
-See design/roadmap/0144-sandbox-screendump-gap.md for the separate, still-open finding that the
-*development sandbox*'s QEMU legs cannot reach the scanout/network referees at all (unrelated to
-this board's fixture gap; that one is about the host-side monitor connection, not about the guest
-having no device).
-
-**Milestone 145 built the skip mechanism the paragraph above called for, and re-running the suite
-under it surfaced two more real, board-only bugs (2026-08-21, same bench session).** With
-`skip!()` landed and applied to `nvme.rs`, `pci.rs`, `disk_tests.rs`, `display_tests.rs` and
-`entropy_tests.rs`'s fixture-dependent tests, the run got 59 tests further before the next real
-failure:
-
-6. **`kernel::sched::tests`'s two interrupt-delivery tests hardcoded `DELIVERY_IRQ = 10` /
-   `PENDING_IRQ = 10`**, QEMU virt's PLIC source for the console UART. The board's real source is
-   32 (the same fact the boot banner's `uart irq : source 32 (device tree)` line has stated since
-   the UART-IRQ work). Fixed by reading `user::uart_irq_and_source().0`, the DTB-driven value the
-   rest of the kernel already uses, instead of a QEMU-only literal.
-7. **`Ns16550::enable_tx_interrupt` (test builds only) raced the transmitter on real hardware.**
-   The mechanism's own doc comment states its precondition correctly: "a 16550 asserts its line
-   the moment `IER.ETBEI` is set while `LSR.THRE` is already set." QEMU's UART model has zero
-   transmission latency, so THRE reads back set the instant the previous write retires and the
-   precondition always holds there. Real 24 MHz serial hardware can have THRE genuinely clear for
-   measurable time (confirmed at the bench: `LSR=0x0` immediately after this test's own diagnostic
-   `println!` calls, which are still shifting out over the wire when the next instruction runs),
-   and a real 16550's THRE interrupt is edge-triggered inside the chip: setting `ETBEI` while
-   THRE is 0 only arms the interrupt for the *next* 0->1 transition, which may never come for a
-   polling console with nothing queued to send. Fixed by spinning on `LSR.THRE` before setting
-   `ETBEI`, the same bounded pattern `init`'s busy-quirk drain already uses. Confirmed at the
-   bench: `an_interrupt_becomes_a_message` (the test this function serves) now passes cleanly.
-
-**A third, still-open finding: `an_interrupt_that_arrives_before_the_wait_is_not_lost` (the second
-of the two interrupt-delivery tests, sharing IRQ 32 with the first by design) still fails on the
-board after the THRE fix**, with `ROUTED_IRQS` never incrementing and `SPURIOUS_IRQS` staying at
-zero, meaning the interrupt never reaches the trap handler at all rather than arriving unrouted.
-Bench-confirmed IER/LSR state right after `raise_test_irq` looks correct (`IER=0x2`,
-`LSR` showing THRE set), so the UART side of the mechanism is doing what it should; the PLIC/hart
-affinity path (`arch::irq::target_context`'s "assign once, then reuse" cache, `s_context_of`, or
-which hart is actually executing the test when the second call runs) is the next place to look,
-not the UART driver. Not chased further this session: each round costs a full bench cycle
-(rebuild the board test ELF, flash, reboot, transcribe), and the two confirmed fixes above were
-worth landing on their own. Whoever picks this up next should start by printing `crate::cpu::id()`
-and the assigned PLIC context inside `target_context` itself, on the board, rather than guessing
-from IER/LSR alone: the earlier data points at cross-hart delivery, not at the UART.
+- An interrupt test fails on the board. `an_interrupt_that_arrives_before_the_wait_is_not_lost`
+  never reaches the trap handler after the THRE fix. The PLIC/hart affinity path is the next place
+  to look, not the UART; start by printing `crate::cpu::id()` and the assigned context inside
+  `arch::irq::target_context` on the board.
+- The shell path's userspace input driver (`components/src/input.rs`) still reads the UART at
+  QEMU's byte stride, so on the board the shell's input reads garbage. It bites at the shell
+  milestone.
+- The `#[test_case]` suite assumes QEMU's synthetic devices. The `skip!()` of milestone 145 (a test that needs hardware the boot doesn't have can say so) covers the
+  tests found so far; more may surface.
+- That a keystroke at the board's prompt reaches the UART driver on source 32 is not yet observed.
+- The `text_offset` in the Image header encodes one board's DRAM base; `boot.s` and the
+  appendix carry the caveat.
+- Everything cited from "mainline" describes current upstream; the flash runs StarFive's vendor fork
+  of unknown vintage. The relocation logic was verified in the vendor branch, the environment
+  defaults were not.
