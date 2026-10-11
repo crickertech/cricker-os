@@ -1,8 +1,9 @@
 ---
-status: NOT-STARTED
+status: IN-PROGRESS
 raised: 2026-10-08
-milestone_dependencies: none
-decision_dependencies: unwritten
+branch: milestone/840-the-scheduler-file-is-split-along-its-seams
+milestone_dependencies: 812
+decision_dependencies: 271
 machine_requirements: none
 specific_machine: none
 needs_person: no
@@ -18,9 +19,12 @@ and that is about a quarter of it. The rest is everything that takes the `IPC_TA
 Milestone 98 (the scheduler that stopped scheduling: name what `SCHED` actually guards) already
 found this for the lock; this milestone does the same for the file.
 
-The boundaries are an architect's call, and so is every module name below. The `unwritten`
-decision dependency is that fork. A lane writes it up as a `status: PROPOSED` file in
-`design/decisions/` before it moves a line, and its pull request carries `needs-architect`.
+The boundaries were an architect's call. calef ruled them on 2026-10-11 (UTC): *"Accept all four
+sched split recommendations."* §271 (the scheduler file splits into submodules of `sched`) records
+the four answers: submodules, capability deletion stays, region reaping alone, and the size target
+in *Done when* below. Every module name still ships provisional. The lane waits on milestone 812
+(`std::thread::spawn` runs real threads in one address space), which reshapes this file and already
+cut `sched/configure.rs`, `sched/futex.rs` and `sched/process.rs` as submodules beside `sched.rs`.
 
 Reuse: not applicable; this moves code and adds none. The precedent is `kernel/src/user.rs` beside
 `kernel/src/user/`, where each service grew its own file.
@@ -82,7 +86,10 @@ phrase is spoken, applied recursively) deratified it.
 
 Tests move beside the code they test, each module growing its own `mod tests`.
 
-## What an architect has to rule
+## What an architect had to rule
+
+Answered 2026-10-11 (UTC) in §271: the recommendation on each of 1 to 3 was accepted, and 4 ships
+provisional. The questions stay here as they were asked.
 
 1. Submodules of `sched`, or siblings of it. Milestone 98's argument points at siblings: a
    rendezvous is not scheduling. The recommendation is submodules. Every seam above takes
@@ -124,8 +131,8 @@ These were found with `grep`, and a lane has to carry each one.
 
 ## Done when
 
-1. `kernel/src/sched.rs` is gone. `kernel/src/sched/mod.rs`, or whatever the ruling names, is under
-   3,000 lines, and no new file is over 1,500.
+1. `kernel/src/sched.rs`, the parent (812's layout keeps it beside `kernel/src/sched/` rather than
+   as `sched/mod.rs`), is under 3,000 lines, and no new file is over 1,500 (§271, part 4).
 2. Every `pub` path callers use today still resolves, through `pub use` where needed, so no Rust file
    outside `sched` changes. The tooling, patches and citations listed above are the exception.
 3. `script/test` passes on aarch64, riscv64 and x86_64 with no test body changed.
@@ -138,5 +145,5 @@ These were found with `grep`, and a lane has to carry each one.
 
 `kernel/src/sched.rs` grew from 3,166 lines to 8,921, and three quarters of it is rendezvous,
 notifications, timers, capability deletion, region reaping and test hooks rather than scheduling.
-This splits it into modules under one unchanged lock. Where the boundaries fall, whether they are
-submodules or siblings, and every name are an architect's call.
+This splits it into submodules of `sched` under one unchanged lock, as §271 rules. Every module
+name is provisional.
