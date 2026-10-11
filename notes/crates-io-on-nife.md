@@ -52,8 +52,7 @@ script/crate-probes --keep           # leave the generated probe crates and thei
 PROVISIONAL NAME (milestone 64 (std), 2026-08-18): names
 are an architect's and this one is not ratified.
 
-It takes the account-wide `nife-dev` link (it calls `cargo xtask std-src`) and it needs the network,
-so it is not a CI gate and `script/test` does not run it. It builds for aarch64 only, deliberately:
+It needs the network, so it is not a CI gate and `script/test` does not run it. It builds for aarch64 only, deliberately:
 the PAL speaks the capability ABI rather than an ISA, so a second target would re-measure the same
 thing at twice the cost, and the parity that matters is `std_exerciser`'s, which `script/test` runs
 on both.
@@ -64,10 +63,10 @@ check fifty hand-written `main`s could not give anyone.
 
 ### What the harness is doing, which was this recipe
 
-One throwaway crate per probe, built against the linked `nife-dev` toolchain:
+One throwaway crate per probe, built against this checkout's patched std farm by path:
 
 ```sh
-cargo xtask std-src                      # build/refresh the patched-std farm, link nife-dev
+cargo xtask std-src                      # build/refresh the patched-std farm
 mkdir -p /tmp/probe/src && cd /tmp/probe
 cat > Cargo.toml <<'EOF'
 [package]
@@ -82,7 +81,7 @@ panic = "abort"
 EOF
 echo 'fn main() { println!("{}", regex::Regex::new("^a+$").unwrap().is_match("aaa")); }' > src/main.rs
 
-RUSTUP_TOOLCHAIN=nife-dev cargo build --release \
+RUSTUP_TOOLCHAIN=/path/to/nife/target/nife-farm cargo build --release \
     -Zjson-target-spec \
     -Zbuild-std=core,alloc,std,panic_abort \
     -Zbuild-std-features=compiler-builtins-mem \

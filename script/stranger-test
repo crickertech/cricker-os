@@ -82,11 +82,11 @@
 # run already writes because that is how the note records a run; nothing here is maintained by hand
 # for the tripwire's benefit. §74 put the audit cadences in the audit index for the same reason.
 #
-# What it restores. `script/test` inside the clone takes the account-wide `nife-dev` toolchain link,
-# because `xtask` rebuilds the std farm in whatever worktree ran it last. This script records where
-# the link pointed before the run and points it back afterwards, so a stranger's gate cannot leave
-# the machine's toolchain aimed at a directory that is about to be deleted. It also sweeps for QEMU
-# processes belonging to THIS clone and terminates only those.
+# What it cleans up. It sweeps for QEMU processes belonging to THIS clone and terminates only those.
+# The clone's `script/test` links a toolchain name of the clone's own (`nife-dev-nife-<hash>`,
+# notes/std.md), so it cannot move any other checkout's; once the clone is deleted, the next
+# `cargo xtask std-src` anywhere on the machine removes that dangling link. Until 2026-10-10 every
+# checkout shared one `nife-dev` link, and this script recorded and restored it.
 #
 # EXAMPLES
 #
@@ -140,8 +140,8 @@
 # for a contamination to take: it is now load-bearing for the result it corrupted.
 #
 # **It isolates a tree and cannot isolate a machine, which run 5 hit in its first ten minutes.**
-# `nife-dev` is an account-wide `rustup` link and this script records and restores it, which is
-# necessary and is not sufficient: **during** the run the clone's first `script/test` compiles
+# `nife-dev` was then an account-wide `rustup` link and this script recorded and restored it, which
+# was necessary and not sufficient: **during** the run the clone's first `script/test` compiles
 # `std` out of whichever worktree built the farm last, the `-Zbuild-std` dep-info caches those
 # absolute paths, and `std-aborts` reports them as a source defect with file and line numbers. So a
 # stranger told "the repository is in ./nife and it is the only thing you have; do not look for
@@ -595,30 +595,8 @@ done
 
 # --- what the machine holds that the run can break --------------------------------------------
 #
-# `script/test` calls `xtask std-src`, which repoints the account-wide `nife-dev` toolchain link at
-# whatever worktree ran it last. A stranger's gate takes it like any other lane, and unlike a lane
-# its worktree is about to be deleted, which breaks the toolchain for every other build on the
-# machine. Record where it pointed; put it back at the end.
-LINK="${RUSTUP_HOME:-$HOME/.rustup}/toolchains/nife-dev"
-nife_dev_before=""
-if [ -L "$LINK" ]; then
-    nife_dev_before="$(readlink "$LINK")"
-fi
-
-restore_toolchain() {
-    [ -n "$nife_dev_before" ] || return 0
-    now=""
-    if [ -L "$LINK" ]; then
-        now="$(readlink "$LINK")"
-    fi
-    [ "$now" != "$nife_dev_before" ] || return 0
-    echo "==> Restoring the account-wide nife-dev link to $nife_dev_before"
-    rustup toolchain link nife-dev "$nife_dev_before" >/dev/null 2>&1 || {
-        echo "stranger-test: could not relink nife-dev; do it by hand from the main checkout:" >&2
-        echo "               rustup toolchain link nife-dev $nife_dev_before" >&2
-    }
-}
-
+# A QEMU this clone started. Its toolchain link is its own and needs nothing here (the header's
+# "What it cleans up").
 sweep_qemu() {
     # `pgrep -f` cannot express this: the process must be QEMU AND must name this clone, and the
     # second half alone would match the stranger's own `cargo` and `claude` processes.
@@ -632,7 +610,6 @@ sweep_qemu() {
 
 finish() {
     sweep_qemu
-    restore_toolchain
 }
 trap finish EXIT INT TERM
 

@@ -250,7 +250,7 @@ const BUILT_ELSEWHERE: [&str; 9] = [
 
 /// **A `std` program the shell can spawn, built by its own workspace rather than a `[[bin]]`**
 /// (milestone 595 (provisional)). `grant_plan::Prog::StdExerciser` is the first: it is compiled with
-/// `-Zbuild-std` against the `nife-dev` toolchain (`cargo xtask std-exerciser`) and packed iff that
+/// `-Zbuild-std` against the patched std farm (`cargo xtask std-exerciser`) and packed iff that
 /// ran, so the `[[bin]]` rule cannot apply to it. Both halves are required, so a native `Prog`
 /// with no binary still fails, and so does a `std` one nothing here packs.
 fn is_std_built_elsewhere(p: grant_plan::Prog) -> bool {
@@ -343,8 +343,9 @@ pub(crate) fn initrd_riscv() -> bool {
     let Some(mut blobs) = declared_program_blobs("initrd-riscv", bin) else {
         return false;
     };
-    // The std demo (milestone 27), built through the nife-dev toolchain for the riscv custom
-    // target, rides along when present, exactly as on aarch64. `test` builds it first.
+    // The std demo (milestone 27 (Rust `std` on the native ABI)), built through the patched std
+    // farm for the riscv custom target, rides along when present, exactly as on aarch64. `test`
+    // builds it first.
     if let Ok(bytes) = read_stripped(
         &std_exerciser_elf("riscv64-unknown-nife")
             .display()

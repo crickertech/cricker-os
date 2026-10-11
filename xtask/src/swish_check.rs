@@ -2175,7 +2175,7 @@ fn swish_check_boot(
     // KVM when this host can give it, and only to the x86_64 leg: see [`kvm_is_usable`].
     let kvm = x86 && kvm_is_usable();
     // **`std_exerciser` is in this boot's archive only if it was built** (milestone 595
-    // (provisional)): `cargo xtask std-exerciser` compiles it against the `nife-dev` toolchain, which
+    // (provisional)): `cargo xtask std-exerciser` compiles it against this worktree's patched std farm, which
     // `script/test` runs and a bare `script/swish-check` does not. Without it the progenitor has no
     // image and the line would answer "could not spawn", which is a fact about this checkout rather
     // than the boot, so the line is skipped and says why. **Not in CI**, where `test` always builds

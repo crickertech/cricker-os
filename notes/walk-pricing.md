@@ -98,8 +98,8 @@ script/test --hvf --test a_walk_through           # nife, aarch64, the physical 
 cargo run --release -p walk_pricing --example host # the same walk on this host
 ```
 
-The HVF leg needs `cargo xtask std-src` behind it, which relinks the machine-wide `nife-dev`
-toolchain to the worktree that runs it.
+The HVF leg needs `cargo xtask std-src` behind it, which builds the worktree's own std farm (until
+2026-10-10 it also relinked the machine-wide `nife-dev` toolchain).
 
 ## Since then
 

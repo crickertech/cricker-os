@@ -254,7 +254,7 @@ the commit.
   runs in CI), provisional, added the `interleavings` job in `ci.yml`. It is required (calef, 2026-10-04 UTC).
 - **`script/crate-probes`** is the instrument behind fatal risk 1 (only software written for nife
   runs on nife), which is recorded GREEN. Its own `BUGS` explains why it is not a CI gate: it needs
-  the network and it takes the account-wide `nife-dev` toolchain link. Measured today: 43 of 50
+  the network. Measured today: 43 of 50
   built, 7 failed, in about 3 minutes including the std farm refresh. The recorded 43/7 split in
   `notes/crates-io-on-nife.md` still holds, and the seven failures are the same seven
   (`zip`, `ring`, `gix-config`, `gix`, `tar`, `diesel`, `rocket`). This is the one place the audit

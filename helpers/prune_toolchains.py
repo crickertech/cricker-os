@@ -25,11 +25,11 @@ What counts as pinned, and so is never touched:
     `~/.cache/nife-kani-riscv64/kani-<version>/src`, whose `rust-toolchain.toml` names its pin. Both
     are read, never hard-coded, so a Kani upgrade moves the pin with it;
   - anything that is not a dated `nightly-*`: `stable`, a numbered release such as `1.98.1`, and
-    `nife-dev`, which is a link (briefs/merge-and-cleanup.md step 4) and not an install.
+    the `nife-dev-*` links, which are each worktree's std farm (notes/std.md) and not installs.
 
-It runs on this Mac, at prune time, beside the `nife-dev` relink in briefs/merge-and-cleanup.md. It
-cannot live in the CI toolchain-bump workflow: that runs on a GitHub runner, whose `~/.rustup` is
-thrown away after every job, and it never sees this machine's.
+It runs on this Mac, at prune time (briefs/merge-and-cleanup.md). It cannot live in the CI
+toolchain-bump workflow: that runs on a GitHub runner, whose `~/.rustup` is thrown away after every
+job, and it never sees this machine's.
 
 BUGS
   - A worktree is the only pin it knows. A branch that is not checked out, or a `cargo +nightly-...`

@@ -67,8 +67,8 @@ so none of them depend on a laptop being awake.
 - Boards. `script/board-console`, `script/board-netboot` and the UART rig need patagonia's desk.
 - `helpers/at-risk-check.sh` under `launchd`. It watches patagonia's lane worktrees and nothing
   else. A container has no launchd and nothing watches it, so commit and push before every pause.
-- `nife-dev` relinking. It is one symlink per user account, so a cloud session has its own, and
-  `briefs/merge-and-cleanup.md` step 4 is a no-op unless something gated locally.
+- Toolchain links. They live in each user account's `~/.rustup`, so a cloud session has its own,
+  and `briefs/merge-and-cleanup.md` step 4 is a no-op unless something gated locally.
 - `script/effort` and the local half of `script/cadence-check`, which read `~/.claude/projects` from
   patagonia's own session records. A container has only its own.
 - Memory files under `~/.claude` on the Mac. Anything a session must know is in `AGENTS.md`,

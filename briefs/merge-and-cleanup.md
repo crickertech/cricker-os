@@ -2,12 +2,12 @@
 steward role, a pull request you were watching has just landed, and the lane that produced it is
 finished. Do the work; do not ask questions.
 
-Where this came from. The three clauses below lived in `AGENTS.md` (the merge-checklist line,
-the prune-the-worktree paragraph, and the `nife-dev` relink), moved here on 2026-09-23 by the
-extraction that milestone 579 (which of the constitution must be carried, and which is a brief)
-proposed. They fire at one event and are performed by one role, which is the whole test that moved
-them. The constitution keeps a pointer and keeps the one clause that is genuinely ambient, which is
-that every lane takes `nife-dev` and nobody should try to stop it.
+Where this came from. The three clauses below lived in `AGENTS.md` (the merge-checklist line, the
+prune-the-worktree paragraph, and the `nife-dev` relink, retired 2026-10-10), moved here on
+2026-09-23 by the extraction that milestone 579 (which of the constitution must be carried, and
+which is a brief) proposed. They fire at one event and are performed by one role, which is the whole test that moved
+them. The constitution keeps a pointer. Its one ambient clause, that every lane takes `nife-dev`,
+stopped being true on 2026-10-10, when each worktree got a toolchain name of its own.
 
 Why the mechanics belong in a file rather than in prose nobody re-reads. The failure this
 prevents is the one failure in this system that destroys work rather than delaying it, and it has
@@ -79,23 +79,17 @@ machine on 2026-09-23, ten lane worktrees held between 1.0 GB and 4.8 GB of `tar
 check at the top of this brief and the reason not to reach for `--force`. If it refuses, go back and
 find out whose work you are about to delete.
 
-### 4. Relink `nife-dev` from the main checkout
+### 4. The toolchains
 
-`nife-dev` is one `rustup` symlink for the whole user account, not one per worktree, so it means
-whichever worktree ran `xtask std-src` last. Every lane that gates takes it, unavoidably, because
-`script/test` calls `std_src()` transitively and a fresh worktree always has a cold farm. That is
-expected and is not a lane misbehaving. The integrator's duty is to put it back:
+There is no relink. Since 2026-10-10 each worktree links its farm under its own name,
+`nife-dev-<directory>-<hash>`, and the next `cargo xtask std-src` anywhere on the machine removes
+the link a pruned worktree left (notes/std.md). The bare `nife-dev` link that every lane used to
+take is now written only by lanes cut before that date. Once `gh pr list --draft` shows none of
+them still open, remove it once, and this paragraph with it:
 
-    cd "$(git rev-parse --path-format=absolute --git-common-dir)/.."
-    rustup toolchain link nife-dev "$(pwd)/target/nife-farm"
+    rustup toolchain uninstall nife-dev
 
-The `cd` lands in the main checkout from any worktree on any host. In a cloud session where nothing
-gated locally, `rustup toolchain list | grep nife-dev` prints nothing, and there is nothing to relink.
-
-Run it from the main checkout, never from a lane worktree, and run it after pruning rather than
-before, since pruning a worktree the link points into leaves it dangling.
-
-Then the toolchains. Every toolchain bump installs a new dated nightly and nothing removes the old
+Then the dated nightlies. Every toolchain bump installs a new dated nightly and nothing removes the old
 one; on 2026-10-06 fifteen of them held 30 GB of `~/.rustup`. calef approved removing them once
 nothing pins them:
 
@@ -103,11 +97,10 @@ nothing pins them:
     python3 helpers/prune_toolchains.py --remove
 
 It keeps every worktree's `rust-toolchain.toml` pin, Kani's pin (read from the installed Kani), and
-anything not a dated nightly, so `stable` and `nife-dev` are never touched. It runs after the prune,
-because a removed worktree releases its pin. It cannot run in the CI toolchain-bump workflow, whose
-runner has its own throwaway `~/.rustup` and never sees this Mac's.
-`notes/std.md` has the mechanism, the 2026-08-18 cross-contamination that prompted the rule, and why
-relinking loudly still does not make concurrent lanes safe.
+anything not a dated nightly, so `stable` and the `nife-dev-*` links are never touched. It runs
+after the prune, because a removed worktree releases its pin. It cannot run in the CI
+toolchain-bump workflow, whose runner has its own throwaway `~/.rustup` and never sees this Mac's.
+`notes/std.md` has the mechanism and the history of the shared link this replaced.
 
 ## EXAMPLES
 
@@ -138,13 +131,10 @@ A clean removal of a merged lane:
     Deleted branch milestone/315-port-revocation-two-core (was 10c669ecd).
     $ git worktree prune
 
-And the relink, confirmed by reading it back:
+And the pruned worktree's toolchain link, gone after the next `std-src` anywhere:
 
-    $ rustup toolchain list -v | grep nife-dev
-    nife-dev /work/nife/target/nife-farm
-
-If that path names a worktree under `nife-worktrees/` rather than the main checkout, the link is
-pointing at a lane and step 4 has not been done (or has been undone by a lane that gated since).
+    $ cargo xtask std-src 2>&1 | grep removed
+    std-src: removed `nife-dev-315-port-revocation-two-core-5c0e19a2`, whose worktree's farm no longer exists
 
 ## Stop, do not improvise
 
@@ -173,8 +163,7 @@ Three things are outside this brief. Stop and hand them back rather than guessin
   once at scale: milestone 94 (the untracked-work sweep, and the convention that ends the category)
   left its own inventory in a pull request body for twelve days, by which point the item-level list
   was gone and had to be re-derived (`notes/untracked-work-sweep.md`).
-- **The `nife-dev` relink is racy and this brief does not fix that.** Another lane can gate and take
-  the link between step 4 and the next time anyone looks. `notes/std.md` records why relinking loudly
-  does not make concurrent lanes safe; there is no version of this step that stays true.
+- **A pruned worktree's toolchain link lingers until some worktree next runs `std-src`.** It is
+  dangling and breaks nothing, since no other worktree resolves through it.
 - The example paths are invented. The main checkout is whatever your clone is, and lanes live in
   `nife-worktrees` beside it (the worktree root); nothing checks that your layout matches.

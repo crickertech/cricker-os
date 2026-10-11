@@ -30,13 +30,13 @@ OUT="$ROOT/target/cryptography-exerciser"
 # Measured in CI on 2026-10-10 (UTC), separate directories: 83 s here and 85 s there.
 BUILD="$ROOT/target/tls-graph"
 
-# The patched std lives in the `nife-dev` toolchain, which `xtask std-src` builds and links.
-# `RUSTUP_TOOLCHAIN` rather than `+nife-dev` for the reason `xtask::std_exerciser` records: the
+# The patched std lives in this checkout's farm, which `xtask std-src` builds and links.
+# `RUSTUP_TOOLCHAIN` rather than a `+toolchain` selector for the reason `xtask::std_exerciser` records: the
 # cargo proxy exports `RUSTUP_TOOLCHAIN=nightly`, which would override a `+` selector. A
 # `rust-toolchain.toml` naming `nife-dev` is NOT an alternative here: milestone 442's lane measured
 # it getting `aarch64-unknown-nife` wrong on an aarch64 host while the other two stayed right, and
 # `script/crypto-probes`' header records the whole trap. And by path rather than by name
-# (2026-09-30): the name is account-wide and a concurrent lane steals it mid-run; `std-src` above
+# (2026-09-30): the name was then account-wide and a concurrent lane stole it mid-run; `std-src` above
 # has just built "$ROOT/target/nife-farm", so the path is this checkout's own farm.
 (cd "$ROOT" && cargo xtask std-src)
 

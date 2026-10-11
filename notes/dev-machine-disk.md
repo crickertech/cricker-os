@@ -125,15 +125,15 @@ what the snapshots still hold:
 
 The main checkout holds 10 GiB in `target/` and about 5 GiB more in its sub-workspaces'
 `target/` directories (`fs_server`, `tools/redoxfs_host`, `redoxfs_server` and the rest). Its
-`target/` churns at every merge, because the maintainer rebuilds the farm there to relink
-`nife-dev`. Move it with a symlink:
+`target/` churns at every merge, because the maintainer rebuilds the farm there. Move it with a
+symlink:
 
     cd <main checkout>
     rm -rf target
     mkdir /Volumes/nife-build/nife-main-target
     ln -s /Volumes/nife-build/nife-main-target target
     git status --short | grep target            # prints nothing
-    cargo xtask std-src                         # rebuilds the farm and links nife-dev to it
+    cargo xtask std-src                         # rebuilds the farm and links its toolchain name
 
 **Symlink rather than `CARGO_TARGET_DIR`.** Exported in a shell profile, `CARGO_TARGET_DIR` would
 send every worktree to one target directory. It also moves only what cargo writes. The farm
@@ -188,15 +188,16 @@ metadata` and `git rev-parse --show-toplevel` both print the physical path. So t
 the move is a full rebuild, every artifact records `/Volumes/nife-build/...`, and `xtask`'s
 `workspace_root()` (read at run time from `CARGO_MANIFEST_DIR`) returns the physical path too.
 
-### The `nife-dev` link
+### The toolchain links
 
-`rustup toolchain link` stores a path string. If it names a worktree's farm,
-step 3 deleted that farm and the link dangles. Step 4 relinks it to the main checkout's farm
-(`rustup toolchain list -v | grep nife-dev` shows where it points; on 2026-10-06 it named
-`779-confined-fuzz`). A link spelled through `~/projects/nife/target` keeps working after the main
-checkout's `target/` becomes a symlink. `relink_farm_if_stolen()` and `foreign_std_sources()`
+`rustup toolchain link` stores a path string. Each worktree links its own farm as
+`nife-dev-<directory>-<hash>` (notes/std.md), so step 3 leaves a moved worktree's link dangling,
+and its next `cargo xtask std-src` relinks it; any worktree's `std-src` removes the dangling links
+of worktrees that are gone. A link spelled through `~/projects/nife/target` keeps working after
+the main checkout's `target/` becomes a symlink. `link_own_toolchain()` and `foreign_std_sources()`
 canonicalize both sides before comparing, so the mixed spellings do not cause a relink on every
-call or a false accusation.
+call or a false accusation. The legacy shared `nife-dev` link (on 2026-10-06 it named
+`779-confined-fuzz`) is the maintainer's to remove once no lane predates 2026-10-10.
 
 ### Scripts that spell the worktrees path or resolve paths
 

@@ -105,13 +105,12 @@ it fails that lane's run for a reason it cannot see from inside itself. Kill the
 processes are contending for the same image file, `lsof target/nifefs.img` (or the relevant image)
 names the actual holder faster than guessing from process names.
 
-## The `nife-dev` toolchain link, and saying so
+## The toolchain link is your worktree's own
 
-`script/test` (which this brief does not run) and some of the cheap gates transitively touch
-`rustup toolchain link nife-dev`, which is one symlink for the whole user account, not one per
-worktree. A lane that gates takes this link, unavoidably; that is expected, not a bug in your
-run. Say in your final report that you gated, so the person merging your work knows to relink
-`nife-dev` from the main checkout afterward. Do not try to relink it yourself from a lane worktree.
+`script/test` (which this brief does not run) and some of the cheap gates link the patched std
+farm as `nife-dev-<your worktree's directory>-<hash>`, a `rustup` name no other worktree computes
+(notes/std.md). It takes nothing from another lane and needs no relink afterward. Do not touch the
+bare `nife-dev` link: lanes cut before 2026-10-10 still write it, and only the maintainer removes it.
 
 ## Scratch files carry a lane-unique prefix
 

@@ -23,7 +23,7 @@
 //! BUGS
 //!
 //! - The A/B covers what the bench leg builds with the pinned toolchain. Userspace built through the
-//!   `nife-dev` farm (the std programs) is packed into both runs identically if it exists, so any
+//!   patched std farm (the std programs) is packed into both runs identically if it exists, so any
 //!   compiler term there is invisible to this. No bench row is known to depend on it.
 //! - The term is measured on whatever machine runs this (CI's `x86_64` runner, in the bump workflow),
 //!   and applied to floors recorded on another (patagonia). On #1335 the two hosts read the same
