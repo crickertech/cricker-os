@@ -327,6 +327,14 @@ bodies = {}
 for fname in sorted(os.listdir(d)):
     if fname == "README.md":
         continue
+    # §212 (a prose budget)'s default appendix siting: a directory named for its parent, beside
+    # it, so `0139-cycle-counter-authority/` holds the appendices of
+    # `0139-cycle-counter-authority.md` (the first, split on 2026-10-11 UTC by calef's ruling). Its
+    # files are not decisions and are not read here; helpers/prose_ratchet.py's orphan check holds
+    # each to a link from the parent. A directory with no parent is still refused below.
+    if os.path.isdir(os.path.join(d, fname)) and os.path.isfile(os.path.join(d, fname + ".md")) \
+            and FNAME.fullmatch(fname + ".md"):
+        continue
     m = FNAME.fullmatch(fname)
     if not m:
         problems.append(f"{fname}: not the index and not a decision file "
