@@ -387,6 +387,7 @@ place instead of moving text between two systems. Numbers 68 to 73 are the six t
 | 268 | DECIDED | [The cast ratchet does not count a 64-bit integer cast to `usize`](0268-the-cast-ratchet-does-not-count-a-64-bit-integer-cast-to-usize.md) |
 | 269 | DECIDED | [How threads share a process: the seven thread forks](0269-how-threads-share-a-process.md) |
 | 270 | DECIDED | [A package manager holds an installer endpoint, not the spawn endpoint](0270-a-package-manager-holds-an-installer-endpoint-not-the-spawn-endpoint.md) |
+| 274 | PROPOSED | [The filesystem-protocol crate root splits into its module files](0274-the-filesystem-protocol-crate-root-splits-into-its-module-files.md) |
 
 Two blocks that lived among the decisions are not decisions and moved out with the split, the same
 way milestone 76 moved four essays out of the roadmap: [the open design
