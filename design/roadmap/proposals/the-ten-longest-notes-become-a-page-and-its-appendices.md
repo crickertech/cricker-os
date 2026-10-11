@@ -56,7 +56,8 @@ The ten hold 69,190 words above the cap, 22% of the tree's excess. `notes/unsafe
 - `design/decisions/0139-cycle-counter-authority.md` (9,481, 17 citing files). A developer never
   edits `design/decisions/`. It is a DECIDED section calef ratified, and its text is what other
   files quote, so a split moves words he signed and breaks glosses that point at them. It goes to
-  calef as open question 1 below. If he says split, the maintainer does it on its own branch.
+  calef as open question 1 below. If he says split, the maintainer does it on its own branch. He
+  said split on 2026-10-11 (UTC), and question 1 records where it was done.
 - `design/roadmap/0161-x86-64-kernel-port.md` (9,655, 8 citing files). It is another milestone's
   block, which a developer may not edit. Roadmap blocks as a class stay under the cap, so it owes a
   split, but its rank is low (77,240 words times readers against 218,214 for the lowest note
@@ -139,9 +140,11 @@ since each outsider pass adds to it.
 
 ## Open questions for an architect
 
-1. Is `design/decisions/0139-cycle-counter-authority.md` split by the maintainer, or does it get a
-   marked exception like milestones 47 and 139? The recommendation is to split it: 17 files cite
-   it, and a decision is read in order to decide, the case §212 wrote the cap for.
+1. Resolved: split, by the maintainer (calef, 2026-10-11 UTC). The question was whether
+   `design/decisions/0139-cycle-counter-authority.md` is split or gets a marked exception like
+   milestones 47 and 139. The recommendation was to split it: 17 files cite it, and a decision is
+   read in order to decide, the case §212 wrote the cap for. The maintainer did the split on
+   `maintainer/split-decision-0139`.
 2. The appendix names, as for every split. The lane ships them provisional and keeps going.
 
 ## Lane shape
