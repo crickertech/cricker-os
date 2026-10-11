@@ -213,9 +213,13 @@ three new names ratified and carrying eight refusals between them.
   maintainer repointed the appendix's citation to `components/src/network_time_client.rs` on
   2026-10-11 (UTC). The other sits in calef's ruling on the main page and stays as written; its
   content is still true of `network_time_client.rs`, and only the path is stale.
-- `design/roadmap/0106-deadline-wait.md` cites `components/src/ntp.rs:44`, `:188` in its table of
-  what a timed wait would fix. Same shape, same reason it is not edited here (another milestone's
-  block), same remedy.
+- `design/roadmap/0106-deadline-wait.md` cited `components/src/ntp.rs:44`, `:188` in its table of
+  what a timed wait would fix. Fixed, checked by the maintainer on 2026-10-11 (UTC). The citation
+  had already left that block on 2026-09-26, when milestone 106 (a wait that ends on either the
+  interrupt or the deadline) was recorded BUILT in commit `27e501401` and the table was replaced.
+  So there was nothing there to repoint. The two lines it meant are
+  `components/src/network_time_client.rs:61` (the module docs' one-shot section) and `:183`
+  (`RETRY_GAP_NANOS`), and the retry gap now sleeps on a timer.
 - The report vocabulary is one numbering space across three programs that no longer share a
   binary. The numbers were kept exactly where they were so that a boot log from before this
   milestone still reads, and `ntp_service::rpt` is the one place that holds all eight. The cost is
