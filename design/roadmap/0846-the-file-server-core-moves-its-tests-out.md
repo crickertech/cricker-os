@@ -1,8 +1,9 @@
 ---
-status: NOT-STARTED
+status: IN-PROGRESS
 raised: 2026-10-08
+branch: milestone/846-the-file-server-core-moves-its-tests-out
 milestone_dependencies: none
-decision_dependencies: 266
+decision_dependencies: 266, 275
 machine_requirements: none
 specific_machine: none
 needs_person: no
@@ -20,6 +21,9 @@ reaches a different answer, because the file is mostly tests.
 The file layout and every name below are calef's call. A lane writes them up as a
 `status: PROPOSED` file in `design/decisions/` before it moves a line, and its pull request
 carries `needs-architect`.
+
+The lane wrote it up on 2026-10-10 (UTC) as §275 (the file server core's tests move into child modules by topic), `status: PROPOSED`, with the cut re-measured
+on main at `396187b0b` and a recommendation on each fork. Nothing moves until calef rules.
 
 Reuse: not applicable; this moves code and adds none.
 
