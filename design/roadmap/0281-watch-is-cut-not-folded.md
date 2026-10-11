@@ -138,8 +138,9 @@ from the flag.
   `crates/ps`'s `BUGS` records; this does not widen that gap but it does remove the one neighboring
   line that would have caught a regression in the domain grant at a real prompt.
 - `design/decisions/0139-cycle-counter-authority/trap-and-emulate.md`, that decision's appendix since
-  2026-10-11, still cites `components/src/watch.rs:171` as one of its spin-yield sites, and a developer lane may not edit a decision, so it is named here for the
-  integrator. This bullet used to name `design/roadmap/0126-who-else-is-running.md` too, for
+  2026-10-11, cited `components/src/watch.rs:171` as one of its spin-yield sites, and a developer
+  lane may not edit a decision, so it was named here for the integrator. The maintainer noted the
+  deletion in place in that appendix on 2026-10-11 (UTC). This bullet used to name `design/roadmap/0126-who-else-is-running.md` too, for
   describing `watch` in the present tense; pull request #1349 (milestone 126 (the `procps` package: who else is running)'s re-sweep) fixed that
   on 2026-09-26. `design/roadmap/0158-kernel-object-rename-build.md` is `BUILT` and correctly keeps
   the old names: it is an account.

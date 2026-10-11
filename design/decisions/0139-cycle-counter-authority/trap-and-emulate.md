@@ -114,8 +114,13 @@ would not care. Four shapes would.
    services costs at least two counter reads, and at 1.7 microseconds each that is a per-packet tax
    on the one server in this tree with a throughput number.
 2. `components/src/watch.rs:171`, `while monotonic_nanos() < deadline { yield_now(); }`. A spin-yield
-   standing in for the timed wait this kernel does not have, one counter read per iteration.
-3. `components/src/ntp.rs:382`, the retry gap, the identical shape.
+   standing in for the timed wait this kernel does not have, one counter read per iteration. That
+   program is gone: milestone 281 (`watch` holds exactly what `ps` holds, so it is nothing) deleted
+   it on 2026-09-13 (noted here 2026-10-11 UTC).
+3. `components/src/ntp.rs:382`, the retry gap, the identical shape. As of 2026-10-11 (UTC) it is
+   `poll_gap` in `components/src/network_time_client.rs:402` to `:405`. Since 2026-09-26 the spin
+   is only the fallback. The client first sleeps on a timer from milestone 106 (a wait that ends on
+   either the interrupt or the deadline), and spins only when its untyped cannot pay for one.
 4. `fixtures/src/login_test_client.rs:573` to `:580`, a polling loop reading the counter up to three
    times per iteration.
 
