@@ -126,7 +126,7 @@ design/decisions/0133-idle-core-self-rescue.md	-	-	54	-	-
 design/decisions/0134-harness-falsification-record.md	3945	-	71	-	-
 design/decisions/0137-trng-health-tests.md	-	-	44	-	-
 design/decisions/0138-cross-core-handoff-under-load.md	6113	-	50	-	-
-design/decisions/0139-cycle-counter-authority.md	9481	-	73	-	-
+design/decisions/0139-cycle-counter-authority.md	-	-	55	-	-
 design/decisions/0140-follow-on-disposition-vocabulary.md	-	-	56	-	-
 design/decisions/0142-spawn-retention.md	5801	-	70	-	-
 design/decisions/0143-machine-names-in-source.md	-	-	42	-	-

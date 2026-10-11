@@ -207,7 +207,8 @@ three new names ratified and carrying eight refusals between them.
 ## BUGS
 
 - Two entries in `design/decisions/0139-cycle-counter-authority.md` cite `components/src/ntp.rs`, a
-  path that no longer exists, one of them with a line number. A lane may not edit
+  path that no longer exists, one of them with a line number. That one moved on 2026-10-11 to the
+  appendix `design/decisions/0139-cycle-counter-authority/trap-and-emulate.md`. A lane may not edit
   `design/decisions/`, so they are named here and in this lane's report for the integrator. The
   content is still true of `network_time_client.rs`; only the path is stale.
 - `design/roadmap/0106-deadline-wait.md` cites `components/src/ntp.rs:44`, `:188` in its table of

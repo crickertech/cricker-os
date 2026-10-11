@@ -137,8 +137,8 @@ from the flag.
   with the program. `ps` and `pgrep` were already reachable only from an interactive prompt, which
   `crates/ps`'s `BUGS` records; this does not widen that gap but it does remove the one neighboring
   line that would have caught a regression in the domain grant at a real prompt.
-- `design/decisions/0139-cycle-counter-authority.md` still cites `components/src/watch.rs:171` as one of
-  its spin-yield sites, and a developer lane may not edit a decision, so it is named here for the
+- `design/decisions/0139-cycle-counter-authority/trap-and-emulate.md`, that decision's appendix since
+  2026-10-11, still cites `components/src/watch.rs:171` as one of its spin-yield sites, and a developer lane may not edit a decision, so it is named here for the
   integrator. This bullet used to name `design/roadmap/0126-who-else-is-running.md` too, for
   describing `watch` in the present tense; pull request #1349 (milestone 126 (the `procps` package: who else is running)'s re-sweep) fixed that
   on 2026-09-26. `design/roadmap/0158-kernel-object-rename-build.md` is `BUILT` and correctly keeps
@@ -155,8 +155,8 @@ from the flag.
   `design/roadmap/0126-who-else-is-running.md`, which had still described `watch` in the present
   tense. It now lists `watch` as built 2026-08-24 and cut 2026-09-13 by this milestone. Resolved
   2026-09-26 by the integrator on `maintainer/126-followups`.
-- **Recorded.** `design/decisions/0139-cycle-counter-authority.md` names one of this program's lines
-  as a spin-yield site, and a developer lane may not edit a decision. It is in this block's own
+- **Recorded.** `design/decisions/0139-cycle-counter-authority/trap-and-emulate.md` names one of this
+  program's lines as a spin-yield site, and a developer lane may not edit a decision. It is in this block's own
   `BUGS`, for the integrator.
 
 ## Index row
