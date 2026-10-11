@@ -141,8 +141,8 @@ says the boot tour printed *"the full table list"*, but the transcript is a phot
 in this tree names an HPET on xenon, and nothing has read its `NUM_TIM_CAP`. So the x86_64 row is
 "the architecture has a spare, and this project has not looked at its own machine's".
 
-`design/decisions/0139-cycle-counter-authority.md` already read the HPET specification for a different
-purpose and its findings apply: the architectural floor is 100 ns per tick, the common part runs at
+`design/decisions/0139-cycle-counter-authority/x86-clock-sources.md` already read the HPET
+specification for a different purpose and its findings apply: the architectural floor is 100 ns per tick, the common part runs at
 14.31818 MHz, and a *read* costs several microseconds, which is why Linux deleted the vDSO mapping.
 None of that prices arming one, which is a write and a one-shot interrupt rather than a polled
 read, so §139's conclusion (the HPET loses to a syscall as a *clock*) does not carry over to using it
