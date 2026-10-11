@@ -1,8 +1,9 @@
 ---
-status: NOT-STARTED
+status: IN-PROGRESS
 raised: 2026-10-08
+branch: milestone/842-the-grant-plan-crate-root-is-split-along-its-seams
 milestone_dependencies: none
-decision_dependencies: 266
+decision_dependencies: 266, 272
 machine_requirements: none
 specific_machine: none
 needs_person: no
@@ -20,6 +21,9 @@ scheduler file is split along its seams) is the model for this block.
 The cut and every module name below are calef's call. A lane writes them up as a
 `status: PROPOSED` file in `design/decisions/` before it moves a line, and its pull request
 carries `needs-architect`.
+
+The lane wrote it up on 2026-10-10 (UTC) as §272 (the grant-plan crate root splits into private modules), `status: PROPOSED`, with the cut re-measured
+on main at `396187b0b` and a recommendation on each fork. Nothing moves until calef rules.
 
 Reuse: not applicable; this moves code and adds none. The crate already has seven submodules
 (`expand`, `job_page_frame`, `job_windows`, `line`, `nav`, `spawnproto`, `word`), which is the
