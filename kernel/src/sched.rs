@@ -91,9 +91,9 @@ pub use configure::{
 #[cfg_attr(not(feature = "system_tests"), allow(unused_imports))]
 pub use futex::{futex_queued, futex_waiters};
 pub use futex::{futex_wait, futex_wake, is_current_space};
-#[cfg(feature = "system_tests")]
-pub use process::process_state;
 pub use process::{ProcessId, create_process_from, destroy as destroy_process, with_holders};
+#[cfg(feature = "system_tests")]
+pub use process::{process_state, reap_corpses_now, strand_member};
 
 /// **The running thread's capability table, per core** (provisional name, 2026-10-04 UTC): what
 /// [`current_cap`] reads instead of taking `IPC_TABLES` to find the thread.
@@ -2469,11 +2469,11 @@ pub fn schedule() {
         // The *test* stays here, on the hot path, because it is two loads and a compare. The
         // *body* is out of line (milestone 188 phase 3): converting a killed thread and freeing its
         // callers is a teardown, so its bytes have no business in the kernel's hottest function.
-        if sched
-            .threads
-            .get(current)
-            .is_some_and(|t| t.killed && t.handshake.state == State::Running)
-        {
+        if sched.threads.get(current).is_some_and(|t| {
+            t.killed
+                && (t.handshake.state == State::Running
+                    || (t.handshake.state == State::Blocked && !t.handshake.wake_pending))
+        }) {
             finish_killed_current(sched, current);
         }
         let state = sched.threads.get(current).map(|t| t.handshake.state);
@@ -2769,6 +2769,15 @@ pub fn schedule() {
 #[cold]
 #[inline(never)]
 fn finish_killed_current(sched: &mut IpcTables, current: ThreadId) {
+    // A killed thread that has just parked itself (milestone 812: a process member its process's
+    // end marked killed while it ran) is unlinked from what it waits on, since nothing will wake it.
+    if sched
+        .threads
+        .get(current)
+        .is_some_and(|t| t.handshake.state == State::Blocked)
+    {
+        finish_blocked_resident(sched, current);
+    }
     if let Some(t) = sched.threads.get_mut(current) {
         t.handshake.state = State::Finished;
     }

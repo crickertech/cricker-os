@@ -52,7 +52,10 @@ table with no member must never be joined again.
 Ending it ends every other member. A blocked member is finished in place, and reaped as soon as the
 member that ended the process is (or by `DESTROY` itself), since nothing will switch it out again.
 A ready or running one is marked killed and dies at its next preemption, the §16 (object
-revocation) amendment's mechanism.
+revocation) amendment's mechanism. A killed member that parks before that preemption is finished
+by `schedule()` instead of sleeping. One caught mid-switch-out when the end came is finished by the
+same sweep that reaps the others, which waits briefly for its core to let it go. CI's `thead-c906`
+leg found that last case through `rayon`'s workers, which spin and then sleep.
 
 Supervision stays on the thread, as it was. The first member's `START` takes the reserved fault slot
 out of the shared table, so a sibling started later is unsupervised. When the process ends, the
@@ -75,7 +78,8 @@ falsification:
 - a destroyed region ends its process and a member that lives in another region.
 
 `std_threads_tests::rayons_parallel_sum_runs_on_every_online_core` proves the reaping of blocked
-members: `rayon`'s idle workers are asleep on a futex when its `main` returns.
+members: `rayon`'s idle workers are asleep on a futex when its `main` returns. `a_member_stranded_killed_on_a_futex_is_finished_and_reaped` stages the mid-switch case's
+outcome, since the race itself cannot be staged on demand.
 
 ## BUGS
 

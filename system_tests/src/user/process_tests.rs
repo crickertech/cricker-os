@@ -661,3 +661,70 @@ fn a_destroyed_region_ends_the_process_in_it_and_its_members() {
     }
     sched::reclaim_region(threads).expect("the thread region did not come back");
 }
+
+/// **A member stranded killed on a futex is finished and reaped, not kept forever.** A member that
+/// was mid-way into blocking when its process ended is marked killed rather than finished, because
+/// it is still on its core; once its switch-out completes it is parked with nothing left to wake
+/// it. CI's `thead-c906` leg met it as `rayon`'s workers, which spin and then sleep. The race cannot
+/// be staged on demand, so this stages its outcome (`sched::strand_member`) and asks the sweep that
+/// runs after a departing member's reap to clear it: the member is gone, nothing is left on the
+/// futex, and the process has no member and no space.
+///
+/// Falsification: replayable `system_tests/falsifications/user.process_tests.a_member_stranded_killed_on_a_futex_is_finished_and_reaped.patch`
+#[test_case]
+fn a_member_stranded_killed_on_a_futex_is_finished_and_reaped() {
+    let region = crate::memory_region::create(32).expect("no region");
+    let (space, _) = lay_out(region, &[super::futex_tests::WAITER]);
+    let (process, pid) = create_process(region, space);
+    let (waiter, waiter_tcb) = join(region, process, 0, STACK_VA);
+    let reader = sched::grant(crate::cap::address_space_cap(
+        space,
+        Rights::READ.union(Rights::GRANT),
+    ))
+    .expect("grant");
+    assert_eq!(
+        call(
+            waiter_tcb,
+            abi::thread_control_block::CAP_INSERT,
+            reader,
+            Rights::READ.bits() as u64,
+            1, // slot 0
+        ),
+        Ok(0),
+        "CAP_INSERT into a member refused",
+    );
+    sched::start_thread_control_block(waiter, [0, VA, PRIVATE | SIZE_U32]).expect("start");
+    assert!(
+        wait_for(5, || sched::futex_waiters(space, VA) == 1),
+        "the waiter never parked",
+    );
+
+    sched::strand_member(pid, waiter);
+    sched::reap_corpses_now(pid);
+    assert!(
+        wait_for(5, || !sched::is_thread_present(waiter)),
+        "a member stranded killed on a futex was never finished",
+    );
+    assert_eq!(
+        sched::futex_waiters(space, VA),
+        0,
+        "the finished member is still on the futex"
+    );
+    assert_eq!(
+        sched::process_state(pid),
+        Some((0, true)),
+        "the process kept its member"
+    );
+    assert!(
+        wait_for(5, || user_address_space_root(space).is_none()),
+        "the process's space outlived its last member",
+    );
+
+    for slot in [process, waiter_tcb, reader] {
+        let _ = sched::delete_current_cap(slot);
+    }
+    assert!(
+        wait_for(5, || sched::reclaim_region(region).is_ok()),
+        "the process's region did not come back"
+    );
+}

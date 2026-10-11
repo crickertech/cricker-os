@@ -373,24 +373,49 @@ pub(super) fn reap_corpse(
 /// `std` program whose idle workers sleep on a futex at `exit` keeps its space until its region is
 /// destroyed. A supervised member is `Dead`, not `Finished`, and waits for its supervisor's `REAP`.
 pub(super) fn reap_corpses(pid: ProcessId) {
+    // A killed member that was mid-way into blocking when the end came is still on another core for
+    // a moment, finishing its switch-out. It is waited for, a bounded spin with the lock released
+    // (this runs inside a reaper, where yielding would re-enter the scheduler), and then finished
+    // where it stopped.
+    let mut grace = 10_000u32;
     loop {
         let mut guard = IPC_TABLES.lock();
-        let corpse = guard.as_mut().and_then(|sched| {
-            sched
-                .threads
-                .iter_mut()
-                .find(|t| {
-                    t.process == Some(pid)
-                        && t.handshake.state == State::Finished
-                        && !t.handshake.on_cpu
-                        && !t.being_reaped
-                })
-                .map(|t| t.id)
-        });
-        let Some(tid) = corpse else {
+        let Some(sched) = guard.as_mut() else {
             return;
         };
-        reap_corpse(guard, tid);
+        let member = |t: &Thread| t.process == Some(pid) && !t.being_reaped;
+        let stranded = |t: &Thread| member(t) && t.killed && t.handshake.state == State::Blocked;
+        let corpse = sched
+            .threads
+            .iter_mut()
+            .find(|t| member(t) && t.handshake.state == State::Finished && !t.handshake.on_cpu)
+            .map(|t| t.id);
+        if let Some(tid) = corpse {
+            reap_corpse(guard, tid);
+            continue;
+        }
+        let parked = sched
+            .threads
+            .iter_mut()
+            .find(|t| stranded(t) && !t.handshake.on_cpu && !t.handshake.wake_pending)
+            .map(|t| t.id);
+        if let Some(tid) = parked {
+            finish_blocked_resident(sched, tid);
+            report_if_supervised(sched, tid);
+            continue;
+        }
+        let switching = sched
+            .threads
+            .iter_mut()
+            .any(|t| stranded(t) && t.handshake.on_cpu);
+        drop(guard);
+        if !switching || grace == 0 {
+            return;
+        }
+        grace -= 1;
+        for _ in 0..64 {
+            core::hint::spin_loop();
+        }
     }
 }
 
@@ -526,4 +551,27 @@ pub fn process_state(pid: ProcessId) -> Option<(u32, bool)> {
     let guard = IPC_TABLES.lock();
     let sched = guard.as_ref()?;
     process_of(sched, pid).map(|p| (p.members, p.ended))
+}
+
+/// **Strand a member for a test**: `pid` ended and `tid` killed while `tid` stays parked, which is
+/// what a member mid-way into blocking when its process ended looks like once its switch-out is
+/// done. The race cannot be staged on demand; this stages its outcome for [`reap_corpses`].
+#[cfg(feature = "system_tests")]
+pub fn strand_member(pid: ProcessId, tid: ThreadId) {
+    let mut guard = IPC_TABLES.lock();
+    let Some(sched) = guard.as_mut() else {
+        return;
+    };
+    if let Some(process) = process_of(sched, pid) {
+        process.ended = true;
+    }
+    if let Some(t) = sched.threads.get_mut(tid) {
+        t.killed = true;
+    }
+}
+
+/// [`reap_corpses`], for a test.
+#[cfg(feature = "system_tests")]
+pub fn reap_corpses_now(pid: ProcessId) {
+    reap_corpses(pid);
 }
