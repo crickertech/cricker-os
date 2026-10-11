@@ -136,6 +136,12 @@ since each outsider pass adds to it.
 3. Every appendix is under every limit and linked, and the baseline rows for the ten are lowered or
    gone.
 4. This block records, per document, the words before and after and what moved.
+   Result: lane `lane/ten-longest-notes`, PR #1918, put all ten main pages under 3,000 words and
+   removed all ten baseline rows. Words before and after: visionfive2 12,805→~2,903, soak
+   13,076→~2,577, verification 9,888→~2,303, confinement-claims 8,967→~2,048, fs-server
+   10,358→~2,597. Then merge-queue 9,278→~2,458, x86-uefi-boot 8,072→~2,325, smb 10,296→~1,639,
+   glyphs 8,368→~2,981, footprint-perturbation 8,082→~2,752. What moved, per document, is in
+   #1918's body.
 5. The report names each provisional directory and file name for calef's queue.
 
 ## Open questions for an architect
